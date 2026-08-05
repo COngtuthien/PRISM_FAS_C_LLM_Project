@@ -1,0 +1,32 @@
+package_schema_version: "m3a-v1"
+prior_schema_version: "m3a-priors-v1"
+quality_schema_version: "m3a-quality-v1"
+package_id_prefix: "prism_data_v1_m3a"
+
+# Shard limits: sequential/WebDataset-style uncompressed tars.
+shard_max_samples: 1000
+shard_max_bytes: 1610612736   # ~1.5 GiB
+
+# Deterministic quality metrics computed from the frozen 224x224 M2 crop.
+#   blur_laplacian_variance : variance of cv2.Laplacian(gray, CV_64F)
+#   brightness_mean         : mean grayscale intensity / 255
+#   brightness_std          : population std of grayscale intensity / 255
+#   contrast_michelson      : (max - min) / (max + min + 1e-8) on normalized grayscale
+#   saturation_mean         : mean HSV S channel / 255
+#   face_size_ratio         : detector bbox area / original frame area
+quality_metrics:
+  - blur_laplacian_variance
+  - brightness_mean
+  - brightness_std
+  - contrast_michelson
+  - saturation_mean
+  - face_size_ratio
+
+# M2 crops are already frozen, validated JPEG bytes; M3A preserves them exactly
+# so the M2 SHA-256 identity survives packaging.
+image_policy: preserve_m2_bytes
+image_format: jpeg
+image_extension: ".jpg"
+
+target_isolation_policy: "feature_only_no_labels"
+resume_policy: "skip_valid_priors"

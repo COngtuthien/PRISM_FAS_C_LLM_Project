@@ -8,6 +8,8 @@ from prism_fas.utils.core import atomic_json_write
 from prism_fas.data.preprocess_m2 import load_m2_config, SCRFDDetector
 from prism_fas.data.m2_runner import run as run_m2a, run_preprocessing
 from prism_fas.data.manifests.repository import ManifestRepository
+from prism_fas.data.package import M3APackageConfig, build_package, build_priors, finalize_lock, load_m2_samples, load_package_config, validate_package, validate_source_m2_hashes
+from prism_fas.data.package.audit import build_audit_report
 from prism_fas.data.manifests.migrate_m2a import migrate_m2a
 from prism_fas.data.manifests.resume import build_completed_index
 from prism_fas.utils.core import sha256_file
@@ -100,6 +102,49 @@ def preprocess_status(config:Path=typer.Option(...,exists=True),preprocess_confi
 @preprocess_app.command("migrate-m2a")
 def preprocess_migrate_m2a(config: Path=typer.Option(...,exists=True), preprocess_config: Path=typer.Option(...,exists=True), m2a_root: Path=typer.Option(...), output_root: Path=typer.Option(...), force: bool=False)->None:
     typer.echo(json.dumps(migrate_m2a(config,preprocess_config,m2a_root,output_root,force),default=str))
+package_app=typer.Typer(help="M3A package foundation")
+data_app.add_typer(package_app,name="package")
+priors_app=typer.Typer(help="M3A deterministic priors")
+data_app.add_typer(priors_app,name="priors")
+def _package_config(path:Path|None)->'M3APackageConfig':
+    return load_package_config(path or Path(__file__).parents[3]/'configs'/'data'/'package_m3a.yaml')
+def _resolve_package_root(paths,package_root:Path|None,name:str|None)->Path:
+    return Path(package_root) if package_root else (paths.processed_root/(name or 'prism_data_v1_m3a'))
+@priors_app.command("build")
+def priors_build(config:Path=typer.Option(...,exists=True),input_root:Path=typer.Option(...,exists=True),package_root:Path|None=typer.Option(None),package_name:str|None=typer.Option(None),package_config:Path|None=typer.Option(None),resume:bool=typer.Option(True,'--resume/--no-resume'))->None:
+    paths=load_paths(config); cfg=_package_config(package_config); root=_resolve_package_root(paths,package_root,package_name)
+    samples=load_m2_samples(input_root)
+    rows,stats=build_priors(samples,input_root=input_root,package_root=root,config=cfg,resume=resume,
+                            progress=lambda done,total: typer.echo(json.dumps({"progress":{"stage":"priors","done":done,"total":total}})))
+    typer.echo(json.dumps({"package_root":str(root),"samples":stats.samples,"priors_built":stats.priors_built,"priors_reused":stats.priors_reused,"priors_total":len(rows)}))
+@package_app.command("build")
+def package_build(config:Path=typer.Option(...,exists=True),input_root:Path=typer.Option(...,exists=True),package_root:Path|None=typer.Option(None),package_name:str|None=typer.Option(None),package_config:Path|None=typer.Option(None),resume:bool=typer.Option(True,'--resume/--no-resume'),limit_per_dataset:int|None=typer.Option(None,help='smoke builds only'))->None:
+    paths=load_paths(config); cfg=_package_config(package_config); root=_resolve_package_root(paths,package_root,package_name)
+    result=build_package(input_root,root,cfg,resume=resume,limit_per_dataset=limit_per_dataset,
+                         progress=lambda stage,done,total: typer.echo(json.dumps({"progress":{"stage":stage,"done":done,"total":total}})))
+    stats=result["stats"]
+    pre=validate_package(root,require_validated_status=False)
+    lock=finalize_lock(root,pre) if pre["passed"] else result["lock"]
+    report=validate_package(root) if pre["passed"] else pre
+    audit=build_audit_report(root,lock=lock,resume={"priors_built":stats.priors_built,"priors_reused":stats.priors_reused},
+                             m2_failures=result.get("m2_failures",[]))
+    typer.echo(json.dumps({"package_root":str(root),"status":lock["status"],"samples":stats.samples,
+        "priors_built":stats.priors_built,"priors_reused":stats.priors_reused,"images":stats.images_linked,
+        "shards":stats.shards,"per_dataset":stats.per_dataset,"per_split":stats.per_split,
+        "validation_passed":report["passed"],"validation_errors":len(report["errors"]),
+        "content_identity_sha256":lock.get("content_identity_sha256"),"audit_report":str(root/'audit'/'data_report.json')}))
+    if not report["passed"]: raise typer.Exit(1)
+@package_app.command("validate")
+def package_validate(package_root:Path=typer.Option(...,exists=True),input_root:Path|None=typer.Option(None),report_json:Path|None=typer.Option(None))->None:
+    report=validate_package(package_root)
+    if input_root is not None:
+        report["source_m2_hashes_match"]=validate_source_m2_hashes(package_root,input_root)
+        if not report["source_m2_hashes_match"]:
+            report["passed"]=False; report["errors"].append({"check_id":"lock.source_m2","passed":False,"description":"frozen M2 input hashes match the lock"})
+    if report_json: atomic_json_write(report_json,report)
+    typer.echo(json.dumps({"passed":report["passed"],"errors":len(report["errors"]),"checks":len(report["checks"]),
+        "counts":report["counts"],"package_id":report["package_id"],"target_isolation":report["target_isolation"]["passed"]}))
+    if not report["passed"]: raise typer.Exit(1)
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]

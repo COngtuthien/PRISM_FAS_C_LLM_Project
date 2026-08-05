@@ -5,7 +5,7 @@
 | M0 | Repo skeleton, strict config, logging and hashing | `config`, `utils`, CLI; unit tests | config resolves and tests pass | implemented/tested |
 | M1 | Dataset adapters and raw audit | adapters, audit reports; unit + CLI integration | explicit rules; target isolation; reports | implemented/tested |
 | M2 | Deterministic extraction, SCRFD crops, manifests | full_preprocessing_v2 manifests; 266 tests | deterministic manifests; full-profile validation passed | **completed** |
-| M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | planned |
+| M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **in progress (M3A completed)** |
 | M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | planned |
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | planned |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | planned |
@@ -31,4 +31,19 @@ Each milestone requires: objective, implementation tasks, expected files, unit/i
 | Full-profile validation (35/35 checks) | COMPLETED |
 | Target privacy isolation (0 matches) | COMPLETED |
 
-M3 is NOT STARTED.
+M3 is IN PROGRESS.
+
+## M3A components (completed)
+
+| Component | Status |
+|---|---|
+| Deterministic quality priors (blur/brightness/contrast/saturation/face-size) | COMPLETED |
+| Per-sample NPZ priors with resume and atomic writes | COMPLETED |
+| Canonical split manifests from official source metadata | COMPLETED |
+| Target feature manifest (label-free) | COMPLETED |
+| WebDataset-compatible deterministic tar shards | COMPLETED |
+| PACKAGE_LOCK with content identity hash | COMPLETED |
+| Package validator (42 checks) | COMPLETED |
+| Training-mode target isolation guard | COMPLETED |
+| Real smoke package + full 6659-sample package | COMPLETED |
+| Model-dependent priors (parsing, pose, visibility, identity) | NOT STARTED |

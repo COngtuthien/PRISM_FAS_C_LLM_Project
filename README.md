@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2 complete, M3 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2 complete; M3 in progress (M3A package foundation complete).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -48,10 +48,27 @@ Runs write to `<work_root>/m2/<preprocessing_version>/<preprocessing_config_hash
 with `crops/`, `manifests/`, `state/`, `reports/` and `logs/` beneath it. `full_preprocessing_v2` is
 the official M2 namespace for downstream work; earlier namespaces are kept as audit artifacts.
 
+## M3A package build
+
+```bash
+python -m prism_fas.cli.main data package build \
+  --config configs/paths.local.yaml \
+  --input-root <work_root>/m2/<version>/<config_hash>/full_preprocessing_v2 \
+  --package-root <processed_root>/prism_data_v1_m3a --resume
+
+python -m prism_fas.cli.main data package validate \
+  --package-root <processed_root>/prism_data_v1_m3a
+```
+
+The package holds `images/`, `priors/`, `manifests/`, `shards/`, `audit/` and `PACKAGE_LOCK.json`.
+`prism_data_v1_m3a` is the official M3A package root. Source splits (`source_train`, `source_dev`)
+carry labels; `target_test` is feature-only and a training-mode selector cannot request it.
+
 ## What is not in this repository
 
 Raw datasets (CASIA-FASD, MSU-MFSD, SiW-Mv2), SCRFD model weights, generated crop images, Parquet
-manifests, run logs and local path configuration are intentionally excluded. They are large, license
+manifests, NPZ priors, tar shards, generated packages, run logs and local path configuration are
+intentionally excluded. They are large, license
 restricted or machine-specific, and every artifact is reproducible from source with the commands
 above.
 

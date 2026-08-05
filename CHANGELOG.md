@@ -1,5 +1,20 @@
 # Changelog
 
+## M3A Package Foundation — 2026-08-05
+
+- Added `prism_fas.data.package`: deterministic quality priors, per-sample NPZ prior builder with
+  resume and atomic writes, canonical split manifests, WebDataset-compatible tar shards,
+  PACKAGE_LOCK with a content identity hash, a 42-check package validator and a training-mode
+  target-isolation selector.
+- Added `data priors build`, `data package build` and `data package validate` CLI commands plus
+  `configs/data/package_m3a.yaml` (no local absolute paths).
+- Built `prism_data_v1_m3a` from the frozen `full_preprocessing_v2` M2 namespace: 6659 samples,
+  6659 priors, 6659 images, 9 shards (150,220,800 bytes), splits 1440/2079/3140.
+- Package validation passed with 42/42 checks; a `--resume` rerun reused 6659 priors and produced
+  byte-identical shards, manifests and lock identity.
+- Model-dependent priors (parsing masks, pose, visibility, identity embeddings) are deferred and
+  recorded as `not_computed`; no placeholder arrays are written.
+
 ## M2 Full Preprocessing Checkpoint — 2026-08-05
 
 - Switched the production full-profile CLI to the context-aware `run_preprocessing()` runner; the
