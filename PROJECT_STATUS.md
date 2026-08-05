@@ -1,10 +1,26 @@
 # Project status
 
-- Current milestone: **M3 IN PROGRESS** — M3A package foundation COMPLETED.
+- Current milestone: **M3 IN PROGRESS** — M3A COMPLETED; M3B model-dependent priors IN PROGRESS.
 - M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: IN PROGRESS.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
-  Model-dependent priors (parsing masks, pose, visibility, identity embeddings) remain
-  NOT STARTED and are recorded as `*_status="not_computed"` — M3 as a whole is not complete.
+- M3B model-dependent priors: **IN PROGRESS** — backends pinned and verified, real smoke package
+  validated; the full 6659-sample build is executing. M3 is not complete until it finishes.
+
+## M3B model priors (prism_data_v1_m3b)
+
+Parent package `prism_data_v1_m3a` (immutable). Backends, pinned by revision and weight SHA-256 in
+`configs/models/m3b_priors.yaml`:
+
+| Prior | Backend | Revision |
+|---|---|---|
+| parsing (11-class LaPa) | FaceXFormer | `fd12148d0b19` |
+| pose (yaw/pitch/roll, radians) | FaceXFormer | `fd12148d0b19` |
+| visibility (9 regions) | derived from parsing + geometry + pose | `m3b-visibility-v1` |
+| identity (512-d, L2 normalized) | AdaFace IR-50 (WebFace4M) | `60a65befbcf7` |
+
+Identity embeddings are computed only for `source_train` samples labelled `live`; every other sample
+records `identity_status="not_applicable"` and carries no embedding array. Target priors never
+receive an identity embedding.
 
 ## M3A package (prism_data_v1_m3a)
 

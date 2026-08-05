@@ -1,0 +1,88 @@
+# M3B model-dependent prior registry.
+# No local absolute paths: the weight root comes from paths.local.yaml
+# (model_cache), the PRISM_MODEL_CACHE environment variable, or --weight-root.
+prior_schema_version: "m3b-priors-v1"
+visibility_schema_version: "m3b-visibility-v1"
+
+parsing:
+  backend: facexformer
+  revision: "fd12148d0b19"                    # huggingface kartiknarayan/facexformer
+  repo_id: "kartiknarayan/facexformer"
+  weight_relative_path: "face_geometry/ckpts/model.pt"
+  weight_sha256: "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+  code_repo: "https://github.com/Kartik-3004/facexformer"
+  code_revision: "main"
+  input_size: 224
+  input_color: rgb
+  normalization_mean: [0.485, 0.456, 0.406]
+  normalization_std: [0.229, 0.224, 0.225]
+  interpolation: bicubic
+  task_token: 0
+  num_classes: 11
+  # LaPa 11-class ordering, verified empirically against class centroids.
+  class_mapping:
+    0: background
+    1: skin
+    2: left_brow
+    3: right_brow
+    4: left_eye
+    5: right_eye
+    6: nose
+    7: upper_lip
+    8: inner_mouth
+    9: lower_lip
+    10: hair
+
+pose:
+  backend: facexformer
+  revision: "fd12148d0b19"
+  task_token: 2
+  convention: "yaw_pitch_roll_radians"
+  units: radians
+  order: [yaw, pitch, roll]
+
+visibility:
+  # Derived from the parsing mask and pose, never a constant vector.
+  backend: parsing_geometry_pose
+  region_order:
+    - left_eye
+    - right_eye
+    - nose
+    - mouth
+    - forehead
+    - left_cheek
+    - right_cheek
+    - face_boundary
+    - context
+  dtype: float16
+  range: [0.0, 1.0]
+  yaw_occlusion_scale: 1.5708        # pi/2: full self-occlusion at 90 degrees yaw
+
+identity:
+  backend: adaface_ir50
+  revision: "60a65befbcf7"           # huggingface minchul/cvlface_adaface_ir50_webface4m
+  repo_id: "minchul/cvlface_adaface_ir50_webface4m"
+  weight_relative_path: "face_identity/pretrained_model/model.pt"
+  weight_sha256: "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+  code_repo: "https://github.com/mk-minchul/AdaFace"
+  code_revision: "master"
+  architecture: ir_50
+  embedding_dim: 512
+  input_size: 112
+  input_color: bgr
+  normalization_mean: [0.5, 0.5, 0.5]
+  normalization_std: [0.5, 0.5, 0.5]
+  interpolation: bicubic
+  l2_normalized: true
+  dtype: float16
+  # Identity is computed only for source_train live samples.
+  applicable_project_split: source_train
+  applicable_label: live
+
+runtime:
+  batch_size: 12
+  device_policy: "cuda_if_available_else_cpu"
+  amp: false
+  deterministic: true
+  seed: 20260805
+  torch_threads: 0                   # 0 = leave the process default

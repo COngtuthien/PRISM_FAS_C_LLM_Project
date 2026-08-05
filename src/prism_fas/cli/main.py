@@ -9,7 +9,8 @@ from prism_fas.data.preprocess_m2 import load_m2_config, SCRFDDetector
 from prism_fas.data.m2_runner import run as run_m2a, run_preprocessing
 from prism_fas.data.manifests.repository import ManifestRepository
 from prism_fas.data.package import M3APackageConfig, build_package, build_priors, finalize_lock, load_m2_samples, load_package_config, validate_package, validate_source_m2_hashes
-from prism_fas.data.package.audit import build_audit_report
+from prism_fas.data.package.audit import build_audit_report, build_model_prior_report
+from prism_fas.data.package.m3b import build_m3b_package
 from prism_fas.data.manifests.migrate_m2a import migrate_m2a
 from prism_fas.data.manifests.resume import build_completed_index
 from prism_fas.utils.core import sha256_file
@@ -134,9 +135,25 @@ def package_build(config:Path=typer.Option(...,exists=True),input_root:Path=type
         "validation_passed":report["passed"],"validation_errors":len(report["errors"]),
         "content_identity_sha256":lock.get("content_identity_sha256"),"audit_report":str(root/'audit'/'data_report.json')}))
     if not report["passed"]: raise typer.Exit(1)
+@priors_app.command("model-build")
+def priors_model_build(input_package:Path=typer.Option(...,exists=True),output_package:Path=typer.Option(...),model_config:Path=typer.Option(...,exists=True),config:Path|None=typer.Option(None,exists=True),weight_root:Path|None=typer.Option(None),resume:bool=typer.Option(True,'--resume/--no-resume'),limit_samples:int|None=typer.Option(None),split:str|None=typer.Option(None),device:str|None=typer.Option(None),batch_size:int|None=typer.Option(None),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    root=weight_root or (load_paths(config).model_cache if config else Path(os.environ.get('PRISM_MODEL_CACHE','model_cache')))
+    result=build_m3b_package(input_package,output_package,model_config,weight_root=root,resume=resume,limit_samples=limit_samples,
+        split=split,device=device,batch_size=batch_size,dry_run=dry_run,progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+    if dry_run: typer.echo(json.dumps(result)); return
+    pre=validate_package(output_package,require_validated_status=False,parent_package=input_package)
+    lock=finalize_lock(output_package,pre) if pre["passed"] else result["lock"]
+    report=validate_package(output_package,parent_package=input_package) if pre["passed"] else pre
+    audit=build_model_prior_report(output_package,lock=lock,counts=result["counts"],failures=result["failures"],device=result["device"])
+    typer.echo(json.dumps({"output_package":str(output_package),"status":lock["status"],"samples":lock["total_samples"],
+        "prior_counts":lock["prior_counts"],"per_split":lock["per_split_counts"],"failures":lock["model_prior_failures"],
+        "shards":len(lock["shards"]),"validation_passed":report["passed"],"validation_errors":len(report["errors"]),
+        "content_identity_sha256":lock["content_identity_sha256"],"device":result["device"],
+        "reused":result["counts"]["reused"],"rebuilt":result["counts"]["rebuilt"],"audit_report":str(audit)}))
+    if not report["passed"]: raise typer.Exit(1)
 @package_app.command("validate")
-def package_validate(package_root:Path=typer.Option(...,exists=True),input_root:Path|None=typer.Option(None),report_json:Path|None=typer.Option(None))->None:
-    report=validate_package(package_root)
+def package_validate(package_root:Path=typer.Option(...,exists=True),input_root:Path|None=typer.Option(None),parent_package:Path|None=typer.Option(None),report_json:Path|None=typer.Option(None))->None:
+    report=validate_package(package_root,parent_package=parent_package)
     if input_root is not None:
         report["source_m2_hashes_match"]=validate_source_m2_hashes(package_root,input_root)
         if not report["source_m2_hashes_match"]:

@@ -14,7 +14,74 @@ PRIVATE_TARGET_TOKENS=("live","spoof","attack","taxonomy","subject","session","g
 def _check(checks:list,ident:str,category:str,description:str,expected:Any,actual:Any,severity:str="error")->bool:
     ok=expected==actual; checks.append({"check_id":ident,"category":category,"description":description,
         "expected":str(expected)[:200],"actual":str(actual)[:200],"passed":ok,"severity":severity}); return ok
-def validate_package(package_root:Path,*,require_validated_status:bool=True)->dict:
+M3B_ARRAYS={"parsing_labels":((224,224),"uint8"),"pose_ypr":((3,),"float32"),"visibility":((9,),"float16")}
+def _validate_model_priors(root:Path,lock:dict,samples:list,manifests:dict,checks:list,parent_package:Path|None)->dict:
+    """M3B-specific checks: parsing/pose/visibility everywhere, identity only where applicable."""
+    import numpy as np
+    index={row["sample_id"]:row for row in manifests.get("priors_index",[])}
+    labels={}
+    for name in ("source_train","source_dev"):
+        for row in manifests.get(name,[]): labels[row["sample_id"]]=row["label_live_spoof"]
+    counts={"parsing":0,"pose":0,"visibility":0,"identity":0,"identity_not_applicable":0}
+    bad_shape=[];bad_pose=[];bad_visibility=[];bad_identity=[];unexpected_identity=[];missing_identity=[]
+    applicable=set()
+    for row in samples:
+        sample_id=row["sample_id"]
+        if row["project_split"]=="source_train" and labels.get(sample_id)=="live": applicable.add(sample_id)
+        try: arrays=load_prior(root/row["prior_relative_path"])
+        except Exception: bad_shape.append(sample_id); continue
+        for name,(shape,dtype) in M3B_ARRAYS.items():
+            value=arrays.get(name)
+            if value is None or tuple(value.shape)!=shape or value.dtype!=np.dtype(dtype): bad_shape.append(sample_id); break
+        else:
+            counts["parsing"]+=1
+            pose=arrays["pose_ypr"]
+            if not np.isfinite(pose).all(): bad_pose.append(sample_id)
+            else: counts["pose"]+=1
+            visibility=arrays["visibility"].astype(np.float32)
+            if not (np.isfinite(visibility).all() and (visibility>=0).all() and (visibility<=1).all()): bad_visibility.append(sample_id)
+            else: counts["visibility"]+=1
+            if int(arrays["parsing_labels"].max(initial=0))>=lock["models"]["parsing"]["num_classes"]: bad_shape.append(sample_id)
+        has_identity="identity_embedding" in arrays
+        if has_identity:
+            vector=arrays["identity_embedding"].astype(np.float32)
+            if sample_id not in applicable: unexpected_identity.append(sample_id)
+            elif vector.shape!=(lock["models"]["identity"]["embedding_dim"],) or not np.isfinite(vector).all() or not (0.5<=float(np.linalg.norm(vector))<=1.5): bad_identity.append(sample_id)
+            else: counts["identity"]+=1
+        else:
+            counts["identity_not_applicable"]+=1
+            if sample_id in applicable: missing_identity.append(sample_id)
+        entry=index.get(sample_id)
+        if entry is not None:
+            expected="computed" if has_identity else "not_applicable"
+            if entry["identity_status"]!=expected: bad_identity.append(sample_id)
+    total=len(samples)
+    _check(checks,"m3b.parsing","model_priors","parsing prior for every sample",total,counts["parsing"])
+    _check(checks,"m3b.pose","model_priors","pose prior for every sample",total,counts["pose"])
+    _check(checks,"m3b.visibility","model_priors","visibility prior for every sample",total,counts["visibility"])
+    _check(checks,"m3b.arrays","model_priors","prior arrays have expected shape/dtype",[],sorted(set(bad_shape))[:20])
+    _check(checks,"m3b.pose_finite","model_priors","pose values finite",[],bad_pose[:20])
+    _check(checks,"m3b.visibility_range","model_priors","visibility within [0,1]",[],bad_visibility[:20])
+    _check(checks,"m3b.identity_count","model_priors","identity embeddings match applicable samples",len(applicable),counts["identity"])
+    _check(checks,"m3b.identity_scope","model_priors","identity only on source_train live",[],sorted(set(unexpected_identity))[:20])
+    _check(checks,"m3b.identity_missing","model_priors","every applicable sample has an identity embedding",[],missing_identity[:20])
+    _check(checks,"m3b.identity_valid","model_priors","identity embeddings valid shape/norm",[],sorted(set(bad_identity))[:20])
+    target_identity=[row["sample_id"] for row in samples if row["project_split"]=="target_test" and "identity_embedding" in load_prior(root/row["prior_relative_path"])] if total<=64 else []
+    _check(checks,"m3b.target_identity","target_isolation","no identity embedding on target samples",[],target_identity)
+    revisions={row["parsing_model_sha256"] for row in manifests.get("priors_index",[])}|{lock["models"]["parsing"]["weight_sha256"]}
+    _check(checks,"m3b.model_pins","model_priors","parsing model SHA consistent across priors",1,len(revisions))
+    failures=manifests.get("model_prior_failures",[])
+    _check(checks,"m3b.failures","model_priors","no unresolved model prior failures",0,len(failures))
+    if parent_package is not None:
+        parent=json.loads((Path(parent_package)/"PACKAGE_LOCK.json").read_text(encoding="utf-8"))
+        _check(checks,"m3b.parent_identity","lock","parent content identity matches",parent["content_identity_sha256"],lock.get("parent_content_identity_sha256"))
+        _check(checks,"m3b.parent_id","lock","parent package id matches",parent["package_id"],lock.get("parent_package_id"))
+        parent_images={row["sample_id"]:row["crop_sha256"] for row in read_manifest(Path(parent_package)/"manifests"/"samples.parquet")}
+        changed=[row["sample_id"] for row in samples if parent_images.get(row["sample_id"])!=row["crop_sha256"]]
+        _check(checks,"m3b.image_sha_stable","lock","image SHA unchanged from parent package",[],changed[:20])
+    return {"prior_counts":counts,"applicable_identity":len(applicable),
+            "model_revisions":{key:value.get("revision") for key,value in lock.get("models",{}).items()}}
+def validate_package(package_root:Path,*,require_validated_status:bool=True,parent_package:Path|None=None)->dict:
     """Structural, integrity and target-isolation validation of an M3A package.
 
     The build runs this once with require_validated_status=False (the lock is
@@ -32,7 +99,7 @@ def validate_package(package_root:Path,*,require_validated_status:bool=True)->di
         return {"passed":False,"errors":[c for c in checks if not c["passed"]],"checks":checks,"counts":counts,"package_id":None,"target_isolation":{"passed":False}}
     if require_validated_status: _check(checks,"lock.status","lock","status is validated","validated",lock.get("status"))
     else: _check(checks,"lock.status","lock","status is building or validated",True,lock.get("status") in {"building","validated"})
-    manifests={name:read_manifest(root/"manifests"/f"{name}.parquet") for name in ("samples","source_train","source_dev","target_test_features","priors_index","shards_index") if (root/"manifests"/f"{name}.parquet").is_file()}
+    manifests={name:read_manifest(root/"manifests"/f"{name}.parquet") for name in ("samples","source_train","source_dev","target_test_features","priors_index","shards_index","model_prior_failures") if (root/"manifests"/f"{name}.parquet").is_file()}
     for name in ("samples","source_train","source_dev","target_test_features","priors_index","shards_index"):
         _check(checks,f"manifest.{name}","manifests","manifest present",True,name in manifests)
     if "samples" not in manifests:
@@ -116,9 +183,13 @@ def validate_package(package_root:Path,*,require_validated_status:bool=True)->di
         _check(checks,f"lock.hash.{name}","lock","lock manifest hash matches artifact",digest,sha256_file(path) if path.is_file() else None)
     legacy=sorted(str(p.relative_to(root)) for p in list(root.rglob("*.jsonl"))+list(root.rglob("m2a")))
     _check(checks,"artifacts.legacy","artifacts","no M2A/legacy JSONL artifacts",[],legacy)
+    model_priors={}
+    if lock.get("package_schema_version","").startswith("m3b"):
+        model_priors=_validate_model_priors(root,lock,samples,manifests,checks,parent_package)
     passed=all(c["passed"] for c in checks)
     return {"passed":passed,"errors":[c for c in checks if not c["passed"]],"checks":checks,"counts":counts,
-            "package_id":lock.get("package_id"),
+            "package_id":lock.get("package_id"),"parent_package_id":lock.get("parent_package_id"),
+            "prior_counts":model_priors.get("prior_counts",{}),"model_revisions":model_priors.get("model_revisions",{}),
             "target_isolation":{"passed":not (leaks or forbidden_fields or tokens or sample_target_tokens),"matches":leaks,"token_matches":tokens+sample_target_tokens}}
 def validate_source_m2_hashes(package_root:Path,input_root:Path)->bool:
     """Confirm the frozen M2 input still matches the hashes recorded in the lock."""

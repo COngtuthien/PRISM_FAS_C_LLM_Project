@@ -67,3 +67,44 @@ def _markdown(report:dict)->str:
             f"- {len(report['inherited_m2_failures'])} failed sample(s) from M2 (not packaged)","",
             "## Resume","",f"- {report['resume']}",""]
     return "\n".join(lines)
+def build_model_prior_report(package_root:Path,*,lock:dict,counts:dict,failures:list,device:str)->Path:
+    """M3B model-prior audit. Carries no labels, paths or private target metadata."""
+    root=Path(package_root); samples=read_manifest(root/"manifests"/"samples.parquet")
+    index=read_manifest(root/"manifests"/"priors_index.parquet")
+    from .priors import load_prior
+    poses=[];visibility=[];norms=[];classes=set();sizes=[row["prior_bytes"] for row in index]
+    for row in samples:
+        arrays=load_prior(root/row["prior_relative_path"])
+        poses.append(arrays["pose_ypr"].tolist()); visibility.append(arrays["visibility"].astype(np.float64).tolist())
+        classes.update(int(c) for c in np.unique(arrays["parsing_labels"]))
+        if "identity_embedding" in arrays: norms.append(float(np.linalg.norm(arrays["identity_embedding"].astype(np.float32))))
+    pose_array=np.asarray(poses,dtype=np.float64); visibility_array=np.asarray(visibility,dtype=np.float64)
+    report={"package_id":lock["package_id"],"parent_package_id":lock["parent_package_id"],
+        "package_content_identity_sha256":lock["content_identity_sha256"],
+        "parent_content_identity_sha256":lock["parent_content_identity_sha256"],
+        "status":lock["status"],"generated_at":datetime.now(timezone.utc).isoformat(),
+        "models":lock["models"],"environment":lock["environment"],"device":device,
+        "build_seconds":lock.get("build_seconds"),"total_samples":lock["total_samples"],
+        "per_split_counts":lock["per_split_counts"],"per_dataset_counts":lock["per_dataset_counts"],
+        "prior_counts":lock["prior_counts"],
+        "parsing_class_coverage":sorted(classes),
+        "pose_percentiles":{name:_percentiles(pose_array[:,i].tolist()) for i,name in enumerate(("yaw","pitch","roll"))},
+        "visibility_by_region":{name:_percentiles(visibility_array[:,i].tolist()) for i,name in enumerate(lock["models"]["visibility"]["region_order"])},
+        "identity_norm_summary":_percentiles(norms),
+        "prior_bytes_summary":_percentiles([float(v) for v in sizes]),
+        "shards":{"count":len(lock["shards"]),"total_bytes":sum(s["byte_size"] for s in lock["shards"])},
+        "failures":failures,"resume":{"reused":counts.get("reused"),"rebuilt":counts.get("rebuilt")},
+        "target_isolation":lock["target_isolation"]}
+    atomic_json_write(root/"audit"/"model_priors_report.json",report)
+    lines=[f"# M3B model priors — {report['package_id']}","",f"- Parent: `{report['parent_package_id']}`",
+        f"- Status: **{report['status']}**",f"- Device: {device}",f"- Samples: {report['total_samples']}","",
+        "## Prior counts","",*[f"- {k}: {v}" for k,v in report["prior_counts"].items()],"",
+        "## Models","",*[f"- {k}: {v.get('backend')} rev {v.get('revision','-')}" for k,v in report["models"].items()],"",
+        "## Pose percentiles (radians)","","| axis | p05 | p50 | p95 |","|---|---|---|---|",
+        *[f"| {k} | {v['p05']:.4f} | {v['p50']:.4f} | {v['p95']:.4f} |" for k,v in report["pose_percentiles"].items()],"",
+        "## Visibility by region","","| region | p05 | p50 | p95 |","|---|---|---|---|",
+        *[f"| {k} | {v['p05']:.3f} | {v['p50']:.3f} | {v['p95']:.3f} |" for k,v in report["visibility_by_region"].items()],"",
+        f"## Identity norms","",f"- {report['identity_norm_summary']}","",
+        f"## Failures","",f"- {len(failures)}","",f"## Target isolation","",f"- {report['target_isolation']}",""]
+    (root/"audit"/"model_priors_report.md").write_text("\n".join(lines),encoding="utf-8")
+    return root/"audit"/"model_priors_report.json"

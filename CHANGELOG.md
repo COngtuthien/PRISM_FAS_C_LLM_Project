@@ -1,5 +1,19 @@
 # Changelog
 
+## M3B Model-Dependent Priors — 2026-08-05
+
+- Added `prism_fas.data.package.model_priors` and `m3b`: pinned FaceXFormer parsing/pose backend,
+  AdaFace IR-50 identity backend, parsing+geometry+pose visibility derivation, an M3B package
+  builder with resume, an extended priors index and a strict model-prior failure manifest.
+- Added `configs/models/m3b_priors.yaml` pinning backend revisions, weight SHA-256 values, input
+  normalization, parsing class mapping, pose convention and the nine-region visibility order.
+- Added `data priors model-build` CLI plus M3B validator checks (parsing/pose/visibility coverage,
+  identity scope and norms, parent package identity, image SHA stability).
+- Third-party model code is fetched into the ignored model cache rather than vendored; weights are
+  verified against their pinned SHA-256 on every load.
+- Real-model smoke package validated: 39 samples, parsing/pose/visibility complete, 9 identity
+  embeddings on source_train live only, 0 on target, 0 failures.
+
 ## M3A Package Foundation — 2026-08-05
 
 - Added `prism_fas.data.package`: deterministic quality priors, per-sample NPZ prior builder with

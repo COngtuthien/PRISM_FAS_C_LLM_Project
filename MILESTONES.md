@@ -46,4 +46,16 @@ M3 is IN PROGRESS.
 | Package validator (42 checks) | COMPLETED |
 | Training-mode target isolation guard | COMPLETED |
 | Real smoke package + full 6659-sample package | COMPLETED |
-| Model-dependent priors (parsing, pose, visibility, identity) | NOT STARTED |
+| Model-dependent priors (parsing, pose, visibility, identity) | IN PROGRESS (M3B) |
+
+## M3B components
+
+| Component | Status |
+|---|---|
+| Pinned FaceXFormer parsing + pose backend | COMPLETED |
+| Pinned AdaFace IR-50 identity backend | COMPLETED |
+| Nine-region visibility from parsing/geometry/pose | COMPLETED |
+| M3B package builder with resume | COMPLETED |
+| M3B validator checks | COMPLETED |
+| Real-model smoke package | COMPLETED |
+| Full 6659-sample package build | IN PROGRESS |
