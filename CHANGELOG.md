@@ -13,6 +13,13 @@
   verified against their pinned SHA-256 on every load.
 - Real-model smoke package validated: 39 samples, parsing/pose/visibility complete, 9 identity
   embeddings on source_train live only, 0 on target, 0 failures.
+- Built the full `prism_data_v1_m3b` package from all 6659 M3A samples on CPU: parsing 6659,
+  pose 6659, visibility 6659, identity 280 (derived source_train-live count), 0 model-prior
+  failures, 9 shards totalling 489,779,200 bytes. Validation passed with 59/59 checks.
+- Fixed the package content-identity contract: the promoted lock hashed the wall-clock
+  `build_seconds` field, so rebuilding byte-identical artifacts changed `content_identity_sha256`.
+  Wall-clock and host-dependent fields are now excluded, proven by two consecutive `--resume`
+  reruns that reused 6659 priors, rebuilt 0 and produced an identical identity.
 
 ## M3A Package Foundation — 2026-08-05
 

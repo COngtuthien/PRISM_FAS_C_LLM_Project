@@ -1,10 +1,10 @@
 # Project status
 
-- Current milestone: **M3 IN PROGRESS** — M3A COMPLETED; M3B model-dependent priors IN PROGRESS.
-- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: IN PROGRESS.
+- Current milestone: **M3 COMPLETED** (M3A + M3B). M4 is NOT STARTED.
+- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
-- M3B model-dependent priors: **IN PROGRESS** — backends pinned and verified, real smoke package
-  validated; the full 6659-sample build is executing. M3 is not complete until it finishes.
+- M3B model-dependent priors: **COMPLETED**.
+- Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
 
 ## M3B model priors (prism_data_v1_m3b)
 
@@ -21,6 +21,26 @@ Parent package `prism_data_v1_m3a` (immutable). Backends, pinned by revision and
 Identity embeddings are computed only for `source_train` samples labelled `live`; every other sample
 records `identity_status="not_applicable"` and carries no embedding array. Target priors never
 receive an identity embedding.
+
+### M3B final result
+
+| Prior | Computed | Failures |
+|---|---|---|
+| parsing | 6659 | 0 |
+| pose | 6659 | 0 |
+| visibility | 6659 | 0 |
+| identity | 280 | 0 |
+
+Identity applicable count (`source_train` AND `live`) derived from the manifests is **280**;
+`identity_not_applicable` is 6379; target identity embeddings **0**; source_dev identity **0**.
+Splits unchanged from the parent: source_train 1440, source_dev 2079, target_test 3140 (6659 total).
+9 shards, 489,779,200 bytes. Package validation **passed = true**, 0 errors, 59/59 checks,
+`PACKAGE_LOCK.status = validated`, target isolation clean.
+
+Parent content identity `a968caeb8e6e55a2afdba724923073161d2315e33c57733cf1be2b967b469769`;
+M3B content identity `b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6`.
+Two consecutive `--resume` reruns reused all 6659 priors, rebuilt 0, and left every manifest, shard
+and prior byte-identical with an unchanged content identity. Tests: 298 passed.
 
 ## M3A package (prism_data_v1_m3a)
 
@@ -80,5 +100,5 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M3B model-dependent priors (parsing, pose, visibility, identity).
+- Next milestone: M4 — canonical loader and balanced sampler (NOT STARTED).
 - Continue command: `python -m pytest -q`

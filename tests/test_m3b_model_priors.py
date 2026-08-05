@@ -175,3 +175,19 @@ def test_validator_detects_missing_parsing_and_wrong_identity(tmp_path):
     report = validate_package(root, require_validated_status=False)
     assert report["passed"] is False
     assert any(check["check_id"].startswith("m3b.") and not check["passed"] for check in report["checks"])
+
+
+def test_package_content_identity_excludes_wall_clock_fields():
+    """Regression: rebuilding identical artifacts changed content_identity_sha256
+    because the promoted lock hashed the wall-clock build_seconds field."""
+    from prism_fas.data.package.builder import IDENTITY_EXCLUDED_FIELDS
+    from prism_fas.utils.core import stable_json_hash
+    assert {"created_at", "git_commit", "build_seconds", "environment", "content_identity_sha256"} <= IDENTITY_EXCLUDED_FIELDS
+    base = {"package_id": "p", "total_samples": 3, "manifest_sha256": {"samples": "a" * 64}}
+    first = {**base, "created_at": "2026-08-05T10:00:00Z", "build_seconds": 2371.0, "git_commit": "aaa",
+             "environment": {"device": "cpu", "torch": "2.13.0+cpu"}}
+    second = {**base, "created_at": "2026-08-06T22:31:00Z", "build_seconds": 157.7, "git_commit": "bbb",
+              "environment": {"device": "cuda", "torch": "2.13.0+cu121"}}
+    identity = lambda lock: stable_json_hash({k: v for k, v in lock.items() if k not in IDENTITY_EXCLUDED_FIELDS})
+    assert identity(first) == identity(second)
+    assert identity({**base, "total_samples": 4}) != identity(first)

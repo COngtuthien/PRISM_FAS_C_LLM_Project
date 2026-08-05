@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 import cv2, numpy as np, pyarrow as pa
 from prism_fas.utils.core import atomic_json_write, git_commit, sha256_file, stable_json_hash
+from .builder import IDENTITY_EXCLUDED_FIELDS
 from .config import SPLITS
 from .manifests import MANIFEST_SCHEMAS, read_manifest, write_manifest
 from .model_priors import (AdaFaceBackend, ADAFACE_FILES, FACEXFORMER_FILES, FaceXFormerBackend, ModelPriorError,
@@ -251,7 +252,7 @@ def _finalize(input_package,output_package,config,parent,samples,prior_rows,fail
         "model_prior_failures":len(failures),
         "target_isolation":{"policy":"feature_only_no_labels_no_identity","status":"pending"},
         "package_validation":{"status":"pending","checks_passed":None,"checks_total":None}}
-    lock["content_identity_sha256"]=stable_json_hash({k:v for k,v in lock.items() if k not in {"created_at","git_commit","environment"}})
+    lock["content_identity_sha256"]=stable_json_hash({k:v for k,v in lock.items() if k not in IDENTITY_EXCLUDED_FIELDS})
     lock["created_at"]=datetime.now(timezone.utc).isoformat()
     lock["build_seconds"]=round(time.time()-started,1)
     atomic_json_write(output_package/"PACKAGE_LOCK.json",lock)

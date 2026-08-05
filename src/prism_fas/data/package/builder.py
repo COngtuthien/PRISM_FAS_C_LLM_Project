@@ -12,6 +12,9 @@ from .quality import QUALITY_NAMES, quality_schema_version
 from .shards import plan_shards, write_shard
 
 M2_MANIFESTS=("source_frames","source_crops","target_frames","target_crops","preprocessing_failures")
+# Wall-clock and host-dependent fields are excluded from the deterministic
+# package-content identity: rebuilding identical artifacts must not change it.
+IDENTITY_EXCLUDED_FIELDS={"created_at","git_commit","content_identity_sha256","build_seconds","environment"}
 @dataclass
 class BuildStats:
     samples:int=0; priors_built:int=0; priors_reused:int=0; images_linked:int=0; shards:int=0
@@ -209,5 +212,5 @@ def finalize_lock(package_root:Path,report:dict)->dict:
     lock["status"]="validated"
     lock["target_isolation"]={**lock["target_isolation"],"status":"passed" if report["target_isolation"]["passed"] else "failed"}
     lock["package_validation"]={"status":"passed","checks_passed":sum(1 for c in report["checks"] if c["passed"]),"checks_total":len(report["checks"])}
-    lock["content_identity_sha256"]=stable_json_hash({k:v for k,v in lock.items() if k not in {"created_at","git_commit","content_identity_sha256"}})
+    lock["content_identity_sha256"]=stable_json_hash({k:v for k,v in lock.items() if k not in IDENTITY_EXCLUDED_FIELDS})
     atomic_json_write(path,lock); return lock

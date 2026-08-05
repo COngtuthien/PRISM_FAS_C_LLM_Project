@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2 complete; M3 in progress (M3A package foundation complete).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2 and M3 complete; M4 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -61,7 +61,20 @@ python -m prism_fas.cli.main data package validate \
 ```
 
 The package holds `images/`, `priors/`, `manifests/`, `shards/`, `audit/` and `PACKAGE_LOCK.json`.
-`prism_data_v1_m3a` is the official M3A package root. Source splits (`source_train`, `source_dev`)
+`prism_data_v1_m3a` is the M3A package root; `prism_data_v1_m3b` adds model-dependent priors
+(FaceXFormer parsing/pose, derived nine-region visibility, AdaFace IR-50 identity) and is the
+official package for downstream work:
+
+```bash
+python -m prism_fas.cli.main data priors model-build \
+  --input-package <processed_root>/prism_data_v1_m3a \
+  --output-package <processed_root>/prism_data_v1_m3b \
+  --model-config configs/models/m3b_priors.yaml \
+  --config configs/paths.local.yaml --resume
+```
+
+Model weights are pinned by revision and SHA-256 in `configs/models/m3b_priors.yaml`, downloaded
+into the ignored model cache, and never committed. Source splits (`source_train`, `source_dev`)
 carry labels; `target_test` is feature-only and a training-mode selector cannot request it.
 
 ## What is not in this repository

@@ -5,7 +5,7 @@
 | M0 | Repo skeleton, strict config, logging and hashing | `config`, `utils`, CLI; unit tests | config resolves and tests pass | implemented/tested |
 | M1 | Dataset adapters and raw audit | adapters, audit reports; unit + CLI integration | explicit rules; target isolation; reports | implemented/tested |
 | M2 | Deterministic extraction, SCRFD crops, manifests | full_preprocessing_v2 manifests; 266 tests | deterministic manifests; full-profile validation passed | **completed** |
-| M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **in progress (M3A completed)** |
+| M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **completed** |
 | M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | planned |
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | planned |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | planned |
@@ -46,7 +46,7 @@ M3 is IN PROGRESS.
 | Package validator (42 checks) | COMPLETED |
 | Training-mode target isolation guard | COMPLETED |
 | Real smoke package + full 6659-sample package | COMPLETED |
-| Model-dependent priors (parsing, pose, visibility, identity) | IN PROGRESS (M3B) |
+| Model-dependent priors (parsing, pose, visibility, identity) | COMPLETED (M3B) |
 
 ## M3B components
 
@@ -58,4 +58,8 @@ M3 is IN PROGRESS.
 | M3B package builder with resume | COMPLETED |
 | M3B validator checks | COMPLETED |
 | Real-model smoke package | COMPLETED |
-| Full 6659-sample package build | IN PROGRESS |
+| Full 6659-sample package build | COMPLETED |
+| Full package validation (59/59 checks) | COMPLETED |
+| Resume idempotency (6659 reused, 0 rebuilt) | COMPLETED |
+
+M3 is COMPLETED. Next milestone: M4 — canonical loader and balanced sampler (NOT STARTED).
