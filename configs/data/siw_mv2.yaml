@@ -1,0 +1,8 @@
+dataset: siw_mv2
+adapter_version: "1.0"
+root_relative: "SiW-Mv2"
+include_globs: ["Live/*.avi", "Live/*.mov", "Live/*.mp4", "Spoof/*.avi", "Spoof/*.mov", "Spoof/*.mp4"]
+path_pattern: "^(?P<private_label>Live|Spoof)/(?P<video_id>(?:Live|Spoof)_\\d+)\\.(?:avi|mov|mp4)$"
+official_split: target_test
+private_evaluation_fields: [private_label]
+blocked_reason: "Subject identity and official protocol split are unavailable in the inspected root; private labels are evaluator-only."

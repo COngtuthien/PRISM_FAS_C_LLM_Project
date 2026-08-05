@@ -1,0 +1,17 @@
+dataset: msu_mfsd
+adapter_version: "1.0"
+root_relative: "MSU-MFSD-Publish.zip"
+include_globs: ["scene01/real/*.mov", "scene01/real/*.mp4", "scene01/attack/*.mov", "scene01/attack/*.mp4"]
+protocol_files: {train: "train_sub_list.txt", test: "test_sub_list.txt"}
+labels: {real: live, attack: spoof}
+splits: {train: train, test: test}
+filename_patterns:
+  real: "^scene01/real/real_client(?P<subject_id>\\d{3})_(?P<capture_device>android|laptop)_(?P<resolution>SD|HD)_(?P<scenario>scene01)\\.(?:mov|mp4)$"
+  attack: "^scene01/attack/attack_client(?P<subject_id>\\d{3})_(?P<capture_device>android|laptop)_(?P<resolution>SD|HD)_(?P<attack_type>ipad_video|iphone_video|printed_photo)_(?P<scenario>scene01)\\.(?:mov|mp4)$"
+provenance:
+  subject_id: {source: filename_token, evidence_file: README.txt, validation: all_files_match}
+  video_id: {source: relative_path, evidence_file: README.txt, validation: unique_all_files}
+  official_split: {source: protocol_file, evidence_file: "train_sub_list.txt,test_sub_list.txt", validation: all_subjects_assigned_once}
+  label: {source: directory_and_filename_protocol, evidence_file: README.txt, validation: all_files_match}
+  capture_device: {source: filename_token, evidence_file: README.txt, validation: all_files_match}
+  attack_metadata: {source: filename_token, evidence_file: README.txt, validation: all_attack_files_match}

@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# Generated datasets and preprocessing outputs (never committed).
+# The M2 dataset lives under data/work/.../full_preprocessing_v2 and is
+# reproducible from source via the documented CLI.
+# ---------------------------------------------------------------------------
+data/work/
+data/processed/
+data/packages/
+outputs/
+artifacts/
+runs/
+checkpoints/
+
+# Raw datasets and model caches (licensed / large / private)
+Dataset/
+dataset/
+model_cache/
+
+# Generated reports, run logs and validation evidence
+reports/
+
+# ---------------------------------------------------------------------------
+# Local configuration and secrets
+# ---------------------------------------------------------------------------
+configs/paths.local.yaml
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+
+# ---------------------------------------------------------------------------
+# Generated data artifacts (by extension, wherever they appear)
+# ---------------------------------------------------------------------------
+*.parquet
+*.jsonl
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.engine
+*.tmp
+*.tmp.*
+*.log
+
+# Media: raw source videos and generated crops.
+# Documentation images under docs/ stay committable.
+*.mov
+*.mp4
+*.avi
+data/**/*.png
+data/**/*.jpg
+data/**/*.jpeg
+
+# ---------------------------------------------------------------------------
+# Python / tooling caches
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------------------------------------------------------------------------
+# Editor / OS noise
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

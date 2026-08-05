@@ -1,0 +1,22 @@
+small_acceptance:
+  name: small_acceptance
+  output_namespace: m2a
+  record_selection_mode: limited
+  default_record_limit: 3
+  require_explicit_confirmation: false
+  validation_profile: small_acceptance
+  preserve_existing_outputs: true
+  expected_datasets: [casia_fasd, msu_mfsd, siw_mv2]
+  description: Existing immutable small acceptance namespace.
+  profile_version: m2f0-v1
+full_preprocessing:
+  name: full_preprocessing
+  output_namespace: full_preprocessing
+  record_selection_mode: all_records
+  default_record_limit: null
+  require_explicit_confirmation: true
+  validation_profile: full_preprocessing
+  preserve_existing_outputs: true
+  expected_datasets: [casia_fasd, msu_mfsd, siw_mv2]
+  description: Explicitly confirmed full local preprocessing namespace.
+  profile_version: m2f0-v1

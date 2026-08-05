@@ -1,0 +1,45 @@
+# Changelog
+
+## M2 Full Preprocessing Checkpoint — 2026-08-05
+
+- Switched the production full-profile CLI to the context-aware `run_preprocessing()` runner; the
+  legacy small-acceptance path is unchanged.
+- Completed source-success, source-failure and target-success routing behind one shared
+  media → detector → geometry → crop → write → SHA-256 pipeline.
+- Added an atomic crop writer with partial-artifact cleanup, a typed `OutputWriteError` boundary and
+  a typed `HashComputationError` boundary with an unexpected-exception propagation guard.
+- Fixed CASIA canonical identity: `train/` and `test/` shared `s<subject>v<video>` stems, which
+  collapsed into one `video_id` and produced conflicting duplicate sample IDs. The official split is
+  now part of the identity, with a uniqueness guard.
+- Fixed crop `source_media_type`, which was hardcoded to `image_sequence` for every crop record; it
+  is now an explicit typed input, so video sources record `video_file` on both frame and crop rows.
+- Replaced raw SiW-Mv2 filename-derived identifiers with deterministic opaque `siw_<16 hex>` IDs
+  derived from the dataset-root-relative path, with collision detection.
+- Added a `full_preprocessing` validation profile that checks structural consistency, crop
+  integrity, failure-record validity and target isolation without small-acceptance row-count
+  constants or legacy completed-index/run-state/M2A artifacts.
+- Made the atomic Parquet replace tolerant of transient Windows sharing violations.
+- Ran full preprocessing into `full_preprocessing_v2`: 1665 canonical records, 6660 samples selected,
+  6659 successful, 1 failed (`no_face`), 3519 source frames/crops, 3140 target frames/crops,
+  6659 crop files, 0 missing/orphan/SHA/duplicate/dimension/temporary issues.
+- Full-profile validation passed (35/35 checks); test suite at 266 passed.
+
+## M2B2
+
+- Added production M2 validation/status CLI commands and final small-acceptance reports.
+
+## M2B1a
+
+- Added strict source/target/failure Parquet manifests, target-isolation validation, atomic deterministic writer, and M2A migration.
+
+## M2B1b
+
+- Added completed-sample index, atomic run state, Windows-safe output lock and resume verification coverage.
+
+## 0.1.0
+
+- Added M0/M1 local infrastructure, explicit YAML adapters, raw audits, and tests.
+- Resolved MSU-MFSD mapping from its README and official train/test subject lists.
+- Added M2 configuration, deterministic sampling/IDs, media helpers, crop policy, SCRFD ONNX interface, CLI stubs and synthetic tests.
+- Added source-only SCRFD 256/320 validation script and froze 320 input policy.
+- Added M2A production image-sequence/video readers and small-run crop/JSONL runner.

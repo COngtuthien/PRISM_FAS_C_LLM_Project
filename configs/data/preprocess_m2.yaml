@@ -1,0 +1,33 @@
+preprocessing_version: "m2-v1"
+sampling_version: "uniform-v1"
+sampling_strategy: uniform
+frames_per_video: 4
+start_exclusion_fraction: 0.05
+end_exclusion_fraction: 0.05
+minimum_valid_frames: 1
+image_extensions: [".png", ".jpg", ".jpeg"]
+video_decoder_priority: [opencv]
+scrfd_model_path: "D:/AI on IOT/Anti_spoofing/model_cache/face_detectors/scrfd_10g_bnkps.onnx"
+scrfd_input_size: 320
+detection_threshold: 0.5
+face_selection_policy: largest_valid_face
+min_face_size: 16
+crop_padding: 0.25
+crop_output_size: 224
+output_image_format: jpg
+jpeg_quality: 95
+materialize_frames: false
+overwrite_policy: fail
+resume_policy: skip_valid
+failure_policy: continue
+hash_policy: sha256
+worker_count: 1
+device: cpu
+detector:
+  name: scrfd
+  model_variant: scrfd_10g_bnkps
+  input_size: 320
+  detection_threshold: 0.5
+  size_policy: fixed_source_validated
+  size_policy_version: scrfd_source_policy_v1
+  size_selection_decision: reports/m2/scrfd_size_selection/decision.json

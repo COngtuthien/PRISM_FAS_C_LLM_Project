@@ -1,0 +1,9 @@
+dataset: casia_fasd
+adapter_version: "1.0"
+root_relative: "."
+record_kind: frame_sequence
+include_globs: ["train/live/*.png", "train/spoof/*.png", "test/live/*.png", "test/spoof/*.png"]
+path_pattern: "^(?P<split>train|test)/(?P<label>live|spoof)/(?P<capture_prefix>[bf])?s(?P<subject_id>\\d+)v(?P<video_id>[A-Za-z0-9_]+)f\\d+\\.png$"
+labels: {live: live, spoof: spoof}
+splits: {train: train, test: test}
+group_by: "subject_id:video_id"

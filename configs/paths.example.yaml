@@ -1,0 +1,12 @@
+workspace_root: "<workspace-root>"
+project_root: "<project-root>"
+raw_datasets:
+  casia_fasd: "<casia-fasd-root>"
+  msu_mfsd: "<msu-mfsd-root>"
+  siw_mv2: "<siw-mv2-root>"
+model_cache: "<model-cache>"
+work_root: "<project-root>/data/work"
+processed_root: "<project-root>/data/processed"
+package_root: "<project-root>/data/packages"
+runs_root: "<project-root>/runs"
+reports_root: "<project-root>/reports"
