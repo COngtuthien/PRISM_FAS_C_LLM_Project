@@ -1,0 +1,74 @@
+experiment_id: b00_convnextv2
+stage: M5_B00
+
+model:
+  # Verified present in the installed timm registry (timm 1.0.28).
+  model_name: convnextv2_atto.fcmae_ft_in1k
+  source: timm
+  revision: "timm/convnextv2_atto.fcmae_ft_in1k"
+  weight_sha256: "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+  pretrained: true
+  image_size: 224
+  # Normalization required by the selected pretrained weights; the M4 loader
+  # already emits [0,1] RGB, so this is applied exactly once.
+  normalization_mean: [0.485, 0.456, 0.406]
+  normalization_std: [0.229, 0.224, 0.225]
+  dropout: 0.0
+  feature_dim: null          # resolved from the backbone at build time
+
+label_mapping:
+  live: 0
+  spoof: 1
+
+seed: 42
+epochs: 20
+batch_size: 32
+steps_per_epoch: 45
+
+optimizer:
+  name: AdamW
+  backbone_lr: 1.0e-4
+  head_lr: 5.0e-4
+  weight_decay: 0.05
+  betas: [0.9, 0.999]
+
+scheduler:
+  name: cosine
+  warmup_epochs: 1
+  min_lr: 1.0e-6
+
+gradient_clip_norm: 1.0
+
+augmentation:
+  random_horizontal_flip: 0.5   # the only training augmentation in B00
+
+precision:
+  cuda: amp
+  cpu: fp32
+
+checkpoint_selection:
+  primary: source_dev_roc_auc
+  mode: max
+  tie_breaker: source_dev_nll
+  tie_breaker_mode: min
+
+early_stopping:
+  enabled: true
+  patience_epochs: 5
+  min_epochs: 5
+
+calibration:
+  temperature_scaling: true
+  threshold_criterion: min_acer
+  reject_policy: disabled_for_b00
+
+video_aggregation:
+  method: trimmed_mean
+  trim_fraction: 0.10
+
+num_workers:
+  windows_default: 2
+  debug: 0
+
+package:
+  expected_package_id: prism_data_v1_m3b

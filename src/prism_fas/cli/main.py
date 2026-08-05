@@ -13,6 +13,8 @@ from prism_fas.data.package.audit import build_audit_report, build_model_prior_r
 from prism_fas.data.package.m3b import build_m3b_package
 from prism_fas.data.loader import CanonicalPackageDataset, CanonicalShardDataset, load_loader_config, package_summary
 from prism_fas.data.loader.audit import audit_loader, audit_sampler, write_report as write_loader_report
+from prism_fas.train.config import load_b00_config
+from prism_fas.train.b00_pipeline import run_b00_calibrate, run_b00_predict_target, run_b00_report, run_b00_smoke, run_b00_train
 from prism_fas.data.manifests.migrate_m2a import migrate_m2a
 from prism_fas.data.manifests.resume import build_completed_index
 from prism_fas.utils.core import sha256_file
@@ -205,6 +207,28 @@ def sampler_audit(package_root:Path=typer.Option(...,exists=True),config:Path|No
         "epochs":[{k:e[k] for k in ("epoch","batches","composition_per_pool","unique_samples","reuse","distinct_source_records","batches_with_duplicate_sample_id","batches_with_repeated_record")} for e in report["epochs"]],
         "determinism":report["determinism"],"errors":report["errors"],"report":str(target)}))
     if report["errors"]: raise typer.Exit(1)
+train_app=typer.Typer(help="M5 local training")
+app.add_typer(train_app,name="train")
+b00_app=typer.Typer(help="B00 ConvNeXt V2 local baseline")
+train_app.add_typer(b00_app,name="b00")
+@b00_app.command("smoke")
+def b00_smoke(package_root:Path=typer.Option(...,exists=True),config:Path=typer.Option(...,exists=True),run_id:str=typer.Option(...),device:str|None=typer.Option(None),num_workers:int=typer.Option(0),limit_steps:int=typer.Option(5),limit_dev_samples:int=typer.Option(128),limit_target_samples:int=typer.Option(64),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    typer.echo(json.dumps(run_b00_smoke(package_root,load_b00_config(config),run_id,device=device,workers=num_workers,
+        limit_steps=limit_steps,limit_dev_samples=limit_dev_samples,limit_target_samples=limit_target_samples,dry_run=dry_run)))
+@b00_app.command("run")
+def b00_run(package_root:Path=typer.Option(...,exists=True),config:Path=typer.Option(...,exists=True),run_id:str=typer.Option(...),device:str|None=typer.Option(None),num_workers:int=typer.Option(0),resume:bool=typer.Option(False,'--resume'),limit_steps:int|None=typer.Option(None),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    typer.echo(json.dumps(run_b00_train(package_root,load_b00_config(config),run_id,device=device,workers=num_workers,
+        resume=resume,limit_steps=limit_steps,dry_run=dry_run,
+        progress=lambda payload: typer.echo(json.dumps({"progress":payload})))))
+@b00_app.command("calibrate")
+def b00_calibrate(run_root:Path=typer.Option(...,exists=True),package_root:Path=typer.Option(...,exists=True),config:Path=typer.Option(...,exists=True),device:str|None=typer.Option(None),num_workers:int=typer.Option(0),limit_dev_samples:int|None=typer.Option(None))->None:
+    typer.echo(json.dumps(run_b00_calibrate(package_root,run_root,load_b00_config(config),device=device,workers=num_workers,limit=limit_dev_samples)))
+@b00_app.command("predict-target")
+def b00_predict_target(run_root:Path=typer.Option(...,exists=True),package_root:Path=typer.Option(...,exists=True),config:Path=typer.Option(...,exists=True),device:str|None=typer.Option(None),num_workers:int=typer.Option(0),limit_target_samples:int|None=typer.Option(None))->None:
+    typer.echo(json.dumps(run_b00_predict_target(package_root,run_root,load_b00_config(config),device=device,workers=num_workers,limit=limit_target_samples)))
+@b00_app.command("report")
+def b00_report(run_root:Path=typer.Option(...,exists=True))->None:
+    typer.echo(json.dumps(run_b00_report(run_root)))
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]

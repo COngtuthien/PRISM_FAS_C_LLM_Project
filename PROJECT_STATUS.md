@@ -1,7 +1,7 @@
 # Project status
 
-- Current milestone: **M4 COMPLETED** — canonical loader and balanced sampler. M5 is NOT STARTED.
-- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: COMPLETED; M5: NOT STARTED.
+- Current milestone: **M5 COMPLETED** — B00 local baseline, source calibration and blind target prediction. M6 is NOT STARTED.
+- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: COMPLETED; M5: COMPLETED; M6: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
@@ -100,7 +100,28 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M5 — B00 local baseline and source calibration (NOT STARTED).
+- Next milestone: M6 — Modal wrapper and parity smoke test (NOT STARTED).
+
+## M5 B00 local baseline
+
+ConvNeXt V2 Atto (`convnextv2_atto.fcmae_ft_in1k`, timm, weight SHA `6389c2f5…b7ebb`, 3.39M backbone
+params, 320-d features) trained only on domain/class-balanced `source_train` batches with mean BCE
+with logits. Device: **CPU** (no CUDA on this host).
+
+| Stage | Result |
+|---|---|
+| Training | 8 epochs, 360 steps, early-stopped on patience 5 |
+| Best checkpoint | epoch 2, selected by max source_dev ROC-AUC (tie-break min NLL) |
+| source_dev ROC-AUC | 0.98312 |
+| Temperature (source_dev only) | 2.5385 — NLL 0.2938 → 0.1596, ECE 0.0460 → 0.0393 |
+| Threshold (source_dev min-ACER) | 0.34145 |
+| source_dev frame metrics | APCER 0.0322, BPCER 0.0925, ACER 0.0623, accuracy 0.9562, EER 0.0650 |
+| source_dev predictions | 2079 frames / 520 videos |
+| target predictions | 3140 frames / 785 videos, blind |
+
+Target labels were not accessed: no target metrics, and no target signal entered checkpoint
+selection, temperature or threshold. B00 deliberately ignores the M3B parsing/pose/visibility/identity
+priors; `reject_policy = disabled_for_b00`.
 
 ## M4 loader and sampler
 

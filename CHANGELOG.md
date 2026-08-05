@@ -1,5 +1,21 @@
 # Changelog
 
+## M5 B00 Local Baseline — 2026-08-06
+
+- Added `prism_fas.train`: B00 ConvNeXt V2 binary classifier, exact BCE-with-logits loss, FAS metrics
+  (APCER/BPCER/ACER, ROC-AUC, EER, NLL, Brier, ECE), atomic checkpointing with strict resume guards,
+  local trainer, source-dev temperature scaling, min-ACER threshold selection, blind target
+  inference, video aggregation and an HTML/JSON report.
+- Added `configs/train/b00_local.yaml` pinning the model (`convnextv2_atto.fcmae_ft_in1k`, weight
+  SHA-256), optimizer groups, cosine schedule, selection rule and calibration policy.
+- Added `train b00 smoke|run|calibrate|predict-target|report` CLI commands with dry-run support.
+- Ran the real pipeline on CPU: 5-step smoke with verified resume, then 8 epochs / 360 steps
+  (early-stopped), best epoch 2 by source_dev ROC-AUC 0.98312; temperature 2.5385 improved source_dev
+  NLL 0.2938 → 0.1596; min-ACER threshold 0.34145 gives APCER 0.0322 / BPCER 0.0925 / ACER 0.0623;
+  2079 source_dev and 3140 blind target predictions written.
+- Target labels were never accessed: no target metrics are reported and no target signal influenced
+  checkpoint selection, temperature or threshold.
+
 ## M4 Canonical Loader and Balanced Sampler — 2026-08-05
 
 - Added `prism_fas.data.loader`: validated package index, `CanonicalSourceSample`/`CanonicalTargetSample`

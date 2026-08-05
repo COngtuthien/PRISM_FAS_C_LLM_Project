@@ -7,7 +7,7 @@
 | M2 | Deterministic extraction, SCRFD crops, manifests | full_preprocessing_v2 manifests; 266 tests | deterministic manifests; full-profile validation passed | **completed** |
 | M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **completed** |
 | M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | **completed** |
-| M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | planned |
+| M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | **completed** |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | planned |
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | planned |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | planned |
@@ -30,8 +30,6 @@ Each milestone requires: objective, implementation tasks, expected files, unit/i
 | Full preprocessing v2 (1665 records, 6659 crops) | COMPLETED |
 | Full-profile validation (35/35 checks) | COMPLETED |
 | Target privacy isolation (0 matches) | COMPLETED |
-
-M3 is IN PROGRESS.
 
 ## M3A components (completed)
 
@@ -79,4 +77,22 @@ M3 is COMPLETED.
 | Full 6659-sample loose and shard audits | COMPLETED |
 | DataLoader worker smoke (0 and 2 workers) | COMPLETED |
 
-M4 is COMPLETED. Next milestone: M5 — B00 local baseline and source calibration (NOT STARTED).
+M4 is COMPLETED.
+
+## M5 components (completed)
+
+| Component | Status |
+|---|---|
+| B00 ConvNeXt V2 binary classifier | COMPLETED |
+| Exact BCE-with-logits loss | COMPLETED |
+| Local trainer with checkpoint/resume | COMPLETED |
+| Real 5-step smoke with resume | COMPLETED |
+| Full local training (8 epochs, early stop) | COMPLETED |
+| Best checkpoint by source_dev ROC-AUC | COMPLETED |
+| source_dev temperature scaling | COMPLETED |
+| source_dev min-ACER threshold | COMPLETED |
+| source_dev predictions (2079) and metrics | COMPLETED |
+| Blind target predictions (3140) | COMPLETED |
+| HTML/JSON report and COMPLETE.json | COMPLETED |
+
+M5 is COMPLETED. Next milestone: M6 — Modal wrapper and parity smoke test (NOT STARTED).

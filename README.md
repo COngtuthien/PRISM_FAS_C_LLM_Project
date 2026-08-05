@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2, M3 and M4 complete; M5 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M5 complete; M6 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -97,6 +97,33 @@ python -m prism_fas.cli.main data sampler audit \
 Labels are mapped explicitly (`live=0`, `spoof=1`) in `configs/data/loader_m4.yaml`. The balanced
 sampler draws equal quotas from each `(dataset, label)` pool and is deterministic from the package
 content identity, seed and epoch. Training mode cannot open `target_test`.
+
+## M5 B00 local baseline
+
+B00 is a plain ConvNeXt V2 binary classifier (live=0, spoof=1) trained only on balanced
+`source_train` batches; it deliberately ignores the M3B priors and establishes the reproducible
+training/calibration pipeline:
+
+```bash
+python -m prism_fas.cli.main train b00 run \
+  --package-root <processed_root>/prism_data_v1_m3b \
+  --config configs/train/b00_local.yaml --run-id b00_local_seed42
+
+python -m prism_fas.cli.main train b00 calibrate \
+  --run-root runs/b00_local_seed42 --package-root <processed_root>/prism_data_v1_m3b \
+  --config configs/train/b00_local.yaml
+
+python -m prism_fas.cli.main train b00 predict-target \
+  --run-root runs/b00_local_seed42 --package-root <processed_root>/prism_data_v1_m3b \
+  --config configs/train/b00_local.yaml
+
+python -m prism_fas.cli.main train b00 report --run-root runs/b00_local_seed42
+```
+
+The best checkpoint, temperature and decision threshold are all chosen on `source_dev` only. Target
+predictions are then produced once under that frozen calibration; target labels are never accessed,
+so target score distributions are reported but target accuracy/FAS metrics are not. Runs are written
+under `runs/<run_id>/` and are git-ignored.
 
 ## What is not in this repository
 
