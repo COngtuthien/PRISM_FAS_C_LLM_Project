@@ -1,7 +1,7 @@
 # Project status
 
-- Current milestone: **M3 COMPLETED** (M3A + M3B). M4 is NOT STARTED.
-- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: NOT STARTED.
+- Current milestone: **M4 COMPLETED** — canonical loader and balanced sampler. M5 is NOT STARTED.
+- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: COMPLETED; M5: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
@@ -100,5 +100,21 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M4 — canonical loader and balanced sampler (NOT STARTED).
+- Next milestone: M5 — B00 local baseline and source calibration (NOT STARTED).
+
+## M4 loader and sampler
+
+Reads the immutable `prism_data_v1_m3b` package (never mutates it). Label mapping is explicit:
+`live = 0`, `spoof = 1` (spoof is the positive attack class).
+
+- Loose-file and tar-shard backends produce the same `CanonicalSourceSample` / `CanonicalTargetSample`
+  contracts; full scans covered **6659** samples on both backends (source_train 1440, source_dev 2079,
+  target_test 3140) with identical sample-ID sets and 0 parity mismatches.
+- `BalancedDomainClassBatchSampler` draws an equal quota from each `(dataset, label)` pool:
+  batch 32 = 8 casia live + 8 casia spoof + 8 msu live + 8 msu spoof, 45 steps per epoch
+  (`ceil(1440/32)`). Deterministic from package content identity + seed + epoch; replay matches and
+  epoch 0 differs from epoch 1.
+- Target isolation: `target_test` cannot be opened in training mode, the sampler rejects any
+  non-`source_train` split, target samples carry no label/identity, and target batches expose no
+  training fields. Measured target identity availability: 0.
 - Continue command: `python -m pytest -q`

@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2 and M3 complete; M4 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2, M3 and M4 complete; M5 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -76,6 +76,27 @@ python -m prism_fas.cli.main data priors model-build \
 Model weights are pinned by revision and SHA-256 in `configs/models/m3b_priors.yaml`, downloaded
 into the ignored model cache, and never committed. Source splits (`source_train`, `source_dev`)
 carry labels; `target_test` is feature-only and a training-mode selector cannot request it.
+
+## M4 loader and sampler
+
+The canonical loader reads the immutable `prism_data_v1_m3b` package through either the loose files
+or the tar shards, with identical sample contracts:
+
+```bash
+python -m prism_fas.cli.main data loader inspect \
+  --package-root <processed_root>/prism_data_v1_m3b --split source_train --backend loose
+
+python -m prism_fas.cli.main data loader audit \
+  --package-root <processed_root>/prism_data_v1_m3b --config configs/data/loader_m4.yaml
+
+python -m prism_fas.cli.main data sampler audit \
+  --package-root <processed_root>/prism_data_v1_m3b --config configs/data/loader_m4.yaml \
+  --epochs 2 --batches 50
+```
+
+Labels are mapped explicitly (`live=0`, `spoof=1`) in `configs/data/loader_m4.yaml`. The balanced
+sampler draws equal quotas from each `(dataset, label)` pool and is deterministic from the package
+content identity, seed and epoch. Training mode cannot open `target_test`.
 
 ## What is not in this repository
 

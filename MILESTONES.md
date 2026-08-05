@@ -6,7 +6,7 @@
 | M1 | Dataset adapters and raw audit | adapters, audit reports; unit + CLI integration | explicit rules; target isolation; reports | implemented/tested |
 | M2 | Deterministic extraction, SCRFD crops, manifests | full_preprocessing_v2 manifests; 266 tests | deterministic manifests; full-profile validation passed | **completed** |
 | M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **completed** |
-| M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | planned |
+| M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | **completed** |
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | planned |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | planned |
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | planned |
@@ -62,4 +62,21 @@ M3 is IN PROGRESS.
 | Full package validation (59/59 checks) | COMPLETED |
 | Resume idempotency (6659 reused, 0 rebuilt) | COMPLETED |
 
-M3 is COMPLETED. Next milestone: M4 — canonical loader and balanced sampler (NOT STARTED).
+M3 is COMPLETED.
+
+## M4 components (completed)
+
+| Component | Status |
+|---|---|
+| Canonical source/target sample contracts | COMPLETED |
+| Loose-file package dataset | COMPLETED |
+| Tar-shard streaming dataset | COMPLETED |
+| Loose/shard parity | COMPLETED |
+| Source and target collate contracts | COMPLETED |
+| Balanced domain/class batch sampler | COMPLETED |
+| Deterministic seed/epoch replay | COMPLETED |
+| Target isolation guards | COMPLETED |
+| Full 6659-sample loose and shard audits | COMPLETED |
+| DataLoader worker smoke (0 and 2 workers) | COMPLETED |
+
+M4 is COMPLETED. Next milestone: M5 — B00 local baseline and source calibration (NOT STARTED).

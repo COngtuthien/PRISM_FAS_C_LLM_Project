@@ -11,6 +11,8 @@ from prism_fas.data.manifests.repository import ManifestRepository
 from prism_fas.data.package import M3APackageConfig, build_package, build_priors, finalize_lock, load_m2_samples, load_package_config, validate_package, validate_source_m2_hashes
 from prism_fas.data.package.audit import build_audit_report, build_model_prior_report
 from prism_fas.data.package.m3b import build_m3b_package
+from prism_fas.data.loader import CanonicalPackageDataset, CanonicalShardDataset, load_loader_config, package_summary
+from prism_fas.data.loader.audit import audit_loader, audit_sampler, write_report as write_loader_report
 from prism_fas.data.manifests.migrate_m2a import migrate_m2a
 from prism_fas.data.manifests.resume import build_completed_index
 from prism_fas.utils.core import sha256_file
@@ -162,6 +164,47 @@ def package_validate(package_root:Path=typer.Option(...,exists=True),input_root:
     typer.echo(json.dumps({"passed":report["passed"],"errors":len(report["errors"]),"checks":len(report["checks"]),
         "counts":report["counts"],"package_id":report["package_id"],"target_isolation":report["target_isolation"]["passed"]}))
     if not report["passed"]: raise typer.Exit(1)
+loader_app=typer.Typer(help="M4 canonical loader")
+data_app.add_typer(loader_app,name="loader")
+sampler_app=typer.Typer(help="M4 balanced sampler")
+data_app.add_typer(sampler_app,name="sampler")
+def _loader_config(path:Path|None):
+    return load_loader_config(path or Path(__file__).parents[3]/'configs'/'data'/'loader_m4.yaml')
+@loader_app.command("inspect")
+def loader_inspect(package_root:Path=typer.Option(...,exists=True),split:str=typer.Option('source_train'),backend:str=typer.Option('loose'),config:Path|None=typer.Option(None),limit:int=typer.Option(3))->None:
+    cfg=_loader_config(config); mode={'source_train':'training','source_dev':'validation','target_test':'inference'}[split]
+    dataset=(CanonicalPackageDataset if backend=='loose' else CanonicalShardDataset)(package_root,split,cfg,mode=mode)
+    summary=package_summary(package_root); samples=[]
+    iterator=(dataset[i] for i in range(min(limit,len(dataset)))) if backend=='loose' else dataset
+    for position,sample in enumerate(iterator):
+        if position>=limit: break
+        entry={"sample_id":sample.sample_id,"dataset":sample.dataset,"project_split":sample.project_split,
+               "image_shape":list(sample.image.shape),"image_range":[round(float(sample.image.min()),4),round(float(sample.image.max()),4)],
+               "parsing_classes":int(len(set(sample.geometry.parsing_labels.flatten().tolist()))),
+               "pose":[round(float(v),4) for v in sample.geometry.pose_ypr],
+               "visibility_len":int(sample.geometry.visibility.shape[0]),
+               "identity_available":bool(getattr(sample,"identity_available",False))}
+        if hasattr(sample,"label"): entry.update(label=sample.label,class_target=sample.class_target)
+        samples.append(entry)
+    typer.echo(json.dumps({"package":summary,"split":split,"backend":backend,"count":len(dataset),"samples":samples}))
+@loader_app.command("audit")
+def loader_audit(package_root:Path=typer.Option(...,exists=True),config:Path|None=typer.Option(None),report_json:Path|None=typer.Option(None))->None:
+    cfg=_loader_config(config)
+    report=audit_loader(package_root,cfg,progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+    target=report_json or Path('reports/m4/loader_audit.json'); write_loader_report(target,report,"M4 loader audit")
+    typer.echo(json.dumps({"package_id":report["package"]["package_id"],"content_identity":report["package"]["content_identity_sha256"],
+        "loose":{k:v["count"] for k,v in report["loose"].items() if isinstance(v,dict)},"loose_total":report["loose"]["total"],
+        "shard":{k:v["count"] for k,v in report["shard"].items() if isinstance(v,dict)},"shard_total":report["shard"]["total"],
+        "parity":{k:v["checked"] for k,v in report["parity"].items()},"errors":report["errors"],"report":str(target)}))
+    if report["errors"]: raise typer.Exit(1)
+@sampler_app.command("audit")
+def sampler_audit(package_root:Path=typer.Option(...,exists=True),config:Path|None=typer.Option(None),epochs:int=typer.Option(2),batches:int=typer.Option(50),report_json:Path|None=typer.Option(None))->None:
+    cfg=_loader_config(config); report=audit_sampler(package_root,cfg,epochs=epochs,batches=batches)
+    target=report_json or Path('reports/m4/sampler_audit.json'); write_loader_report(target,report,"M4 sampler audit")
+    typer.echo(json.dumps({"package_id":report["package"]["package_id"],"sampler":report["sampler_state"],
+        "epochs":[{k:e[k] for k in ("epoch","batches","composition_per_pool","unique_samples","reuse","distinct_source_records","batches_with_duplicate_sample_id","batches_with_repeated_record")} for e in report["epochs"]],
+        "determinism":report["determinism"],"errors":report["errors"],"report":str(target)}))
+    if report["errors"]: raise typer.Exit(1)
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]

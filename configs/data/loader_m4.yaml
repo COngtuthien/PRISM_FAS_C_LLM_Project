@@ -1,0 +1,46 @@
+loader_schema_version: "m4-loader-v1"
+
+package:
+  expected_package_id: "prism_data_v1_m3b"
+  # Optional strict pin; null disables the identity guard.
+  expected_content_identity_sha256: null
+  require_validated_status: true
+  # Integrity policy: manifest/lock checks run once at loader construction,
+  # never per sample access. "per_sample_sha" is opt-in and slow.
+  integrity_verification: "on_open"
+
+image:
+  decoder: opencv          # opencv | pillow
+  color: rgb
+  size: [224, 224]
+  dtype: float32
+  value_range: [0.0, 1.0]  # normalization for a backbone happens downstream
+  channels_first: true
+
+# Explicit committed label vocabulary. Spoof is the positive (attack) class,
+# matching the presentation-attack-detection convention used for APCER/BPCER.
+label_mapping:
+  live: 0
+  spoof: 1
+
+sampler:
+  batch_size: 32
+  # ceil(len(source_train) / batch_size); source_train currently has 1440 rows.
+  steps_per_epoch_policy: "ceil_source_train_over_batch"
+  steps_per_epoch: null
+  seed: 20260805
+  drop_last: true
+  balance: exact_domain_class      # equal quota from every (dataset, label) pool
+  pool_key: [dataset, label_live_spoof]
+  avoid_same_record_in_batch: true
+  minority_policy: reshuffle_cycle  # deterministic reshuffle when a pool is exhausted
+
+backends:
+  default: loose                   # loose | shard
+  shard_shuffle: false
+
+dataloader:
+  num_workers: 0
+  prefetch_factor: null
+  persistent_workers: false
+  pin_memory: false

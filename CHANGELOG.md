@@ -1,5 +1,18 @@
 # Changelog
 
+## M4 Canonical Loader and Balanced Sampler — 2026-08-05
+
+- Added `prism_fas.data.loader`: validated package index, `CanonicalSourceSample`/`CanonicalTargetSample`
+  contracts, loose-file and tar-shard datasets, deterministic image/prior transforms, separate source
+  and target collate paths, and `BalancedDomainClassBatchSampler`.
+- Added `configs/data/loader_m4.yaml` with an explicit `live=0 / spoof=1` label mapping, image decode
+  contract, sampler policy and DataLoader defaults; no absolute paths.
+- Added `data loader inspect`, `data loader audit` and `data sampler audit` CLI commands.
+- Audited the real `prism_data_v1_m3b` package: 6659 samples scanned on both backends with matching
+  sample-ID sets and 0 parity mismatches; sampler produced exact 8/8/8/8 pool quotas over 45 steps per
+  epoch with 0 duplicate IDs and 0 repeated records per batch.
+- DataLoader worker smoke passed at `num_workers=0` and `num_workers=2` on Windows.
+
 ## M3B Model-Dependent Priors — 2026-08-05
 
 - Added `prism_fas.data.package.model_priors` and `m3b`: pinned FaceXFormer parsing/pose backend,
