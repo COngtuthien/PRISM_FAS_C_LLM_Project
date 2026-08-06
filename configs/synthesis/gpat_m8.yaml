@@ -1,0 +1,91 @@
+# M8 GPAT residual training configuration.
+#
+# Source-only: this stage opens only source_train payloads, the frozen M7 recipe
+# bank and the pinned AdaFace weight. source_dev and target_test are rejected.
+# No absolute path appears in this file.
+stage: M8_GPAT
+gpat_schema_version: "m8-gpat-v1"
+seed: 20260806
+input_size: 224
+batch_size: 16
+epochs: 15
+num_workers: 4
+
+data:
+  package_split: source_train
+  allowed_datasets: ["casia_fasd", "msu_mfsd"]
+  forbidden_splits: ["source_dev", "target_test"]
+  live_label: live
+  spoof_label: spoof
+
+pair_plan:
+  seed: 20260806
+  train_fraction: 0.8
+  pairs_per_live: 4
+  same_domain_per_live: 2
+  cross_domain_per_live: 2
+  expected_train_pairs: 896
+  expected_validation_pairs: 224
+
+optimizer:
+  name: AdamW
+  encoder_lr: 2.0e-4
+  recipe_lr: 1.0e-4
+  generator_lr: 2.0e-4
+  weight_decay: 1.0e-4
+  betas: [0.9, 0.999]
+
+scheduler:
+  name: cosine
+  warmup_fraction: 0.05
+  min_lr: 1.0e-6
+
+gradient_clip_norm: 1.0
+
+precision:
+  cuda: fp16
+  cpu: fp32
+
+early_stopping:
+  enabled: true
+  min_epochs: 5
+  patience_epochs: 4
+
+checkpoint_selection:
+  primary: validation_total_loss
+  mode: min
+  tie_breaker: validation_identity_cosine
+  tie_breaker_mode: max
+
+model:
+  artifact_latent_dim: 128
+  recipe_latent_dim: 64
+  base_channels: 64
+  film_blocks: 4
+  max_high_frequency_delta: 0.15
+
+loss:
+  style: 1.0
+  identity: 0.5
+  map: 0.5
+  strength: 0.25
+  total_variation: 0.02
+  residual: 0.01
+
+invariants:
+  ll_max_abs_error: 1.0e-5
+  outside_mask_max_abs_error: 0.0
+  reject_zero_support: true
+  reject_empty_style_mask: true
+
+identity_model:
+  # Frozen, no gradients to its parameters; the live embedding is stop-gradient.
+  backend: adaface_ir50
+  revision: "60a65befbcf7"
+  weight_sha256: "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+  embedding_dim: 512
+  input_size: 112
+  input_color: bgr
+  normalization_mean: [0.5, 0.5, 0.5]
+  normalization_std: [0.5, 0.5, 0.5]
+  trainable: false
