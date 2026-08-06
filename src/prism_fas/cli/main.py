@@ -229,6 +229,68 @@ def b00_predict_target(run_root:Path=typer.Option(...,exists=True),package_root:
 @b00_app.command("report")
 def b00_report(run_root:Path=typer.Option(...,exists=True))->None:
     typer.echo(json.dumps(run_b00_report(run_root)))
+recipe_app=typer.Typer(help="M7 source-only recipe schema, compiler and frozen bank")
+app.add_typer(recipe_app,name="recipe")
+synthesis_app=typer.Typer(help="M7 CPU physics engine and preview audit")
+app.add_typer(synthesis_app,name="synthesis")
+def _m7_defaults()->tuple[Path,Path,Path]:
+    base=Path(__file__).parents[3]
+    return base/'configs'/'recipes'/'ontology_m7.yaml',base/'configs'/'recipes'/'bank_m7.yaml',base/'configs'/'synthesis'/'physics_m7.yaml'
+@recipe_app.command("build-bank")
+def recipe_build_bank(ontology:Path|None=typer.Option(None,'--ontology',exists=True,dir_okay=False),config:Path|None=typer.Option(None,'--config',exists=True,dir_okay=False),output:Path=typer.Option(...,'--output'),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    from prism_fas.recipes.bank import build_bank
+    default_ontology,default_config,_=_m7_defaults()
+    result=build_bank(output,ontology or default_ontology,config or default_config,dry_run=dry_run)
+    typer.echo(json.dumps({"status":result["status"],"bank_id":result["bank_id"],"recipe_count":result["recipe_count"],
+        "bank_seed":result["bank_seed"],"output_root":result["output_root"],"written":result["written"],
+        "ontology_version":result["ontology_version"],"ontology_sha256":result["ontology_sha256"],
+        "bank_content_identity_sha256":result["bank_content_identity_sha256"],
+        "compiler_version":result["compiler_version"],"conditioning_dimension":result["conditioning_dimension"],
+        "external_llm_invoked":result["external_llm_invoked"],
+        "coverage_required_all_met":result["audit"]["coverage"]["required_all_met"],
+        "diversity_passed":result["audit"]["diversity"]["passed"]}))
+@recipe_app.command("validate-bank")
+def recipe_validate_bank(bank:Path=typer.Option(...,'--bank',exists=True,file_okay=False),report_json:Path|None=typer.Option(None))->None:
+    from prism_fas.recipes.bank import validate_bank
+    report=validate_bank(bank)
+    if report_json: atomic_json_write(report_json,report)
+    typer.echo(json.dumps({"passed":report["passed"],"errors":report["errors"],"bank_id":report["bank_id"],
+        "recipe_count":report["recipe_count"],"bank_content_identity_sha256":report["bank_content_identity_sha256"],
+        "ontology_version":report["ontology_version"],"external_llm_invoked":report["external_llm_invoked"],
+        "validation_issues":report["validation"]["issue_count"],
+        "coverage_required_all_met":report["coverage"]["required_all_met"],
+        "diversity":{k:report["diversity"][k] for k in ("method","max_cosine") if k in report["diversity"]} or report["diversity"]["method"]}))
+    if not report["passed"]: raise typer.Exit(1)
+@recipe_app.command("compile-bank")
+def recipe_compile_bank(bank:Path=typer.Option(...,'--bank',exists=True,file_okay=False),report_json:Path|None=typer.Option(None),limit:int|None=typer.Option(None,'--limit'))->None:
+    from prism_fas.recipes.bank import compiled_graphs
+    result=compiled_graphs(bank); graphs=result["graphs"][:limit] if limit else result["graphs"]
+    summary=result["summary"]
+    if report_json: atomic_json_write(report_json,{"bank_id":result["bank_id"],**summary})
+    typer.echo(json.dumps({"bank_id":result["bank_id"],"compiled":len(graphs),"unique_graph_hashes":summary["unique_graph_hashes"],
+        "duplicate_graph_hashes":summary["duplicate_graph_hashes"],"compiler_version":summary["compiler_version"],
+        "conditioning_version":summary["conditioning_version"],"conditioning_dimension":summary["conditioning_dimension"],
+        "operator_application_order":summary["operator_application_order"],
+        "graph_hash_set_sha256":summary["graph_hash_set_sha256"]}))
+@synthesis_app.command("physics-audit")
+def synthesis_physics_audit(package_root:Path=typer.Option(...,'--package-root',exists=True,file_okay=False),bank:Path=typer.Option(...,'--bank',exists=True,file_okay=False),config:Path|None=typer.Option(None,'--config',exists=True,dir_okay=False),output:Path=typer.Option(Path('reports/m7'),'--output'),limit:int|None=typer.Option(None,'--limit',help='development smoke only; a limited run does not satisfy the M7 contract'),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    from prism_fas.synthesis.audit import run_audit
+    _,_,default_config=_m7_defaults()
+    result=run_audit(package_root,bank,config or default_config,output,limit=limit,dry_run=dry_run,
+        progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+    if result["status"]=="dry_run":
+        typer.echo(json.dumps({"status":"dry_run","plan":result["plan"],"selected_samples":result["selected_samples"],
+            "planned_pairs":result["planned_pairs"],"bank_validation_passed":result["bank_validation"]["passed"],
+            "compiled":result["compile"]["compiled"],"written":[]}));return
+    typer.echo(json.dumps({"status":result["status"],"preview_rows":result["preview_rows"],
+        "physics_passed":result["physics"]["passed"],"outside_mask_max_abs_error":result["physics"]["outside_mask_max_abs_error"],
+        "operators_exercised":result["physics"]["operators_exercised"],"regions_exercised":result["physics"]["regions_exercised"],
+        "input_samples_per_dataset":result["physics"]["input_samples_per_dataset"],
+        "source_dev_inputs":result["physics"]["source_dev_inputs"],"target_inputs":result["physics"]["target_inputs"],
+        "determinism_passed":result["determinism"]["passed"],"determinism_mismatches":result["determinism"]["mismatch_count"],
+        "source_isolation_passed":result["source_isolation"]["passed"],"written":result["written"]}))
+    if not (result["physics"]["passed"] and result["determinism"]["passed"] and result["source_isolation"]["passed"]):
+        raise typer.Exit(1)
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]

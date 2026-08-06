@@ -1,0 +1,16 @@
+{
+  "bank_id": "prism_recipe_bank_m7_v1",
+  "bank_seed": 20260806,
+  "credential_used": false,
+  "external_llm_invoked": false,
+  "model_id": "deterministic-source-only-recipe-generator",
+  "network_access": false,
+  "ontology_sha256": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "ontology_version": "m7-ontology-v1",
+  "policy": "offline deterministic structured generation; prompt.txt is the frozen contract a future pinned LLM provider would receive, and was not sent anywhere in M7",
+  "provider": "deterministic_local",
+  "recipe_schema_version": "1.1",
+  "requested_recipe_count": 128,
+  "revision": "m7-v1",
+  "seed_derivation": "sha256(bank_id|recipe_id|bank_seed|'generator'|index) -> PCG64"
+}

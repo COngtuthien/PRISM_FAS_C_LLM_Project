@@ -1,0 +1,55 @@
+# M7 CPU physics engine and preview/audit configuration.
+#
+# The preview is an audit artifact, not the M8 quality-gated synthetic bank:
+# no quality score, no accept/reject manifest and no GPAT route run here.
+physics_schema_version: "m7-physics-v1"
+engine_version: "m7-physics-v1"
+mask_policy_version: "m7-mask-v1"
+device: cpu          # M7 never uses a GPU, Modal or SSH
+
+# Fixed operator application order. Must equal
+# prism_fas.synthesis.operators.OPERATOR_APPLICATION_ORDER; a focused test locks
+# the two together so the graph hash cannot drift from this file.
+operator_application_order:
+  - texture_smoothing
+  - halftone
+  - pixel_grid
+  - moire
+  - color_shift
+  - specular_reflection
+  - boundary_inconsistency
+  - blur
+
+masks:
+  policy: parsing_first_geometry_fallback
+  min_parsing_pixels: 24
+  coverage_tolerance: 0.05
+
+preview:
+  # Deterministic source-only selection. source_dev and target_test are never
+  # opened by this command.
+  split: source_train
+  label: live
+  datasets: ["casia_fasd", "msu_mfsd"]
+  samples_per_dataset: 16
+  recipes_per_sample: 2
+  expected_preview_rows: 64
+  require_coverage:
+    media: 5
+    geometry_shapes: 6
+    regions: 9
+    operators: 8
+    illumination: 6
+
+outputs:
+  report_root: "reports/m7"
+  previews_dir: "previews"
+  image_format: png
+  mask_format: png
+  strength_map_format: npz
+
+invariants:
+  outside_mask_max_abs_error: 0.0
+  require_non_empty_mask: true
+  require_finite_outputs: true
+  require_unit_range: true

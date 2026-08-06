@@ -1,0 +1,4 @@
+# Frozen scientific artifacts must keep LF endings on every platform: a recipe
+# bank's identity is a hash over its exact text, and a CRLF checkout would make
+# the committed bank differ from the bank the builder reproduces.
+assets/recipe_banks/** text eol=lf

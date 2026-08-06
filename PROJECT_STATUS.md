@@ -1,7 +1,8 @@
 # Project status
 
-- Current milestone: **M6 COMPLETED** — Modal wrapper and local/GPU parity smoke. M7 is NOT STARTED.
-- M0–M6: COMPLETED; M7: NOT STARTED.
+- Current milestone: **M7 COMPLETED** — source-only recipe schema/compiler, frozen deterministic recipe
+  bank and CPU physics engine with exact masks. M8 is NOT STARTED.
+- M0–M7: COMPLETED; M8: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
@@ -71,7 +72,7 @@ Generated packages are git-ignored and are not pushed to GitHub.
 | siw_mv2 | target | 785 | 3140 | 3140 | 0 |
 | **Total** | | **1665** | **6660** | **6659** | **1** |
 
-left shield left shield left shield one seminar thecrops 3519`, `target_frames 3140`,
+Manifest counts: `source_frames 3519`, `source_crops 3519`, `target_frames 3140`,
 `target_crops 3140`, `preprocessing_failures 1`; 6659 crop files on disk.
 
 Reconciliation: `selected = successful + failed` and `successful = source_crops + target_crops`.
@@ -100,7 +101,48 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M7 — recipe compiler and physics engine (NOT STARTED).
+- Next milestone: M8 — GPAT, quality gate and versioned synthetic bank (NOT STARTED).
+
+## M7 recipe compiler and physics engine
+
+Strict recipe schema **v1.1** (`recipe_id`, `medium`, `geometry`, `regions`, `artifacts`, `capture`,
+`forbidden_shortcuts`, `generator_route`, `seed`, `schema_version`; unknown keys rejected). Ontology
+`m7-ontology-v1`, SHA-256 `90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd`, holds
+every allowed value, safe range, medium/artifact and geometry/region compatibility table and the
+alias map. Engineering safety defaults: max 3 artifacts, max 3 regions, max total artifact strength
+1.0.
+
+| Item | Value |
+|---|---|
+| Frozen bank | `assets/recipe_banks/prism_recipe_bank_m7_v1` (`status = frozen`) |
+| Bank content identity | `fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb` |
+| Recipes | 128 (`R-000001`–`R-000128`), bank seed `20260806`, 0 duplicate recipe or graph hashes |
+| Generator | `deterministic_local` / `deterministic-source-only-recipe-generator` / `m7-v1`; **no external LLM, no network, no credential** |
+| Compiler | `m7-compiler-v1`, graph schema `m7-graph-v1`, 128/128 compile, 128 unique graph hashes |
+| Conditioning | `recipe_conditioning_v1`, fixed **41** float32 dims (5+6+9+8+6+5+2) |
+| Coverage | all 5 media, 6 geometries, 9 regions, 8 artifacts, 6 illuminations; physics route in every recipe; artifact counts 1/2/3 and single- and multi-region all present |
+| Diversity | offline TF-IDF cosine (no text model, no network): max pairwise 0.4875, mean 0.2436, thresholds 0.98 / 0.90 |
+
+Physics: nine deterministic semantic-region masks (parsing-first, geometry-fallback, mask policy
+`m7-mask-v1`) and all eight operators — halftone, pixel_grid, moire, specular_reflection,
+texture_smoothing, color_shift, boundary_inconsistency, blur — on CPU with local PCG64 generators
+only.
+
+| Real audit stage | Result |
+|---|---|
+| Preview rows | 64 = 32 source_train live samples x 2 recipes |
+| Inputs | 16 CASIA + 16 MSU source_train live; source_dev 0; target 0 |
+| Outside-mask max abs error | **exactly 0.0** on every one of the 64 outputs |
+| Masks | no empty masks; every preview changed pixels inside the mask |
+| Exercised | 8/8 operators, 9/9 regions, 5/5 media, 6/6 geometries, 6/6 illuminations |
+| Determinism rerun | 2 independent reruns, **0 mismatches**; identical image/mask/strength/graph hashes |
+| Seed sensitivity | changing only the recipe seed changed the graph hash and the output (max abs diff 0.2542) |
+| Frozen-bank rebuild | `reused`, 0 files written, BANK_LOCK unchanged |
+| Package | `prism_data_v1_m3b` identity unchanged and never written |
+
+Device **CPU**; no Modal job, no GPU and no SSH were used in M7. The previews are audit artifacts,
+not quality-gated attacks: the M8 quality gate has not run. M8 (GPAT, quality gate, versioned
+synthetic bank) is NOT STARTED.
 
 ## M6 Modal wrapper and parity
 

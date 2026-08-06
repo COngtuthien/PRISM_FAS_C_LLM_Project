@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M6 complete; M7 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M7 complete; M8 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -141,6 +141,41 @@ python -m modal run modal_app.py --stage inference   # frozen-calibration infere
 Volume names and mounts live in `configs/data/../cloud/modal_m6.yaml`; no credentials or local
 paths are committed. M6 verifies execution-contract and numerical smoke parity, not equality of
 complete training trajectories.
+
+## M7 recipe compiler and physics engine
+
+A recipe is a strict, dataset-agnostic description of presentation physics (schema **v1.1**). The
+ontology in `configs/recipes/ontology_m7.yaml` owns every allowed value, safe range and compatibility
+rule; the compiler turns a validated recipe into a deterministic operator graph, a region-mask policy
+and a fixed 41-dimension conditioning vector. The frozen bank of 128 recipes is committed under
+`assets/recipe_banks/prism_recipe_bank_m7_v1/` and was produced by an **offline deterministic
+generator** — no external LLM, network call or credential is involved, and `prompt.txt` is frozen
+alongside it as the contract a future pinned provider would receive.
+
+```bash
+python -m prism_fas.cli.main recipe build-bank \
+  --ontology configs/recipes/ontology_m7.yaml --config configs/recipes/bank_m7.yaml \
+  --output assets/recipe_banks/prism_recipe_bank_m7_v1
+python -m prism_fas.cli.main recipe validate-bank --bank assets/recipe_banks/prism_recipe_bank_m7_v1
+python -m prism_fas.cli.main recipe compile-bank  --bank assets/recipe_banks/prism_recipe_bank_m7_v1
+
+python -m prism_fas.cli.main synthesis physics-audit \
+  --package-root data/processed/prism_data_v1_m3b \
+  --bank assets/recipe_banks/prism_recipe_bank_m7_v1 \
+  --config configs/synthesis/physics_m7.yaml --output reports/m7
+```
+
+Rebuilding an existing bank is a no-op; a destination holding a different lock is never overwritten.
+The physics engine applies the eight operators (halftone, pixel grid, moire, specular reflection,
+texture smoothing, colour shift, boundary inconsistency, blur) on CPU inside deterministic
+nine-region masks and composites exactly, so `max |output − input|` outside the exact edit mask is
+**0**. Region mask rules are documented in
+[docs/M7_REGION_MASK_MAPPING.md](docs/M7_REGION_MASK_MAPPING.md).
+
+The audit preview runs on 32 real `source_train` **live** samples only (16 CASIA + 16 MSU); it never
+opens `source_dev` or `target_test`, and uses no Modal, GPU or SSH. Its outputs under `reports/m7/`
+are git-ignored preview/audit artifacts, **not** quality-gated attacks — the M8 quality gate has not
+run.
 
 ## What is not in this repository
 

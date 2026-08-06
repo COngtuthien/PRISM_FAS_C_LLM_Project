@@ -36,6 +36,9 @@ secrets.*
 # ---------------------------------------------------------------------------
 *.parquet
 *.jsonl
+# Frozen recipe banks are small scientific configuration artifacts, not
+# generated data: their recipes.jsonl is committed on purpose.
+!assets/recipe_banks/**/*.jsonl
 *.onnx
 *.pt
 *.pth

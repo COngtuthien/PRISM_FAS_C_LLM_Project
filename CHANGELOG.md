@@ -1,5 +1,40 @@
 # Changelog
 
+## M7 Recipe Compiler and Physics Engine — 2026-08-06
+
+- Added `src/prism_fas/recipes/`: strict recipe schema v1.1 (extra keys forbidden), the source-only
+  ontology loader with alias canonicalization and leakage scanning, canonical JSON/hashing, twelve-stage
+  validation, the deterministic compiler `m7-compiler-v1`, the fixed 41-dimension conditioning contract
+  `recipe_conditioning_v1`, the offline structured generator, the frozen-bank builder/validator and the
+  coverage/diversity audit.
+- Added `src/prism_fas/synthesis/`: `RegionMaskBuilder` (parsing-first, geometry-fallback nine-region
+  masks), the eight physics operators, the CPU `PhysicsEngine` with exact-support compositing, and the
+  real source-only preview/determinism/isolation audit.
+- Added `configs/recipes/ontology_m7.yaml`, `configs/recipes/bank_m7.yaml`,
+  `configs/synthesis/physics_m7.yaml`, `scripts/m7_physics_audit.py`, four CLI commands
+  (`recipe build-bank|validate-bank|compile-bank`, `synthesis physics-audit`) and
+  `docs/M7_REGION_MASK_MAPPING.md`.
+- Committed the frozen bank `assets/recipe_banks/prism_recipe_bank_m7_v1/` — 128 recipes, bank seed
+  20260806, content identity `fa989938cafdc488…`, produced by an offline deterministic generator with
+  **no external LLM, network access or credential**. `.gitignore` now exempts
+  `assets/recipe_banks/**/*.jsonl` from the blanket `*.jsonl` rule.
+- Verified the LaPa parsing semantics against the real M3B priors before writing mask code: class 8
+  (inner mouth) is present on only 25/80 sampled live priors and class 5 (right eye) on 72/80, which is
+  why the geometry fallback exists rather than being decorative.
+- Fixed a motion-blur defect found by a focused test: integer-rounded tap offsets collapsed short
+  streaks onto identical lattice shifts and silently discarded the motion angle. Taps are now sampled
+  with bilinear sub-pixel interpolation.
+- Fixed the bank validation report leaking an absolute machine path (`root`) into a written audit
+  artifact; it now reports only the bank directory name, and the isolation scan covers all 69 written
+  artifacts including every per-preview metadata file.
+- Ran the real audit on CPU: 64 previews from 32 `source_train` live samples (16 CASIA + 16 MSU),
+  outside-mask max abs error exactly 0.0 on every output, all 8 operators / 9 regions / 5 media /
+  6 geometries / 6 illuminations exercised, two determinism reruns with 0 mismatches, and a frozen-bank
+  rebuild that wrote nothing. No source_dev, no target data, no Modal, no GPU, no SSH.
+- Repaired an M3-era corrupted line in `PROJECT_STATUS.md` ("left shield left shield …") back to the
+  intended manifest-count sentence. Documentation-only; no data or result changed.
+- Tests: 465 passed, 0 failed, 0 skipped (was 363).
+
 ## M6 Modal Wrapper and Parity Smoke — 2026-08-06
 
 - Added `modal_app.py` and `src/prism_fas/cloud/` (config guards, parity comparators, parity fixture

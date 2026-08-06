@@ -9,7 +9,7 @@
 | M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | **completed** |
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | **completed** |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | **completed** |
-| M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | planned |
+| M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | planned |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | model modules/tests | loss checks | planned |
 | M10 | Experiment matrix and report | experiments/tests | reproducible report | planned |
@@ -110,4 +110,23 @@ M5 is COMPLETED.
 | Inference parity under frozen calibration | COMPLETED |
 | Reusable Modal training entrypoint (not run fully) | COMPLETED |
 
-M6 is COMPLETED. Next milestone: M7 — recipe compiler and physics engine (NOT STARTED).
+M6 is COMPLETED.
+
+## M7 components (completed)
+
+| Component | Status |
+|---|---|
+| Strict recipe schema v1.1 (unknown keys rejected) | COMPLETED |
+| Source-only ontology `m7-ontology-v1` with visible compatibility tables | COMPLETED |
+| Rule validation, severity budget and source-only leakage guards | COMPLETED |
+| Deterministic recipe compiler `m7-compiler-v1` | COMPLETED |
+| Fixed 41-dimension conditioning contract `recipe_conditioning_v1` | COMPLETED |
+| Frozen 128-recipe bank `prism_recipe_bank_m7_v1` with BANK_LOCK | COMPLETED |
+| Offline coverage and TF-IDF diversity audit (no external text model) | COMPLETED |
+| Deterministic nine-region mask builder (parsing-first, geometry-fallback) | COMPLETED |
+| All eight physics operators | COMPLETED |
+| CPU physics engine with exact outside-mask preservation | COMPLETED |
+| Real 64-preview source_train-live audit (16 CASIA + 16 MSU) | COMPLETED |
+| Determinism rerun with zero mismatches | COMPLETED |
+
+M7 is COMPLETED. Next milestone: M8 — GPAT, quality gate and versioned synthetic bank (NOT STARTED).

@@ -1,0 +1,75 @@
+PRISM-FAS-B source-only attack recipe generation contract
+ontology_version: m7-ontology-v1
+ontology_sha256: 90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd
+recipe_schema_version: 1.1
+
+ROLE
+Emit structured presentation-attack recipes describing general physical
+properties of a re-presented face surface. Emit JSON only.
+
+HARD CONSTRAINTS
+1. One JSON object per line. No prose, no markdown, no code fence.
+2. Exactly these top-level keys, no others: recipe_id, medium, geometry,
+   regions, artifacts, capture, forbidden_shortcuts, generator_route, seed,
+   schema_version.
+3. recipe_id matches ^R-[0-9]{6}$ and is unique.
+4. schema_version is exactly "1.1".
+5. seed is an integer in [0, 2147483647].
+6. You never see, name or infer any evaluation/target dataset, attack
+   taxonomy, file path, subject identity or model performance number.
+   Recipes are dataset-agnostic descriptions of physics.
+7. At most 3 artifacts and 3 regions per recipe; artifact names and
+   region names are unique within a recipe; regions use the canonical order below.
+8. The sum of artifact strengths never exceeds 1.0.
+9. Every artifact must be compatible with the chosen medium and every region
+   compatible with the chosen geometry (tables below).
+10. generator_route is a non-empty unique subset of ['physics', 'gpat'] and must contain "physics".
+
+VOCABULARY
+medium.family: ['paper-like', 'display-like', 'plastic-like', 'fabric-like', 'reflective-film-like']
+geometry.shape: ['flat', 'curved', 'partial-curved', 'flexible', 'rigid', 'boundary-only']
+regions (canonical order): ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+artifacts[].name: ['halftone', 'pixel_grid', 'moire', 'specular_reflection', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+capture.illumination: ['front', 'left', 'right', 'top', 'bottom', 'mixed']
+forbidden_shortcuts: ['always_moire', 'always_halftone']
+
+RANGES
+medium.transparency {'min': 0.0, 'max': 1.0}
+medium.roughness {'min': 0.0, 'max': 1.0}
+geometry.rigidity {'min': 0.0, 'max': 1.0}
+geometry.coverage {'min': 0.1, 'max': 1.0}
+capture.yaw {'min': -45.0, 'max': 45.0}
+capture.compression_q {'min': 30.0, 'max': 100.0} (integer)
+capture.scale {'min': 0.75, 'max': 1.25}
+capture.motion {'min': 0.0, 'max': 1.0}
+capture.defocus {'min': 0.0, 'max': 1.0}
+artifact strength safe bands:
+  halftone: {'min': 0.05, 'max': 0.6}
+  pixel_grid: {'min': 0.05, 'max': 0.55}
+  moire: {'min': 0.05, 'max': 0.5}
+  specular_reflection: {'min': 0.05, 'max': 0.65}
+  texture_smoothing: {'min': 0.05, 'max': 0.6}
+  color_shift: {'min': 0.05, 'max': 0.45}
+  boundary_inconsistency: {'min': 0.05, 'max': 0.5}
+  blur: {'min': 0.05, 'max': 0.55}
+
+MEDIUM / ARTIFACT COMPATIBILITY
+  paper-like: ['halftone', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+  display-like: ['pixel_grid', 'moire', 'specular_reflection', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+  plastic-like: ['specular_reflection', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+  fabric-like: ['halftone', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+  reflective-film-like: ['specular_reflection', 'moire', 'texture_smoothing', 'color_shift', 'boundary_inconsistency', 'blur']
+
+GEOMETRY / REGION COMPATIBILITY
+  flat: ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+  curved: ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+  partial-curved: ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+  flexible: ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+  rigid: ['left_eye', 'right_eye', 'nose', 'mouth', 'forehead', 'left_cheek', 'right_cheek', 'face_boundary', 'context']
+  boundary-only: ['face_boundary', 'context']
+
+EXAMPLE OUTPUT LINE
+{"artifacts":[{"name":"halftone","parameters":{},"strength":0.5864}],"capture":{"compression_q":42,"defocus":0.757,"illumination":"front","motion":0.466,"scale":0.808,"yaw":30.5},"forbidden_shortcuts":["always_moire"],"generator_route":["physics","gpat"],"geometry":{"coverage":0.4873,"rigidity":0.2734,"shape":"flat"},"medium":{"family":"paper-like","roughness":0.6701,"transparency":0.4417},"recipe_id":"R-000001","regions":["left_eye"],"schema_version":"1.1","seed":717714041}
+
+EXAMPLE PLAIN DESCRIPTION (for reference only, never emit prose)
+paper-like medium with transparency 0.44 and roughness 0.67 in flat geometry with rigidity 0.27 covering 0.49 of regions left_eye showing halftone at strength 0.59 captured at yaw 30.5 with front illumination compression 42 scale 0.81 motion 0.47 defocus 0.76 via physics gpat

@@ -1,0 +1,189 @@
+# PRISM-FAS-B M7 source-only attack ontology.
+#
+# Every allowed value, range and compatibility rule lives in this file so that
+# the rules are auditable in one place instead of being spread across Python
+# conditionals. The ontology is derived only from general physical properties of
+# presentation media. It is NOT derived from SiW-Mv2 files, target labels,
+# target attack names, target images or source_dev performance.
+ontology_version: "m7-ontology-v1"
+recipe_schema_version: "1.1"
+
+media: ["paper-like", "display-like", "plastic-like", "fabric-like", "reflective-film-like"]
+geometry_shapes: ["flat", "curved", "partial-curved", "flexible", "rigid", "boundary-only"]
+# Canonical nine-region set. Left/right are IMAGE-space (viewer) sides, matching
+# the M3B parsing/visibility convention.
+regions: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+artifacts: ["halftone", "pixel_grid", "moire", "specular_reflection", "texture_smoothing", "color_shift",
+            "boundary_inconsistency", "blur"]
+illumination: ["front", "left", "right", "top", "bottom", "mixed"]
+routes: ["physics", "gpat"]
+forbidden_shortcuts: ["always_moire", "always_halftone"]
+
+limits:
+  # Fixed M7 engineering safety defaults. These are not values tuned on
+  # source_dev or on any target data; see DECISIONS.md.
+  min_artifacts_per_recipe: 1
+  max_artifacts_per_recipe: 3
+  min_regions_per_recipe: 1
+  max_regions_per_recipe: 3
+  max_total_artifact_strength: 1.0
+  seed_min: 0
+  seed_max: 2147483647
+  recipe_id_pattern: "^R-[0-9]{6}$"
+
+medium_ranges:
+  transparency: {min: 0.0, max: 1.0}
+  roughness: {min: 0.0, max: 1.0}
+
+geometry_ranges:
+  rigidity: {min: 0.0, max: 1.0}
+  # Safe coverage band: a recipe never asks for less than 10% of its requested
+  # region union, so a mask can never collapse to nothing.
+  coverage: {min: 0.10, max: 1.0}
+
+capture_ranges:
+  yaw: {min: -45.0, max: 45.0}
+  compression_q: {min: 30, max: 100}
+  scale: {min: 0.75, max: 1.25}
+  motion: {min: 0.0, max: 1.0}
+  defocus: {min: 0.0, max: 1.0}
+
+# Per-artifact safe strength band. The physics operators are only validated for
+# strengths inside these bands; validation rejects anything outside.
+artifact_strength_ranges:
+  halftone: {min: 0.05, max: 0.60}
+  pixel_grid: {min: 0.05, max: 0.55}
+  moire: {min: 0.05, max: 0.50}
+  specular_reflection: {min: 0.05, max: 0.65}
+  texture_smoothing: {min: 0.05, max: 0.60}
+  color_shift: {min: 0.05, max: 0.45}
+  boundary_inconsistency: {min: 0.05, max: 0.50}
+  blur: {min: 0.05, max: 0.55}
+
+# Documented optional per-artifact operator overrides. A recipe may set
+# `artifacts[].parameters` only with keys listed here, and only inside these
+# bands; anything else is rejected rather than dropped. When a key is absent the
+# operator derives the value deterministically from its local seed and capture.
+artifact_parameter_ranges:
+  halftone.screen_frequency: {min: 0.02, max: 0.30}
+  halftone.screen_angle_deg: {min: 0.0, max: 180.0}
+  pixel_grid.period_px: {min: 2.0, max: 8.0}
+  moire.frequency_ratio: {min: 1.02, max: 1.40}
+  specular_reflection.sigma_ratio: {min: 0.05, max: 0.45}
+  texture_smoothing.sigma_px: {min: 0.5, max: 4.0}
+  color_shift.temperature: {min: -1.0, max: 1.0}
+  boundary_inconsistency.band_px: {min: 1.0, max: 8.0}
+  blur.sigma_px: {min: 0.3, max: 3.5}
+
+# Which artifacts a medium can physically produce.
+#   paper-like            printed ink -> halftone screens, no emissive pixel grid
+#   display-like          emissive panel -> pixel grid and moire, no ink halftone
+#   plastic-like          moulded mask -> specular highlights, smoothed texture
+#   fabric-like           woven cloth -> printed screen, heavy smoothing
+#   reflective-film-like  film overlay -> specular and interference patterns
+medium_artifact_compatibility:
+  paper-like: ["halftone", "texture_smoothing", "color_shift", "boundary_inconsistency", "blur"]
+  display-like: ["pixel_grid", "moire", "specular_reflection", "texture_smoothing", "color_shift",
+                 "boundary_inconsistency", "blur"]
+  plastic-like: ["specular_reflection", "texture_smoothing", "color_shift", "boundary_inconsistency", "blur"]
+  fabric-like: ["halftone", "texture_smoothing", "color_shift", "boundary_inconsistency", "blur"]
+  reflective-film-like: ["specular_reflection", "moire", "texture_smoothing", "color_shift",
+                         "boundary_inconsistency", "blur"]
+
+# Which regions a geometry can cover. A boundary-only medium sits at the edge of
+# the face, so it can never claim an interior semantic region.
+geometry_region_compatibility:
+  flat: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+  curved: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+  partial-curved: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+  flexible: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+  rigid: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek", "face_boundary", "context"]
+  boundary-only: ["face_boundary", "context"]
+
+# Free-text synonyms a future LLM provider may emit. The compiler canonicalizes
+# them; the frozen bank stores canonical values only.
+aliases:
+  media:
+    paper: "paper-like"
+    print: "paper-like"
+    printed-paper: "paper-like"
+    screen: "display-like"
+    display: "display-like"
+    monitor: "display-like"
+    plastic: "plastic-like"
+    mask: "plastic-like"
+    cloth: "fabric-like"
+    fabric: "fabric-like"
+    film: "reflective-film-like"
+    reflective-film: "reflective-film-like"
+  geometry_shapes:
+    planar: "flat"
+    bent: "curved"
+    partial curved: "partial-curved"
+    partially-curved: "partial-curved"
+    soft: "flexible"
+    stiff: "rigid"
+    boundary only: "boundary-only"
+    edge-only: "boundary-only"
+  regions:
+    eyes: ["left_eye", "right_eye"]
+    cheeks: ["left_cheek", "right_cheek"]
+    left eye: ["left_eye"]
+    right eye: ["right_eye"]
+    left cheek: ["left_cheek"]
+    right cheek: ["right_cheek"]
+    face boundary: ["face_boundary"]
+    boundary: ["face_boundary"]
+    background: ["context"]
+    lips: ["mouth"]
+    brow: ["forehead"]
+  artifacts:
+    reflection: "specular_reflection"
+    specular: "specular_reflection"
+    highlight: "specular_reflection"
+    pixel-grid: "pixel_grid"
+    pixel grid: "pixel_grid"
+    screen-door: "pixel_grid"
+    moire pattern: "moire"
+    interference: "moire"
+    smoothing: "texture_smoothing"
+    texture smoothing: "texture_smoothing"
+    color cast: "color_shift"
+    colour_shift: "color_shift"
+    boundary inconsistency: "boundary_inconsistency"
+    seam: "boundary_inconsistency"
+    defocus: "blur"
+    halftone dots: "halftone"
+  illumination:
+    side: "mixed"
+    frontal: "front"
+    left-side: "left"
+    right-side: "right"
+    above: "top"
+    below: "bottom"
+
+# Any of these substrings appearing anywhere in a recipe's canonical JSON is a
+# leak: target dataset identity, raw dataset paths, private metadata or machine
+# paths. Recipes describe physics only and are dataset-agnostic.
+forbidden_tokens:
+  - "siw"
+  - "siw_mv2"
+  - "siw-mv2"
+  - "target_test"
+  - "target_dev"
+  - "casia"
+  - "casia_fasd"
+  - "msu"
+  - "msu_mfsd"
+  - "subject_id"
+  - "official_split"
+  - "data/work"
+  - "data/processed"
+  - "dataset/"
+  - "model_cache"
+  - "paths.local"
+forbidden_token_patterns:
+  - "[A-Za-z]:[\\\\/]"
+  - "/home/"
+  - "/Users/"
+  - "\\.\\./"

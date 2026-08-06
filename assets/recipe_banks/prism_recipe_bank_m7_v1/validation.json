@@ -1,0 +1,23 @@
+{
+  "bank_id": "prism_recipe_bank_m7_v1",
+  "duplicate_recipe_ids": [],
+  "issue_count": 0,
+  "issues": [],
+  "passed": true,
+  "recipe_count": 128,
+  "stages": [
+    "schema",
+    "canonical",
+    "medium_artifact",
+    "geometry_region",
+    "strength_range",
+    "severity",
+    "duplicate",
+    "route",
+    "shortcut",
+    "leakage",
+    "serialization",
+    "hash"
+  ],
+  "unique_recipe_hashes": 128
+}

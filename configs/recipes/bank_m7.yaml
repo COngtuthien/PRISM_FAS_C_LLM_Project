@@ -1,0 +1,35 @@
+# M7 frozen recipe-bank build configuration.
+#
+# The bank is generated offline by the deterministic structured generator in
+# `prism_fas.recipes.generate`. No API key, hosted model or network access is
+# involved; `prompt.txt` is frozen alongside the bank as the contract a future
+# pinned LLM provider would receive.
+bank_schema_version: "m7-bank-v1"
+bank_id: "prism_recipe_bank_m7_v1"
+recipe_count: 128
+bank_seed: 20260806
+ontology: "configs/recipes/ontology_m7.yaml"
+output_root: "assets/recipe_banks/prism_recipe_bank_m7_v1"
+
+generator:
+  provider: "deterministic_local"
+  model_id: "deterministic-source-only-recipe-generator"
+  revision: "m7-v1"
+  external_llm_invoked: false
+  network_access: false
+
+required_coverage:
+  every_medium: true
+  every_geometry: true
+  every_region: true
+  every_artifact: true
+  every_illumination: true
+  physics_route_in_every_recipe: true
+  single_and_multi_region: true
+  artifact_counts: [1, 2, 3]
+
+diversity:
+  method: "offline_tfidf_cosine_v1"
+  external_text_model: false
+  max_pairwise_cosine: 0.98
+  mean_pairwise_cosine: 0.90
