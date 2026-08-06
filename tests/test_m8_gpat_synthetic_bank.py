@@ -702,6 +702,9 @@ def test_real_quality_calibration_report_contract():
 # --- candidate plan ----------------------------------------------------------
 
 GPAT_BEST_SHA = "2047cdb513767010cfdf368c6f53a3664922451c56e1e837ec59cb96918a5b63"
+CANDIDATE_PLAN_IDENTITY = "b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67abfc8890f40b8"
+THRESHOLD_SHA = "4798a392243c85f89b37a14dc51958637d4ae177756bf88f693804f065c4c297"
+FINGERPRINT_REFERENCE_SHA = "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
 
 
 def _plan():
@@ -794,3 +797,813 @@ def test_m7_physics_config_was_not_modified_by_m8():
     assert "candidate_recipes_per_live" not in text
     bank = (ROOT / "configs" / "synthesis" / "synthetic_bank_m8.yaml").read_text(encoding="utf-8")
     assert "candidate_recipes_per_live" in bank
+
+
+# --- M8 discrete uint8 output ------------------------------------------------
+from prism_fas.synthesis.synthetic_bank import (ARTIFACT_MAP_KEY, BANK_LOCK_SCHEMA_VERSION,  # noqa: E402
+                                                CANDIDATE_RECORD_SCHEMA_VERSION, DISCRETE_CONVENTION,
+                                                MANIFEST_SCHEMAS, SyntheticBankError, _sanitize,
+                                                applied_strength_map, assemble_bank, check_operational_minimums,
+                                                decode_npz, decode_png, encode_npz, encode_png,
+                                                finalize_discrete, from_uint8, load_manifest,
+                                                record_is_reusable, to_uint8)
+from prism_fas.synthesis.synthetic_shards import (MEMBER_SUFFIXES, TAR_MTIME, build_shard_bytes,  # noqa: E402
+                                                  build_shards, index_digest, load_shards_index,
+                                                  shard_member_metadata, validate_shards, write_shards_index)
+
+SIZE = 224
+
+
+def _live(seed=7):
+    rng = np.random.default_rng(seed)
+    return (rng.integers(0, 256, size=(3, SIZE, SIZE)).astype(np.float32) / 255.0).astype(np.float32)
+
+
+def _support(top=40, bottom=100, left=30, right=90):
+    mask = np.zeros((SIZE, SIZE), dtype=bool)
+    mask[top:bottom, left:right] = True
+    return mask
+
+
+def test_uint8_conversion_is_round_half_up_and_clipped():
+    values = np.zeros((3, 2, 2), dtype=np.float32)
+    values[0] = np.asarray([[0.0, 1.0], [0.5 / 255.0, 1.5 / 255.0]], dtype=np.float32)
+    out = to_uint8(values)
+    assert out.dtype == np.uint8 and out.shape == (2, 2, 3)
+    assert out[0, 0, 0] == 0 and out[0, 1, 0] == 255
+    # an exact .5 rounds up, never to-even
+    assert out[1, 0, 0] == 1 and out[1, 1, 0] == 2
+    assert DISCRETE_CONVENTION == "round_half_up_clip_0_255"
+
+
+def test_uint8_round_trip_is_exact_for_package_style_floats():
+    original = _live()
+    assert np.array_equal(to_uint8(from_uint8(to_uint8(original))), to_uint8(original))
+    assert np.allclose(from_uint8(to_uint8(original)), original, atol=1e-6)
+
+
+def test_finalize_composites_outside_the_requested_support():
+    original, support = _live(), _support()
+    generated = np.clip(original + 0.2, 0.0, 1.0).astype(np.float32)     # changed everywhere
+    result = finalize_discrete(generated, original, support, np.full((1, SIZE, SIZE), 0.3, np.float32))
+    outside = ~support
+    assert np.array_equal(result.image_uint8[outside], result.original_uint8[outside])
+    assert result.outside_mask_max_error == 0
+
+
+def test_exact_mask_is_the_actual_changed_pixels_not_the_request():
+    original, support = _live(), _support()
+    generated = original.copy()
+    generated[:, 50:60, 40:50] = np.clip(generated[:, 50:60, 40:50] + 0.5, 0, 1)   # a strict sub-region
+    result = finalize_discrete(generated, original, support, np.full((1, SIZE, SIZE), 0.3, np.float32))
+    assert 0 < result.exact_mask_pixels < int(support.sum())
+    assert int((result.exact_edit_mask & ~support).sum()) == 0
+    changed = np.any(result.image_uint8 != result.original_uint8, axis=2)
+    assert np.array_equal(result.exact_edit_mask, changed)
+
+
+def test_sub_quantization_change_yields_an_empty_exact_mask():
+    """An artifact too weak to survive uint8 rounding is never silently counted."""
+    from prism_fas.synthesis.quality_gate import support_overlap
+    original, support = _live(), _support()
+    generated = (original + np.float32(1.0 / 4096.0)).astype(np.float32)
+    result = finalize_discrete(generated, original, support, np.zeros((1, SIZE, SIZE), np.float32))
+    assert result.exact_mask_pixels == 0
+    assert support_overlap(result.exact_edit_mask, support) == 0.0
+    assert result.outside_mask_max_error == 0
+
+
+def test_saved_png_reverifies_and_masks_hold_only_0_and_255():
+    original, support = _live(), _support()
+    generated = np.clip(original + 0.25, 0, 1).astype(np.float32)
+    result = finalize_discrete(generated, original, support, np.full((1, SIZE, SIZE), 0.4, np.float32))
+    decoded = decode_png(result.image_png)
+    assert decoded.shape == (SIZE, SIZE, 3) and np.array_equal(decoded, result.image_uint8)
+    mask = decode_png(result.mask_png)
+    assert mask.shape == (SIZE, SIZE) and set(np.unique(mask).tolist()) <= {0, 255}
+    assert np.array_equal(mask == 255, result.exact_edit_mask)
+
+
+def test_artifact_map_is_float16_and_exactly_zero_outside_the_exact_mask():
+    original, support = _live(), _support()
+    generated = np.clip(original + 0.25, 0, 1).astype(np.float32)
+    result = finalize_discrete(generated, original, support, np.full((1, SIZE, SIZE), 0.37, np.float32))
+    array = decode_npz(result.artifact_map_npz, ARTIFACT_MAP_KEY)
+    assert array.dtype == np.float16 and array.shape == (1, SIZE, SIZE)
+    values = np.asarray(array, dtype=np.float32)
+    assert np.isfinite(values).all() and values.min() >= 0.0 and values.max() <= 1.0
+    assert float(np.abs(values[0][~result.exact_edit_mask]).max()) == 0.0
+
+
+def test_npz_bytes_are_deterministic_and_load_without_pickle():
+    array = np.linspace(0, 1, SIZE * SIZE, dtype=np.float16).reshape(1, SIZE, SIZE)
+    first, second = encode_npz({ARTIFACT_MAP_KEY: array}), encode_npz({ARTIFACT_MAP_KEY: array})
+    assert first == second                      # no wall clock stamped into the zip entries
+    assert np.array_equal(decode_npz(first), array)
+
+
+def test_finalize_rejects_a_non_finite_generated_image():
+    original, support = _live(), _support()
+    broken = original.copy(); broken[0, 0, 0] = np.nan
+    with pytest.raises(SyntheticBankError):
+        finalize_discrete(broken, original, support, np.zeros((1, SIZE, SIZE), np.float32))
+
+
+def test_failure_reasons_are_sanitized_of_absolute_paths():
+    assert "D:" not in _sanitize(r"failed reading D:\AI on IOT\dataset\x.png")
+    assert "<path>" in _sanitize(r"failed reading D:\AI on IOT\dataset\x.png")
+    assert "/home/" not in _sanitize("failed reading /home/user/secret/x.png")
+
+
+def test_physics_artifact_map_is_in_requested_strength_units():
+    """M7's preview map is peak-normalized; the M8 map averages the applied
+    per-operator strengths so masked_mean == mean(strengths) == a_recipe."""
+    class _Node:
+        def __init__(self, name, strength): self.operator_name, self.strength = name, strength
+    class _Graph:
+        recipe_id = "rec"
+        nodes = [_Node("blur", 0.2), _Node("halftone", 0.4)]
+    class _Result:
+        per_operator_support_masks = {"blur": np.ones((1, 8, 8), np.float32),
+                                      "halftone": np.ones((1, 8, 8), np.float32)}
+    values = applied_strength_map(_Graph(), _Result())
+    assert values.shape == (1, 8, 8)
+    assert pytest.approx(float(values.mean()), abs=1e-6) == 0.3
+
+
+# --- M8 bank fixture ---------------------------------------------------------
+_THRESHOLDS_FIXTURE = {"tau_fd": 0.5, "tau_id": 0.99, "tau_lm": 0.01, "tau_parse": 0.8,
+                       "tau_out": 0.0, "tau_fp": 5.0}
+_FIXTURE_MINIMUMS = {"candidates": 12, "accepted_total": 4, "accepted_physics": 2, "accepted_gpat": 2,
+                     "accepted_live_casia": 2, "accepted_live_msu": 2, "require_all_artifact_types": 1,
+                     "require_all_regions": 1, "require_same_and_cross_domain_gpat": True}
+
+
+class _StubCalibration:
+    quality_models = {"identity": {"sha256": "a" * 64}}
+
+
+class _StubAudit:
+    @staticmethod
+    def report():
+        return {"source_train_opened": True, "source_dev_opened": False, "target_test_opened": False,
+                "target_label_artifact_opened": False, "raw_dataset_path_opened": False,
+                "manifests_opened": ["manifests/source_train.parquet"]}
+
+
+class _StubGenerator:
+    """Duck-typed stand-in for `SyntheticBankGenerator` during assembly.
+
+    Assembly only reads identity, config and already-written terminal records, so a
+    stub keeps these tests hermetic: no package, no weights, no network.
+    """
+    def __init__(self, work_root, plan_rows, identity, calibration_path, bank_config):
+        self.work_root, self.plan_rows, self._identity = work_root, plan_rows, identity
+        self.calibration_path, self.bank_config = calibration_path, bank_config
+        self.audit, self.calibration = _StubAudit(), _StubCalibration()
+        self.gpat_architecture_hash = "c" * 64
+        self.expected_pair_plan_identity = "d" * 64
+
+    def identity(self): return dict(self._identity)
+
+
+def _fixture_identity(**overrides):
+    identity = {"package_identity": "p" * 64, "recipe_bank_identity": "r" * 64,
+                "candidate_plan_identity": "n" * 64, "threshold_sha256": "t" * 64,
+                "fingerprint_reference_sha256": "f" * 64, "calibration_sha256": "l" * 64,
+                "generation_config_sha256": "g" * 64, "gpat_checkpoint_sha256": "k" * 64,
+                "physics_engine_version": "m7-physics-v1",
+                "generator_version": "m8-synthetic-generator-v1",
+                "discrete_convention": DISCRETE_CONVENTION}
+    identity.update(overrides)
+    return identity
+
+
+def _fixture_plan_row(index, identity):
+    route = "physics" if index % 2 == 0 else "gpat"
+    dataset = "casia_fasd" if index % 4 < 2 else "msu_mfsd"
+    return {"synthetic_id": f"syn_{index:024d}", "route": route, "slot": index % 2,
+            "live_target_sample_id": f"live_{index}", "live_target_dataset": dataset,
+            "live_target_record_id": f"rec_{index}",
+            "spoof_source_sample_id": None if route == "physics" else f"spoof_{index}",
+            "spoof_source_dataset": None if route == "physics" else "msu_mfsd",
+            "spoof_source_record_id": None if route == "physics" else f"srec_{index}",
+            "domain_relation": "not_applicable" if route == "physics" else
+                               ("same_domain" if dataset == "msu_mfsd" else "cross_domain"),
+            "recipe_id": f"rcp_{index % 3}", "recipe_seed": index, "candidate_seed": 20260806,
+            "generator_binding": identity["physics_engine_version"] if route == "physics"
+                                 else identity["gpat_checkpoint_sha256"],
+            "gpat_checkpoint_sha256": None if route == "physics" else identity["gpat_checkpoint_sha256"],
+            "physics_engine_version": "m7-physics-v1" if route == "physics" else None,
+            "package_identity": identity["package_identity"],
+            "recipe_bank_identity": identity["recipe_bank_identity"]}
+
+
+def _fixture_record(row, identity, work_root, *, state):
+    from prism_fas.utils.core import atomic_json_write
+    from prism_fas.synthesis.synthetic_bank import _relative_paths, _sample_metadata
+    index = int(row["synthetic_id"].removeprefix("syn_"))
+    original, support = _live(index + 1), _support()
+    generated = np.clip(original + 0.25, 0, 1).astype(np.float32)
+    discrete = finalize_discrete(generated, original, support, np.full((1, SIZE, SIZE), 0.3, np.float32))
+    failed = [] if state == "accepted" else ["identity"]
+    record = {"schema_version": CANDIDATE_RECORD_SCHEMA_VERSION, "synthetic_id": row["synthetic_id"],
+              "route": row["route"], "terminal_state": state, "identity": identity,
+              "plan": {name: row[name] for name in
+                       ("synthetic_id", "route", "slot", "live_target_sample_id", "live_target_dataset",
+                        "spoof_source_sample_id", "spoof_source_dataset", "domain_relation", "recipe_id",
+                        "candidate_seed", "generator_binding", "gpat_checkpoint_sha256",
+                        "physics_engine_version")},
+              "recipe": {"recipe_id": row["recipe_id"], "recipe_hash": "h" * 64, "graph_hash": "j" * 64,
+                         "artifact_types": ["halftone"], "regions": ["left_eye"],
+                         "requested_artifact_strength": 0.3},
+              "geometry": {"exact_mask_pixels": discrete.exact_mask_pixels,
+                           "requested_support_pixels": discrete.requested_support_pixels,
+                           "requested_region_pixels": discrete.requested_support_pixels,
+                           "requested_coverage": 1.0, "achieved_coverage": 1.0},
+              "quality": {"accepted": state == "accepted", "failed_gates": failed,
+                          "gates": {"identity": state == "accepted"},
+                          "quality_components": {name: 0.5 for name in
+                                                 ("q_fd", "q_id", "q_lm", "q_parse", "q_strength",
+                                                  "q_fp", "q_support")},
+                          "q": 0.5, "recipe_match": "not_applicable",
+                          "threshold_hash": identity["threshold_sha256"],
+                          "metrics": {"face_detection_score": 0.9, "identity_cosine": 0.999,
+                                      "landmark_nme": 0.001, "outside_mask_parsing_dice": 0.95,
+                                      "outside_mask_max_error": 0.0, "measured_artifact_strength": 0.3,
+                                      "requested_artifact_strength": 0.3, "fingerprint_score": 1.0,
+                                      "support_overlap": 1.0}},
+              "generation_trace": {"engine_version": "m7-physics-v1"}}
+    if state == "failed_generation":
+        record["failure"] = {"stage": "generate", "exception_type": "SyntheticBankError", "reason": "fixture"}
+        for key in ("quality", "recipe", "geometry"): record.pop(key)
+    elif state == "accepted":
+        paths = _relative_paths(row["synthetic_id"])
+        record["outputs"] = {**paths, "image_sha256": discrete.image_sha256,
+                             "mask_sha256": discrete.mask_sha256,
+                             "artifact_map_sha256": discrete.artifact_map_sha256}
+        for relative, payload in ((paths["image_relative_path"], discrete.image_png),
+                                  (paths["mask_relative_path"], discrete.mask_png),
+                                  (paths["artifact_map_relative_path"], discrete.artifact_map_npz)):
+            target = work_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload)
+        atomic_json_write(work_root / "metadata" / f"{row['synthetic_id']}.json", _sample_metadata(record))
+    atomic_json_write(work_root / "records" / f"{row['synthetic_id']}.json", record)
+    return record
+
+
+def _fixture_pairs(root):
+    import pyarrow as pa, pyarrow.parquet as pq
+    root.mkdir(parents=True, exist_ok=True)
+    for name in ("pair_manifest_train.parquet", "pair_manifest_validation.parquet"):
+        pq.write_table(pa.table({"pair_id": ["gpatpair_0"]}), root / name, compression="none")
+    return root
+
+
+def _fixture_calibration(path):
+    from prism_fas.synthesis.quality_gate import Thresholds
+    from prism_fas.utils.core import atomic_json_write
+    thresholds = Thresholds.from_dict(_THRESHOLDS_FIXTURE)
+    atomic_json_write(path, {"thresholds": thresholds.as_dict(), "threshold_sha256": thresholds.sha256(),
+                             "fingerprint": {"references": {}, "reference_sha256": "f" * 64},
+                             "used_source_dev": False, "used_target": False,
+                             "used_generated_candidates": False,
+                             "source_isolation": {"source_dev_opened": False, "target_test_opened": False},
+                             "quality_models": {"identity": {"sha256": "a" * 64}}})
+    return path
+
+
+def _build_fixture_bank(tmp_path, *, count=12, identity=None, states=None):
+    """A schema-valid 12-candidate bank: 6 physics / 6 gpat, mixed terminal states."""
+    from prism_fas.synthesis.quality_gate import Thresholds
+    identity = {**(identity or _fixture_identity()),
+                "threshold_sha256": Thresholds.from_dict(_THRESHOLDS_FIXTURE).sha256()}
+    work = Path(tmp_path) / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    plan_rows = [_fixture_plan_row(index, identity) for index in range(count)]
+    states = states or (["accepted"] * 8 + ["rejected"] * 3 + ["failed_generation"])
+    records = [_fixture_record(row, identity, work, state=state) for row, state in zip(plan_rows, states)]
+    config = {"seed": 20260806, "operational_minimums": {**_FIXTURE_MINIMUMS, "candidates": count},
+              "shards": {"max_samples_per_shard": 3}}
+    generator = _StubGenerator(work, plan_rows, identity,
+                               _fixture_calibration(Path(tmp_path) / "quality_gate.json"), config)
+    assembled = assemble_bank(generator, records, pairs_root=_fixture_pairs(Path(tmp_path) / "pairs"))
+    return generator, records, assembled
+
+
+def _validate_fixture(bank_root, **kwargs):
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    return validate_bank(Path(bank_root), expected_candidates=12, **kwargs)
+
+
+# --- bank assembly and BANK_LOCK ---------------------------------------------
+def test_bank_layout_holds_every_required_path(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    assert root.name == assembled["bank_id"] and root.name.startswith("prism_synthetic_bank_m8_v1_")
+    for relative in ("images", "artifact_maps", "masks", "metadata", "manifests", "calibration", "shards",
+                     "manifests/candidate_manifest.parquet", "manifests/manifest.parquet",
+                     "manifests/rejected.parquet", "manifests/failures.parquet",
+                     "manifests/pair_manifest_train.parquet", "manifests/pair_manifest_validation.parquet",
+                     "calibration/quality_gate.json", "shards_index.parquet", "quality_summary.json",
+                     "generation_summary.json", "BANK_LOCK.json"):
+        assert (root / relative).exists(), relative
+
+
+def test_terminal_accounting_covers_every_planned_candidate(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    lock = assembled["lock"]
+    assert lock["accepted_count"] + lock["rejected_count"] + lock["failed_count"] == lock["candidate_count"] == 12
+    assert lock["status"] == "validated" and lock["bank_lock_schema_version"] == BANK_LOCK_SCHEMA_VERSION
+
+
+def test_accepted_manifest_carries_every_required_field(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    rows = load_manifest(Path(assembled["bank_root"]) / "manifests" / "manifest.parquet",
+                         MANIFEST_SCHEMAS["manifest"])
+    assert rows
+    for name in ("synthetic_id", "route", "live_target_sample_id", "spoof_source_sample_id",
+                 "live_target_dataset", "recipe_id", "recipe_hash", "graph_hash", "gpat_checkpoint_sha256",
+                 "image_relative_path", "image_sha256", "mask_relative_path", "mask_sha256",
+                 "artifact_map_relative_path", "artifact_map_sha256", "q", "identity_cosine",
+                 "calibration_hash", "exact_mask_pixels", "requested_coverage", "achieved_coverage",
+                 "package_identity", "recipe_bank_identity", "candidate_plan_identity",
+                 "generation_config_hash"):
+        assert name in rows[0], name
+    assert all(row["recipe_match"] == "not_applicable" for row in rows)
+    assert all(not str(row["image_relative_path"]).startswith("/") for row in rows)
+
+
+def test_rejected_rows_name_failed_gates_and_failures_carry_no_path(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    rejected = load_manifest(root / "manifests" / "rejected.parquet", MANIFEST_SCHEMAS["rejected"])
+    assert rejected and all(row["failed_gates"] for row in rejected)
+    failures = load_manifest(root / "manifests" / "failures.parquet", MANIFEST_SCHEMAS["failures"])
+    assert failures and all(row["failed_stage"] and row["exception_type"] for row in failures)
+    assert all("/" not in str(row["reason"]) and "\\" not in str(row["reason"]) for row in failures)
+
+
+def test_rejected_image_binaries_are_not_preserved(tmp_path):
+    _, records, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    rejected = [record for record in records if record["terminal_state"] == "rejected"]
+    assert rejected
+    for record in rejected:
+        assert not (root / "images" / f"{record['synthetic_id']}.png").exists()
+
+
+def test_operational_minimums_are_enforced(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    assert assembled["operational_minimums"]["passed"]
+    accepted = load_manifest(Path(assembled["bank_root"]) / "manifests" / "manifest.parquet",
+                             MANIFEST_SCHEMAS["manifest"])
+    strict = check_operational_minimums(accepted, 12, {**_FIXTURE_MINIMUMS, "accepted_total": 999})
+    assert not strict["passed"] and strict["checks"]["accepted_total"] is False
+    short = check_operational_minimums(accepted, 11, dict(_FIXTURE_MINIMUMS))
+    assert short["checks"]["candidates"] is False
+
+
+def test_bank_lock_identity_excludes_timestamps_and_is_reproducible(tmp_path):
+    import hashlib
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    lock = assembled["lock"]
+    excluded = lock["identity_excluded_fields"]
+    assert "created_at" in excluded and "bank_id" in excluded
+    recomputed = hashlib.sha256(json.dumps({key: value for key, value in lock.items() if key not in excluded},
+                                           sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    assert recomputed == lock["bank_content_identity_sha256"]
+    assert lock["bank_id"].endswith(lock["bank_content_identity_sha256"][:12])
+    text = json.dumps(lock)
+    assert "/tmp" not in text and "C:\\" not in text and "modal" not in text.lower()
+
+
+@pytest.mark.parametrize("field", ["gpat_checkpoint_sha256", "calibration_sha256", "candidate_plan_identity",
+                                   "generation_config_sha256", "fingerprint_reference_sha256"])
+def test_bank_lock_changes_when_a_bound_identity_changes(tmp_path, field):
+    _, _, base = _build_fixture_bank(tmp_path / "base")
+    _, _, changed = _build_fixture_bank(tmp_path / "changed", identity=_fixture_identity(**{field: "z" * 64}))
+    assert changed["lock"]["bank_content_identity_sha256"] != base["lock"]["bank_content_identity_sha256"]
+    assert changed["bank_id"] != base["bank_id"]
+
+
+def test_reassembly_reuses_the_same_bank_id(tmp_path):
+    generator, records, first = _build_fixture_bank(tmp_path)
+    second = assemble_bank(generator, records, pairs_root=tmp_path / "pairs")
+    assert second["status"] == "reused" and second["bank_id"] == first["bank_id"]
+    assert second["lock"]["bank_content_identity_sha256"] == first["lock"]["bank_content_identity_sha256"]
+
+
+# --- deterministic shards -----------------------------------------------------
+def test_shard_bytes_are_deterministic_and_metadata_normalized(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    index = load_shards_index(root / "shards_index.parquet")
+    assert len(index) == 3                      # 8 accepted at 3 per shard
+    ids = sorted(row["synthetic_id"] for row in
+                 load_manifest(root / "manifests" / "manifest.parquet", MANIFEST_SCHEMAS["manifest"]))
+    assert build_shard_bytes(root, ids[:3]) == build_shard_bytes(root, ids[:3])
+    for member in shard_member_metadata(root / "shards" / index[0]["shard_name"]):
+        assert member["mtime"] == TAR_MTIME and member["uid"] == 0 and member["gid"] == 0
+        assert member["uname"] == "" and member["gname"] == "" and member["mode"] == 0o644
+    for row in index:
+        assert row["first_synthetic_id"] <= row["last_synthetic_id"]
+        assert row["physics_count"] + row["gpat_count"] == row["row_count"]
+        assert row["live_casia_fasd_count"] + row["live_msu_mfsd_count"] == row["row_count"]
+
+
+def test_shard_members_and_loose_shard_parity(tmp_path):
+    from prism_fas.synthesis.synthetic_shards import read_shard_members
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    accepted = load_manifest(root / "manifests" / "manifest.parquet", MANIFEST_SCHEMAS["manifest"])
+    index = load_shards_index(root / "shards_index.parquet")
+    report = validate_shards(root, index, accepted)
+    assert report["passed"] and report["errors"] == [] and report["covers_every_accepted_row"]
+    members = read_shard_members(root / "shards" / index[0]["shard_name"])
+    assert all(any(name.endswith(suffix) for suffix in MEMBER_SUFFIXES) for name in members)
+    assert len(members) == index[0]["row_count"] * len(MEMBER_SUFFIXES)
+    assert index_digest(index) == assembled["lock"]["shards_index_sha256"]
+
+
+def test_shard_rebuild_is_byte_identical(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    accepted = load_manifest(root / "manifests" / "manifest.parquet", MANIFEST_SCHEMAS["manifest"])
+    before = {row["shard_name"]: row["sha256"] for row in load_shards_index(root / "shards_index.parquet")}
+    rebuilt = build_shards(root, accepted, max_samples=3)
+    write_shards_index(root, rebuilt)
+    assert {row["shard_name"]: row["sha256"] for row in rebuilt} == before
+
+
+def test_shard_parity_detects_a_diverged_loose_file(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    accepted = load_manifest(root / "manifests" / "manifest.parquet", MANIFEST_SCHEMAS["manifest"])
+    index = load_shards_index(root / "shards_index.parquet")
+    target = root / accepted[0]["image_relative_path"]
+    target.write_bytes(encode_png(np.zeros((SIZE, SIZE, 3), np.uint8)))
+    report = validate_shards(root, index, accepted)
+    assert not report["passed"] and report["error_count"] > 0
+
+
+# --- resume and reuse ---------------------------------------------------------
+def test_candidate_reuse_requires_every_identity_field(tmp_path):
+    _, records, _ = _build_fixture_bank(tmp_path)
+    work = tmp_path / "work"
+    accepted = next(record for record in records if record["terminal_state"] == "accepted")
+    usable, reason = record_is_reusable(accepted, accepted["identity"], work)
+    assert usable and reason == "reused"
+    for field in ("gpat_checkpoint_sha256", "threshold_sha256", "candidate_plan_identity",
+                  "generation_config_sha256", "package_identity", "recipe_bank_identity"):
+        usable, reason = record_is_reusable(accepted, {**accepted["identity"], field: "z" * 64}, work)
+        assert not usable and reason == f"identity:{field}"
+
+
+def test_candidate_reuse_rejects_a_corrupted_or_missing_output(tmp_path):
+    _, records, _ = _build_fixture_bank(tmp_path)
+    work = tmp_path / "work"
+    accepted = next(record for record in records if record["terminal_state"] == "accepted")
+    image = work / accepted["outputs"]["image_relative_path"]
+    image.write_bytes(image.read_bytes()[:64])
+    usable, reason = record_is_reusable(accepted, accepted["identity"], work)
+    assert not usable and reason.startswith("hash:")
+    image.unlink()
+    usable, reason = record_is_reusable(accepted, accepted["identity"], work)
+    assert not usable and reason.startswith("missing:")
+
+
+def test_rejected_and_failed_records_are_reusable_without_binaries(tmp_path):
+    _, records, _ = _build_fixture_bank(tmp_path)
+    for state in ("rejected", "failed_generation"):
+        record = next(item for item in records if item["terminal_state"] == state)
+        usable, _ = record_is_reusable(record, record["identity"], tmp_path / "work")
+        assert usable
+
+
+def test_reuse_rejects_a_record_without_a_terminal_state(tmp_path):
+    _, records, _ = _build_fixture_bank(tmp_path)
+    record = dict(records[0]); record["terminal_state"] = "in_progress"
+    usable, reason = record_is_reusable(record, record["identity"], tmp_path / "work")
+    assert not usable and reason == "terminal_state"
+
+
+# --- full validation ----------------------------------------------------------
+def test_full_validation_passes_on_a_valid_bank(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    report = _validate_fixture(assembled["bank_root"])
+    assert report["passed"], report["errors"]
+    for name in ("lock_status_validated", "bank_content_identity_reproducible", "terminal_accounting",
+                 "no_duplicate_synthetic_ids", "accepted_files_exist", "accepted_hashes_match",
+                 "images_decode_rgb_224", "masks_binary_0_255", "artifact_maps_load_without_pickle",
+                 "artifact_maps_finite_in_range", "artifact_maps_zero_outside_exact_mask",
+                 "exact_mask_pixel_counts_match", "every_accepted_row_passes_every_hard_gate",
+                 "every_rejected_row_names_a_failed_gate", "recipe_match_not_applicable",
+                 "no_target_or_private_fields", "source_only_isolation_evidence",
+                 "calibration_declares_no_source_dev_or_target", "operational_minimums",
+                 "shards_validate", "shard_hashes_match_lock", "shards_index_digest",
+                 "bank_directory_matches_bank_id", "candidate_manifest_covers_terminals"):
+        assert report["checks"][name] is True, name
+    assert report["counts"] == {"candidates": 12, "accepted": 8, "rejected": 3, "failed_generation": 1}
+
+
+def test_validation_detects_a_tampered_accepted_image(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    sorted((root / "images").glob("*.png"))[0].write_bytes(encode_png(np.zeros((SIZE, SIZE, 3), np.uint8)))
+    report = _validate_fixture(root)
+    assert not report["passed"] and report["checks"]["accepted_hashes_match"] is False
+
+
+def test_validation_detects_a_tampered_lock(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    lock = json.loads((root / "BANK_LOCK.json").read_text(encoding="utf-8"))
+    lock["accepted_count"] = lock["accepted_count"] + 1
+    (root / "BANK_LOCK.json").write_text(json.dumps(lock), encoding="utf-8")
+    report = _validate_fixture(root)
+    assert not report["passed"] and report["checks"]["bank_content_identity_reproducible"] is False
+
+
+def test_validation_detects_an_artifact_map_outside_the_exact_mask(tmp_path):
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    target = sorted((root / "artifact_maps").glob("*.npz"))[0]
+    target.write_bytes(encode_npz({ARTIFACT_MAP_KEY: np.full((1, SIZE, SIZE), 0.5, np.float16)}))
+    report = _validate_fixture(root)
+    assert not report["passed"]
+    assert report["payload_report"]["map_outside_errors"] > 0 or report["checks"]["accepted_hashes_match"] is False
+
+
+# --- export, freeze and import ------------------------------------------------
+def test_export_archive_is_deterministic_and_round_trips(tmp_path):
+    from prism_fas.synthesis.synthetic_export import build_archive_bytes, export_archive, extract_archive
+    from prism_fas.synthesis.synthetic_validation import compare_banks
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    assert build_archive_bytes(root) == build_archive_bytes(root)
+    first = export_archive(root, tmp_path / "exports")
+    assert first["status"] == "created" and first["archive_is_identity_bearing"] is False
+    again = export_archive(root, tmp_path / "exports")
+    assert again["status"] == "reused" and again["archive_sha256"] == first["archive_sha256"]
+    extraction = extract_archive(tmp_path / "exports" / f"{assembled['bank_id']}.tar", tmp_path / "down")
+    assert extraction["status"] == "extracted" and extraction["bank_id"] == assembled["bank_id"]
+    assert compare_banks(root, Path(extraction["bank_root"]))["identical"]
+    local = _validate_fixture(extraction["bank_root"])
+    assert local["passed"], local["errors"]
+
+
+def test_export_refuses_an_unvalidated_bank(tmp_path):
+    from prism_fas.synthesis.synthetic_export import ExportError, export_archive
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    lock_path = Path(assembled["bank_root"]) / "BANK_LOCK.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8")); lock["status"] = "draft"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    with pytest.raises(ExportError):
+        export_archive(Path(assembled["bank_root"]), tmp_path / "exports")
+
+
+def test_import_refuses_a_different_bank_at_the_same_path(tmp_path):
+    from prism_fas.synthesis.synthetic_export import ExportError, export_archive, extract_archive
+    _, _, first = _build_fixture_bank(tmp_path / "a")
+    export_archive(Path(first["bank_root"]), tmp_path / "exports")
+    extract_archive(tmp_path / "exports" / f"{first['bank_id']}.tar", tmp_path / "down")
+    assert extract_archive(tmp_path / "exports" / f"{first['bank_id']}.tar",
+                           tmp_path / "down")["status"] == "already_present"
+    lock = tmp_path / "down" / first["bank_id"] / "BANK_LOCK.json"
+    payload = json.loads(lock.read_text(encoding="utf-8"))
+    payload["bank_content_identity_sha256"] = "0" * 64
+    lock.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ExportError):
+        extract_archive(tmp_path / "exports" / f"{first['bank_id']}.tar", tmp_path / "down")
+
+
+def test_freeze_reuses_an_identical_bank_and_refuses_a_different_one(tmp_path):
+    from prism_fas.synthesis.synthetic_export import ExportError, freeze_bank
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    root = Path(assembled["bank_root"])
+    assert freeze_bank(root, tmp_path / "frozen")["status"] == "frozen"
+    assert freeze_bank(root, tmp_path / "frozen")["status"] == "reused"
+    lock = tmp_path / "frozen" / assembled["bank_id"] / "BANK_LOCK.json"
+    payload = json.loads(lock.read_text(encoding="utf-8"))
+    payload["bank_content_identity_sha256"] = "0" * 64
+    lock.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ExportError):
+        freeze_bank(root, tmp_path / "frozen")
+
+
+# --- CLI and module hygiene ----------------------------------------------------
+def test_every_m8_write_command_exists_and_supports_dry_run():
+    text = (ROOT / "src" / "prism_fas" / "cli" / "main.py").read_text(encoding="utf-8")
+    for command in ("generation-pilot", "generate-bank", "build-shards", "export-bank",
+                    "validate-bank", "validate-downloaded-bank"):
+        assert f'@synthesis_app.command("{command}")' in text, command
+    body = text[text.index('@synthesis_app.command("generation-pilot")'):]
+    assert body.count("'--dry-run'") >= 5
+    assert "--resume/--no-resume" in body and "'--limit'" in body
+
+
+def test_synthetic_bank_modules_never_import_modal():
+    import ast
+    for name in ("synthetic_bank", "synthetic_shards", "synthetic_validation", "synthetic_export",
+                 "m8_pipeline"):
+        path = ROOT / "src" / "prism_fas" / "synthesis" / f"{name}.py"
+        assert path.is_file(), name
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            imported = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                        else [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+            assert not any(item.split(".")[0] == "modal" for item in imported), name
+
+
+def test_synthetic_bank_config_declares_the_frozen_minimums():
+    import yaml
+    config = yaml.safe_load((ROOT / "configs" / "synthesis" / "synthetic_bank_m8.yaml").read_text(encoding="utf-8"))
+    assert config["operational_minimums"] == {"candidates": 1120, "accepted_total": 400,
+                                              "accepted_physics": 200, "accepted_gpat": 100,
+                                              "accepted_live_casia": 100, "accepted_live_msu": 100,
+                                              "require_all_artifact_types": 8, "require_all_regions": 9,
+                                              "require_same_and_cross_domain_gpat": True}
+    assert config["shards"]["max_samples_per_shard"] == 500 and config["shards"]["compression"] == "none"
+    assert config["remote"]["export_is_identity_bearing"] is False
+
+
+def test_downloaded_bank_validator_script_is_source_only():
+    """The forbidden split names may appear in the module docstring's isolation
+    statement, but never in the executable code."""
+    import ast
+    path = ROOT / "scripts" / "m8_validate_downloaded_bank.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree.body = [node for node in tree.body
+                 if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))]
+    code = ast.unparse(tree)
+    assert "source_dev" not in code and "target_test" not in code
+    text = path.read_text(encoding="utf-8")
+    assert "--expected-identity" in text and "--dry-run" in text and "--expected-archive-sha256" in text
+
+
+# --- real report contracts ------------------------------------------------------
+def test_real_generation_pilot_report_contract():
+    report = _report("generation_pilot.json")
+    assert report["passed"] is True and report["planned"] == 32
+    assert sum(report["terminal_counts"].values()) == 32
+    assert report["coverage"]["artifact_type_count"] == 8 and report["coverage"]["region_count"] == 9
+    buckets = report["coverage"]["bucket_counts"]
+    assert buckets["route:physics"] == 16 and buckets["route:gpat"] == 16
+    assert buckets["relation:same_domain"] == 8 and buckets["relation:cross_domain"] == 8
+    assert buckets["live:casia_fasd"] == 16 and buckets["live:msu_mfsd"] == 16
+    assert report["payload_errors"] == [] and all(report["checks"].values())
+    assert report["identity"]["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    assert report["identity"]["discrete_convention"] == DISCRETE_CONVENTION
+    isolation = report["source_isolation"]
+    assert isolation["source_train_opened"] is True and isolation["source_dev_opened"] is False
+    assert isolation["target_test_opened"] is False and isolation["raw_dataset_path_opened"] is False
+    assert isolation["manifests_opened"] == ["manifests/source_train.parquet"]
+    assert report["gpu"]["gpu_name"] == "NVIDIA L4"
+
+
+def test_real_generation_pilot_determinism_report_contract():
+    report = _report("generation_pilot_determinism.json")
+    assert report["passed"] is True and report["identical"] is True
+    assert report["candidates"] == 32 and report["compared"] == 32
+    assert report["mismatch_count"] == 0 and report["mismatches"] == []
+
+
+def test_bank_lock_status_is_not_unconditional(tmp_path):
+    """A bank that misses a pre-declared minimum is retained and labelled, never
+    relabelled `validated`."""
+    _, records, _ = _build_fixture_bank(tmp_path / "ok")
+    assert json.loads((Path(_build_fixture_bank(tmp_path / "ok2")[2]["bank_root"]) /
+                       "BANK_LOCK.json").read_text(encoding="utf-8"))["status"] == "validated"
+    work = tmp_path / "strict" / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    identity = records[0]["identity"]
+    plan_rows = [_fixture_plan_row(index, identity) for index in range(12)]
+    states = ["rejected"] * 12                       # nothing accepted -> minimums cannot pass
+    fresh = [_fixture_record(row, identity, work, state=state) for row, state in zip(plan_rows, states)]
+    config = {"seed": 20260806, "operational_minimums": dict(_FIXTURE_MINIMUMS),
+              "shards": {"max_samples_per_shard": 3}}
+    generator = _StubGenerator(work, plan_rows, identity,
+                               _fixture_calibration(tmp_path / "strict" / "quality_gate.json"), config)
+    assembled = assemble_bank(generator, fresh, pairs_root=_fixture_pairs(tmp_path / "strict" / "pairs"))
+    assert assembled["operational_minimums"]["passed"] is False
+    assert assembled["lock"]["status"] == "operational_minimums_failed"
+    report = _validate_fixture(assembled["bank_root"])
+    assert report["passed"] is False and report["checks"]["lock_status_validated"] is False
+
+
+def test_export_refuses_a_failed_run_unless_explicitly_allowed(tmp_path):
+    from prism_fas.synthesis.synthetic_export import ExportError, export_archive, freeze_bank
+    _, _, assembled = _build_fixture_bank(tmp_path)
+    lock_path = Path(assembled["bank_root"]) / "BANK_LOCK.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["status"] = "operational_minimums_failed"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    with pytest.raises(ExportError):
+        export_archive(Path(assembled["bank_root"]), tmp_path / "exports")
+    moved = export_archive(Path(assembled["bank_root"]), tmp_path / "exports", require_validated=False)
+    assert moved["status"] == "created" and moved["bank_status"] == "operational_minimums_failed"
+    # freezing under the immutable versioned path is never allowed for a failed run
+    with pytest.raises(ExportError):
+        freeze_bank(Path(assembled["bank_root"]), tmp_path / "frozen")
+
+
+# --- real full-generation report contracts --------------------------------------
+def test_real_resume_audit_report_contract():
+    report = _report("resume_audit.json")
+    assert report["passed"] is True
+    phases = {phase["phase"]: phase for phase in report["phases"]}
+    assert set(phases) == {"interrupted", "resumed", "completed_rerun"}
+    assert phases["interrupted"]["status"] == "interrupted" and phases["interrupted"]["rebuilt"] == 96
+    assert phases["resumed"]["status"] == "completed" and phases["resumed"]["examined"] == 1120
+    assert phases["resumed"]["reused"] > 0
+    rerun = phases["completed_rerun"]
+    assert rerun["examined"] == 1120 and rerun["reused"] == 1120 and rerun["rebuilt"] == 0
+    probe = report["corruption_probe"]
+    assert probe["performed"] is True and probe["detected_as_unusable"] is True
+    assert probe["reason"].startswith("hash:") and probe["rebuilt_bytes_identical"] is True
+    assert probe["terminal_state_after_rebuild"] == "accepted"
+    assert sum(report["terminal_counts"].values()) == 1120
+    assert report["terminal_counts"].get("failed_generation", 0) == 0
+    for name in ("all_candidates_examined", "completed_rerun_rebuilt_nothing",
+                 "completed_rerun_reused_everything", "no_duplicate_candidate_ids",
+                 "terminal_accounting", "resume_reused_valid_candidates",
+                 "corrupted_candidate_detected", "corrupted_candidate_rebuilt"):
+        assert report["checks"][name] is True, name
+    isolation = report["source_isolation"]
+    assert isolation["source_dev_opened"] is False and isolation["target_test_opened"] is False
+
+
+def test_real_determinism_audit_report_contract():
+    report = _report("determinism_audit.json")
+    assert report["passed"] is True and report["identical"] is True
+    assert report["candidates"] == 32 and report["compared"] == 32
+    assert report["mismatch_count"] == 0 and report["mismatches"] == []
+    assert report["identity"]["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+
+
+def test_real_synthetic_bank_validation_report_contract():
+    """Every structural invariant holds. The ONLY failing check is the
+    pre-declared operational minimums, which are never relaxed to make it pass."""
+    report = _report("synthetic_bank_validation.json")
+    counts = report["counts"]
+    assert counts["candidates"] == 1120
+    assert counts["accepted"] + counts["rejected"] + counts["failed_generation"] == 1120
+    assert counts["failed_generation"] == 0
+    payload = report["payload_report"]
+    assert payload["checked"] == counts["accepted"]
+    for name in ("missing_files", "hash_mismatches", "image_shape_errors", "mask_value_errors",
+                 "npz_errors", "map_range_errors", "map_outside_errors", "mask_pixel_mismatches",
+                 "outside_mask_errors"):
+        assert payload[name] == 0, name
+    assert payload["outside_mask_checked"] == counts["accepted"]
+    assert report["shard_report"]["passed"] is True
+    assert report["shard_report"]["covers_every_accepted_row"] is True
+    for name in ("terminal_accounting", "no_duplicate_synthetic_ids", "accepted_files_exist",
+                 "accepted_hashes_match", "images_decode_rgb_224", "masks_binary_0_255",
+                 "artifact_maps_load_without_pickle", "artifact_maps_zero_outside_exact_mask",
+                 "saved_outside_mask_error_exactly_zero", "every_accepted_row_passes_every_hard_gate",
+                 "every_rejected_row_names_a_failed_gate", "recipe_match_not_applicable",
+                 "no_target_or_private_fields", "source_only_isolation_evidence",
+                 "shards_validate", "shard_hashes_match_lock", "candidate_count",
+                 "source_package_unchanged", "recipe_bank_unchanged", "gpat_checkpoint_hash_matches"):
+        assert report["checks"][name] is True, name
+    assert report["coverage"]["artifact_type_count"] == 8 and report["coverage"]["region_count"] == 9
+    identities = report["parent_identities"]
+    assert identities["candidate_plan_identity"] == CANDIDATE_PLAN_IDENTITY
+    assert identities["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    assert identities["threshold_sha256"] == THRESHOLD_SHA
+    assert identities["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    assert report["leak_scan"]["hits"] == {}
+    assert report["leak_scan"]["source_isolation_clean"] is True
+
+
+def test_real_run_missed_only_the_pre_declared_operational_minimums():
+    """The honest record of the run: the frozen gate is strict, and the response is
+    to document it, never to lower a threshold or resample a rejected candidate."""
+    report = _report("synthetic_bank_validation.json")
+    minimums = report["operational_minimums"]
+    failing = sorted(name for name, passed in minimums["checks"].items() if not passed)
+    assert failing == ["accepted_physics", "accepted_total"]
+    assert minimums["passed"] is False
+    assert [name for name in report["checks"] if report["checks"][name] is False] != []
+    declared = minimums["declared_minimums"]
+    assert declared["accepted_total"] == 400 and declared["accepted_physics"] == 200
+    observed = minimums["observed"]
+    assert observed["accepted_total"] < declared["accepted_total"]
+    assert observed["accepted_route_counts"]["physics"] < declared["accepted_physics"]
+    assert observed["accepted_route_counts"]["gpat"] >= declared["accepted_gpat"]
+    assert set(observed["accepted_gpat_domain_relations"]) == {"same_domain", "cross_domain"}
+
+
+def test_frozen_thresholds_were_not_touched_by_generation():
+    calibration = _report("quality_calibration.json")
+    assert calibration["thresholds"] == {"tau_fd": 0.5, "tau_id": 0.9995203357934952,
+                                         "tau_lm": 0.002135227532959269,
+                                         "tau_parse": 0.8747814437904173, "tau_out": 0.0,
+                                         "tau_fp": 5.687657785453908}
+    assert calibration["threshold_sha256"] == THRESHOLD_SHA
+    assert calibration["fingerprint"]["reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    assert calibration["used_generated_candidates"] is False
+    validation = _report("synthetic_bank_validation.json")
+    assert validation["parent_identities"]["threshold_sha256"] == THRESHOLD_SHA

@@ -231,7 +231,7 @@ def b00_report(run_root:Path=typer.Option(...,exists=True))->None:
     typer.echo(json.dumps(run_b00_report(run_root)))
 recipe_app=typer.Typer(help="M7 source-only recipe schema, compiler and frozen bank")
 app.add_typer(recipe_app,name="recipe")
-synthesis_app=typer.Typer(help="M7 CPU physics engine and preview audit")
+synthesis_app=typer.Typer(help="M7 CPU physics engine and preview audit; M8 synthetic bank generation, validation and export")
 app.add_typer(synthesis_app,name="synthesis")
 def _m7_defaults()->tuple[Path,Path,Path]:
     base=Path(__file__).parents[3]
@@ -291,6 +291,161 @@ def synthesis_physics_audit(package_root:Path=typer.Option(...,'--package-root',
         "source_isolation_passed":result["source_isolation"]["passed"],"written":result["written"]}))
     if not (result["physics"]["passed"] and result["determinism"]["passed"] and result["source_isolation"]["passed"]):
         raise typer.Exit(1)
+# --- M8 synthetic bank -------------------------------------------------------
+def _m8_defaults()->dict[str,Path]:
+    base=Path(__file__).parents[3]
+    return {"package":base/'data'/'processed'/'prism_data_v1_m3b',"bank":base/'assets'/'recipe_banks'/'prism_recipe_bank_m7_v1',
+        "plan":base/'reports'/'m8',"calibration":base/'reports'/'m8'/'quality_calibration.json',
+        "pairs":base/'reports'/'m8'/'pairs',"bank_config":base/'configs'/'synthesis'/'synthetic_bank_m8.yaml'}
+def _m8_generator(package_root:Path,bank:Path,work:Path,plan:Path,calibration:Path,weight_root:Path|None,
+                  gpat_checkpoint:Path|None,device:str,with_backends:bool=True):
+    from prism_fas.synthesis.m8_pipeline import build_generator
+    backends=None
+    if with_backends:
+        from prism_fas.synthesis.quality_calibration import QualityBackends
+        if weight_root is None: raise typer.BadParameter("--weight-root is required to quality-gate candidates")
+        backends=QualityBackends(weight_root,device=device)
+    return build_generator(package_root=package_root,bank_root=bank,work_root=work,plan_root=plan,
+        calibration_path=calibration,gpat_checkpoint_path=gpat_checkpoint,backends=backends,device=device)
+@synthesis_app.command("generation-pilot")
+def synthesis_generation_pilot(work:Path=typer.Option(...,'--work'),package_root:Path|None=typer.Option(None,'--package-root'),
+        bank:Path|None=typer.Option(None,'--bank'),plan:Path|None=typer.Option(None,'--plan'),
+        calibration:Path|None=typer.Option(None,'--calibration'),weight_root:Path|None=typer.Option(None,'--weight-root'),
+        gpat_checkpoint:Path|None=typer.Option(None,'--gpat-checkpoint'),device:str=typer.Option('cpu','--device'),
+        count:int=typer.Option(32,'--count'),output:Path=typer.Option(Path('reports/m8'),'--output'),
+        determinism:bool=typer.Option(True,'--determinism/--no-determinism'),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Deterministic 32-candidate correctness pilot. Its acceptance rate never changes a threshold."""
+    from prism_fas.synthesis.m8_pipeline import run_pilot,run_pilot_determinism,select_pilot_rows
+    d=_m8_defaults()
+    generator=_m8_generator(package_root or d["package"],bank or d["bank"],Path(work),plan or d["plan"],
+        calibration or d["calibration"],weight_root,gpat_checkpoint,device,with_backends=not dry_run)
+    if dry_run:
+        rows=select_pilot_rows(generator.plan_rows,generator.bank,count=count)
+        typer.echo(json.dumps({"status":"dry_run","planned":len(rows),"identity":generator.identity(),"written":[]}));return
+    pilot=run_pilot(generator,pilot_root=Path(work)/'pilot',count=count,
+        progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+    atomic_json_write(Path(output)/'generation_pilot.json',pilot)
+    written=['generation_pilot.json']
+    audit={"passed":True,"mismatch_count":0}
+    if determinism:
+        audit=run_pilot_determinism(generator,first=pilot,rerun_root=Path(work)/'pilot_rerun',count=count)
+        atomic_json_write(Path(output)/'generation_pilot_determinism.json',audit);written.append('generation_pilot_determinism.json')
+    typer.echo(json.dumps({"status":"completed","passed":pilot["passed"],"terminal_counts":pilot["terminal_counts"],
+        "coverage":pilot["coverage"],"payload_errors":pilot["payload_errors"],
+        "determinism_passed":audit["passed"],"determinism_mismatches":audit["mismatch_count"],"written":written}))
+    if not (pilot["passed"] and audit["passed"]): raise typer.Exit(1)
+@synthesis_app.command("generate-bank")
+def synthesis_generate_bank(work:Path=typer.Option(...,'--work'),package_root:Path|None=typer.Option(None,'--package-root'),
+        bank:Path|None=typer.Option(None,'--bank'),plan:Path|None=typer.Option(None,'--plan'),
+        calibration:Path|None=typer.Option(None,'--calibration'),pairs:Path|None=typer.Option(None,'--pairs'),
+        weight_root:Path|None=typer.Option(None,'--weight-root'),gpat_checkpoint:Path|None=typer.Option(None,'--gpat-checkpoint'),
+        device:str=typer.Option('cpu','--device'),resume:bool=typer.Option(True,'--resume/--no-resume'),
+        interrupt_after:int|None=typer.Option(None,'--interrupt-after',help='simulated interruption for the resume audit'),
+        limit:int|None=typer.Option(None,'--limit',help='development only; a limited run does not satisfy the M8 contract'),
+        output:Path=typer.Option(Path('reports/m8'),'--output'),dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Generate every row of the frozen candidate plan, then assemble the bank."""
+    from prism_fas.synthesis.m8_pipeline import run_full_generation
+    from prism_fas.synthesis.synthetic_bank import assemble_bank
+    d=_m8_defaults()
+    generator=_m8_generator(package_root or d["package"],bank or d["bank"],Path(work),plan or d["plan"],
+        calibration or d["calibration"],weight_root,gpat_checkpoint,device,with_backends=not dry_run)
+    if dry_run:
+        typer.echo(json.dumps({"status":"dry_run","planned":len(generator.plan_rows),"identity":generator.identity(),
+            "resume":resume,"written":[]}));return
+    if limit is not None:
+        result=generator.run(rows=generator.plan_rows[:limit],resume=resume,
+            progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+        typer.echo(json.dumps({"status":"limited","examined":result["examined"],"reused":result["reused"],
+            "rebuilt":result["rebuilt"],"contract_satisfied":False,"written":[]}));return
+    audit=run_full_generation(generator,interrupt_after=interrupt_after,
+        progress=lambda payload: typer.echo(json.dumps({"progress":payload})))
+    assembled=assemble_bank(generator,audit["records"],pairs_root=pairs or d["pairs"])
+    atomic_json_write(Path(output)/'resume_audit.json',{k:v for k,v in audit.items() if k!="records"})
+    typer.echo(json.dumps({"status":assembled["status"],"bank_id":assembled["bank_id"],
+        "terminal_counts":audit["terminal_counts"],"resume_passed":audit["passed"],
+        "operational_minimums_passed":assembled["operational_minimums"]["passed"],
+        "operational_minimum_checks":assembled["operational_minimums"]["checks"],
+        "written":['resume_audit.json']}))
+    if not (audit["passed"] and assembled["operational_minimums"]["passed"]): raise typer.Exit(1)
+@synthesis_app.command("build-shards")
+def synthesis_build_shards(bank_root:Path=typer.Option(...,'--bank-root',exists=True,file_okay=False),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Rebuild the deterministic tar shards of an assembled bank and re-verify parity."""
+    from prism_fas.synthesis.synthetic_bank import MANIFEST_SCHEMAS,load_manifest
+    from prism_fas.synthesis.synthetic_shards import build_shards,index_digest,plan_shards,validate_shards,write_shards_index
+    accepted=load_manifest(Path(bank_root)/'manifests'/'manifest.parquet',MANIFEST_SCHEMAS["manifest"])
+    if dry_run:
+        typer.echo(json.dumps({"status":"dry_run","accepted":len(accepted),
+            "planned_shards":len(plan_shards(accepted)),"written":[]}));return
+    index=build_shards(Path(bank_root),accepted); write_shards_index(Path(bank_root),index)
+    report=validate_shards(Path(bank_root),index,accepted)
+    typer.echo(json.dumps({"status":"created","shards":len(index),"accepted":len(accepted),
+        "shards_index_sha256":index_digest(index),"parity_passed":report["passed"],
+        "written":['shards_index.parquet']+[row["shard_name"] for row in index]}))
+    if not report["passed"]: raise typer.Exit(1)
+@synthesis_app.command("validate-bank")
+def synthesis_validate_bank(bank_root:Path=typer.Option(...,'--bank-root',exists=True,file_okay=False),
+        package_root:Path|None=typer.Option(None,'--package-root'),bank:Path|None=typer.Option(None,'--bank'),
+        gpat_checkpoint:Path|None=typer.Option(None,'--gpat-checkpoint'),
+        sample_limit:int|None=typer.Option(None,'--sample-limit',help='development only; a limited check does not satisfy the M8 contract'),
+        report_json:Path|None=typer.Option(None,'--report-json'))->None:
+    """Full re-derivation and validation of a built synthetic bank."""
+    from prism_fas.synthesis.synthetic_validation import validate_bank,write_validation_report
+    d=_m8_defaults()
+    report=validate_bank(Path(bank_root),package_root=package_root or d["package"],recipe_bank_root=bank or d["bank"],
+        gpat_checkpoint_path=gpat_checkpoint,sample_limit=sample_limit)
+    if report_json: write_validation_report(report_json,report)
+    typer.echo(json.dumps({"passed":report["passed"],"bank_id":report["bank_id"],
+        "bank_content_identity_sha256":report["bank_content_identity_sha256"],"counts":report["counts"],
+        "error_count":report["error_count"],"errors":report["errors"][:10],
+        "operational_minimums_passed":report["operational_minimums"]["passed"],
+        "shards_passed":report["shard_report"]["passed"]}))
+    if not report["passed"]: raise typer.Exit(1)
+@synthesis_app.command("export-bank")
+def synthesis_export_bank(bank_root:Path=typer.Option(...,'--bank-root',exists=True,file_okay=False),
+        frozen_root:Path|None=typer.Option(None,'--frozen-root'),export_root:Path|None=typer.Option(None,'--export-root'),
+        allow_unvalidated:bool=typer.Option(False,'--allow-unvalidated',help='move a RETAINED FAILED run for inspection; freezing still requires a validated bank'),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Freeze a validated bank under its versioned path and write one transport archive."""
+    from prism_fas.synthesis.synthetic_export import export_archive,freeze_bank
+    frozen={"status":"skipped"}
+    if frozen_root is not None: frozen=freeze_bank(Path(bank_root),Path(frozen_root),dry_run=dry_run)
+    archive={"status":"skipped"}
+    if export_root is not None:
+        Path(export_root).mkdir(parents=True,exist_ok=True)
+        archive=export_archive(Path(bank_root),Path(export_root),dry_run=dry_run,require_validated=not allow_unvalidated)
+    typer.echo(json.dumps({"frozen":frozen,"archive":archive,
+        "written":[] if dry_run else archive.get("written",[])}))
+@synthesis_app.command("validate-downloaded-bank")
+def synthesis_validate_downloaded_bank(archive:Path|None=typer.Option(None,'--archive',exists=True,dir_okay=False),
+        destination:Path=typer.Option(Path('data/processed'),'--destination'),
+        bank_root:Path|None=typer.Option(None,'--bank-root'),package_root:Path|None=typer.Option(None,'--package-root'),
+        bank:Path|None=typer.Option(None,'--bank'),expected_identity:str|None=typer.Option(None,'--expected-identity'),
+        report_json:Path|None=typer.Option(Path('reports/m8/local_downloaded_bank_validation.json'),'--report-json'),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Extract one transport archive locally and run the full validator on it."""
+    from prism_fas.synthesis.synthetic_export import extract_archive
+    from prism_fas.synthesis.synthetic_validation import validate_bank,write_validation_report
+    d=_m8_defaults()
+    extraction={"status":"skipped"}
+    root=bank_root
+    if archive is not None:
+        if dry_run:
+            typer.echo(json.dumps({"status":"dry_run","archive":archive.name,"destination":str(destination),"written":[]}));return
+        extraction=extract_archive(archive,Path(destination))
+        root=Path(extraction["bank_root"])
+    if root is None: raise typer.BadParameter("either --archive or --bank-root is required")
+    report=validate_bank(Path(root),package_root=package_root or d["package"],recipe_bank_root=bank or d["bank"])
+    matches=expected_identity is None or report["bank_content_identity_sha256"]==expected_identity
+    payload={**report,"extraction":extraction,"expected_identity":expected_identity,
+        "local_identity_equals_remote":bool(matches)}
+    if report_json and not dry_run: write_validation_report(report_json,payload)
+    typer.echo(json.dumps({"passed":bool(report["passed"] and matches),"bank_id":report["bank_id"],
+        "bank_content_identity_sha256":report["bank_content_identity_sha256"],
+        "local_identity_equals_remote":bool(matches),"counts":report["counts"],
+        "error_count":report["error_count"],"errors":report["errors"][:10]}))
+    if not (report["passed"] and matches): raise typer.Exit(1)
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]
