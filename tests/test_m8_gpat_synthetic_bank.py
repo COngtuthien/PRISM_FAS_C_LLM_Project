@@ -1607,3 +1607,67 @@ def test_frozen_thresholds_were_not_touched_by_generation():
     assert calibration["used_generated_candidates"] is False
     validation = _report("synthetic_bank_validation.json")
     assert validation["parent_identities"]["threshold_sha256"] == THRESHOLD_SHA
+
+
+def test_real_local_downloaded_bank_validation_report_contract():
+    """The bank that came back over the single transport archive is byte-for-byte
+    the bank the container built."""
+    report = _report("local_downloaded_bank_validation.json")
+    transport = report["transport"]
+    assert transport["archive_sha256_matches"] is True
+    assert transport["archive_bytes"] > 0 and transport["archive_name"].endswith(".tar")
+    assert transport["extraction"]["bank_id"] == report["bank_id"]
+    assert report["local_identity_equals_remote"] is True
+    assert report["bank_content_identity_sha256"] == report["expected_identity"]
+    assert report["local_bank_root_name"] == report["bank_id"]
+    counts = report["counts"]
+    assert counts["candidates"] == 1120
+    assert counts["accepted"] + counts["rejected"] + counts["failed_generation"] == 1120
+    payload = report["payload_report"]
+    for name in ("missing_files", "hash_mismatches", "image_shape_errors", "mask_value_errors",
+                 "npz_errors", "map_range_errors", "map_outside_errors", "mask_pixel_mismatches",
+                 "outside_mask_errors"):
+        assert payload[name] == 0, name
+    assert report["shard_report"]["passed"] is True
+    assert report["leak_scan"]["hits"] == {} and report["leak_scan"]["source_isolation_clean"] is True
+    for name in ("bank_content_identity_reproducible", "accepted_hashes_match", "shards_validate",
+                 "source_package_unchanged", "recipe_bank_unchanged",
+                 "saved_outside_mask_error_exactly_zero"):
+        assert report["checks"][name] is True, name
+    # The downloaded copy fails exactly the two checks the remote build failed:
+    # the pre-declared minimums and the status they force. Nothing else.
+    assert sorted(name for name, ok in report["checks"].items() if not ok) == \
+        ["lock_status_validated", "operational_minimums"]
+
+
+def test_real_bank_lock_records_the_failed_run_honestly():
+    lock = _report("BANK_LOCK_remote.json")
+    assert lock["status"] == "operational_minimums_failed"
+    assert lock["operational_minimums_passed"] is False
+    assert lock["candidate_count"] == 1120
+    assert lock["accepted_count"] + lock["rejected_count"] + lock["failed_count"] == 1120
+    assert lock["failed_count"] == 0
+    assert lock["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    assert lock["candidate_plan_identity"] == CANDIDATE_PLAN_IDENTITY
+    assert lock["threshold_sha256"] == THRESHOLD_SHA
+    assert lock["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    assert lock["physics_engine_version"] == "m7-physics-v1"
+    assert lock["discrete_convention"] == DISCRETE_CONVENTION
+    assert lock["bank_id"].endswith(lock["bank_content_identity_sha256"][:12])
+    assert lock["accepted_coverage"]["artifact_type_count"] == 8
+    assert lock["accepted_coverage"]["region_count"] == 9
+    assert sorted(lock["accepted_domain_relations"]) == ["cross_domain", "same_domain"]
+    text = json.dumps(lock)
+    assert "/tmp" not in text and "C:\\" not in text and "/vol/" not in text
+    assert "created_at" in lock["identity_excluded_fields"]
+
+
+def test_real_export_report_marks_the_archive_as_non_identity_bearing():
+    report = _report("export.json")
+    assert report["archive_is_identity_bearing"] is False
+    assert report["archive_excluded_from_bank_lock"] is True
+    assert report["bank_status"] == "operational_minimums_failed"
+    assert report["archive_relative_name"] == f"{report['bank_id']}.tar"
+    assert len(report["archive_sha256"]) == 64 and report["archive_bytes"] > 0
+    # 391 accepted x 4 members + the 12 top-level bank files
+    assert report["member_count"] == 391 * 4 + 12
