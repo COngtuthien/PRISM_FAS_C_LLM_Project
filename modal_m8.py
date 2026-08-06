@@ -163,6 +163,23 @@ def m8_train_gpat(run_id: str = "gpat_m8_seed20260806", max_epochs: int | None =
     return payload
 
 
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_calibrate_quality(limit_live: int | None = None, limit_spoof: int | None = None) -> dict:
+    """Source-train-only quality calibration. Opens source_train payloads only."""
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.quality_calibration import QualityBackends, calibrate, load_quality_config, write_calibration
+    config = load_quality_config(PROJECT / "configs" / "synthesis" / "quality_gate_m8.yaml")
+    backends = QualityBackends(Path(REMOTE_WEIGHT_ROOT), device="cuda")
+    payload = calibrate(Path(REMOTE_PACKAGE), config, backends, limit_live=limit_live, limit_spoof=limit_spoof,
+                        progress=lambda item: print(json.dumps({"progress": item}), flush=True))
+    target = Path(REMOTE_SYNTHETIC_WORK) / "calibration" / "quality_gate.json"
+    enriched = write_calibration(target, {"gpu": gpu, **verified, **payload}, config=config)
+    runs_volume.commit()
+    return enriched
+
+
 @app.local_entrypoint()
 def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs: int = 0,
          limit_steps_per_epoch: int = 0, run_id: str = "", resume: bool = True) -> None:
@@ -176,6 +193,11 @@ def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs
                                               max_epochs=max_epochs or None,
                                               limit_steps_per_epoch=limit_steps_per_epoch or None),
                          indent=2, default=str))
+    elif stage == "calibrate":
+        print(json.dumps(m8_calibrate_quality.remote(), indent=2, default=str))
+    elif stage == "calibrate_spawn":
+        call = m8_calibrate_quality.spawn()
+        print(json.dumps({"spawned": True, "function_call_id": call.object_id, "stage": "calibrate"}))
     elif stage == "train_spawn":
         # Detached launch: prints the function call id so a later poll can attach
         # to the SAME run instead of starting a duplicate.

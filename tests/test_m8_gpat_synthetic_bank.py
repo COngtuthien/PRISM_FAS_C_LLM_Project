@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
@@ -303,7 +304,7 @@ def test_total_loss_matches_the_declared_weighted_sum():
     output = model.forward_batch(batch)
     embedding = torch.nn.functional.normalize(torch.rand(2, 512), dim=1)
     result = compute_losses(output, batch, embedding)
-    expected = sum(DEFAULT_WEIGHTS[name] * float(value) for name, value in result.components.items())
+    expected = sum(DEFAULT_WEIGHTS[name] * float(value.detach()) for name, value in result.components.items())
     assert float(result.total) == pytest.approx(expected, rel=1e-6)
     assert result.weights == DEFAULT_WEIGHTS == {"style": 1.0, "identity": 0.5, "map": 0.5,
                                                  "strength": 0.25, "total_variation": 0.02, "residual": 0.01}
@@ -498,3 +499,298 @@ def test_modal_wrapper_does_not_leak_into_core_modules():
     assert "prism-fas-b-m8" in wrapper and '"L4"' in wrapper
     for banned in ("H100", "H200", "B200"):
         assert banned not in wrapper
+
+
+# --- fingerprint -------------------------------------------------------------
+
+def test_fingerprint_vector_is_24_dimensional_and_finite():
+    from prism_fas.synthesis.fingerprint import FEATURE_NAMES, FINGERPRINT_DIM, fingerprint_features
+    rng = np.random.Generator(np.random.PCG64(4))
+    vector = fingerprint_features(rng.random((3, 64, 64)).astype(np.float32))
+    assert FINGERPRINT_DIM == 24 and vector.shape == (24,) and vector.dtype == np.float32
+    assert bool(np.isfinite(vector).all()) and len(FEATURE_NAMES) == 24
+    assert FEATURE_NAMES[:9] == tuple(f"high_abs_mean_{i}" for i in range(9))
+    assert FEATURE_NAMES[18:] == ("edge_energy_r", "edge_energy_g", "edge_energy_b",
+                                  "laplacian_variance", "mean_saturation", "channel_balance_magnitude")
+
+
+def test_fingerprint_is_deterministic_and_rejects_bad_shapes():
+    from prism_fas.synthesis.fingerprint import FingerprintError, fingerprint_features
+    image = np.random.Generator(np.random.PCG64(9)).random((3, 32, 32)).astype(np.float32)
+    assert np.array_equal(fingerprint_features(image), fingerprint_features(image))
+    with pytest.raises(FingerprintError):
+        fingerprint_features(np.zeros((4, 32, 32), dtype=np.float32))
+
+
+def test_robust_reference_uses_median_and_mad_with_epsilon_floor():
+    from prism_fas.synthesis.fingerprint import MAD_EPSILON, MAD_SCALE, robust_reference, score_against
+    values = np.tile(np.arange(24, dtype=np.float64), (11, 1))
+    values[0] += 1000.0
+    reference = robust_reference(values)
+    assert reference["median"] == [float(v) for v in np.arange(24)]
+    assert all(scale >= MAD_EPSILON for scale in reference["scale"])
+    assert MAD_SCALE == 1.4826
+    assert score_against(np.arange(24, dtype=np.float64), reference) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_fingerprint_score_picks_the_closest_domain():
+    from prism_fas.synthesis.fingerprint import fingerprint_score, robust_reference
+    near = robust_reference(np.tile(np.zeros(24), (5, 1)) + np.arange(5)[:, None] * 1e-3)
+    far = robust_reference(np.tile(np.full(24, 50.0), (5, 1)) + np.arange(5)[:, None] * 1e-3)
+    probe = np.zeros(24)
+    assert fingerprint_score(probe, {"casia_fasd": near, "msu_mfsd": far}) == pytest.approx(
+        min(fingerprint_score(probe, {"casia_fasd": near}), fingerprint_score(probe, {"msu_mfsd": far})))
+
+
+def test_leave_one_record_out_excludes_the_own_record():
+    from prism_fas.synthesis.fingerprint import fit_fingerprint_reference, leave_one_record_out_scores
+    rng = np.random.Generator(np.random.PCG64(1))
+    vectors = rng.normal(size=(24, 24))
+    domains = ["casia_fasd"] * 12 + ["msu_mfsd"] * 12
+    records = [f"r{index // 3}" for index in range(24)]
+    scores = leave_one_record_out_scores(vectors, domains, records)
+    assert len(scores) == 24 and all(np.isfinite(scores))
+    fitted = fit_fingerprint_reference(vectors, domains, records)
+    assert fitted["dimension"] == 24 and fitted["tau_fp_percentile"] == 99.0
+    assert fitted["trainable_probe"] is False and fitted["used_generated_candidates"] is False
+    assert fitted["used_source_dev"] is False and fitted["used_target"] is False
+    assert fitted["tau_fp"] == pytest.approx(float(np.percentile(scores, 99.0)))
+
+
+# --- quality gate ------------------------------------------------------------
+
+def _thresholds(**overrides):
+    from prism_fas.synthesis.quality_gate import Thresholds
+    base = {"tau_fd": 0.5, "tau_id": 0.99, "tau_lm": 0.05, "tau_parse": 0.8, "tau_out": 0.0, "tau_fp": 5.0}
+    base.update(overrides)
+    return Thresholds(**base)
+
+
+def _metrics(**overrides):
+    base = {"face_detection_score": 0.9, "identity_cosine": 0.999, "landmark_nme": 0.01,
+            "outside_mask_parsing_dice": 0.95, "outside_mask_max_error": 0.0,
+            "measured_artifact_strength": 0.3, "requested_artifact_strength": 0.3,
+            "fingerprint_score": 1.0, "support_overlap": 0.99}
+    base.update(overrides)
+    return base
+
+
+def test_dynamic_strength_bounds():
+    from prism_fas.synthesis.quality_gate import strength_bounds
+    assert strength_bounds(0.4) == (pytest.approx(0.1), pytest.approx(0.5))
+    assert strength_bounds(0.02) == (pytest.approx(0.01), pytest.approx(0.035))
+    assert strength_bounds(0.8)[1] == pytest.approx(0.50)
+
+
+def test_all_hard_gates_must_pass_for_acceptance():
+    from prism_fas.synthesis.quality_gate import HARD_GATES, evaluate
+    good = evaluate(_metrics(), _thresholds())
+    assert good["accepted"] and good["failed_gates"] == [] and set(good["gates"]) == set(HARD_GATES)
+    failing = {
+        "face_detection": {"face_detection_score": 0.4}, "identity": {"identity_cosine": 0.5},
+        "landmark": {"landmark_nme": 0.9}, "parsing_dice": {"outside_mask_parsing_dice": 0.1},
+        "outside_mask": {"outside_mask_max_error": 1e-9}, "artifact_strength": {"measured_artifact_strength": 0.9},
+        "fingerprint": {"fingerprint_score": 99.0}, "support_overlap": {"support_overlap": 0.5}}
+    for gate, override in failing.items():
+        result = evaluate(_metrics(**override), _thresholds())
+        assert not result["accepted"] and gate in result["failed_gates"], gate
+
+
+def test_q_formula_range_and_that_it_is_not_a_label():
+    from prism_fas.synthesis.quality_gate import QUALITY_COMPONENTS, RECIPE_MATCH, evaluate
+    result = evaluate(_metrics(), _thresholds())
+    components = [result["quality_components"][name] for name in QUALITY_COMPONENTS]
+    expected = float(np.exp(np.mean([np.log(max(value, 1e-6)) for value in components])))
+    assert result["q"] == pytest.approx(expected, rel=1e-5)
+    assert 0.0 <= result["q"] <= 1.0 and np.isfinite(result["q"])
+    assert result["recipe_match"] == RECIPE_MATCH == "not_applicable"
+    # A candidate sitting just above every threshold earns a low q but is still
+    # accepted: q is a sample weight, not a rejection criterion.
+    weak = evaluate(_metrics(identity_cosine=0.9901, outside_mask_parsing_dice=0.801), _thresholds())
+    assert weak["accepted"] and weak["failed_gates"] == []
+    assert weak["q"] < result["q"] / 2.0
+
+
+def test_q_strength_is_triangular_around_the_requested_value():
+    from prism_fas.synthesis.quality_gate import triangular_strength_score
+    assert triangular_strength_score(0.3, 0.3) == pytest.approx(1.0)
+    assert triangular_strength_score(0.075, 0.3) == pytest.approx(0.0, abs=1e-9)
+    assert triangular_strength_score(0.525, 0.3) == 0.0
+    assert 0.0 < triangular_strength_score(0.2, 0.3) < 1.0
+
+
+def test_landmark_nme_and_parsing_dice_fixtures():
+    from prism_fas.synthesis.quality_gate import landmark_nme, parsing_dice, support_overlap
+    reference = np.asarray([[0.0, 0.0], [10.0, 0.0], [5.0, 5.0], [2.0, 9.0], [8.0, 9.0]], dtype=np.float32)
+    assert landmark_nme(reference, reference) == pytest.approx(0.0)
+    shifted = reference + np.asarray([1.0, 0.0], dtype=np.float32)
+    assert landmark_nme(shifted, reference) == pytest.approx(1.0 / 10.0)
+    a = np.zeros((8, 8), dtype=np.uint8); b = np.zeros((8, 8), dtype=np.uint8)
+    mask = np.ones((8, 8), dtype=bool)
+    assert parsing_dice(a, b, mask) == pytest.approx(1.0)
+    b[:4] = 1
+    assert 0.0 <= parsing_dice(a, b, mask) < 1.0
+    exact = np.zeros((8, 8), dtype=bool); exact[2:6, 2:6] = True
+    assert support_overlap(exact, exact) == pytest.approx(1.0)
+    assert support_overlap(np.zeros((8, 8), dtype=bool), exact) == 0.0
+
+
+def test_thresholds_hash_is_stable_and_round_trips():
+    from prism_fas.synthesis.quality_gate import Thresholds
+    first = _thresholds()
+    assert first.sha256() == _thresholds().sha256() and len(first.sha256()) == 64
+    assert first.sha256() != _thresholds(tau_id=0.98).sha256()
+    assert Thresholds.from_dict(first.as_dict()).sha256() == first.sha256()
+
+
+# --- benign perturbations ----------------------------------------------------
+
+def test_benign_perturbations_are_deterministic_and_mild():
+    from prism_fas.synthesis.quality_calibration import BENIGN_NOISE_STD, BENIGN_VARIANTS, benign_variant
+    image = np.full((3, 32, 32), 0.5, dtype=np.float32)
+    assert len(BENIGN_VARIANTS) == 4 and BENIGN_NOISE_STD <= 0.002
+    for variant in BENIGN_VARIANTS:
+        first = benign_variant(image, variant, sample_id="s1", noise_std=BENIGN_NOISE_STD)
+        assert np.array_equal(first, benign_variant(image, variant, sample_id="s1", noise_std=BENIGN_NOISE_STD))
+        assert not np.array_equal(first, benign_variant(image, variant, sample_id="s2", noise_std=BENIGN_NOISE_STD))
+        assert float(np.abs(first - image).max()) < 0.05
+        assert first.dtype == np.float32 and first.min() >= 0.0 and first.max() <= 1.0
+    assert {variant["name"] for variant in BENIGN_VARIANTS} == {
+        "brightness_098", "brightness_102", "contrast_098", "contrast_102"}
+
+
+def test_calibration_config_is_source_train_only():
+    from prism_fas.synthesis.quality_calibration import load_quality_config
+    config = load_quality_config(ROOT / "configs" / "synthesis" / "quality_gate_m8.yaml")
+    assert config["calibration_population"]["split"] == "source_train"
+    assert config["calibration_population"]["live_samples"] == 280
+    assert config["calibration_population"]["spoof_samples"] == 1160
+    assert config["benign"]["jpeg_q95"] is False
+    assert config["thresholds"]["tau_fd"]["fitted"] is False
+    assert config["quality_weight"]["is_label"] is False
+    assert config["recipe_match"]["status"] == "not_applicable"
+    assert config["fingerprint"]["trainable_probe"] is False
+
+
+# --- real calibration artifact ----------------------------------------------
+
+def test_real_quality_calibration_report_contract():
+    calibration = _report("quality_calibration.json")
+    assert calibration["populations"]["split"] == "source_train"
+    assert calibration["populations"]["live"] == 280 and calibration["populations"]["spoof"] == 1160
+    assert calibration["populations"]["benign"] == 1120
+    assert calibration["populations"]["live_per_dataset"] == {"casia_fasd": 160, "msu_mfsd": 120}
+    assert calibration["populations"]["spoof_per_dataset"] == {"casia_fasd": 800, "msu_mfsd": 360}
+    thresholds = calibration["thresholds"]
+    assert thresholds["tau_fd"] == 0.5 and thresholds["tau_out"] == 0.0
+    assert 0.0 < thresholds["tau_id"] <= 1.0 and thresholds["tau_lm"] > 0.0
+    assert 0.0 < thresholds["tau_parse"] <= 1.0 and thresholds["tau_fp"] > 0.0
+    assert calibration["fingerprint"]["dimension"] == 24
+    assert calibration["fingerprint"]["samples"] == 1160
+    assert calibration["fingerprint"]["used_generated_candidates"] is False
+    assert calibration["used_source_dev"] is False and calibration["used_target"] is False
+    assert calibration["benign_policy"]["jpeg_q95_used"] is False
+    assert calibration["benign_policy"]["uses_m7_spoof_operators"] is False
+    assert calibration["source_isolation"]["manifests_opened"] == ["manifests/source_train.parquet"]
+    assert calibration["source_isolation"]["source_dev_opened"] is False
+    assert calibration["source_isolation"]["target_test_opened"] is False
+    for role in ("identity", "parsing", "detector"):
+        assert calibration["quality_models"]["models"][role]["sha256_matches_pin"] is True
+    assert len(calibration["threshold_sha256"]) == 64 and len(calibration["calibration_config_sha256"]) == 64
+
+
+# --- candidate plan ----------------------------------------------------------
+
+GPAT_BEST_SHA = "2047cdb513767010cfdf368c6f53a3664922451c56e1e837ec59cb96918a5b63"
+
+
+def _plan():
+    from prism_fas.synthesis.candidate_plan import load_candidate_plan
+    path = REPORTS / "candidate_plan.parquet"
+    if not path.is_file(): pytest.skip("candidate plan missing; run the plan-bank command")
+    return load_candidate_plan(path)
+
+
+def test_candidate_plan_has_exactly_1120_rows_split_560_560():
+    from prism_fas.synthesis.candidate_plan import EXPECTED_PER_ROUTE, EXPECTED_TOTAL
+    rows = _plan()
+    assert len(rows) == EXPECTED_TOTAL == 1120
+    assert sum(1 for row in rows if row["route"] == "physics") == EXPECTED_PER_ROUTE == 560
+    assert sum(1 for row in rows if row["route"] == "gpat") == 560
+    assert len({row["live_target_sample_id"] for row in rows}) == 280
+
+
+def test_candidate_ids_are_unique_deterministic_and_carry_no_private_token():
+    from prism_fas.synthesis.candidate_plan import candidate_id
+    rows = _plan()
+    ids = [row["synthetic_id"] for row in rows]
+    assert len(set(ids)) == 1120
+    assert all(value.startswith("syn_") and len(value) == len("syn_") + 24 for value in ids)
+    text = json.dumps(rows)
+    for token in ("siw", "target_test", "source_dev", ".jpg", ".npz", "images/", "priors/", "D:/", "subject"):
+        assert token not in text, token
+    row = rows[0]
+    assert candidate_id(package_identity=row["package_identity"], bank_identity=row["recipe_bank_identity"],
+                        route=row["route"], live_sample_id=row["live_target_sample_id"],
+                        spoof_sample_id=row["spoof_source_sample_id"], recipe_id=row["recipe_id"],
+                        seed=row["candidate_seed"], generator_binding=row["generator_binding"]) == row["synthetic_id"]
+
+
+def test_candidate_id_binds_the_exact_gpat_checkpoint_sha():
+    from prism_fas.synthesis.candidate_plan import candidate_id
+    rows = _plan()
+    gpat = [row for row in rows if row["route"] == "gpat"]
+    physics = [row for row in rows if row["route"] == "physics"]
+    assert {row["gpat_checkpoint_sha256"] for row in gpat} == {GPAT_BEST_SHA}
+    assert {row["generator_binding"] for row in gpat} == {GPAT_BEST_SHA}
+    assert {row["physics_engine_version"] for row in physics} == {"m7-physics-v1"}
+    assert all(row["gpat_checkpoint_sha256"] is None for row in physics)
+    assert all(row["physics_engine_version"] is None for row in gpat)
+    row = gpat[0]
+    altered = candidate_id(package_identity=row["package_identity"], bank_identity=row["recipe_bank_identity"],
+                           route=row["route"], live_sample_id=row["live_target_sample_id"],
+                           spoof_sample_id=row["spoof_source_sample_id"], recipe_id=row["recipe_id"],
+                           seed=row["candidate_seed"], generator_binding="0" * 64)
+    assert altered != row["synthetic_id"]
+
+
+def test_gpat_candidates_use_one_same_and_one_cross_domain_source():
+    rows = [row for row in _plan() if row["route"] == "gpat"]
+    assert sum(1 for row in rows if row["domain_relation"] == "same_domain") == 280
+    assert sum(1 for row in rows if row["domain_relation"] == "cross_domain") == 280
+    by_live: dict = {}
+    for row in rows: by_live.setdefault(row["live_target_sample_id"], set()).add(row["domain_relation"])
+    assert all(value == {"same_domain", "cross_domain"} for value in by_live.values())
+    for row in rows:
+        assert row["spoof_source_record_id"] != row["live_target_record_id"]
+        assert (row["spoof_source_dataset"] == row["live_target_dataset"]) == (row["domain_relation"] == "same_domain")
+
+
+def test_physics_candidates_carry_no_spoof_source():
+    for row in [row for row in _plan() if row["route"] == "physics"]:
+        assert row["spoof_source_sample_id"] is None and row["spoof_source_dataset"] is None
+        assert row["domain_relation"] == "not_applicable"
+
+
+def test_candidate_plan_lock_is_deterministic_and_identity_excludes_parquet_bytes():
+    from prism_fas.synthesis.candidate_plan import IDENTITY_EXCLUDED_FIELDS, rows_digest
+    path = REPORTS / "CANDIDATE_PLAN_LOCK.json"
+    if not path.is_file(): pytest.skip("candidate plan lock missing")
+    lock = json.loads(path.read_text(encoding="utf-8"))
+    assert lock["candidate_count"] == 1120 and lock["seed"] == 20260806
+    assert lock["route_counts"] == {"gpat": 560, "physics": 560}
+    assert lock["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    assert lock["package_identity"].endswith("9dc6")
+    assert lock["recipe_bank_identity"] == "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+    assert lock["candidate_rows_sha256"] == rows_digest(_plan())
+    assert "candidate_manifest_sha256" in IDENTITY_EXCLUDED_FIELDS
+    assert lock["identity_excluded_fields"] == list(IDENTITY_EXCLUDED_FIELDS)
+    assert len(lock["candidate_plan_identity_sha256"]) == 64
+
+
+def test_m7_physics_config_was_not_modified_by_m8():
+    text = (ROOT / "configs" / "synthesis" / "physics_m7.yaml").read_text(encoding="utf-8")
+    assert "recipes_per_sample: 2" in text
+    assert "candidate_recipes_per_live" not in text
+    bank = (ROOT / "configs" / "synthesis" / "synthetic_bank_m8.yaml").read_text(encoding="utf-8")
+    assert "candidate_recipes_per_live" in bank

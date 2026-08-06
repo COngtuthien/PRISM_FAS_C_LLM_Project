@@ -1,0 +1,106 @@
+# M8 source-train-only quality calibration and gate.
+#
+# Every threshold is fitted from source_train alone. source_dev, target_test,
+# target labels and raw datasets are never opened. Thresholds are frozen before
+# any candidate is generated and are never lowered after seeing accepted counts.
+quality_gate_schema_version: "m8-quality-gate-v1"
+calibration_schema_version: "m8-quality-calibration-v1"
+seed: 20260806
+
+calibration_population:
+  split: source_train
+  allowed_datasets: ["casia_fasd", "msu_mfsd"]
+  live_samples: 280
+  spoof_samples: 1160
+  benign_per_live: 4
+
+benign:
+  # Mild and fixed before calibration. No M7 spoof-producing operator is used.
+  brightness_factors: [0.98, 1.02]
+  contrast_factors: [0.98, 1.02]
+  gaussian_noise_std: 0.002
+  # cv2 JPEG encoding is not provably byte-deterministic across OpenCV builds,
+  # so Q=95 is excluded rather than assumed deterministic.
+  jpeg_q95: false
+
+thresholds:
+  tau_fd:
+    source: pinned_scrfd_production_threshold
+    value: 0.5
+    fitted: false
+  tau_id:
+    source: benign_identity_cosine_percentile
+    percentile: 1.0
+  tau_lm:
+    source: benign_landmark_nme_percentile
+    percentile: 99.0
+    normalization: inter_ocular_distance
+    epsilon: 1.0e-6
+  tau_parse:
+    source: benign_outside_mask_parsing_dice_percentile
+    percentile: 1.0
+  tau_out:
+    source: exact_zero_after_discrete_compositing
+    value: 0.0
+    fitted: false
+  tau_fp:
+    source: real_spoof_leave_one_record_out_percentile
+    percentile: 99.0
+
+fingerprint:
+  dimension: 24
+  layout:
+    high_frequency_abs_mean: 9
+    high_frequency_std: 9
+    rgb_edge_energy: 3
+    laplacian_variance: 1
+    mean_saturation: 1
+    channel_balance_magnitude: 1
+  reference: robust_median_mad_per_source_domain
+  mad_scale: 1.4826
+  mad_epsilon: 1.0e-6
+  trainable_probe: false
+  uses_generated_candidates: false
+
+hard_gates:
+  face_detection_score: ">= tau_fd"
+  identity_cosine: ">= tau_id"
+  landmark_nme: "<= tau_lm"
+  outside_mask_parsing_dice: ">= tau_parse"
+  outside_mask_max_error: "== 0"
+  measured_artifact_strength: "within dynamic bounds"
+  fingerprint_score: "<= tau_fp"
+  support_overlap: ">= 0.90"
+
+artifact_strength_bounds:
+  lower: "max(0.01, 0.25 * a)"
+  upper: "min(0.50, 1.75 * a)"
+
+quality_weight:
+  formula: "q = exp(mean(log(max(component, eps))))"
+  components: ["q_fd", "q_id", "q_lm", "q_parse", "q_strength", "q_fp", "q_support"]
+  epsilon: 1.0e-6
+  dtype: float32
+  range: [0.0, 1.0]
+  # q is an M9 sample weight, never a live/spoof label. A candidate is never
+  # rejected for a low q when every hard gate passes.
+  is_label: false
+
+recipe_match:
+  status: not_applicable
+  reason: "M9 PromptHead does not exist in M8; no prompt score is invented"
+
+quality_models:
+  detector:
+    backend: scrfd_10g_bnkps
+    sha256: "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+    input_size: 320
+    threshold: 0.5
+  parsing:
+    backend: facexformer
+    revision: "fd12148d0b19"
+    sha256: "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+  identity:
+    backend: adaface_ir50
+    revision: "60a65befbcf7"
+    sha256: "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"

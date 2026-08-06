@@ -1,0 +1,86 @@
+# M8 versioned synthetic bank: candidate plan, generation and freeze policy.
+#
+# M7's configs/synthesis/physics_m7.yaml is NOT modified — `recipes_per_sample: 2`
+# there remains the immutable 64-preview regression contract. M8 declares its own
+# per-live candidate counts below.
+synthetic_bank_schema_version: "m8-synthetic-bank-v1"
+bank_id_prefix: "prism_synthetic_bank_m8_v1"
+seed: 20260806
+
+source:
+  split: source_train
+  allowed_datasets: ["casia_fasd", "msu_mfsd"]
+  live_samples: 280
+  forbidden_splits: ["source_dev", "target_test"]
+
+candidate_recipes_per_live:
+  physics: 2
+  gpat: 2
+
+expected_counts:
+  physics: 560
+  gpat: 560
+  total: 1120
+
+gpat_pairing:
+  same_domain_per_live: 1
+  cross_domain_per_live: 1
+  require_different_source_record: true
+  require_different_subject_when_available: true
+
+candidate_id:
+  prefix: "syn_"
+  hex_length: 24
+  binds:
+    - parent_package_identity
+    - recipe_bank_identity
+    - route
+    - live_target_sample_id
+    - spoof_source_sample_id_or_physics_none
+    - recipe_id
+    - candidate_seed
+    - gpat_checkpoint_sha256_or_physics_engine_version
+  forbids: ["paths", "filenames", "subject_ids", "timestamps", "target_tokens"]
+
+output:
+  image_format: png
+  image_size: 224
+  image_dtype: uint8
+  mask_format: png
+  mask_values: [0, 255]
+  artifact_map_format: npz
+  artifact_map_key: artifact_map
+  artifact_map_dtype: float16
+  # The saved mask is the EXACT changed-pixel mask, derived after uint8
+  # quantization; the requested support mask is preserved in metadata.
+  exact_mask_from: uint8_pixel_difference
+  reverify_after_decode: true
+
+shards:
+  max_samples_per_shard: 500
+  compression: none
+  sort_key: synthetic_id
+  tar_uid: 0
+  tar_gid: 0
+  tar_uname: ""
+  tar_gname: ""
+  tar_mode: 0o644
+  tar_mtime: 0
+
+operational_minimums:
+  candidates: 1120
+  accepted_total: 400
+  accepted_physics: 200
+  accepted_gpat: 100
+  accepted_live_casia: 100
+  accepted_live_msu: 100
+  require_all_artifact_types: 8
+  require_all_regions: 9
+  require_same_and_cross_domain_gpat: true
+
+remote:
+  work_path: "/runs/synthetic_banks/m8_work"
+  frozen_path_prefix: "/synthetic_banks"
+  export_path: "/runs/exports"
+  # Transport-only; never part of BANK_LOCK identity.
+  export_is_identity_bearing: false
