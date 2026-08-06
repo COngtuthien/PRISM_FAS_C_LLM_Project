@@ -22,11 +22,11 @@ TARGET_PREDICTION_SCHEMA=pa.schema([("sample_id",pa.string()),("source_record_id
     ("checkpoint_hash",pa.string()),("calibration_hash",pa.string()),("inference_config_hash",pa.string())])
 FORBIDDEN_TARGET_COLUMNS=frozenset({"true_label","true_target","label","label_live_spoof","attack_type","taxonomy",
     "subject_id","session_id","identity_embedding","crop_relative_path","source_path"})
-def load_model_for_inference(checkpoint_path:Path,config:B00Config,device:str):
+def load_model_for_inference(checkpoint_path:Path,config:B00Config,device:str,weight_file:str|None=None):
     import torch
     payload=load_checkpoint(checkpoint_path,config_hash=config.config_hash,model_name=config.model.model_name,
                             label_mapping=dict(config.label_mapping))
-    model=build_b00_model(config.model).to(device)
+    model=build_b00_model(config.model,weight_file=weight_file).to(device)
     model.load_state_dict(payload["model_state"]); model.eval()
     return model,payload
 def _forward(model,dataset,device:str,collate,batch_size:int,limit:int|None,workers:int)->dict:

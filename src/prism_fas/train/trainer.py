@@ -69,7 +69,7 @@ def evaluate_source_dev(model,dataset,device:str,*,batch_size:int=32,limit:int|N
             "nll":negative_log_likelihood(probabilities,targets)}
 def train_b00(package_root:Path,run_root:Path,config:B00Config,*,device:str|None=None,resume:bool=False,
               limit_steps:int|None=None,limit_dev_samples:int|None=None,workers:int=0,
-              loader_config_path:Path|None=None,progress:Callable[[dict],None]|None=None)->dict:
+              loader_config_path:Path|None=None,weight_file:str|None=None,progress:Callable[[dict],None]|None=None)->dict:
     """Train B00 on source_train only, selecting the best epoch by source_dev ROC-AUC."""
     import torch
     from torch.utils.data import DataLoader
@@ -83,7 +83,7 @@ def train_b00(package_root:Path,run_root:Path,config:B00Config,*,device:str|None
     train_dataset=CanonicalPackageDataset(package_root,"source_train",loader_config,mode="training",index=train_index)
     dev_dataset=CanonicalPackageDataset(package_root,"source_dev",loader_config,mode="validation")
     sampler=BalancedDomainClassBatchSampler(train_index,loader_config)
-    model=build_b00_model(config.model).to(device)
+    model=build_b00_model(config.model,weight_file=weight_file).to(device)
     groups=model.parameter_groups(config.optimizer.backbone_lr,config.optimizer.head_lr,config.optimizer.weight_decay)
     optimizer=torch.optim.AdamW(groups,betas=tuple(config.optimizer.betas))
     use_amp=(device=="cuda" and config.precision.get("cuda")=="amp")
@@ -118,11 +118,15 @@ def train_b00(package_root:Path,run_root:Path,config:B00Config,*,device:str|None
             grad_norm=float(torch.nn.utils.clip_grad_norm_(model.parameters(),config.gradient_clip_norm))
             scaler.step(optimizer); scaler.update()
             losses.append(float(loss.detach())); global_step+=1
+            batch_composition={}
             for dataset_name,label in zip(batch["dataset"],batch["label"]):
-                composition[f"{dataset_name}/{label}"]=composition.get(f"{dataset_name}/{label}",0)+1
+                key=f"{dataset_name}/{label}"
+                batch_composition[key]=batch_composition.get(key,0)+1
+                composition[key]=composition.get(key,0)+1
             record={"epoch":epoch,"step":global_step,"train_loss":float(loss.detach()),
                     "lr_backbone":optimizer.param_groups[0]["lr"],"lr_head":optimizer.param_groups[1]["lr"],
-                    "grad_norm":grad_norm,"batch_composition":dict(sorted(composition.items())),
+                    "grad_norm":grad_norm,"batch_composition":dict(sorted(batch_composition.items())),
+                    "epoch_composition_cumulative":dict(sorted(composition.items())),
                     "samples_per_second":round(config.batch_size*(position+1)/max(time.time()-epoch_started,1e-6),2)}
             with metrics_path.open("a",encoding="utf-8") as handle: handle.write(json.dumps(record)+"\n")
             if progress: progress(record)

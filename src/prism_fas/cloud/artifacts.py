@@ -12,8 +12,23 @@ from prism_fas.train.models import build_b00_model
 def fixture_sample_ids(package_root:Path,split:str,mode:str,count:int,loader_config)->list[str]:
     dataset=CanonicalPackageDataset(package_root,split,loader_config,mode=mode)
     return list(dataset.sample_ids)[:count]
+def _collect_by_ids(package_root:Path,split:str,mode:str,wanted:list[str],loader_config)->list:
+    """Stream the split's shards and return the wanted samples in the given order.
+
+    Only 9 tar files are opened and nothing is extracted to disk, which avoids
+    thousands of small-file opens on a network-mounted Volume.
+    """
+    from prism_fas.data.loader import CanonicalShardDataset
+    remaining=set(wanted); found={}
+    for sample in CanonicalShardDataset(package_root,split,loader_config,mode=mode):
+        if sample.sample_id in remaining:
+            found[sample.sample_id]=sample; remaining.discard(sample.sample_id)
+            if not remaining: break
+    if remaining: raise KeyError(f"shard backend could not locate {len(remaining)} sample(s) in {split}")
+    return [found[sample_id] for sample_id in wanted]
 def run_parity_forward(package_root:Path,checkpoint:Path,calibration:dict,config:B00Config,*,device:str,
-                       source_count:int=32,target_count:int=16,loader_config_path:Path|None=None)->dict:
+                       source_count:int=32,target_count:int=16,loader_config_path:Path|None=None,
+                       backend:str="loose",weight_file:str|None=None)->dict:
     """Deterministic fp32 eval-mode forward over fixed sample IDs.
 
     Identical code path on local CPU and Modal GPU; the only difference is the
@@ -21,14 +36,20 @@ def run_parity_forward(package_root:Path,checkpoint:Path,calibration:dict,config
     """
     import torch
     loader_config=load_loader_config(loader_config_path or Path("configs/data/loader_m4.yaml"))
-    model=build_b00_model(config.model).to(device)
+    model=build_b00_model(config.model,weight_file=weight_file).to(device)
     payload=torch.load(checkpoint,map_location="cpu",weights_only=False)
     model.load_state_dict(payload["model_state"]); model.eval()
     temperature=float(calibration["temperature"]); threshold=float(calibration["selected_threshold"])
     source_dataset=CanonicalPackageDataset(package_root,"source_dev",loader_config,mode="validation")
     target_dataset=CanonicalPackageDataset(package_root,"target_test",loader_config,mode="inference")
-    source_samples=[source_dataset[index] for index in range(source_count)]
-    target_samples=[target_dataset[index] for index in range(target_count)]
+    source_ids=list(source_dataset.sample_ids)[:source_count]
+    target_ids=list(target_dataset.sample_ids)[:target_count]
+    if backend=="shard":
+        source_samples=_collect_by_ids(package_root,"source_dev","validation",source_ids,loader_config)
+        target_samples=_collect_by_ids(package_root,"target_test","inference",target_ids,loader_config)
+    else:
+        source_samples=[source_dataset[index] for index in range(source_count)]
+        target_samples=[target_dataset[index] for index in range(target_count)]
     source_batch=collate_source_batch(source_samples); target_batch=collate_target_batch(target_samples)
     with torch.inference_mode():
         source_output=model(source_batch["image"].to(device),return_features=True)
@@ -54,7 +75,7 @@ def run_parity_forward(package_root:Path,checkpoint:Path,calibration:dict,config
             "spoof_logit":float(target_logits[position]),
             "p_spoof_raw":float(1/(1+np.exp(-target_logits[position]))),"p_spoof_calibrated":calibrated,
             "decision":"spoof" if calibrated>=threshold else "live"})
-    return {"device":device,"package_content_identity":package_summary(package_root)["content_identity_sha256"],
+    return {"device":device,"data_backend":backend,"package_content_identity":package_summary(package_root)["content_identity_sha256"],
             "checkpoint_sha256":checkpoint_sha256(checkpoint),"calibration_hash":calibration["calibration_hash"],
             "temperature":temperature,"threshold":threshold,"batch_bce_loss":loss,
             "source":source_rows,"target":target_rows,

@@ -15,11 +15,15 @@ class B00ConvNeXtBinaryClassifier(nn.Module):
     M4 canonical [0,1] RGB tensor is normalized exactly once.
     """
     def __init__(self,model_name:str,*,pretrained:bool=True,dropout:float=0.,
-                 mean=(0.485,0.456,0.406),std=(0.229,0.224,0.225)):
+                 mean=(0.485,0.456,0.406),std=(0.229,0.224,0.225),weight_file:str|None=None):
         super().__init__()
         import timm
         self.model_name=model_name
-        self.backbone=timm.create_model(model_name,pretrained=pretrained,num_classes=0)
+        # weight_file loads the pinned local checkpoint instead of reaching the
+        # Hub, which is required in offline containers.
+        overlay=dict(file=str(weight_file)) if weight_file else None
+        self.backbone=timm.create_model(model_name,pretrained=pretrained,num_classes=0,
+                                        **({"pretrained_cfg_overlay":overlay} if overlay else {}))
         self.feature_dim=int(self.backbone.num_features)
         self.dropout=nn.Dropout(dropout) if dropout>0 else nn.Identity()
         self.head=nn.Linear(self.feature_dim,1)
@@ -36,7 +40,7 @@ class B00ConvNeXtBinaryClassifier(nn.Module):
     def parameter_groups(self,backbone_lr:float,head_lr:float,weight_decay:float)->list[dict]:
         return [{"params":list(self.backbone.parameters()),"lr":backbone_lr,"weight_decay":weight_decay,"name":"backbone"},
                 {"params":list(self.head.parameters()),"lr":head_lr,"weight_decay":weight_decay,"name":"head"}]
-def build_b00_model(spec)->B00ConvNeXtBinaryClassifier:
-    model=B00ConvNeXtBinaryClassifier(spec.model_name,pretrained=spec.pretrained,dropout=spec.dropout,
-                                      mean=spec.normalization_mean,std=spec.normalization_std)
-    return model
+def build_b00_model(spec,weight_file:str|None=None)->B00ConvNeXtBinaryClassifier:
+    return B00ConvNeXtBinaryClassifier(spec.model_name,pretrained=spec.pretrained,dropout=spec.dropout,
+                                       mean=spec.normalization_mean,std=spec.normalization_std,
+                                       weight_file=weight_file)

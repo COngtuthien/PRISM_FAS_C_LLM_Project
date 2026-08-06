@@ -1,7 +1,7 @@
 # Project status
 
-- Current milestone: **M5 COMPLETED** — B00 local baseline, source calibration and blind target prediction. M6 is NOT STARTED.
-- M0: COMPLETED; M1: COMPLETED; M2: COMPLETED; M3: COMPLETED; M4: COMPLETED; M5: COMPLETED; M6: NOT STARTED.
+- Current milestone: **M6 COMPLETED** — Modal wrapper and local/GPU parity smoke. M7 is NOT STARTED.
+- M0–M6: COMPLETED; M7: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
@@ -100,7 +100,27 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M6 — Modal wrapper and parity smoke test (NOT STARTED).
+- Next milestone: M7 — recipe compiler and physics engine (NOT STARTED).
+
+## M6 Modal wrapper and parity
+
+Modal CLI/SDK 1.5.3 in workspace `hysonlab-weather-forecast`; volumes `prism-fas-b-data`,
+`prism-fas-b-models`, `prism-fas-b-runs`. The wrapper calls the same TrainerCore; remote jobs use the
+shard backend (9 tars) rather than 13,337 loose files.
+
+| Stage | Result |
+|---|---|
+| Remote package validation (`remote_parity`) | passed, 58/58 checks, 10.2 s |
+| GPU | NVIDIA L4, 23.66 GB, CUDA 12.1, cuDNN 90100 |
+| Forward parity (fp32, TF32 off) | logits max 1.86e-05 (tol 1e-3), probs 6.94e-07 (tol 2.5e-4), BCE 7.15e-07 (tol 5e-4), feature cosine 1.000000000 |
+| Training smoke | 5 steps then resumed to 6; every batch 8/8/8/8; losses finite |
+| Checkpoint portability | remote `last.pt` loads on local CPU at step 6, forward finite |
+| Inference parity | 16 target rows, frozen calibration, 0 decision disagreements |
+| Target isolation | no labels or private fields in any remote target row |
+
+M6 verifies execution-contract and numerical smoke parity, **not** equality of complete training
+trajectories. Remote package validation is a shard-first transfer-integrity profile; the exhaustive
+59/59 loose-file validator remains local and unchanged.
 
 ## M5 B00 local baseline
 

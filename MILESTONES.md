@@ -8,7 +8,7 @@
 | M3 | Offline priors, packages/shards, PACKAGE_LOCK | package modules/tests | target isolation | **completed** |
 | M4 | Canonical loader and balanced sampler | loader/tests | sampler checks | **completed** |
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | **completed** |
-| M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | planned |
+| M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | **completed** |
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | planned |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | planned |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | model modules/tests | loss checks | planned |
@@ -95,4 +95,19 @@ M4 is COMPLETED.
 | Blind target predictions (3140) | COMPLETED |
 | HTML/JSON report and COMPLETE.json | COMPLETED |
 
-M5 is COMPLETED. Next milestone: M6 — Modal wrapper and parity smoke test (NOT STARTED).
+M5 is COMPLETED.
+
+## M6 components (completed)
+
+| Component | Status |
+|---|---|
+| Modal app with volume mounts and GPU allow-list | COMPLETED |
+| Shard-first remote package verification (`remote_parity`) | COMPLETED |
+| L4 GPU environment probe with CUDA assertion | COMPLETED |
+| CPU/GPU fp32 forward parity (TF32 disabled) | COMPLETED |
+| 5-step GPU training smoke + resume to step 6 | COMPLETED |
+| Remote checkpoint download and local CPU portability | COMPLETED |
+| Inference parity under frozen calibration | COMPLETED |
+| Reusable Modal training entrypoint (not run fully) | COMPLETED |
+
+M6 is COMPLETED. Next milestone: M7 — recipe compiler and physics engine (NOT STARTED).

@@ -187,32 +187,63 @@ def test_real_remote_environment_contract():
     assert probe["timm"] == "1.0.28"
 
 
-@pytest.mark.skipif(_remote("verify") is None, reason="remote verify report not present")
+@pytest.mark.skipif(not (REPORTS / "remote_package_validation.json").is_file(), reason="remote validation report not present")
 def test_real_remote_package_validation_contract():
-    verify = _remote("verify")
-    assert verify["validation_passed"] and verify["errors"] == 0
-    assert verify["identity_matches_expected"] and verify["weight_sha_matches"]
+    verify = json.loads((REPORTS / "remote_package_validation.json").read_text(encoding="utf-8"))
+    # Shard-first remote profile, not the exhaustive local loose-file validator.
+    assert verify["validation_profile"] == "remote_parity"
+    assert verify["passed"] is True and verify["errors"] == []
+    assert verify["checks_passed"] == verify["checks_total"]
+    assert verify["content_identity"] == CONFIG.package["expected_content_identity_sha256"]
     assert verify["per_split_counts"] == CONFIG.package["expected_split_counts"]
-    assert verify["target_isolation"] is True
+    assert len(verify["shards"]) == 9 and sum(s["row_count"] for s in verify["shards"]) == 6659
+    assert all(count >= 12 for count in verify["sampled_triplets"].values())
+    assert verify["weight_sha_matches"] and verify["checkpoint_matches_package"]
+    assert verify["raw_dataset_mounted"] is False and verify["data_backend"] == "shard"
 
 
-@pytest.mark.skipif(_remote("smoke") is None, reason="remote smoke report not present")
+@pytest.mark.skipif(not (REPORTS / "training_smoke.json").is_file(), reason="training smoke report not present")
 def test_real_training_smoke_contract():
-    smoke = _remote("smoke")
+    smoke = json.loads((REPORTS / "training_smoke.json").read_text(encoding="utf-8"))
     assert smoke["gpu"]["gpu_name"] and smoke["steps_first"] == 5
     assert smoke["resume_continued"] and smoke["steps_after_resume"] >= 6
-    assert all(np.isfinite(value) for value in smoke["losses"] + smoke["grad_norms"])
+    assert smoke["amp"] is True and all(np.isfinite(value) for value in smoke["losses"])
+    # The AMP GradScaler starts high and skips step 1, reporting an inf norm;
+    # every subsequent step must be finite.
+    assert smoke["amp_warmup_step_skipped"] is True
+    assert all(np.isfinite(value) for value in smoke["grad_norms"][1:])
+    assert smoke["batch_balance_exact"] is True
     for composition in smoke["batch_compositions"]:
         assert composition == {"casia_fasd/live": 8, "casia_fasd/spoof": 8, "msu_mfsd/live": 8, "msu_mfsd/spoof": 8}
     assert smoke["package_content_identity"] == CONFIG.package["expected_content_identity_sha256"]
 
 
+def test_batch_composition_is_per_batch_not_cumulative():
+    """Regression: the trainer logged cumulative counts under `batch_composition`,
+    so a 5-step run reported 8/16/24/32/40 instead of 8 per pool every step."""
+    source = (ROOT / "src" / "prism_fas" / "train" / "trainer.py").read_text(encoding="utf-8")
+    assert '"batch_composition":dict(sorted(batch_composition.items()))' in source
+    assert '"epoch_composition_cumulative"' in source
+
+
 @pytest.mark.skipif(not (REPORTS / "forward_parity.json").is_file(), reason="forward parity report not present")
 def test_real_forward_parity_contract():
     parity = json.loads((REPORTS / "forward_parity.json").read_text(encoding="utf-8"))
-    assert parity["passed"] is True
+    assert parity["passed"] is True and parity["remote_device"] == "cuda"
+    assert parity["gpu"]["tf32_cudnn"] is False, "fp32 parity requires TF32 off"
+    assert parity["data_backend"] == "shard" and parity["frozen_inputs_match"] is True
+    assert parity["features"]["mean_cosine"] >= CONFIG.parity["tolerances"]["feature_min_cosine"]
+    assert parity["target_isolation"]["forbidden_fields"] == [] and parity["target_rows"] == 16
     assert parity["logits"]["max_abs_diff"] <= CONFIG.parity["tolerances"]["logit_max_abs_diff"]
     assert parity["probabilities"]["max_abs_diff"] <= CONFIG.parity["tolerances"]["probability_max_abs_diff"]
+    assert parity["decisions"]["disagreements"] == 0
+
+
+@pytest.mark.skipif(not (REPORTS / "inference_parity.json").is_file(), reason="inference parity report not present")
+def test_real_inference_parity_contract():
+    parity = json.loads((REPORTS / "inference_parity.json").read_text(encoding="utf-8"))
+    assert parity["passed"] is True and parity["target_rows"] == 16
+    assert parity["frozen_inputs_match"] is True and parity["target_isolation"]["labels_present"] is False
     assert parity["decisions"]["disagreements"] == 0
 
 

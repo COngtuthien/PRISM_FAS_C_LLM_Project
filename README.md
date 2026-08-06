@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M5 complete; M6 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M6 complete; M7 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -124,6 +124,23 @@ The best checkpoint, temperature and decision threshold are all chosen on `sourc
 predictions are then produced once under that frozen calibration; target labels are never accessed,
 so target score distributions are reported but target accuracy/FAS metrics are not. Runs are written
 under `runs/<run_id>/` and are git-ignored.
+
+## M6 Modal wrapper and parity
+
+The Modal wrapper runs the *same* TrainerCore remotely — `src/prism_fas/train/**` never imports
+`modal`. Remote jobs stream the package's 9 tar shards rather than its loose files.
+
+```bash
+export PYTHONIOENCODING=utf-8
+python -m modal run modal_app.py --stage verify      # shard-first package validation
+python -m modal run modal_app.py --stage forward     # CPU/GPU fp32 forward parity
+python -m modal run modal_app.py --stage smoke       # 5-step GPU train + resume
+python -m modal run modal_app.py --stage inference   # frozen-calibration inference parity
+```
+
+Volume names and mounts live in `configs/data/../cloud/modal_m6.yaml`; no credentials or local
+paths are committed. M6 verifies execution-contract and numerical smoke parity, not equality of
+complete training trajectories.
 
 ## What is not in this repository
 

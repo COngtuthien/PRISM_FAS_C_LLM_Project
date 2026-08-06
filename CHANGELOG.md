@@ -1,5 +1,24 @@
 # Changelog
 
+## M6 Modal Wrapper and Parity Smoke — 2026-08-06
+
+- Added `modal_app.py` and `src/prism_fas/cloud/` (config guards, parity comparators, parity fixture
+  builder, shard-first remote verifier) plus `configs/cloud/modal_m6.yaml`. TrainerCore stays
+  backend-neutral: a test asserts `src/prism_fas/train/**` never imports `modal`.
+- Uploaded only the validated `prism_data_v1_m3b` package, the pinned ConvNeXt V2 weight and the M5
+  parity artifacts to three new volumes; raw datasets were never uploaded.
+- Replaced the loose-file remote validator with a shard-first `remote_parity` profile: hashing 13,337
+  small files over a network Volume exceeded the container lifetime and was preempted, while the 9
+  shard hashes plus sampled real triplets verify the bytes the remote trainer actually reads in 10 s.
+- Fixed forward-parity drift of 1.03e-02: Ada GPUs enable TF32 for conv/matmul by default, which is
+  not fp32. Disabling TF32 brought logit drift to 1.86e-05 without widening any tolerance.
+- Fixed a trainer reporting bug where `batch_composition` logged cumulative counts (8/16/24/32/40)
+  instead of per-batch counts; cumulative totals now live under a separate key.
+- Threaded an offline `weight_file` through the model builder, trainer and inference so timm loads
+  the pinned volume weight instead of reaching the Hub inside offline containers.
+- Verified on NVIDIA L4: 5-step GPU smoke with exact 8/8/8/8 batches, resume to step 6, remote
+  checkpoint loading on local CPU, and inference parity with 0 decision disagreements.
+
 ## M5 B00 Local Baseline — 2026-08-06
 
 - Added `prism_fas.train`: B00 ConvNeXt V2 binary classifier, exact BCE-with-logits loss, FAS metrics
