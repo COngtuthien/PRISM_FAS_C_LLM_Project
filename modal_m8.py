@@ -237,6 +237,44 @@ def _progress(payload: dict) -> None:
     print(json.dumps({"progress": payload}), flush=True)
 
 
+REMOTE_SYNTHETIC_WORK_V2 = f"{RUNS_MOUNT}/synthetic_banks/m8_work_v2"
+REMOTE_CALIBRATION_V2 = f"{REMOTE_SYNTHETIC_WORK_V2}/calibration"
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=7200)
+def m8_calibrate_identity_v2() -> dict:
+    """Source-train-only cross-observation identity calibration.
+
+    Opens the `source_train` manifest and `source_train` live images only. No
+    generated candidate, no `source_dev`, no target. Runs twice and refuses to
+    write unless both runs agree.
+    """
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.identity_calibration import (IdentityBackend, calibrate_identity,
+                                                          compare_calibrations, load_identity_config,
+                                                          write_calibration_artifacts)
+    from prism_fas.synthesis.synthetic_bank import FrozenCalibration
+    config = load_identity_config(PROJECT / "configs" / "synthesis" / "quality_gate_m8_v2.yaml")
+    v1 = FrozenCalibration.load(Path(REMOTE_CALIBRATION))
+    backends = IdentityBackend(Path(REMOTE_WEIGHT_ROOT), device="cuda")
+    runs = [calibrate_identity(Path(REMOTE_PACKAGE), config, backends, v1_thresholds=v1.thresholds,
+                               progress=_progress, device_report=gpu) for _ in range(2)]
+    comparison = compare_calibrations(runs[0], runs[1])
+    if not comparison["identical"]:
+        raise RuntimeError(f"v2 calibration is not reproducible: {comparison['mismatches'][:5]}")
+    written = write_calibration_artifacts(Path(REMOTE_CALIBRATION_V2), runs[0],
+                                          package_identity=verified["package_identity"], config=config)
+    runs_volume.commit()
+    summary = {key: value for key, value in written["calibration"].items() if key != "identity_structure"}
+    return {"stage": "calibrate_identity_v2", "gpu": gpu, **verified,
+            "calibration": summary, "lock": written["lock"], "determinism": comparison,
+            "identity_structure": written["calibration"]["identity_structure"],
+            "remote_calibration_path": REMOTE_CALIBRATION_V2, "written": written["written"],
+            "v1_tau_id": v1.thresholds.tau_id, "v1_threshold_sha256": v1.threshold_sha256}
+
+
 @app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=7200)
 def m8_generation_pilot(count: int = 32, determinism: bool = True) -> dict:
     """Deterministic correctness pilot. Never changes a frozen threshold."""
@@ -393,6 +431,8 @@ def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs
                          indent=2, default=str))
     elif stage == "calibrate":
         print(json.dumps(m8_calibrate_quality.remote(), indent=2, default=str))
+    elif stage == "calibrate_identity_v2":
+        print(json.dumps(m8_calibrate_identity_v2.remote(), indent=2, default=str))
     elif stage == "pilot":
         print(json.dumps(m8_generation_pilot.remote(count=count), indent=2, default=str))
     elif stage == "pilot_spawn":

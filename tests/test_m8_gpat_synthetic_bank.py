@@ -705,6 +705,7 @@ GPAT_BEST_SHA = "2047cdb513767010cfdf368c6f53a3664922451c56e1e837ec59cb96918a5b6
 CANDIDATE_PLAN_IDENTITY = "b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67abfc8890f40b8"
 THRESHOLD_SHA = "4798a392243c85f89b37a14dc51958637d4ae177756bf88f693804f065c4c297"
 FINGERPRINT_REFERENCE_SHA = "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
+PACKAGE_IDENTITY = "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
 
 
 def _plan():
@@ -1671,3 +1672,376 @@ def test_real_export_report_marks_the_archive_as_non_identity_bearing():
     assert len(report["archive_sha256"]) == 64 and report["archive_bytes"] > 0
     # 391 accepted x 4 members + the 12 top-level bank files
     assert report["member_count"] == 391 * 4 + 12
+
+
+# --- M8 identity calibration v2 ------------------------------------------------
+from prism_fas.synthesis.identity_calibration import (  # noqa: E402
+    COSINE_TOLERANCE, GENUINE_FIELDS, IDENTITY_CALIBRATION_VERSION, IMPOSTOR_FIELDS,
+    IdentityCalibrationError, build_genuine_pairs, build_impostor_pairs, build_lock,
+    compare_calibrations, group_by_identity, identity_key, identity_key_hash, load_identity_config,
+    normalize_subject_id, pairs_digest, preprocessing_contract_identity, write_pairs_parquet)
+from prism_fas.synthesis.pair_plan import SourceRow  # noqa: E402
+
+V2_CONFIG = ROOT / "configs" / "synthesis" / "quality_gate_m8_v2.yaml"
+TAU_ID_V1 = 0.9995203357934952
+
+
+def _row(sample, dataset, record, subject):
+    return SourceRow(sample_id=sample, dataset=dataset, source_record_id=record,
+                     subject_id=subject, label="live", project_split="source_train")
+
+
+def _population(samples_per_record=2, records=2, identities=3):
+    """A miniature but structurally faithful source_train live population."""
+    rows = []
+    for dataset in ("casia_fasd", "msu_mfsd"):
+        for subject in range(identities):
+            for record in range(records):
+                for frame in range(samples_per_record):
+                    rows.append(_row(f"{dataset}_s{subject}_r{record}_f{frame}", dataset,
+                                     f"{dataset}_rec{subject}_{record}", str(subject)))
+    return sorted(rows, key=lambda row: row.sample_id)
+
+
+def test_identity_key_is_dataset_prefixed_and_normalized():
+    assert identity_key("casia_fasd", " 5 ") == "casia_fasd::5"
+    assert identity_key("msu_mfsd", "A") == "msu_mfsd::a"
+    # the same numeric subject id in two datasets is two different people
+    assert identity_key("casia_fasd", "5") != identity_key("msu_mfsd", "5")
+    assert identity_key_hash("casia_fasd::5") != identity_key_hash("msu_mfsd::5")
+    with pytest.raises(IdentityCalibrationError): normalize_subject_id("")
+    with pytest.raises(IdentityCalibrationError): normalize_subject_id(None)
+    with pytest.raises(IdentityCalibrationError): identity_key("siw_mv2", "1")
+
+
+def test_genuine_pairs_are_same_identity_and_cross_record():
+    rows = _population()
+    groups = group_by_identity(rows)
+    pairs = build_genuine_pairs(rows)
+    assert pairs
+    keyed = {identity_key_hash(key): key for key in groups}
+    for pair in pairs:
+        key = keyed[pair["identity_key_hash"]]
+        dataset, subject = key.split("::", 1)
+        assert pair["dataset"] == dataset
+        assert pair["source_record_id_a"] != pair["source_record_id_b"]
+        assert pair["sample_id_a"] != pair["sample_id_b"]
+        assert pair["sample_id_a"] < pair["sample_id_b"]
+        for sample in (pair["sample_id_a"], pair["sample_id_b"]):
+            row = next(item for item in rows if item.sample_id == sample)
+            assert identity_key(row.dataset, row.subject_id) == key
+
+
+def test_genuine_pairs_reject_same_record_frames():
+    """Two frames of one canonical record are one observation, not two."""
+    rows = [_row("a0", "casia_fasd", "rec0", "1"), _row("a1", "casia_fasd", "rec0", "1"),
+            _row("a2", "casia_fasd", "rec0", "1")]
+    assert build_genuine_pairs(rows) == []
+    rows.append(_row("a3", "casia_fasd", "rec1", "1"))
+    pairs = build_genuine_pairs(rows)
+    assert len(pairs) == 3 and all(pair["source_record_id_a"] != pair["source_record_id_b"] for pair in pairs)
+
+
+def test_genuine_cap_is_per_identity():
+    rows = _population(samples_per_record=6, records=2, identities=1)
+    capped = build_genuine_pairs(rows, maximum_per_identity=5)
+    counts = {}
+    for pair in capped: counts[pair["identity_key_hash"]] = counts.get(pair["identity_key_hash"], 0) + 1
+    assert counts and all(value <= 5 for value in counts.values())
+    assert len(build_genuine_pairs(rows, maximum_per_identity=0)) == 0
+    uncapped = build_genuine_pairs(rows, maximum_per_identity=1000)
+    assert len(uncapped) > len(capped)
+
+
+def test_impostor_pairs_are_different_identity_and_same_dataset():
+    rows = _population()
+    pairs = build_impostor_pairs(rows, maximum_total=10000)
+    assert pairs
+    by_sample = {row.sample_id: row for row in rows}
+    for pair in pairs:
+        left, right = by_sample[pair["sample_id_a"]], by_sample[pair["sample_id_b"]]
+        assert left.dataset == right.dataset == pair["dataset"]
+        assert identity_key(left.dataset, left.subject_id) != identity_key(right.dataset, right.subject_id)
+        assert pair["identity_key_hash_a"] != pair["identity_key_hash_b"]
+        assert pair["sample_id_a"] < pair["sample_id_b"]
+
+
+def test_impostor_pairs_never_cross_datasets():
+    """A CASIA/MSU pair differs in capture domain as well as identity, which would
+    make the impostor problem artificially easy."""
+    rows = _population()
+    by_sample = {row.sample_id: row for row in rows}
+    for pair in build_impostor_pairs(rows, maximum_total=10000):
+        assert by_sample[pair["sample_id_a"]].dataset == by_sample[pair["sample_id_b"]].dataset
+
+
+def test_pairs_are_unique_and_deterministic():
+    rows = _population()
+    for builder, fields in ((build_genuine_pairs, GENUINE_FIELDS), (build_impostor_pairs, IMPOSTOR_FIELDS)):
+        first, second = builder(rows), builder(rows)
+        assert pairs_digest(first, fields) == pairs_digest(second, fields)
+        assert [row["pair_id"] for row in first] == [row["pair_id"] for row in second]
+        assert len({row["pair_id"] for row in first}) == len(first)
+        assert len({(row["dataset"], row["sample_id_a"], row["sample_id_b"]) for row in first}) == len(first)
+        # a different input order must not change the plan
+        assert pairs_digest(builder(list(reversed(rows))), fields) == pairs_digest(first, fields)
+
+
+def test_impostor_selection_is_balanced_across_datasets_and_identities():
+    rows = _population(samples_per_record=3, records=2, identities=4)
+    pairs = build_impostor_pairs(rows, maximum_total=200)
+    per_dataset = {}
+    for pair in pairs: per_dataset[pair["dataset"]] = per_dataset.get(pair["dataset"], 0) + 1
+    assert set(per_dataset) == {"casia_fasd", "msu_mfsd"}
+    assert abs(per_dataset["casia_fasd"] - per_dataset["msu_mfsd"]) <= 1
+    for dataset in per_dataset:
+        participation = {}
+        for pair in [row for row in pairs if row["dataset"] == dataset]:
+            for side in ("identity_key_hash_a", "identity_key_hash_b"):
+                participation[pair[side]] = participation.get(pair[side], 0) + 1
+        values = sorted(participation.values())
+        # round-robin over participation keeps no identity more than 2x the least
+        assert values[-1] <= 2 * values[0]
+
+
+def test_pair_plan_identity_is_logical_not_parquet_bytes(tmp_path):
+    rows = _population()
+    pairs = build_genuine_pairs(rows)
+    logical = pairs_digest(pairs, GENUINE_FIELDS)
+    written = write_pairs_parquet(tmp_path / "a.parquet", pairs, GENUINE_FIELDS,
+                                  {row["pair_id"]: 0.5 for row in pairs})
+    assert written == logical
+    # a different cosine payload changes the parquet BYTES but not the plan identity
+    other = write_pairs_parquet(tmp_path / "b.parquet", pairs, GENUINE_FIELDS,
+                                {row["pair_id"]: 0.9 for row in pairs})
+    assert other == logical
+    assert (tmp_path / "a.parquet").read_bytes() != (tmp_path / "b.parquet").read_bytes()
+    assert write_pairs_parquet(tmp_path / "c.parquet", pairs, GENUINE_FIELDS) == logical
+
+
+def test_pair_rows_carry_no_raw_path_or_plaintext_subject():
+    rows = _population()
+    for pairs, fields in ((build_genuine_pairs(rows), GENUINE_FIELDS),
+                          (build_impostor_pairs(rows, maximum_total=500), IMPOSTOR_FIELDS)):
+        text = json.dumps([{name: row[name] for name in fields} for row in pairs])
+        assert ".png" not in text and ".jpg" not in text and "/" not in text.replace("\\/", "")
+        assert "subject_id" not in text
+        for row in pairs:
+            for name in fields:
+                if name.startswith("identity_key_hash"): assert len(row[name]) == 64
+
+
+def test_v2_config_is_source_train_live_only_and_declares_the_rule():
+    payload = load_identity_config(V2_CONFIG)
+    block = payload["identity_calibration"]
+    assert block["version"] == IDENTITY_CALIBRATION_VERSION and block["seed"] == 20260806
+    assert block["maximum_genuine_pairs_per_identity"] == 20
+    assert block["maximum_impostor_pairs_total"] == 20000
+    assert block["genuine_percentile"] == 1.0 and block["impostor_percentile"] == 99.9
+    assert block["require_different_source_record"] is True
+    assert block["require_same_dataset_for_impostor"] is True
+    assert block["require_source_train_live"] is True
+    assert payload["threshold_rule"]["tau_id_v2"] == "max(tau_genuine, tau_impostor)"
+    assert payload["threshold_rule"]["tuned_on_candidate_acceptance"] is False
+    assert payload["calibration_population"]["uses_generated_candidates"] is False
+    # the operational minimums are carried over untouched
+    assert payload["operational_minimums"] == {"candidates": 1120, "accepted_total": 400,
+                                               "accepted_physics": 200, "accepted_gpat": 100,
+                                               "accepted_live_casia": 100, "accepted_live_msu": 100,
+                                               "require_all_artifact_types": 8, "require_all_regions": 9,
+                                               "require_same_and_cross_domain_gpat": True}
+    inherited = payload["inherited_from_v1"]
+    assert inherited["tau_id_v1"] == TAU_ID_V1
+    assert inherited["threshold_sha256_v1"] == THRESHOLD_SHA
+    assert inherited["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+
+
+def test_v1_quality_gate_config_was_not_modified_by_v2():
+    text = (ROOT / "configs" / "synthesis" / "quality_gate_m8.yaml").read_text(encoding="utf-8")
+    assert "identity_calibration" not in text
+    assert "m8-quality-gate-v1" in text
+    assert "benign_identity_cosine_percentile" in text
+
+
+def test_v2_config_rejects_a_forbidden_split_at_any_depth(tmp_path):
+    import yaml
+    payload = yaml.safe_load(V2_CONFIG.read_text(encoding="utf-8"))
+    payload["calibration_population"]["extra"] = {"nested": {"split": "source_dev"}}
+    path = tmp_path / "bad.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    with pytest.raises(IdentityCalibrationError):
+        load_identity_config(path)
+
+
+def test_adaface_preprocessing_contract_is_the_pinned_production_wrapper():
+    from prism_fas.synthesis.quality_models import PINNED
+    identity = preprocessing_contract_identity()
+    assert len(identity) == 64
+    assert identity == preprocessing_contract_identity()          # pure function of the pin
+    spec = PINNED["identity"]
+    assert spec["revision"] == "60a65befbcf7"
+    assert spec["sha256"] == "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    assert spec["input_size"] == 112 and spec["input_color"] == "bgr" and spec["embedding_dim"] == 512
+    # v2 must not introduce an alternate resize/alignment/normalization path: it
+    # embeds only through the registry's pinned wrapper.
+    source = (ROOT / "src" / "prism_fas" / "synthesis" / "identity_calibration.py").read_text(encoding="utf-8")
+    assert "registry.adaface(" in source
+    for alternate in ("cv2.resize", "cv2.warpAffine", "F.interpolate", "torch.nn.functional.interpolate",
+                      "Resize(", "Normalize("):
+        assert alternate not in source, alternate
+
+
+def test_calibration_never_reads_a_candidate_source_dev_or_target():
+    """The forbidden split names appear only in the guard that REJECTS them, so
+    the test asserts what the module can open, not which words it contains."""
+    import ast
+    from prism_fas.synthesis.identity_calibration import SOURCE_SPLIT
+    path = ROOT / "src" / "prism_fas" / "synthesis" / "identity_calibration.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    assert SOURCE_SPLIT == "source_train"
+    literals = [node.value for node in ast.walk(tree)
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)]
+    # no literal may name a readable artifact of a forbidden split or a candidate
+    for text in literals:
+        for banned in ("source_dev.parquet", "target_test.parquet", "candidate_plan", "records/",
+                       "synthetic_id", "images/", "shards"):
+            assert banned not in text, f"{banned!r} in {text!r}"
+    # calibration imports nothing from the generation side and never imports modal
+    for node in ast.walk(tree):
+        names = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                 else [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+        for name in names:
+            assert name.split(".")[0] != "modal"
+            assert "synthetic_bank" not in name and "candidate_plan" not in name
+
+
+def test_threshold_rule_is_the_max_and_percentiles_are_exact():
+    from prism_fas.synthesis.identity_calibration import _distribution
+    genuine = [0.60, 0.70, 0.80, 0.90]
+    impostor = [0.10, 0.20, 0.30, 0.95]
+    tau_genuine = float(np.percentile(genuine, 1.0))
+    tau_impostor = float(np.percentile(impostor, 99.9))
+    assert max(tau_genuine, tau_impostor) == tau_impostor        # impostor floor binds here
+    assert _distribution(genuine)["count"] == 4
+    assert _distribution([])["count"] if _distribution([]) else True
+    report = _report("quality_calibration_v2.json")
+    assert report["tau_genuine"] == float(np.percentile(
+        [row for row in _v2_cosines("identity_genuine_pairs_v2.parquet")], 1.0))
+    assert report["tau_impostor"] == float(np.percentile(
+        [row for row in _v2_cosines("identity_impostor_pairs_v2.parquet")], 99.9))
+    assert report["tau_id_v2"] == max(report["tau_genuine"], report["tau_impostor"])
+    assert report["thresholds"]["tau_id"] == report["tau_id_v2"]
+
+
+def _v2_cosines(name):
+    import pyarrow.parquet as pq
+    path = REPORTS / name
+    if not path.is_file(): pytest.skip(f"{name} missing; run: prism synthesis identity-calibrate-v2")
+    return list(pq.read_table(path).to_pydict()["adaface_cosine"])
+
+
+def test_calibration_lock_is_deterministic_and_excludes_runtime_metadata():
+    lock = _report("IDENTITY_CALIBRATION_V2_LOCK.json")
+    calibration = _report("quality_calibration_v2.json")
+    payload = load_identity_config(V2_CONFIG)
+    rebuilt = build_lock({**calibration, "_genuine_pairs": [], "_impostor_pairs": []},
+                         package_identity=lock["package_identity"], config=payload)
+    assert rebuilt["calibration_content_identity_sha256"] == lock["calibration_content_identity_sha256"]
+    for name in ("created_at", "device_report", "parquet_byte_hashes"):
+        assert name in lock["identity_excluded_fields"]
+    text = json.dumps(lock)
+    assert "/vol/" not in text and "C:\\" not in text and "modal" not in text.lower()
+    assert "/tmp" not in text
+
+
+def test_calibration_comparison_detects_a_drifted_cosine():
+    left = {"genuine_pair_plan_identity_sha256": "a", "impostor_pair_plan_identity_sha256": "b",
+            "tau_genuine": 0.5, "tau_impostor": 0.4, "tau_id_v2": 0.5, "threshold_sha256": "c",
+            "_genuine_scores": {"g": 0.5}, "_impostor_scores": {"i": 0.4}}
+    assert compare_calibrations(left, dict(left))["identical"]
+    drifted = {**left, "_genuine_scores": {"g": 0.5 + 10 * COSINE_TOLERANCE}}
+    result = compare_calibrations(left, drifted)
+    assert not result["identical"] and result["mismatch_count"] == 1
+    within = {**left, "_genuine_scores": {"g": 0.5 + COSINE_TOLERANCE / 10}}
+    assert compare_calibrations(left, within)["identical"]
+    assert not compare_calibrations(left, {**left, "tau_id_v2": 0.6})["identical"]
+
+
+# --- real v2 calibration report contracts ---------------------------------------
+def test_real_identity_structure_v2_report_contract():
+    report = _report("identity_structure_v2.json")
+    assert report["supports_cross_record_identity_calibration"] is True
+    assert all(report["requirements"].values())
+    assert report["live_count"] == 280
+    assert report["live_count_by_dataset"] == {"casia_fasd": 160, "msu_mfsd": 120}
+    assert report["identity_count"] == 35
+    assert report["identity_count_by_dataset"] == {"casia_fasd": 20, "msu_mfsd": 15}
+    assert report["identities_with_at_least_two_source_records"] == 35
+    assert report["potential_genuine_pairs"] == 560
+    assert report["skipped_samples_without_subject_id"] == 0 and report["skipped_identities"] == []
+    assert report["cross_dataset_subject_ids_are_different_people"] is True
+    isolation = report["source_isolation"]
+    assert isolation["manifests_opened"] == ["manifests/source_train.parquet"]
+    assert isolation["source_dev_opened"] is False and isolation["target_test_opened"] is False
+    assert isolation["raw_dataset_path_opened"] is False
+
+
+def test_real_v2_calibration_report_contract():
+    report = _report("quality_calibration_v2.json")
+    assert report["calibration_version"] == IDENTITY_CALIBRATION_VERSION and report["seed"] == 20260806
+    assert report["populations"]["genuine_pairs"] == 560
+    assert report["populations"]["impostor_pairs"] == 13440
+    assert report["populations"]["impostor_pairs_by_dataset"] == {"casia_fasd": 6720, "msu_mfsd": 6720}
+    assert report["genuine_percentile"] == 1.0 and report["impostor_percentile"] == 99.9
+    assert report["threshold_rule"] == "tau_id_v2 = max(tau_genuine, tau_impostor)"
+    assert report["tau_id_v2"] == max(report["tau_genuine"], report["tau_impostor"])
+    assert report["used_generated_candidates"] is False
+    assert report["used_source_dev"] is False and report["used_target"] is False
+    assert report["v1_tau_id_informational_only"] == TAU_ID_V1
+    # every non-identity threshold is carried over from v1 untouched
+    assert report["unchanged_from_v1"] == {"tau_fd": 0.5, "tau_lm": 0.002135227532959269,
+                                           "tau_parse": 0.8747814437904173, "tau_out": 0.0,
+                                           "tau_fp": 5.687657785453908}
+    assert report["thresholds"]["tau_fp"] == 5.687657785453908
+    assert report["embedding_cache"]["cached_by_absolute_path"] is False
+    assert report["embedding_cache"]["forward_passes"] == 280
+    assert report["device_report"]["gpu_name"] == "NVIDIA L4"
+    models = report["quality_models"]["models"]["identity"]
+    assert models["revision"] == "60a65befbcf7" and models["sha256_matches_pin"] is True
+    assert 0.0 <= report["impostor_false_match_rate_at_tau"] <= 0.001
+    assert report["genuine_acceptance_rate_at_tau"] >= 0.98
+
+
+def test_real_v2_calibration_determinism_report_contract():
+    report = _report("identity_calibration_v2_determinism.json")
+    assert report["passed"] is True and report["identical"] is True
+    assert report["mismatch_count"] == 0 and report["mismatches"] == []
+    assert report["runs"] == 2 and report["cosine_tolerance"] == COSINE_TOLERANCE
+
+
+def test_real_v2_lock_binds_every_declared_identity():
+    lock = _report("IDENTITY_CALIBRATION_V2_LOCK.json")
+    for name in ("identity_calibration_lock_schema_version", "calibration_version", "seed",
+                 "package_identity", "source_population_sha256", "adaface_revision",
+                 "adaface_weight_sha256", "preprocessing_contract_identity_sha256", "config_sha256",
+                 "genuine_pair_plan_identity_sha256", "impostor_pair_plan_identity_sha256",
+                 "genuine_pairs", "impostor_pairs", "tau_genuine", "tau_impostor", "tau_id_v2",
+                 "unchanged_from_v1", "thresholds", "threshold_sha256", "source_isolation",
+                 "calibration_content_identity_sha256"):
+        assert name in lock, name
+    assert lock["package_identity"] == PACKAGE_IDENTITY
+    assert lock["adaface_weight_sha256"] == "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    assert lock["tau_id_v2"] == max(lock["tau_genuine"], lock["tau_impostor"])
+    assert lock["threshold_sha256"] != THRESHOLD_SHA          # tau_id changed, so the set changed
+    assert lock["thresholds"]["tau_id"] == lock["tau_id_v2"]
+    assert lock["used_generated_candidates"] is False
+
+
+def test_v2_identity_gate_is_more_permissive_and_that_is_reported_not_praised():
+    """A factual comparison only. v2 is a different calibration population, not a
+    better one, and the change must not be justified by acceptance counts."""
+    report = _report("quality_calibration_v2.json")
+    assert report["tau_id_v2"] < report["v1_tau_id_informational_only"]
+    assert report["distributions_are_well_separated"] in (True, False)
+    assert isinstance(report["separation_note"], str) and report["separation_note"]
+    assert report["genuine_fraction_at_or_below_tau_impostor"] >= 0.0

@@ -291,6 +291,95 @@ def synthesis_physics_audit(package_root:Path=typer.Option(...,'--package-root',
         "source_isolation_passed":result["source_isolation"]["passed"],"written":result["written"]}))
     if not (result["physics"]["passed"] and result["determinism"]["passed"] and result["source_isolation"]["passed"]):
         raise typer.Exit(1)
+# --- M8 identity calibration v2 -----------------------------------------------
+@synthesis_app.command("identity-audit")
+def synthesis_identity_audit(package_root:Path|None=typer.Option(None,'--package-root'),
+        output:Path=typer.Option(Path('reports/m8/identity_structure_v2.json'),'--output'),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Audit the source_train live identity structure before any v2 threshold logic exists."""
+    from prism_fas.synthesis.identity_calibration import audit_identity_structure
+    report=audit_identity_structure(package_root or _m8_defaults()["package"])
+    if not dry_run: atomic_json_write(output,report)
+    typer.echo(json.dumps({"supports_cross_record_identity_calibration":report["supports_cross_record_identity_calibration"],
+        "requirements":report["requirements"],"live_count":report["live_count"],
+        "identity_count":report["identity_count"],"identity_count_by_dataset":report["identity_count_by_dataset"],
+        "identities_with_at_least_two_source_records":report["identities_with_at_least_two_source_records"],
+        "potential_genuine_pairs":report["potential_genuine_pairs"],
+        "potential_impostor_pairs_by_dataset":report["potential_impostor_pairs_by_dataset"],
+        "written":[] if dry_run else [str(output.name)]}))
+    if not report["supports_cross_record_identity_calibration"]: raise typer.Exit(1)
+@synthesis_app.command("identity-calibrate-v2")
+def synthesis_identity_calibrate_v2(weight_root:Path|None=typer.Option(None,'--weight-root'),
+        package_root:Path|None=typer.Option(None,'--package-root'),
+        config:Path|None=typer.Option(None,'--config'),v1_calibration:Path|None=typer.Option(None,'--v1-calibration'),
+        output:Path=typer.Option(Path('reports/m8'),'--output'),device:str=typer.Option('cpu','--device'),
+        repeat:int=typer.Option(2,'--repeat',help='the protocol requires two agreeing runs'),
+        dry_run:bool=typer.Option(False,'--dry-run'))->None:
+    """Fit tau_id_v2 from real source_train cross-observation pairs. Never reads a candidate."""
+    from prism_fas.synthesis.identity_calibration import (IdentityBackend,build_genuine_pairs,build_impostor_pairs,
+        calibrate_identity,compare_calibrations,live_rows,load_identity_config,write_calibration_artifacts)
+    from prism_fas.synthesis.synthetic_bank import FrozenCalibration
+    d=_m8_defaults()
+    package=package_root or d["package"]
+    payload=load_identity_config(config or (Path(__file__).parents[3]/'configs'/'synthesis'/'quality_gate_m8_v2.yaml'))
+    block=payload["identity_calibration"]
+    if dry_run:
+        rows=live_rows(package)
+        genuine=build_genuine_pairs(rows,seed=block["seed"],maximum_per_identity=block["maximum_genuine_pairs_per_identity"])
+        impostor=build_impostor_pairs(rows,seed=block["seed"],maximum_total=block["maximum_impostor_pairs_total"])
+        typer.echo(json.dumps({"status":"dry_run","live_samples":len(rows),"genuine_pairs":len(genuine),
+            "impostor_pairs":len(impostor),"threshold_rule":"tau_id_v2 = max(tau_genuine, tau_impostor)",
+            "output_root":str(output),"written":[]}));return
+    if weight_root is None: raise typer.BadParameter("--weight-root is required to embed with the pinned AdaFace")
+    v1=FrozenCalibration.load(v1_calibration or d["calibration"])
+    backends=IdentityBackend(weight_root,device=device)
+    package_identity=json.loads((Path(package)/'PACKAGE_LOCK.json').read_text(encoding='utf-8'))["content_identity_sha256"]
+    runs=[calibrate_identity(package,payload,backends,v1_thresholds=v1.thresholds,
+        progress=lambda item: typer.echo(json.dumps({"progress":item}))) for _ in range(max(1,repeat))]
+    comparison=compare_calibrations(runs[0],runs[-1]) if len(runs)>1 else {"identical":True,"mismatch_count":0}
+    if not comparison["identical"]:
+        typer.echo(json.dumps({"passed":False,"determinism":comparison,"written":[]}));raise typer.Exit(1)
+    written=write_calibration_artifacts(output,runs[0],package_identity=package_identity,config=payload)
+    summary=written["calibration"]
+    typer.echo(json.dumps({"passed":True,"tau_genuine":summary["tau_genuine"],"tau_impostor":summary["tau_impostor"],
+        "tau_id_v2":summary["tau_id_v2"],"threshold_rule":summary["threshold_rule"],
+        "distributions_are_well_separated":summary["distributions_are_well_separated"],
+        "genuine_pairs":summary["populations"]["genuine_pairs"],"impostor_pairs":summary["populations"]["impostor_pairs"],
+        "genuine_acceptance_rate_at_tau":summary["genuine_acceptance_rate_at_tau"],
+        "impostor_false_match_rate_at_tau":summary["impostor_false_match_rate_at_tau"],
+        "calibration_content_identity_sha256":written["lock"]["calibration_content_identity_sha256"],
+        "determinism_mismatches":comparison["mismatch_count"],"written":written["written"]}))
+@synthesis_app.command("validate-identity-calibration-v2")
+def synthesis_validate_identity_calibration_v2(root:Path=typer.Option(Path('reports/m8'),'--root'),
+        package_root:Path|None=typer.Option(None,'--package-root'),
+        config:Path|None=typer.Option(None,'--config'))->None:
+    """Re-derive the v2 pair plans and the lock identity from the manifest alone."""
+    from prism_fas.synthesis.identity_calibration import (GENUINE_FIELDS,IMPOSTOR_FIELDS,build_genuine_pairs,
+        build_impostor_pairs,build_lock,live_rows,load_identity_config,pairs_digest)
+    d=_m8_defaults()
+    package=package_root or d["package"]
+    payload=load_identity_config(config or (Path(__file__).parents[3]/'configs'/'synthesis'/'quality_gate_m8_v2.yaml'))
+    block=payload["identity_calibration"]
+    lock=json.loads((Path(root)/'IDENTITY_CALIBRATION_V2_LOCK.json').read_text(encoding='utf-8'))
+    calibration=json.loads((Path(root)/'quality_calibration_v2.json').read_text(encoding='utf-8'))
+    rows=live_rows(package)
+    genuine=build_genuine_pairs(rows,seed=block["seed"],maximum_per_identity=block["maximum_genuine_pairs_per_identity"])
+    impostor=build_impostor_pairs(rows,seed=block["seed"],maximum_total=block["maximum_impostor_pairs_total"])
+    package_identity=json.loads((Path(package)/'PACKAGE_LOCK.json').read_text(encoding='utf-8'))["content_identity_sha256"]
+    rebuilt=build_lock({**calibration,"_genuine_pairs":genuine,"_impostor_pairs":impostor},
+        package_identity=package_identity,config=payload)
+    checks={"genuine_pair_plan_identity":pairs_digest(genuine,GENUINE_FIELDS)==lock["genuine_pair_plan_identity_sha256"],
+        "impostor_pair_plan_identity":pairs_digest(impostor,IMPOSTOR_FIELDS)==lock["impostor_pair_plan_identity_sha256"],
+        "package_identity":package_identity==lock["package_identity"],
+        "config_sha256":rebuilt["config_sha256"]==lock["config_sha256"],
+        "threshold_rule":lock["threshold_rule"]=="tau_id_v2 = max(tau_genuine, tau_impostor)",
+        "tau_id_v2_follows_the_rule":lock["tau_id_v2"]==max(lock["tau_genuine"],lock["tau_impostor"]),
+        "calibration_content_identity":rebuilt["calibration_content_identity_sha256"]==lock["calibration_content_identity_sha256"],
+        "used_generated_candidates_false":lock["used_generated_candidates"] is False,
+        "used_source_dev_false":lock["used_source_dev"] is False,"used_target_false":lock["used_target"] is False}
+    typer.echo(json.dumps({"passed":all(checks.values()),"checks":checks,"tau_id_v2":lock["tau_id_v2"],
+        "calibration_content_identity_sha256":lock["calibration_content_identity_sha256"]}))
+    if not all(checks.values()): raise typer.Exit(1)
 # --- M8 synthetic bank -------------------------------------------------------
 def _m8_defaults()->dict[str,Path]:
     base=Path(__file__).parents[3]

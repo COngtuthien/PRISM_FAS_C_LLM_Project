@@ -1,0 +1,114 @@
+# M8 quality gate v2: source_train-only CROSS-OBSERVATION identity calibration.
+#
+# configs/synthesis/quality_gate_m8.yaml is NOT modified. It remains the frozen
+# v1 policy under which the retained v1 experimental run was decided.
+#
+# Only the identity-calibration population and the resulting tau_id are versioned
+# here. Every other threshold, bound, formula and policy is carried over from v1
+# unchanged, and the operational minimums are untouched.
+quality_gate_schema_version: "m8-quality-gate-v2"
+calibration_schema_version: "m8-identity-calibration-v2"
+seed: 20260806
+
+identity_calibration:
+  version: m8-identity-calibration-v2
+  seed: 20260806
+  maximum_genuine_pairs_per_identity: 20
+  maximum_impostor_pairs_total: 20000
+  genuine_percentile: 1.0
+  impostor_percentile: 99.9
+  require_different_source_record: true
+  require_same_dataset_for_impostor: true
+  require_source_train_live: true
+
+calibration_population:
+  split: source_train
+  allowed_datasets: ["casia_fasd", "msu_mfsd"]
+  label: live
+  # Two frames of one canonical record are two views of ONE observation, so they
+  # understate real embedding variation and are excluded from genuine pairs.
+  genuine: same_dataset_same_identity_different_source_record
+  # Cross-dataset impostors differ in capture domain as well as identity, which
+  # would make the impostor problem artificially easy and depress tau_impostor.
+  impostor: same_dataset_different_identity
+  identity_key: 'dataset + "::" + normalized_subject_id'
+  cross_dataset_subject_ids_are_different_people: true
+  uses_generated_candidates: false
+  forbidden_splits: ["source_dev", "target_test"]
+
+threshold_rule:
+  tau_genuine: "1st percentile of genuine same-identity cosine"
+  tau_impostor: "99.9th percentile of impostor different-identity cosine"
+  # Pre-declared before any v2 acceptance count exists. The max is a floor, not a
+  # choice: it keeps the impostor false-match rate at or below 0.1% even when the
+  # genuine distribution is loose.
+  tau_id_v2: "max(tau_genuine, tau_impostor)"
+  acceptance: "identity_cosine >= tau_id_v2"
+  tuned_on_candidate_acceptance: false
+  rounded_manually: false
+
+# Carried over from v1 verbatim. Only tau_id is re-fitted.
+inherited_from_v1:
+  tau_fd: 0.5
+  tau_lm: 0.002135227532959269
+  tau_parse: 0.8747814437904173
+  tau_out: 0.0
+  tau_fp: 5.687657785453908
+  threshold_sha256_v1: "4798a392243c85f89b37a14dc51958637d4ae177756bf88f693804f065c4c297"
+  fingerprint_reference_sha256: "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
+  tau_id_v1: 0.9995203357934952
+
+hard_gates:
+  face_detection_score: ">= tau_fd"
+  identity_cosine: ">= tau_id_v2"
+  landmark_nme: "<= tau_lm"
+  outside_mask_parsing_dice: ">= tau_parse"
+  outside_mask_max_error: "== 0"
+  measured_artifact_strength: "within dynamic bounds"
+  fingerprint_score: "<= tau_fp"
+  support_overlap: ">= 0.90"
+
+artifact_strength_bounds:
+  lower: "max(0.01, 0.25 * a)"
+  upper: "min(0.50, 1.75 * a)"
+
+quality_weight:
+  formula: "q = exp(mean(log(max(component, eps))))"
+  components: ["q_fd", "q_id", "q_lm", "q_parse", "q_strength", "q_fp", "q_support"]
+  epsilon: 1.0e-6
+  dtype: float32
+  range: [0.0, 1.0]
+  is_label: false
+
+recipe_match:
+  status: not_applicable
+  reason: "M9 PromptHead does not exist in M8; no prompt score is invented"
+
+# Unchanged. Never re-declared after seeing a v2 acceptance count.
+operational_minimums:
+  candidates: 1120
+  accepted_total: 400
+  accepted_physics: 200
+  accepted_gpat: 100
+  accepted_live_casia: 100
+  accepted_live_msu: 100
+  require_all_artifact_types: 8
+  require_all_regions: 9
+  require_same_and_cross_domain_gpat: true
+
+quality_models:
+  detector:
+    backend: scrfd_10g_bnkps
+    sha256: "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+    input_size: 320
+    threshold: 0.5
+  parsing:
+    backend: facexformer
+    revision: "fd12148d0b19"
+    sha256: "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+  identity:
+    backend: adaface_ir50
+    revision: "60a65befbcf7"
+    sha256: "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    # The exact M8 production wrapper; no alternate resize/alignment path.
+    preprocessing: prism_fas.synthesis.quality_models.DifferentiableAdaFace
