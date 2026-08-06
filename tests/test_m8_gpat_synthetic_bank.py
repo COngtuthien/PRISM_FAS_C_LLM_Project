@@ -200,7 +200,7 @@ def test_gpat_output_outside_the_support_mask_is_bit_identical():
     batch = _batch()
     output = model.forward_batch(batch)
     outside = batch.target_support_mask < 0.5
-    difference = (output.synthetic_image - batch.live_image).abs()
+    difference = (output.synthetic_image - batch.live_image).detach().abs()
     assert float(difference.masked_select(outside.expand_as(difference)).max()) == 0.0
     assert output.outside_mask_error(batch.live_image) == 0.0
     output.validate(batch.live_image)
@@ -387,3 +387,114 @@ def test_gpat_config_is_source_only_and_carries_no_absolute_path():
     text = CONFIG.read_text(encoding="utf-8")
     for marker in ("D:/", "C:\\", "/home/", "/Users/"):
         assert marker not in text
+
+
+# --- checkpoint strictness ---------------------------------------------------
+
+def _identity(**overrides):
+    base = {"package_identity": "p" * 64, "recipe_bank_identity": "b" * 64, "pair_plan_identity": "q" * 64,
+            "config_hash": "c" * 64, "architecture_hash": "a" * 64, "adaface_weight_sha256": "d" * 64}
+    base.update(overrides)
+    return base
+
+
+def _save(tmp_path, model, identity):
+    from prism_fas.synthesis.gpat_checkpoint import save_checkpoint
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    return save_checkpoint(tmp_path / "last.pt", model=model, optimizer=optimizer, scheduler=None, scaler=None,
+                           epoch=3, global_step=42, best_metrics={"validation_total_loss": 0.5},
+                           identity=identity, history=[{"epoch": 3}],
+                           record_set_hashes={"train_live_source_record_id": "r" * 64}, git_commit="deadbeef")
+
+
+def test_checkpoint_round_trip_restores_step_and_rng(tmp_path):
+    from prism_fas.synthesis.gpat_checkpoint import apply_checkpoint, load_checkpoint
+    model = build_gpat_model({"model": {}})
+    digest = _save(tmp_path, model, _identity())
+    assert len(digest) == 64
+    payload = load_checkpoint(tmp_path / "last.pt", expected_identity=_identity())
+    restored = build_gpat_model({"model": {}})
+    state = apply_checkpoint(payload, model=restored, optimizer=None)
+    assert state["epoch"] == 3 and state["global_step"] == 42
+    assert payload["rng_state"]["torch_cpu"] is not None
+    for (name, a), (_, b) in zip(model.state_dict().items(), restored.state_dict().items()):
+        assert torch.equal(a, b), name
+
+
+@pytest.mark.parametrize("field", ["package_identity", "recipe_bank_identity", "pair_plan_identity",
+                                   "config_hash", "architecture_hash", "adaface_weight_sha256"])
+def test_resume_rejects_every_identity_mismatch(tmp_path, field):
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, load_checkpoint
+    _save(tmp_path, build_gpat_model({"model": {}}), _identity())
+    with pytest.raises(CheckpointError, match="identity mismatch"):
+        load_checkpoint(tmp_path / "last.pt", expected_identity=_identity(**{field: "z" * 64}))
+    assert load_checkpoint(tmp_path / "last.pt", expected_identity=_identity())["global_step"] == 42
+
+
+def test_batch_slices_are_deterministic_and_cover_every_pair():
+    from prism_fas.synthesis.gpat_trainer import batch_slices
+    first = batch_slices(100, 16, seed=20260806, epoch=0, shuffle=True)
+    assert first == batch_slices(100, 16, seed=20260806, epoch=0, shuffle=True)
+    assert first != batch_slices(100, 16, seed=20260806, epoch=1, shuffle=True)
+    assert sorted(index for group in first for index in group) == list(range(100))
+
+
+# --- real Modal artifacts ----------------------------------------------------
+
+def test_modal_gpat_smoke_report_contract():
+    smoke = _report("modal_gpat_smoke.json")
+    assert smoke["gpu"]["gpu_name"] == "NVIDIA L4" and smoke["cuda_available"] is True
+    assert smoke["device"] == "cuda" and smoke["amp"] is True
+    assert smoke["steps_first"] == 5 and smoke["steps_after_resume"] >= 6
+    assert smoke["resume_continued"] is True and smoke["resumed_from_step"] == 5
+    assert smoke["losses_finite"] and len(smoke["losses"]) == 6
+    assert smoke["ll_invariant_max"] <= 1e-5 and smoke["outside_mask_max"] == 0.0
+    assert smoke["package_identity"].endswith("9dc6")
+    assert smoke["recipe_bank_identity"] == "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+    assert smoke["source_isolation"]["source_dev_opened"] is False
+    assert smoke["source_isolation"]["target_test_opened"] is False
+
+
+def test_real_full_gpat_training_report_contract():
+    run = _report("gpat_training.json")
+    assert run["run_id"] == "gpat_m8_seed20260806" and run["device"] == "cuda" and run["amp"] is True
+    assert run["gpu"]["gpu_name"] == "NVIDIA L4"
+    assert run["train_pairs"] == 896 and run["validation_pairs"] == 224
+    assert run["epochs_run"] >= 5 and run["epochs_run"] <= run["epochs_configured"] == 15
+    assert run["stop_reason"].startswith("early_stopped") or run["stop_reason"] == "completed_all_epochs"
+    assert run["checkpoints"]["best_sha256"] and run["checkpoints"]["last_sha256"]
+    best = run["best"]
+    assert best["validation_total_loss"] < float("inf") and best["epoch"] >= 0
+    for entry in run["history"]:
+        for key in ("train_total", "validation_total_loss", "validation_identity_cosine"):
+            assert entry[key] == entry[key], f"NaN in {key}"        # NaN != NaN
+    assert run["best"]["validation_total_loss"] == min(e["validation_total_loss"] for e in run["history"])
+    assert run["identity"]["pair_plan_identity"] == json.loads(
+        (PAIRS / "PAIR_PLAN_LOCK.json").read_text(encoding="utf-8"))["pair_plan_identity_sha256"]
+    assert run["source_isolation"]["manifests_opened"] == ["manifests/source_train.parquet"]
+    assert run["loss_manifest"]["adversarial"] is False
+
+
+def test_pair_plan_identity_excludes_non_portable_fields():
+    from prism_fas.synthesis.pair_plan import IDENTITY_EXCLUDED_FIELDS
+    lock = json.loads((PAIRS / "PAIR_PLAN_LOCK.json").read_text(encoding="utf-8"))
+    assert "config_hash" in IDENTITY_EXCLUDED_FIELDS
+    # parquet bytes differ between pyarrow writer versions, so they cannot be
+    # part of a portable identity; the logical rows are hashed instead.
+    assert "pair_manifest_sha256" in IDENTITY_EXCLUDED_FIELDS
+    assert set(lock["pair_rows_sha256"]) == {"train", "validation"}
+    assert lock["identity_excluded_fields"] == list(IDENTITY_EXCLUDED_FIELDS)
+
+
+def test_modal_wrapper_does_not_leak_into_core_modules():
+    import ast
+    for path in (ROOT / "src" / "prism_fas" / "synthesis").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            names = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                     else [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+            assert not any(name.split(".")[0] == "modal" for name in names), f"{path.name} imports modal"
+    wrapper = (ROOT / "modal_m8.py").read_text(encoding="utf-8")
+    assert "prism-fas-b-m8" in wrapper and '"L4"' in wrapper
+    for banned in ("H100", "H200", "B200"):
+        assert banned not in wrapper

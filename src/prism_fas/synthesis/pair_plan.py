@@ -18,6 +18,13 @@ SAME_DOMAIN_PER_LIVE = 2
 CROSS_DOMAIN_PER_LIVE = 2
 EXPECTED_TRAIN_PAIRS = 896
 EXPECTED_VALIDATION_PAIRS = 224
+# Provenance-only lock fields kept out of the pair-plan content identity.
+# Provenance / non-portable lock fields kept out of the pair-plan content
+# identity. `pair_manifest_sha256` hashes the parquet BYTES, which differ
+# between pyarrow writer versions (local 25.x vs the Modal image's 18.1.0), so
+# the identity uses `pair_rows_sha256` over the logical rows instead.
+IDENTITY_EXCLUDED_FIELDS = ("config_hash", "pair_plan_identity_sha256", "identity_excluded_fields",
+                            "pair_manifest_sha256")
 
 
 class PairPlanError(ValueError):
@@ -177,6 +184,16 @@ _PAIR_FIELDS = [("pair_id", pa.string()), ("partition", pa.string()), ("slot", p
                 ("package_identity", pa.string()), ("recipe_bank_identity", pa.string())]
 
 
+def rows_digest(rows: list[dict[str, Any]]) -> str:
+    """Portable content hash over the logical pair rows.
+
+    Independent of the parquet writer version, unlike a hash of the file bytes.
+    """
+    canonical = json.dumps([{name: row[name] for name, _ in _PAIR_FIELDS} for row in rows],
+                           sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _write_parquet(path: Path, rows: list[dict[str, Any]]) -> str:
     schema = pa.schema(_PAIR_FIELDS)
     table = pa.Table.from_pydict({name: [row[name] for row in rows] for name, _ in _PAIR_FIELDS}, schema=schema)
@@ -234,6 +251,7 @@ def write_pair_plan(package_root: Path, bank_root: Path, output_root: Path, *, s
             "package_identity": plan["package_identity"], "recipe_bank_identity": plan["recipe_bank_identity"],
             "config_hash": config_hash, "train_pairs": len(train), "validation_pairs": len(validation),
             "record_set_hashes": record_sets,
+            "pair_rows_sha256": {"train": rows_digest(train), "validation": rows_digest(validation)},
             "pair_manifest_sha256": {"train": train_hash, "validation": validation_hash},
             "pair_id_set_sha256": {"train": _digest(*[row["pair_id"] for row in train]),
                                    "validation": _digest(*[row["pair_id"] for row in validation])},
@@ -244,7 +262,14 @@ def write_pair_plan(package_root: Path, bank_root: Path, output_root: Path, *, s
             "recipe_coverage": {"train": summary["train"]["distinct_recipes"],
                                 "validation": summary["validation"]["distinct_recipes"]},
             "attack_family_balance": "unavailable"}
-    lock["pair_plan_identity_sha256"] = _digest(json.dumps(lock, sort_keys=True, separators=(",", ":")))
+    # `config_hash` is provenance (which command wrote the plan), not content.
+    # Excluding it keeps the identity a pure function of the package, the frozen
+    # recipe bank, the seed and the resulting pairs, so a plan rebuilt inside a
+    # Modal container gets the identity a locally built plan has.
+    lock["pair_plan_identity_sha256"] = _digest(json.dumps(
+        {key: value for key, value in lock.items() if key not in IDENTITY_EXCLUDED_FIELDS},
+        sort_keys=True, separators=(",", ":")))
+    lock["identity_excluded_fields"] = list(IDENTITY_EXCLUDED_FIELDS)
     atomic_json_write(output_root / "PAIR_PLAN_LOCK.json", lock)
     return {"status": "created", "written": ["pair_manifest_train.parquet", "pair_manifest_validation.parquet",
                                              "pair_plan_summary.json", "PAIR_PLAN_LOCK.json"],

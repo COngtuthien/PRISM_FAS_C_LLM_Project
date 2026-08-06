@@ -74,6 +74,7 @@ class SampleStore:
     audit: SourceOnlyAudit
     _rows: dict[str, dict[str, Any]]
     _cache: dict[str, tuple[np.ndarray, dict[str, np.ndarray]]]
+    _mask_cache: dict[tuple[str, str, str], np.ndarray] | None = None
 
     @classmethod
     def open(cls, package_root: Path, audit: SourceOnlyAudit | None = None) -> "SampleStore":
@@ -88,7 +89,7 @@ class SampleStore:
             if table["project_split"][index] != SOURCE_SPLIT:
                 raise PipelineError(f"row {index} is not {SOURCE_SPLIT}")
             rows[table["sample_id"][index]] = {key: table[key][index] for key in table}
-        return cls(package_root=root, audit=audit, _rows=rows, _cache={})
+        return cls(package_root=root, audit=audit, _rows=rows, _cache={}, _mask_cache={})
 
     def row(self, sample_id: str) -> dict[str, Any]:
         try: return self._rows[sample_id]
@@ -108,6 +109,27 @@ class SampleStore:
         return RegionMaskBuilder(height=224, width=224, parsing=arrays["parsing_labels"],
                                  landmarks=arrays["landmarks"], bbox=arrays["bbox"], crop_box=arrays["crop_box"])
 
+    def cached_mask(self, sample_id: str, role: str, graph: Any, *, coverage: float, seed_scope: str,
+                    use_support: bool) -> np.ndarray:
+        """Deterministic region mask with memoization.
+
+        Mask building is the dominant CPU cost of a GPAT epoch and is a pure
+        function of (sample, recipe, role), so the result is cached. The cache
+        can only change timing, never values.
+        """
+        if self._mask_cache is None: self._mask_cache = {}
+        key = (sample_id, graph.recipe_id, role)
+        hit = self._mask_cache.get(key)
+        if hit is not None: return hit
+        policy = graph.region_mask_policy
+        result = self.mask_builder(sample_id).build(
+            list(graph.requested_regions), geometry_shape=str(policy["geometry_shape"]),
+            coverage=float(coverage), seed=graph.node_seed(graph.nodes[0], f"{sample_id}|{seed_scope}"))
+        mask = np.asarray(result.operator_support_mask if use_support else result.requested_region_mask,
+                          dtype=np.float32)
+        self._mask_cache[key] = mask
+        return mask
+
 
 def build_batch(store: SampleStore, pairs: list[dict[str, Any]], bank: dict[str, Any],
                 identity_model: Any, *, device: str = "cpu") -> GPATBatch:
@@ -125,18 +147,16 @@ def build_batch(store: SampleStore, pairs: list[dict[str, Any]], bank: dict[str,
         live_image, _ = store.load(pair["live_sample_id"])
         spoof_image, _ = store.load(pair["spoof_sample_id"])
         policy = graph.region_mask_policy
-        live_masks = store.mask_builder(pair["live_sample_id"]).build(
-            list(graph.requested_regions), geometry_shape=str(policy["geometry_shape"]),
-            coverage=float(policy["requested_coverage"]),
-            seed=graph.node_seed(graph.nodes[0], f"{pair['live_sample_id']}|region_mask"))
-        spoof_masks = store.mask_builder(pair["spoof_sample_id"]).build(
-            list(graph.requested_regions), geometry_shape=str(policy["geometry_shape"]), coverage=1.0,
-            seed=graph.node_seed(graph.nodes[0], f"{pair['spoof_sample_id']}|style_mask"))
+        support = store.cached_mask(pair["live_sample_id"], "live", graph,
+                                    coverage=float(policy["requested_coverage"]),
+                                    seed_scope="region_mask", use_support=True)
+        style = store.cached_mask(pair["spoof_sample_id"], "spoof", graph, coverage=1.0,
+                                  seed_scope="style_mask", use_support=False)
         live_images.append(live_image)
         spoof_images.append(spoof_image)
         conditionings.append(conditioning_vector(recipe, bank["ontology"]))
-        supports.append(np.asarray(live_masks.operator_support_mask, dtype=np.float32))
-        styles.append(np.asarray(spoof_masks.requested_region_mask, dtype=np.float32))
+        supports.append(support)
+        styles.append(style)
         strengths.append(float(np.mean([spec.strength for spec in recipe.artifacts])))
     live = torch.from_numpy(np.stack(live_images)).to(device)
     spoof = torch.from_numpy(np.stack(spoof_images)).to(device)
