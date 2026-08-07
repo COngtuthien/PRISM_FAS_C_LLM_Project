@@ -679,6 +679,27 @@ class M9Trainer:
                               resolved_config=self.config.resolved(), ema_enabled=self.config.ema_enabled)
         return sha
 
+    def reconcile_lineage_from_disk(self) -> list[str]:
+        """Adopt the on-disk stage markers into the restored lineage.
+
+        A stage checkpoints `last` and only then writes its `output_hashes.json`, so
+        a checkpoint taken during a stage records that stage as RUNNING even though
+        it finished. The on-disk `output_hashes.json` is the authoritative
+        completion marker; without this a resumed run would report a completed stage
+        as still running.
+        """
+        reconciled: list[str] = []
+        for entry in self.lineage.entries:
+            stage = str(entry["stage"])
+            path = self.run_root / "stages" / stage / "output_hashes.json"
+            if entry.get("status") == "COMPLETED" or not path.is_file(): continue
+            recorded = json.loads(path.read_text(encoding="utf-8"))
+            entry["output_hashes"] = {key: value for key, value in recorded.items() if key != "stage"}
+            entry["status"] = "COMPLETED"
+            entry["reconciled_from_disk"] = True
+            reconciled.append(stage)
+        return reconciled
+
     def resume(self, kind: str = "last") -> dict[str, Any]:
         """Strict resume. Every scientific identity must match or this raises."""
         payload = load_checkpoint(self.checkpoint_path(kind), expected_identity=self.identity)
@@ -691,6 +712,7 @@ class M9Trainer:
         self.best_metrics = restored["best_metrics"]
         self.history = restored["history"]
         self.lineage = StageLineage.from_payload(restored["stage_lineage"])
+        restored["reconciled_stages"] = self.reconcile_lineage_from_disk()
         self.status = check_status_transition("INTERRUPTED", "RESUMING")
         self.status = check_status_transition(self.status, "RUNNING")
         return restored
