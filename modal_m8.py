@@ -310,7 +310,11 @@ def _generator_v2(work_root: str, *, device: str = "cuda"):
         quality_config_path=configs / "quality_gate_m8_v2.yaml",
         expected_gpat_sha256=EXPECTED_GPAT_CHECKPOINT_SHA,
         expected_pair_plan_identity=EXPECTED_PAIR_PLAN_IDENTITY,
-        reuse_root=Path(REMOTE_GENERATION))
+        reuse_root=Path(REMOTE_GENERATION),
+        bank_id_prefix="prism_synthetic_bank_m8_v2",
+        calibration_files={
+            "identity_calibration_v2.json": Path(REMOTE_CALIBRATION_V2) / "quality_calibration_v2.json",
+            "IDENTITY_CALIBRATION_V2_LOCK.json": Path(REMOTE_CALIBRATION_V2) / "IDENTITY_CALIBRATION_V2_LOCK.json"})
 
 
 @app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
@@ -544,6 +548,46 @@ def m8_reassemble_bank(export: bool = True, allow_unvalidated: bool = False) -> 
                                     .replace(RUNS_MOUNT, "prism-fas-b-runs:"))}
 
 
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_reassemble_bank_v2(export: bool = False, allow_unvalidated: bool = False) -> dict:
+    """Re-assemble and re-validate the v2 bank from the terminal records already on
+    the volume. Every valid record is reused, so nothing is regenerated."""
+    _paths()
+    gpu = _require_cuda()
+    from prism_fas.synthesis.synthetic_bank import assemble_bank
+    from prism_fas.synthesis.synthetic_export import export_archive
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v2(REMOTE_GENERATION_V2)
+    rerun = generator.run(resume=True, progress=_progress)
+    if rerun["rebuilt"]:
+        raise RuntimeError(f"a completed rerun must rebuild nothing, rebuilt {rerun['rebuilt']}")
+    assembled = assemble_bank(generator, rerun["records"], pairs_root=_pair_plan_root())
+    runs_volume.commit()
+    bank_root = Path(assembled["bank_root"])
+    validation = validate_bank(bank_root, package_root=Path(REMOTE_PACKAGE), recipe_bank_root=_bank_root(),
+                               gpat_checkpoint_path=Path(GPAT_CHECKPOINT))
+    atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V2) / "reports" / "v2_synthetic_bank_validation.json",
+                      validation)
+    archive = {"status": "skipped"}
+    if export:
+        Path(REMOTE_EXPORTS).mkdir(parents=True, exist_ok=True)
+        archive = export_archive(bank_root, Path(REMOTE_EXPORTS), require_validated=not allow_unvalidated)
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V2) / "reports" / "v2_export.json", archive)
+    runs_volume.commit()
+    return {"stage": "reassemble_bank_v2", "gpu": gpu,
+            "rerun": {key: rerun[key] for key in ("status", "planned", "examined", "reused", "rebuilt")},
+            "payload_sources": rerun.get("payload_sources", {}),
+            "bank": {key: assembled[key] for key in ("status", "bank_id", "bank_root")},
+            "lock_status": assembled["lock"]["status"],
+            "bank_content_identity_sha256": assembled["lock"]["bank_content_identity_sha256"],
+            "lock": assembled["lock"],
+            "operational_minimums": assembled["operational_minimums"],
+            "quality_summary": assembled["quality_summary"],
+            "validation_passed": validation["passed"], "validation_errors": validation["errors"],
+            "validation_checks": validation["checks"], "archive": archive}
+
+
 @app.function(image=image, volumes=VOLUMES, timeout=7200)
 def m8_validate_bank(bank_id: str = "", bank_root: str = "") -> dict:
     _paths()
@@ -620,6 +664,9 @@ def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs
         print(json.dumps({"spawned": True, "function_call_id": call.object_id, "stage": "generate"}))
     elif stage == "reassemble":
         print(json.dumps(m8_reassemble_bank.remote(allow_unvalidated=allow_unvalidated), indent=2, default=str))
+    elif stage == "reassemble_v2":
+        print(json.dumps(m8_reassemble_bank_v2.remote(allow_unvalidated=allow_unvalidated),
+                         indent=2, default=str))
     elif stage == "validate_bank":
         print(json.dumps(m8_validate_bank.remote(bank_id=bank_id), indent=2, default=str))
     elif stage == "export":

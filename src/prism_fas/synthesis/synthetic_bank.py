@@ -534,6 +534,11 @@ class SyntheticBankGenerator:
     # identity matches. Re-calibrating the gate does not change a payload, so a
     # re-evaluation reuses bytes instead of regenerating them.
     reuse_root: Path | None = None
+    # A bank built under a different calibration policy must not carry the v1
+    # name. The prefix is part of the declared layout, not cosmetic.
+    bank_id_prefix: str | None = None
+    # Extra calibration artifacts shipped inside the bank, as {file name: path}.
+    calibration_files: dict[str, Path] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         from prism_fas.recipes.bank import load_bank
@@ -1058,7 +1063,10 @@ def assemble_bank(generator: SyntheticBankGenerator, records: list[dict[str, Any
         source = Path(pairs_root) / name
         if not source.is_file(): raise SyntheticBankError(f"pair manifest {name} is missing")
         shutil.copyfile(source, build / "manifests" / name)
-    shutil.copyfile(Path(generator.calibration_path), build / "calibration" / "quality_gate.json")
+    primary = Path(generator.calibration_path)
+    shutil.copyfile(primary, build / "calibration" / primary.name)
+    for name, path in sorted(getattr(generator, "calibration_files", {}).items()):
+        shutil.copyfile(Path(path), build / "calibration" / name)
 
     shard_limit = int(max_samples_per_shard or generator.bank_config.get("shards", {}).get("max_samples_per_shard",
                                                                                            MAX_SAMPLES_PER_SHARD))
@@ -1177,7 +1185,9 @@ def _bank_lock(generator: SyntheticBankGenerator, *, records: list[dict[str, Any
     lock["bank_content_identity_sha256"] = hashlib.sha256(json.dumps(
         {key: value for key, value in lock.items() if key not in LOCK_IDENTITY_EXCLUDED},
         sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
-    lock["bank_id"] = f"{BANK_ID_PREFIX}_{lock['bank_content_identity_sha256'][:IDENTITY_SHORT_LENGTH]}"
+    prefix = (getattr(generator, "bank_id_prefix", None)
+              or generator.bank_config.get("bank_id_prefix") or BANK_ID_PREFIX)
+    lock["bank_id"] = f"{prefix}_{lock['bank_content_identity_sha256'][:IDENTITY_SHORT_LENGTH]}"
     lock["identity_excluded_fields"] = list(LOCK_IDENTITY_EXCLUDED)
     # Informational only, explicitly outside the content identity.
     lock["created_at"] = utc_timestamp()

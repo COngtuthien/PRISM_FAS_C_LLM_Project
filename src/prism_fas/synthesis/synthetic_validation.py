@@ -168,8 +168,17 @@ def _recompute_identity(lock: dict[str, Any]) -> str:
                                      sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
+def _gate_path(root: Path) -> Path:
+    """The bank's loadable gate. A versioned bank ships `quality_gate_v<n>.json`;
+    the unversioned name remains valid for banks built before versioning."""
+    candidates = sorted((Path(root) / "calibration").glob("quality_gate*.json"),
+                        key=lambda path: (path.name != "quality_gate.json", path.name), reverse=True)
+    if not candidates: raise BankValidationError("the bank has no calibration/quality_gate*.json")
+    return candidates[0]
+
+
 def _thresholds(root: Path) -> Thresholds:
-    payload = json.loads((Path(root) / "calibration" / "quality_gate.json").read_text(encoding="utf-8"))
+    payload = json.loads(_gate_path(root).read_text(encoding="utf-8"))
     return Thresholds.from_dict(payload["thresholds"])
 
 
@@ -262,7 +271,7 @@ def _leak_scan(root: Path) -> dict[str, Any]:
         rows = load_manifest(Path(root) / "manifests" / f"{name}.parquet", MANIFEST_SCHEMAS[name])
         found = scan_forbidden(json.dumps(rows, default=str))
         if found: hits[f"manifests/{name}.parquet"] = found
-    calibration = json.loads((Path(root) / "calibration" / "quality_gate.json").read_text(encoding="utf-8"))
+    calibration = json.loads(_gate_path(root).read_text(encoding="utf-8"))
     calibration_hits = scan_forbidden(json.dumps(calibration, default=str), allow=CALIBRATION_ALLOWED_TOKENS)
     if calibration_hits: hits["calibration/quality_gate.json"] = calibration_hits
     clean = (calibration.get("used_source_dev") is False and calibration.get("used_target") is False

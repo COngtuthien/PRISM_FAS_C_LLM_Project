@@ -706,6 +706,8 @@ CANDIDATE_PLAN_IDENTITY = "b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67ab
 THRESHOLD_SHA = "4798a392243c85f89b37a14dc51958637d4ae177756bf88f693804f065c4c297"
 FINGERPRINT_REFERENCE_SHA = "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
 PACKAGE_IDENTITY = "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+TAU_ID_V2_THRESHOLD_SHA = "a3f20e5e46641deeac0f1110f6783869ed88ee01786baa8d006bf5ca8d159754"
+TAU_ID_V2 = 0.547440037939055
 
 
 def _plan():
@@ -964,6 +966,8 @@ class _StubGenerator:
         self.audit, self.calibration = _StubAudit(), _StubCalibration()
         self.gpat_architecture_hash = "c" * 64
         self.expected_pair_plan_identity = "d" * 64
+        self.bank_id_prefix = None
+        self.calibration_files: dict = {}
 
     def identity(self): return dict(self._identity)
 
@@ -2045,3 +2049,169 @@ def test_v2_identity_gate_is_more_permissive_and_that_is_reported_not_praised():
     assert report["distributions_are_well_separated"] in (True, False)
     assert isinstance(report["separation_note"], str) and report["separation_note"]
     assert report["genuine_fraction_at_or_below_tau_impostor"] >= 0.0
+
+
+# --- real v2 re-evaluation report contracts --------------------------------------
+def test_real_candidate_plan_v2_reuse_decision_contract():
+    """The candidate plan is reused because calibration is not part of candidate
+    identity -- established with hash evidence, not by reading."""
+    report = _report("candidate_plan_v2_reuse_decision.json")
+    assert report["candidate_id_binds_calibration"] is False
+    assert report["candidate_plan_lock_fields_binding_calibration"] == []
+    assert report["candidate_plan_module_calibration_mentions"] == []
+    assert report["rebuilt_rows_match_frozen_plan"] is True
+    assert report["candidate_plan_identity_matches_expected"] is True
+    assert report["frozen_candidate_plan_identity_sha256"] == CANDIDATE_PLAN_IDENTITY
+    assert report["candidate_count"] == 1120 and report["unique_candidate_ids"] == 1120
+    assert report["candidate_id_is_deterministic"] is True
+    assert report["candidate_id_changes_with_generator_binding"] is True
+    # calibration IS bound, but only where a decision change belongs
+    assert report["generation_config_sha256_changes_with_calibration"] is True
+    assert report["decision"].startswith("reuse the frozen candidate-plan identity")
+
+
+def test_real_v2_pilot_report_contract():
+    report = _report("v2_pilot.json")
+    assert report["passed"] is True and report["planned"] == 32
+    assert sum(report["terminal_counts"].values()) == 32
+    assert report["payload_errors"] == [] and all(report["checks"].values())
+    assert report["coverage"]["artifact_type_count"] == 8 and report["coverage"]["region_count"] == 9
+    assert report["identity"]["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    # the v2 gate is bound, and it is not the v1 gate
+    assert report["identity"]["threshold_sha256"] == TAU_ID_V2_THRESHOLD_SHA
+    assert report["identity"]["threshold_sha256"] != THRESHOLD_SHA
+    assert report["identity"]["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    comparison = report["payload_comparison_against_v1"]
+    assert comparison["passed"] is True and comparison["differing"] == 0
+    assert comparison["identical"] == comparison["compared"] > 0
+    isolation = report["source_isolation"]
+    assert isolation["source_dev_opened"] is False and isolation["target_test_opened"] is False
+
+
+def test_real_v2_pilot_determinism_report_contract():
+    report = _report("v2_pilot_determinism.json")
+    assert report["passed"] is True and report["identical"] is True
+    assert report["candidates"] == 32 and report["compared"] == 32
+    assert report["mismatch_count"] == 0 and report["mismatches"] == []
+
+
+def test_real_v2_resume_audit_report_contract():
+    report = _report("v2_resume_audit.json")
+    assert report["passed"] is True
+    phases = {phase["phase"]: phase for phase in report["phases"]}
+    assert set(phases) == {"interrupted", "resumed", "completed_rerun"}
+    rerun = phases["completed_rerun"]
+    assert rerun["examined"] == 1120 and rerun["reused"] == 1120 and rerun["rebuilt"] == 0
+    probe = report["corruption_probe"]
+    assert probe["detected_as_unusable"] is True and probe["rebuilt_bytes_identical"] is True
+    assert probe["reason"].startswith("hash:")
+    assert sum(report["terminal_counts"].values()) == 1120
+    assert report["terminal_counts"].get("failed_generation", 0) == 0
+    assert all(report["checks"].values())
+
+
+def test_real_v2_determinism_audit_report_contract():
+    report = _report("v2_determinism_audit.json")
+    assert report["passed"] is True and report["identical"] is True
+    assert report["candidates"] == 32 and report["mismatch_count"] == 0
+
+
+def test_real_v1_v2_decision_comparison_contract():
+    """A factual decision diff. More accepted candidates is not evidence of a
+    better bank and says nothing about detector or target performance."""
+    report = _report("v1_v2_decision_comparison.json")
+    assert report["compared"] == 1120 and report["missing_v1_record"] == 0
+    total = (report["unchanged_decisions"] + report["rejected_to_accepted"]
+             + report["accepted_to_rejected"])
+    assert total == 1120
+    # relaxing only the identity gate can never reject something v1 accepted
+    assert report["accepted_to_rejected"] == 0
+    assert report["rejected_to_accepted"] > 0
+    for route in ("physics", "gpat"):
+        assert report["per_route"][route]["accepted_to_rejected"] == 0
+    # the identity gate no longer appears among the v2 rejection reasons
+    assert not any(name.endswith(":identity") for name in report["v2_failed_gate_counts_by_route"])
+    assert "not evidence of a better bank" in report["interpretation_note"]
+
+
+def test_real_v2_bank_validation_report_contract():
+    """Every structural invariant holds under v2. The failing checks are the
+    pre-declared operational minimums and the lock status they force."""
+    report = _report("v2_synthetic_bank_validation.json")
+    counts = report["counts"]
+    assert counts["candidates"] == 1120
+    assert counts["accepted"] + counts["rejected"] + counts["failed_generation"] == 1120
+    assert counts["failed_generation"] == 0
+    payload = report["payload_report"]
+    assert payload["checked"] == counts["accepted"]
+    for name in ("missing_files", "hash_mismatches", "image_shape_errors", "mask_value_errors",
+                 "npz_errors", "map_range_errors", "map_outside_errors", "mask_pixel_mismatches",
+                 "outside_mask_errors"):
+        assert payload[name] == 0, name
+    assert report["shard_report"]["passed"] is True
+    for name in ("terminal_accounting", "no_duplicate_synthetic_ids", "accepted_files_exist",
+                 "accepted_hashes_match", "images_decode_rgb_224", "masks_binary_0_255",
+                 "artifact_maps_load_without_pickle", "artifact_maps_zero_outside_exact_mask",
+                 "saved_outside_mask_error_exactly_zero", "every_accepted_row_passes_every_hard_gate",
+                 "every_rejected_row_names_a_failed_gate", "no_target_or_private_fields",
+                 "source_only_isolation_evidence", "shards_validate", "candidate_count",
+                 "source_package_unchanged", "recipe_bank_unchanged", "gpat_checkpoint_hash_matches"):
+        assert report["checks"][name] is True, name
+    assert report["coverage"]["artifact_type_count"] == 8 and report["coverage"]["region_count"] == 9
+    identities = report["parent_identities"]
+    assert identities["candidate_plan_identity"] == CANDIDATE_PLAN_IDENTITY
+    assert identities["gpat_checkpoint_sha256"] == GPAT_BEST_SHA
+    assert identities["threshold_sha256"] == TAU_ID_V2_THRESHOLD_SHA
+    assert identities["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    assert report["leak_scan"]["hits"] == {}
+
+
+def test_real_v2_run_missed_only_the_physics_minimum():
+    """The honest record: v2 lifted physics acceptance but still misses its
+    pre-declared minimum, and no threshold was moved to close the gap."""
+    report = _report("v2_synthetic_bank_validation.json")
+    minimums = report["operational_minimums"]
+    failing = sorted(name for name, passed in minimums["checks"].items() if not passed)
+    assert failing == ["accepted_physics"]
+    assert minimums["passed"] is False
+    declared = minimums["declared_minimums"]
+    assert declared["accepted_physics"] == 200 and declared["accepted_total"] == 400
+    observed = minimums["observed"]
+    assert observed["accepted_route_counts"]["physics"] < declared["accepted_physics"]
+    assert observed["accepted_total"] >= declared["accepted_total"]
+    assert observed["accepted_route_counts"]["gpat"] >= declared["accepted_gpat"]
+    assert observed["accepted_live_target_datasets"]["casia_fasd"] >= declared["accepted_live_casia"]
+    assert observed["accepted_live_target_datasets"]["msu_mfsd"] >= declared["accepted_live_msu"]
+    assert set(observed["accepted_gpat_domain_relations"]) == {"same_domain", "cross_domain"}
+
+
+def test_v1_artifacts_were_not_modified_by_v2():
+    """v1 is a retained, closed experimental run."""
+    v1 = _report("quality_calibration.json")
+    assert v1["thresholds"]["tau_id"] == TAU_ID_V1
+    assert v1["threshold_sha256"] == THRESHOLD_SHA
+    lock = _report("BANK_LOCK_remote.json")
+    assert lock["status"] == "operational_minimums_failed"
+    assert lock["bank_id"].startswith("prism_synthetic_bank_m8_v1_")
+    assert lock["accepted_count"] == 391 and lock["rejected_count"] == 729
+    assert lock["threshold_sha256"] == THRESHOLD_SHA
+    export = _report("export.json")
+    assert export["archive_sha256"] == "9b3a48f220ad9cadd1387a2a4adaffba5d48ea1c72c6fb7f66adef745fb24676"
+
+
+def test_v2_bank_id_prefix_is_versioned(tmp_path):
+    """A bank built under a different calibration policy must not carry the v1
+    name."""
+    from prism_fas.synthesis.synthetic_bank import BANK_ID_PREFIX
+    assert BANK_ID_PREFIX == "prism_synthetic_bank_m8_v1"
+    generator, records, default = _build_fixture_bank(tmp_path / "default")
+    assert default["bank_id"].startswith("prism_synthetic_bank_m8_v1_")
+    generator2, records2, _ = _build_fixture_bank(tmp_path / "v2")
+    generator2.bank_id_prefix = "prism_synthetic_bank_m8_v2"
+    versioned = assemble_bank(generator2, records2, pairs_root=tmp_path / "v2" / "pairs",
+                              build_root=tmp_path / "v2" / "_build2")
+    assert versioned["bank_id"].startswith("prism_synthetic_bank_m8_v2_")
+    # the prefix is a name, not part of the content identity
+    assert versioned["lock"]["bank_content_identity_sha256"] == default["lock"]["bank_content_identity_sha256"]
+    text = (ROOT / "modal_m8.py").read_text(encoding="utf-8")
+    assert 'bank_id_prefix="prism_synthetic_bank_m8_v2"' in text
