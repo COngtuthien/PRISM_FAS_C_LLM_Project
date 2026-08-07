@@ -568,14 +568,26 @@ class M9Trainer:
         """Source calibration on `source_dev` only. No gradient, no target."""
         self.enter_stage("G6")
         started = time.time()
+        from prism_fas.detector.checkpoint import sha256_file
         from prism_fas.train.calibration import calibrate_source_dev
         logits, targets = self.source_dev_logits()
+        # The prediction hash binds the exact source_dev predictions the thresholds
+        # were fitted on, so a threshold file can never be paired with a different
+        # prediction set.
+        prediction_hash = hashlib.sha256(
+            json.dumps([[format(float(value), ".12g") for value in logits.tolist()],
+                        [int(value) for value in targets.tolist()]],
+                       separators=(",", ":")).encode("utf-8")).hexdigest()
+        path = Path(checkpoint) if checkpoint else None
         calibration = calibrate_source_dev(
-            logits, targets, checkpoint_sha=str(checkpoint or ""),
-            package_identity=self.dataset.package_identity, config_hash=self.config.hash())
-        path = self.stage_root("G6") / "thresholds.json"
-        atomic_json_write(path, calibration)
+            logits, targets,
+            checkpoint_sha=sha256_file(path) if path and path.is_file() else "",
+            package_identity=self.dataset.package_identity,
+            prediction_hash=prediction_hash, run_root=self.run_root)
+        threshold_path = self.stage_root("G6") / "thresholds.json"
+        atomic_json_write(threshold_path, calibration)
         output = {"thresholds": calibration, "samples": int(targets.size),
+                  "source_dev_prediction_hash": prediction_hash,
                   "source_dev_opened": True, "target_test_opened": False,
                   "produced_gradient": False, "seconds": round(time.time() - started, 2)}
         self.complete_stage("G6", output)

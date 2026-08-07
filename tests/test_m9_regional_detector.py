@@ -973,6 +973,36 @@ def test_g1_switches_off_the_manifold_and_synthetic_terms():
     assert all(enabled_terms("G5").values())
 
 
+def test_g6_calls_the_source_calibration_with_a_signature_that_actually_binds():
+    """A stage that only runs at the very end of a multi-hour job must not fail on
+    a keyword name. This binds G6's real call against the real signature."""
+    import inspect
+    from prism_fas.train.calibration import calibrate_source_dev
+    signature = inspect.signature(calibrate_source_dev)
+    signature.bind(np.zeros(4), np.zeros(4, dtype=np.int64), checkpoint_sha="sha",
+                   package_identity="pkg", prediction_hash="pred", run_root=Path("."))
+    required = {name for name, parameter in signature.parameters.items()
+                if parameter.default is inspect.Parameter.empty
+                and parameter.kind is inspect.Parameter.KEYWORD_ONLY}
+    import prism_fas.detector.trainer as module
+    body = Path(module.__file__).read_text(encoding="utf-8").split("def run_g6")[1].split("def ")[0]
+    for name in required:
+        assert f"{name}=" in body, f"run_g6 does not pass the required {name!r}"
+
+
+def test_g6_source_calibration_runs_on_source_dev_style_inputs(tmp_path):
+    from prism_fas.train.calibration import calibrate_source_dev
+    rng = np.random.default_rng(SEED)
+    targets = np.concatenate([np.zeros(40, dtype=np.int64), np.ones(60, dtype=np.int64)])
+    logits = rng.normal(loc=targets * 1.5, scale=1.0)
+    record = calibrate_source_dev(logits, targets, checkpoint_sha="sha", package_identity="pkg",
+                                  prediction_hash="pred", run_root=tmp_path)
+    assert 0.0 <= record["selected_threshold"] <= 1.0
+    assert math.isfinite(record["temperature"]) and record["temperature"] > 0
+    assert (tmp_path / "calibration" / "source_dev.json").is_file()
+    assert "target" not in json.dumps(record).lower()
+
+
 def test_the_pins_record_a_real_revision_and_never_latest():
     assert SIGLIP2_PIN["revision"] not in ("main", "latest", "", None)
     assert len(SIGLIP2_PIN["revision"]) == 40
