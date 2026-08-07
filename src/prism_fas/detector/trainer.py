@@ -324,6 +324,28 @@ class M9Trainer:
         atomic_json_write(path, {"stage": stage, **payload})
         return path
 
+    def write_resolved_config(self, stage: str) -> Path:
+        """Table 40 requires a `resolved_config.yaml` beside every stage's state."""
+        import yaml
+        path = self.stage_root(stage) / "resolved_config.yaml"
+        payload = {"stage": stage, "run_id": self.config.run_id,
+                   "training": self.config.resolved(), "detector": self.detector_config.payload(),
+                   "batch_contract": batch_contract_for(stage, self.config).payload(),
+                   "identity": self.identity.payload()}
+        path.write_text(yaml.safe_dump(payload, sort_keys=True, default_flow_style=False),
+                        encoding="utf-8")
+        return path
+
+    def write_run_json(self) -> Path:
+        """The run-level record. Spec section 10.3 requires `ema_enabled` to be
+        reported explicitly, and every stage in the lineage gets its resolved
+        config backfilled so a resumed run leaves the same artifacts as a fresh one.
+        """
+        for entry in self.lineage.payload(): self.write_resolved_config(str(entry["stage"]))
+        path = self.run_root / "run.json"
+        atomic_json_write(path, self.run_summary())
+        return path
+
     def append_metrics(self, stage: str, record: dict[str, Any]) -> None:
         path = self.stage_root(stage) / "metrics.jsonl"
         with path.open("a", encoding="utf-8") as handle:
@@ -433,11 +455,13 @@ class M9Trainer:
         if self.status == "PENDING": self.status = check_status_transition(self.status, "RUNNING")
         self.write_stage_state(stage, "RUNNING")
         self.write_input_hashes(stage, self.stage_inputs(stage))
+        self.write_resolved_config(stage)
 
     def complete_stage(self, stage: str, output_hashes: dict[str, Any]) -> None:
         self.lineage.complete(stage, output_hashes=output_hashes)
         self.write_output_hashes(stage, output_hashes)
         self.write_stage_state(stage, "COMPLETED", {"output_hashes": output_hashes})
+        self.write_run_json()
 
     def run_g1(self) -> dict[str, Any]:
         """Baseline warm-up on real source data. Prototypes are absent."""

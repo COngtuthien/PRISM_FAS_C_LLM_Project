@@ -243,6 +243,11 @@ def m9_train_reference(run_id: str = REFERENCE_RUN_ID, resume: bool = True) -> d
     if trainer.lineage.current == "G5":
         stages["G6"] = trainer.run_g6(checkpoint=trainer.checkpoint_path("best"))
     from prism_fas.detector.trainer import source_isolation_report
+    # A resumed run only executes the stages that were still outstanding, so the
+    # per-stage evidence is taken from the restored lineage and then overlaid with
+    # whatever this invocation actually produced. The report is complete either way.
+    stages = {**{str(entry["stage"]): {"status": entry.get("status"), **(entry.get("output_hashes") or {})}
+                 for entry in trainer.lineage.payload()}, **stages}
     summary = trainer.run_summary()
     isolation = source_isolation_report(trainer, source_dev_opened=True)
     runs_volume.commit()
