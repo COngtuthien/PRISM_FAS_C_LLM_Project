@@ -1,0 +1,87 @@
+# SiW-Mv2 layout rules, v2 — the TARGET EVALUATION package only.
+#
+# WHY THIS FILE EXISTS. `configs/data/siw_mv2.yaml` globs `Spoof/*.{avi,mov,mp4}`
+# one level deep, but the real SiW-Mv2 tree nests every attack one level deeper
+# (`Spoof/<Family>/<Family>_<N>.mov`). The consequence, proved by recomputing the
+# adapter's opaque ids and joining them against the frozen manifest, is that
+# `prism_data_v1_m3b`'s `target_test` split holds **785 videos, all LIVE, zero
+# spoof** — 915 attack videos across 14 families were never ingested. Target
+# APCER/ACER/HTER/ROC-AUC/EER are therefore undefined on that package.
+#
+# v1 is NOT edited. `prism_data_v1_m3b` and every M8/M9 identity derived from it
+# stay exactly as they are. This file drives a SEPARATE, additive, immutable
+# target-only evaluation package.
+#
+# The `path_pattern` additionally captures `attack_family` from the official
+# directory organization. That is the dataset's own labelling scheme, read ONCE at
+# ingestion time by the evaluator-only path — it is never read at scoring time and
+# never inferred from a filename by the metric code.
+dataset: siw_mv2
+adapter_version: "2.0"
+root_relative: "SiW-Mv2"
+
+# Live stays flat; Spoof recurses exactly one level into the attack family.
+include_globs:
+  - "Live/*.avi"
+  - "Live/*.mov"
+  - "Live/*.mp4"
+  - "Spoof/*/*.avi"
+  - "Spoof/*/*.mov"
+  - "Spoof/*/*.mp4"
+
+# Live/Live_12.mov                       -> private_label=Live,  attack_family absent
+# Spoof/Replay/Replay_7.mov              -> private_label=Spoof, attack_family=Replay
+# Spoof/Makeup_Cosmetic/Makeup_Co_10.mov -> private_label=Spoof, attack_family=Makeup_Cosmetic
+#
+# The file stem does NOT always equal its family directory (Makeup_Cosmetic holds
+# Makeup_Co_*, Mannequin holds Mask_Mann_*, Silicone holds Mask_Silicone_*), so the
+# stem is captured and then checked against the declared map below. Nothing is
+# inferred: an unlisted family or an unexpected stem is a hard failure.
+path_pattern: "^(?:(?P<live_label>Live)/Live_\\d+|(?P<spoof_label>Spoof)/(?P<attack_family>[A-Za-z_]+)/(?P<stem>[A-Za-z_]+)_\\d+)\\.(?:avi|mov|mp4)$"
+
+official_split: target_test
+
+# Evaluator-only fields. These never enter the feature package, the training
+# config, the G7 inference path or any Modal training image.
+private_evaluation_fields: [private_label, attack_family]
+
+# The 14 official attack families and the exact filename stem each one uses,
+# enumerated from the real tree. Declared so an unexpected directory or stem is a
+# hard failure rather than a silently new class.
+attack_family_stems:
+  Makeup_Cosmetic: Makeup_Co
+  Makeup_Impersonation: Makeup_Im
+  Makeup_Obfuscation: Makeup_Ob
+  Mannequin: Mask_Mann
+  Mask_HalfMask: Mask_Half
+  Mask_PaperMask: Mask_Paper
+  Mask_TransparentMask: Mask_Trans
+  Paper: Paper
+  Partial_Eye: Partial_Eye
+  Partial_FunnyeyeGlasses: Partial_Funnyeye
+  Partial_Mouth: Partial_Mouth
+  Partial_PaperGlasses: Partial_Paperglass
+  Replay: Replay
+  Silicone: Mask_Silicone
+
+expected_counts:
+  live: 785
+  spoof: 915
+  total: 1700
+  by_attack_family:
+    Makeup_Cosmetic: 52
+    Makeup_Impersonation: 61
+    Makeup_Obfuscation: 22
+    Mannequin: 40
+    Mask_HalfMask: 72
+    Mask_PaperMask: 17
+    Mask_TransparentMask: 60
+    Paper: 135
+    Partial_Eye: 57
+    Partial_FunnyeyeGlasses: 179
+    Partial_Mouth: 29
+    Partial_PaperGlasses: 76
+    Replay: 98
+    Silicone: 17
+
+blocked_reason: "Subject identity and official protocol split are unavailable in the inspected root; private labels and attack families are evaluator-only and are physically separated from the feature package."
