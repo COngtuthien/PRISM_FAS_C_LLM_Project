@@ -275,6 +275,171 @@ def m8_calibrate_identity_v2() -> dict:
             "v1_tau_id": v1.thresholds.tau_id, "v1_threshold_sha256": v1.threshold_sha256}
 
 
+REMOTE_GENERATION_V2 = f"{REMOTE_SYNTHETIC_WORK_V2}/generation"
+REMOTE_QUALITY_GATE_V2 = f"{REMOTE_CALIBRATION_V2}/quality_gate_v2.json"
+
+
+def _build_quality_gate_v2() -> "Path":
+    """Materialize the loadable v2 gate: v2 thresholds on top of the v1 calibration.
+
+    Only tau_id is re-fitted, so the fingerprint reference and every other v1
+    threshold are carried over verbatim.
+    """
+    _paths()
+    from prism_fas.synthesis.identity_calibration import build_quality_gate_v2
+    from prism_fas.utils.core import atomic_json_write
+    target = Path(REMOTE_QUALITY_GATE_V2)
+    v1 = json.loads(Path(REMOTE_CALIBRATION).read_text(encoding="utf-8"))
+    v2 = json.loads((Path(REMOTE_CALIBRATION_V2) / "quality_calibration_v2.json").read_text(encoding="utf-8"))
+    lock = json.loads((Path(REMOTE_CALIBRATION_V2) / "IDENTITY_CALIBRATION_V2_LOCK.json").read_text(encoding="utf-8"))
+    atomic_json_write(target, build_quality_gate_v2(v1, v2, lock))
+    return target
+
+
+def _generator_v2(work_root: str, *, device: str = "cuda"):
+    """A generator gated by v2 that reuses the v1 payloads it can validate."""
+    _paths()
+    from prism_fas.synthesis.m8_pipeline import build_generator
+    from prism_fas.synthesis.quality_calibration import QualityBackends
+    configs = PROJECT / "configs" / "synthesis"
+    return build_generator(
+        package_root=Path(REMOTE_PACKAGE), bank_root=_bank_root(), work_root=Path(work_root),
+        plan_root=_plan_root(), calibration_path=_build_quality_gate_v2(),
+        gpat_checkpoint_path=Path(GPAT_CHECKPOINT),
+        backends=QualityBackends(Path(REMOTE_WEIGHT_ROOT), device=device), device=device,
+        quality_config_path=configs / "quality_gate_m8_v2.yaml",
+        expected_gpat_sha256=EXPECTED_GPAT_CHECKPOINT_SHA,
+        expected_pair_plan_identity=EXPECTED_PAIR_PLAN_IDENTITY,
+        reuse_root=Path(REMOTE_GENERATION))
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_pilot_v2(count: int = 32) -> dict:
+    """The v2 correctness pilot over the SAME 32 candidate ids as the v1 pilot."""
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.m8_pipeline import run_pilot, run_pilot_determinism, select_pilot_rows
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v2(f"{REMOTE_SYNTHETIC_WORK_V2}/_pilot")
+    rows = select_pilot_rows(generator.plan_rows, generator.bank, count=count)
+    pilot = run_pilot(generator, pilot_root=Path(f"{REMOTE_SYNTHETIC_WORK_V2}/_pilot"), count=count,
+                      progress=_progress)
+    audit = run_pilot_determinism(generator, first=pilot,
+                                  rerun_root=Path(f"{REMOTE_SYNTHETIC_WORK_V2}/_pilot_rerun"), count=count)
+    comparison = _compare_against_v1([row["synthetic_id"] for row in rows],
+                                     Path(f"{REMOTE_SYNTHETIC_WORK_V2}/_pilot"))
+    for name, payload in (("v2_pilot.json", {key: value for key, value in pilot.items() if key != "fingerprints"}),
+                          ("v2_pilot_determinism.json", {key: value for key, value in audit.items()
+                                                         if key != "fingerprints"})):
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V2) / "reports" / name, payload)
+    runs_volume.commit()
+    return {"stage": "pilot_v2", "gpu": gpu, **verified,
+            "pilot": {key: value for key, value in pilot.items() if key != "fingerprints"},
+            "determinism": {key: value for key, value in audit.items() if key != "fingerprints"},
+            "payload_comparison_against_v1": comparison}
+
+
+def _compare_against_v1(synthetic_ids: list, v2_root: "Path") -> dict:
+    """Payload bytes must be identical to v1 wherever v1 retained them."""
+    _paths()
+    import hashlib
+    identical, differing, absent = [], [], []
+    for synthetic_id in synthetic_ids:
+        v1_record = Path(REMOTE_GENERATION) / "records" / f"{synthetic_id}.json"
+        v2_record = Path(v2_root) / "records" / f"{synthetic_id}.json"
+        if not v1_record.is_file() or not v2_record.is_file(): absent.append(synthetic_id); continue
+        first = json.loads(v1_record.read_text(encoding="utf-8"))
+        second = json.loads(v2_record.read_text(encoding="utf-8"))
+        if first.get("terminal_state") != "accepted" or second.get("terminal_state") != "accepted":
+            absent.append(synthetic_id); continue
+        same = all(first["outputs"][key] == second["outputs"][key]
+                   for key in ("image_sha256", "mask_sha256", "artifact_map_sha256"))
+        (identical if same else differing).append(synthetic_id)
+    return {"compared": len(identical) + len(differing), "identical": len(identical),
+            "differing": len(differing), "differing_ids": differing[:10],
+            "not_comparable": len(absent),
+            "note": "v1 retained binaries for accepted candidates only; a rejected v1 candidate has no "
+                    "payload to compare against and is regenerated deterministically",
+            "passed": not differing}
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=21600)
+def m8_generate_bank_v2(interrupt_after: int | None = 96, determinism_audit: bool = True) -> dict:
+    """Re-evaluate all 1120 candidates under calibration v2 and build the v2 bank."""
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.m8_pipeline import run_determinism_audit, run_full_generation
+    from prism_fas.synthesis.synthetic_bank import assemble_bank
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v2(REMOTE_GENERATION_V2)
+    audit = run_full_generation(generator, interrupt_after=interrupt_after, progress=_progress)
+    runs_volume.commit()
+    assembled = assemble_bank(generator, audit["records"], pairs_root=_pair_plan_root())
+    runs_volume.commit()
+    bank_root = Path(assembled["bank_root"])
+    validation = validate_bank(bank_root, package_root=Path(REMOTE_PACKAGE), recipe_bank_root=_bank_root(),
+                               gpat_checkpoint_path=Path(GPAT_CHECKPOINT))
+    determinism = {"skipped": True, "passed": True, "mismatch_count": 0}
+    if determinism_audit:
+        determinism = run_determinism_audit(generator, work_root=Path(REMOTE_GENERATION_V2),
+                                            rerun_root=Path(f"{REMOTE_SYNTHETIC_WORK_V2}/_determinism"),
+                                            progress=_progress)
+    resume_report = {key: value for key, value in audit.items() if key != "records"}
+    decisions = _v1_v2_decision_comparison(audit["records"])
+    for name, payload in (("v2_resume_audit.json", resume_report),
+                          ("v2_determinism_audit.json", determinism),
+                          ("v2_synthetic_bank_validation.json", validation),
+                          ("v1_v2_decision_comparison.json", decisions)):
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V2) / "reports" / name, payload)
+    runs_volume.commit()
+    return {"stage": "generate_bank_v2", "gpu": gpu, **verified,
+            "bank": {key: assembled[key] for key in ("status", "bank_id", "bank_root")},
+            "lock": assembled["lock"], "operational_minimums": assembled["operational_minimums"],
+            "quality_summary": assembled["quality_summary"],
+            "generation_summary": assembled["generation_summary"],
+            "resume_audit": resume_report, "determinism_audit": determinism,
+            "decision_comparison": decisions,
+            "validation": {key: value for key, value in validation.items() if key != "checks"},
+            "validation_checks": validation["checks"]}
+
+
+def _v1_v2_decision_comparison(records: list) -> dict:
+    """v1 versus v2 decisions, per route. Reports measured gate behaviour only."""
+    _paths()
+    changed_to_accepted, changed_to_rejected, unchanged, missing = [], [], 0, 0
+    per_route: dict = {}
+    for record in records:
+        path = Path(REMOTE_GENERATION) / "records" / f"{record['synthetic_id']}.json"
+        if not path.is_file(): missing += 1; continue
+        before = json.loads(path.read_text(encoding="utf-8"))["terminal_state"]
+        after = record["terminal_state"]
+        bucket = per_route.setdefault(record["route"], {"accepted_to_rejected": 0, "rejected_to_accepted": 0,
+                                                        "unchanged": 0})
+        if before == after: unchanged += 1; bucket["unchanged"] += 1
+        elif after == "accepted":
+            changed_to_accepted.append(record["synthetic_id"]); bucket["rejected_to_accepted"] += 1
+        else:
+            changed_to_rejected.append(record["synthetic_id"]); bucket["accepted_to_rejected"] += 1
+    gates: dict = {}
+    for record in records:
+        if record["terminal_state"] != "rejected": continue
+        for name in record["quality"]["failed_gates"]:
+            key = f"{record['route']}:{name}"
+            gates[key] = gates.get(key, 0) + 1
+    return {"compared": len(records) - missing, "missing_v1_record": missing,
+            "unchanged_decisions": unchanged,
+            "rejected_to_accepted": len(changed_to_accepted),
+            "accepted_to_rejected": len(changed_to_rejected),
+            "per_route": dict(sorted(per_route.items())),
+            "v2_failed_gate_counts_by_route": dict(sorted(gates.items())),
+            "interpretation_note": "counts describe measured gate behaviour under a different identity "
+                                   "calibration population; a larger accepted count is not evidence of a "
+                                   "better bank and says nothing about detector or target performance"}
+
+
 @app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=7200)
 def m8_generation_pilot(count: int = 32, determinism: bool = True) -> dict:
     """Deterministic correctness pilot. Never changes a frozen threshold."""
@@ -433,6 +598,14 @@ def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs
         print(json.dumps(m8_calibrate_quality.remote(), indent=2, default=str))
     elif stage == "calibrate_identity_v2":
         print(json.dumps(m8_calibrate_identity_v2.remote(), indent=2, default=str))
+    elif stage == "pilot_v2":
+        print(json.dumps(m8_pilot_v2.remote(count=count), indent=2, default=str))
+    elif stage == "generate_v2":
+        print(json.dumps(m8_generate_bank_v2.remote(interrupt_after=interrupt_after or None),
+                         indent=2, default=str))
+    elif stage == "generate_v2_spawn":
+        call = m8_generate_bank_v2.spawn(interrupt_after=interrupt_after or None)
+        print(json.dumps({"spawned": True, "function_call_id": call.object_id, "stage": "generate_v2"}))
     elif stage == "pilot":
         print(json.dumps(m8_generation_pilot.remote(count=count), indent=2, default=str))
     elif stage == "pilot_spawn":

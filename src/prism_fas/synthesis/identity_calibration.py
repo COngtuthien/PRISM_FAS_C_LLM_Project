@@ -191,18 +191,12 @@ def load_identity_config(path: Path) -> dict[str, Any]:
     # A forbidden split may be named ONLY inside a `forbidden_splits` declaration.
     # Those declarations are stripped at any depth before the scan, so the config
     # cannot smuggle a reference in past a top-level-only check.
-    text = json.dumps(_strip_key(payload, "forbidden_splits"), sort_keys=True).lower()
+    from .quality_calibration import strip_key
+    text = json.dumps(strip_key(payload, "forbidden_splits"), sort_keys=True).lower()
     for forbidden in ("source_dev", "target_test", "siw"):
         if forbidden in text:
             raise IdentityCalibrationError(f"v2 config references {forbidden!r} outside its forbidden list")
     return payload
-
-
-def _strip_key(value: Any, name: str) -> Any:
-    if isinstance(value, dict):
-        return {key: _strip_key(item, name) for key, item in value.items() if key != name}
-    if isinstance(value, list): return [_strip_key(item, name) for item in value]
-    return value
 
 
 def config_sha256(payload: dict[str, Any]) -> str:
@@ -659,6 +653,36 @@ def _summary(payload: dict[str, Any]) -> dict[str, Any]:
         "separation_note", "v1_tau_id_informational_only", "thresholds", "threshold_sha256",
         "unchanged_from_v1", "preprocessing_contract_identity_sha256", "embedding_cache",
         "device_report", "source_isolation") if key in payload}
+
+
+def build_quality_gate_v2(v1_payload: dict[str, Any], v2_payload: dict[str, Any],
+                          lock: dict[str, Any]) -> dict[str, Any]:
+    """The gate artifact the bank actually loads: v2 thresholds on top of the
+    v1 calibration.
+
+    Only `tau_id` is re-fitted, so the fingerprint reference, the pinned model
+    manifest and every other v1 threshold are carried over verbatim. Merging them
+    into one file keeps a single loadable artifact whose SHA-256 is the bank's
+    `quality_calibration_sha256`.
+    """
+    merged = {key: value for key, value in v1_payload.items() if not key.startswith("_")}
+    merged["thresholds"] = dict(v2_payload["thresholds"])
+    merged["threshold_sha256"] = v2_payload["threshold_sha256"]
+    merged["quality_gate_version"] = "m8-quality-gate-v2"
+    merged["identity_calibration_version"] = IDENTITY_CALIBRATION_VERSION
+    merged["identity_calibration_content_identity_sha256"] = lock["calibration_content_identity_sha256"]
+    merged["genuine_pair_plan_identity_sha256"] = v2_payload["genuine_pair_plan_identity_sha256"]
+    merged["impostor_pair_plan_identity_sha256"] = v2_payload["impostor_pair_plan_identity_sha256"]
+    merged["tau_genuine"] = v2_payload["tau_genuine"]
+    merged["tau_impostor"] = v2_payload["tau_impostor"]
+    merged["tau_id_v2"] = v2_payload["tau_id_v2"]
+    merged["threshold_rule"] = v2_payload["threshold_rule"]
+    merged["tau_id_v1_superseded"] = v1_payload["thresholds"]["tau_id"]
+    merged["threshold_sha256_v1_superseded"] = v1_payload["threshold_sha256"]
+    merged["inherited_from_v1"] = ["tau_fd", "tau_lm", "tau_parse", "tau_out", "tau_fp",
+                                   "fingerprint", "quality_models"]
+    merged["used_generated_candidates"] = False
+    return merged
 
 
 def compare_calibrations(first: dict[str, Any], second: dict[str, Any], *,

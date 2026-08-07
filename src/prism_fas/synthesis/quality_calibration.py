@@ -35,9 +35,22 @@ def load_quality_config(path: Path) -> dict[str, Any]:
     population = payload.get("calibration_population", {})
     if population.get("split") != SOURCE_SPLIT:
         raise CalibrationError(f"calibration population split must be {SOURCE_SPLIT!r}")
+    # A forbidden split may be NAMED only inside a `forbidden_splits` declaration.
+    # Scanning the raw text would flag a config for honestly declaring what it
+    # refuses to open, so declarations are stripped at any depth first.
+    scanned = json.dumps(strip_key(population, "forbidden_splits"), sort_keys=True)
     for forbidden in ("source_dev", "target_test"):
-        if forbidden in json.dumps(population): raise CalibrationError(f"calibration config references {forbidden!r}")
+        if forbidden in scanned: raise CalibrationError(f"calibration config references {forbidden!r}")
     return payload
+
+
+def strip_key(value: Any, name: str) -> Any:
+    """Recursively drop every occurrence of `name`, so a declaration of forbidden
+    artifacts is never mistaken for a reference to one."""
+    if isinstance(value, dict):
+        return {key: strip_key(item, name) for key, item in value.items() if key != name}
+    if isinstance(value, list): return [strip_key(item, name) for item in value]
+    return value
 
 
 def config_sha(payload: dict[str, Any]) -> str:

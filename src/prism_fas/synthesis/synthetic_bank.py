@@ -426,6 +426,70 @@ def _relative_paths(synthetic_id: str) -> dict[str, str]:
             "artifact_map_relative_path": f"artifact_maps/{synthetic_id}.npz"}
 
 
+# A candidate's identity splits in two. The generation half determines the PAYLOAD
+# BYTES; the evaluation half determines only the DECISION. Re-calibrating the
+# quality gate changes the second and leaves the first untouched, which is what
+# makes a v1 payload reusable under a v2 threshold.
+GENERATION_IDENTITY_FIELDS = ("package_identity", "recipe_bank_identity", "candidate_plan_identity",
+                              "gpat_checkpoint_sha256", "physics_engine_version", "generator_version",
+                              "discrete_convention")
+EVALUATION_IDENTITY_FIELDS = ("threshold_sha256", "fingerprint_reference_sha256", "calibration_sha256",
+                              "generation_config_sha256")
+
+
+def generation_identity(identity: dict[str, str]) -> dict[str, str]:
+    return {name: identity[name] for name in GENERATION_IDENTITY_FIELDS if name in identity}
+
+
+def discrete_from_saved(image_png: bytes, mask_png: bytes, artifact_map_npz: bytes,
+                        original: np.ndarray) -> DiscreteResult:
+    """Rebuild a `DiscreteResult` from saved payload bytes, RE-PROVING every
+    invariant instead of trusting the run that wrote them."""
+    image = decode_png(image_png)
+    if image.ndim != 3 or image.shape != (IMAGE_SIZE, IMAGE_SIZE, 3) or image.dtype != np.uint8:
+        raise SyntheticBankError("saved image is not uint8 RGB 224x224")
+    original_uint8 = to_uint8(original)
+    mask = decode_png(mask_png)
+    if mask.shape != (IMAGE_SIZE, IMAGE_SIZE) or set(np.unique(mask).tolist()) - {0, 255}:
+        raise SyntheticBankError("saved mask is not a 0/255 224x224 map")
+    exact = mask == 255
+    changed = np.any(image != original_uint8, axis=2)
+    if not np.array_equal(changed, exact):
+        raise SyntheticBankError("saved mask does not equal the actual changed uint8 pixels")
+    outside = ~exact
+    error = int(np.abs(image.astype(np.int32) - original_uint8.astype(np.int32))[outside].max()) if outside.any() else 0
+    if error != 0: raise SyntheticBankError(f"saved outside-mask uint8 error {error} is not exactly zero")
+    strength = decode_npz(artifact_map_npz)
+    if strength.dtype != np.float16 or strength.shape != (1, IMAGE_SIZE, IMAGE_SIZE):
+        raise SyntheticBankError("saved artifact map is not float16 [1,224,224]")
+    values = np.asarray(strength, dtype=np.float32)
+    if not np.isfinite(values).all() or values.min() < 0.0 or values.max() > 1.0:
+        raise SyntheticBankError("saved artifact map is not finite in [0,1]")
+    if outside.any() and float(np.abs(values[0][outside]).max()) != 0.0:
+        raise SyntheticBankError("saved artifact map is not exactly zero outside the exact mask")
+    return DiscreteResult(image_uint8=image, original_uint8=original_uint8, exact_edit_mask=exact,
+                          artifact_map=strength, image_png=image_png, mask_png=mask_png,
+                          artifact_map_npz=artifact_map_npz, outside_mask_max_error=error,
+                          requested_support_pixels=0, exact_mask_pixels=int(exact.sum()))
+
+
+def payload_is_reusable(record: dict[str, Any], generation: dict[str, str], root: Path) -> tuple[bool, str]:
+    """A v1 payload may be reused only when every GENERATION input matches and
+    every stored hash still validates."""
+    if record.get("schema_version") != CANDIDATE_RECORD_SCHEMA_VERSION: return False, "schema_version"
+    if record.get("terminal_state") != "accepted": return False, "no_retained_payload"
+    stored = generation_identity(record.get("identity") or {})
+    for key, value in generation.items():
+        if stored.get(key) != value: return False, f"generation_identity:{key}"
+    outputs = record.get("outputs") or {}
+    for name, digest_key in (("image_relative_path", "image_sha256"), ("mask_relative_path", "mask_sha256"),
+                             ("artifact_map_relative_path", "artifact_map_sha256")):
+        path = Path(root) / str(outputs.get(name, ""))
+        if not path.is_file(): return False, f"missing:{name}"
+        if hashlib.sha256(path.read_bytes()).hexdigest() != outputs.get(digest_key): return False, f"hash:{name}"
+    return True, "reused"
+
+
 def record_is_reusable(record: dict[str, Any], identity: dict[str, str], root: Path) -> tuple[bool, str]:
     """A completed candidate is reused only when every identity input and every
     output hash still validates. A mismatched partial candidate is rebuilt."""
@@ -466,6 +530,10 @@ class SyntheticBankGenerator:
     device: str = "cpu"
     expected_gpat_sha256: str | None = None
     expected_pair_plan_identity: str | None = None
+    # An earlier run's work root whose payloads may be reused when the GENERATION
+    # identity matches. Re-calibrating the gate does not change a payload, so a
+    # re-evaluation reuses bytes instead of regenerating them.
+    reuse_root: Path | None = None
 
     def __post_init__(self) -> None:
         from prism_fas.recipes.bank import load_bank
@@ -484,6 +552,8 @@ class SyntheticBankGenerator:
         self.generation_config_sha256 = generation_config_sha256(self.bank_config, self.quality_config)
         self.physics = PhysicsRoute()
         self.gpat: GPATRoute | None = None
+        # Why each candidate's payload was or was not taken from `reuse_root`.
+        self.reuse_reasons: dict[str, int] = {}
         # Derived from the config alone, so a completed rerun that reuses every
         # record still writes the same architecture hash into BANK_LOCK.
         self.gpat_architecture_hash = self._architecture_hash()
@@ -543,18 +613,33 @@ class SyntheticBankGenerator:
         requested_strength = float(np.mean([spec.strength for spec in recipe.artifacts]))
         stage = "generate"
         try:
-            route = self._route(row["route"])
-            produced = route.generate(self.store, self.bank, row)
-            if produced.binding != row["generator_binding"]:
-                raise SyntheticBankError(f"{synthetic_id}: route binding {produced.binding} != plan {row['generator_binding']}")
-            stage = "finalize"
             original, _ = self.store.load(row["live_target_sample_id"])
-            discrete = finalize_discrete(produced.image, original, produced.requested_support, produced.artifact_map)
+            masks = _support_masks(self.store, row["live_target_sample_id"], graph)
+            support = np.asarray(masks.operator_support_mask)[0].astype(bool)
+            geometry = {"requested_region_pixels": int(np.asarray(masks.requested_region_mask)[0].astype(bool).sum()),
+                        "requested_coverage": float(masks.requested_coverage),
+                        "achieved_coverage": float(masks.achieved_coverage)}
+            reused = self._reuse_payload(row, original)
+            if reused is not None:
+                discrete, payload_source, trace = reused, "reused_prior_payload", {"payload_reused": True}
+            else:
+                route = self._route(row["route"])
+                produced = route.generate(self.store, self.bank, row)
+                if produced.binding != row["generator_binding"]:
+                    raise SyntheticBankError(f"{synthetic_id}: route binding {produced.binding} != plan {row['generator_binding']}")
+                stage = "finalize"
+                discrete = finalize_discrete(produced.image, original, produced.requested_support,
+                                             produced.artifact_map)
+                payload_source, trace = "generated", produced.trace
+                support = produced.requested_support
+                geometry = {"requested_region_pixels": produced.requested_region_pixels,
+                            "requested_coverage": produced.requested_coverage,
+                            "achieved_coverage": produced.achieved_coverage}
             stage = "quality_gate"
             if self.evaluator is None: raise SyntheticBankError("quality backends are required to gate a candidate")
             quality = self.evaluator.evaluate(discrete, live_target_sample_id=row["live_target_sample_id"],
                                               requested_strength=requested_strength,
-                                              requested_support=produced.requested_support)
+                                              requested_support=support)
         except Exception as error:                       # noqa: BLE001 - every stage failure is a terminal state
             stage_name, reason = stage, _sanitize(str(error))
             record = {"schema_version": CANDIDATE_RECORD_SCHEMA_VERSION, "synthetic_id": synthetic_id,
@@ -574,11 +659,12 @@ class SyntheticBankGenerator:
                        "regions": sorted(graph.requested_regions),
                        "requested_artifact_strength": round(requested_strength, 8)},
             "geometry": {"exact_mask_pixels": discrete.exact_mask_pixels,
-                         "requested_support_pixels": discrete.requested_support_pixels,
-                         "requested_region_pixels": produced.requested_region_pixels,
-                         "requested_coverage": round(produced.requested_coverage, 8),
-                         "achieved_coverage": round(produced.achieved_coverage, 8)},
-            "quality": quality, "generation_trace": produced.trace}
+                         "requested_support_pixels": int(np.asarray(support).astype(bool).sum()),
+                         "requested_region_pixels": geometry["requested_region_pixels"],
+                         "requested_coverage": round(geometry["requested_coverage"], 8),
+                         "achieved_coverage": round(geometry["achieved_coverage"], 8)},
+            "payload_source": payload_source,
+            "quality": quality, "generation_trace": trace}
         if quality["accepted"]:
             record["outputs"] = {**paths, "image_sha256": discrete.image_sha256,
                                  "mask_sha256": discrete.mask_sha256,
@@ -589,6 +675,40 @@ class SyntheticBankGenerator:
             atomic_json_write(self.work_root / "metadata" / f"{synthetic_id}.json", _sample_metadata(record))
         self._write_record(record)
         return record
+
+    def _reuse_payload(self, row: dict[str, Any], original: np.ndarray) -> DiscreteResult | None:
+        """Load this exact candidate's payload from an earlier run, if that run
+        retained it and every generation input and hash still validates.
+
+        Returns the bytes rebuilt into a `DiscreteResult` with every discrete
+        invariant re-proven — nothing about the earlier run is trusted.
+        """
+        if self.reuse_root is None: return None
+        path = Path(self.reuse_root) / "records" / f"{row['synthetic_id']}.json"
+        if not path.is_file():
+            self.reuse_reasons["absent"] = self.reuse_reasons.get("absent", 0) + 1
+            return None
+        try: record = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            self.reuse_reasons["unreadable_record"] = self.reuse_reasons.get("unreadable_record", 0) + 1
+            return None
+        usable, reason = payload_is_reusable(record, generation_identity(self.identity()), self.reuse_root)
+        if not usable:
+            self.reuse_reasons[reason] = self.reuse_reasons.get(reason, 0) + 1
+            return None
+        outputs = record["outputs"]
+        root = Path(self.reuse_root)
+        try:
+            discrete = discrete_from_saved((root / outputs["image_relative_path"]).read_bytes(),
+                                           (root / outputs["mask_relative_path"]).read_bytes(),
+                                           (root / outputs["artifact_map_relative_path"]).read_bytes(),
+                                           original)
+        except SyntheticBankError as error:
+            self.reuse_reasons[f"invalid_payload:{_sanitize(str(error))[:40]}"] = \
+                self.reuse_reasons.get(f"invalid_payload:{_sanitize(str(error))[:40]}", 0) + 1
+            return None
+        self.reuse_reasons["reused"] = self.reuse_reasons.get("reused", 0) + 1
+        return discrete
 
     def _write_record(self, record: dict[str, Any]) -> None:
         """The record is written last, so an interrupted candidate leaves no
@@ -634,6 +754,10 @@ class SyntheticBankGenerator:
         return {"status": "completed", "planned": len(planned), "examined": examined,
                 "reused": reused, "rebuilt": rebuilt, "records": records,
                 "reuse_reasons": dict(sorted(reuse_reasons.items())),
+                "payload_sources": _counts([{"payload_source": record.get("payload_source", "unknown"),
+                                             "synthetic_id": record["synthetic_id"]} for record in records],
+                                           "payload_source"),
+                "payload_reuse_reasons": dict(sorted(self.reuse_reasons.items())),
                 "source_isolation": self.audit.report()}
 
 
@@ -948,6 +1072,9 @@ def assemble_bank(generator: SyntheticBankGenerator, records: list[dict[str, Any
                   "accepted_route_counts": _counts(accepted, "route"),
                   "rejected_route_counts": _counts(rejected, "route"),
                   "failure_stages": _counts(failures, "failed_stage"),
+                  "payload_sources": _counts([{"payload_source": record.get("payload_source", "unknown"),
+                                               "synthetic_id": record["synthetic_id"]} for record in records],
+                                             "payload_source"),
                   "operational_minimums": minimums,
                   "generator_version": GENERATOR_VERSION, "discrete_convention": DISCRETE_CONVENTION,
                   "identity": generator.identity(),
