@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M7 complete; M8 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M8 complete; M9 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -174,8 +174,56 @@ nine-region masks and composites exactly, so `max |output − input|` outside th
 
 The audit preview runs on 32 real `source_train` **live** samples only (16 CASIA + 16 MSU); it never
 opens `source_dev` or `target_test`, and uses no Modal, GPU or SSH. Its outputs under `reports/m7/`
-are git-ignored preview/audit artifacts, **not** quality-gated attacks — the M8 quality gate has not
-run.
+are git-ignored preview/audit artifacts, **not** quality-gated attacks — those are produced by the
+M8 quality gate below.
+
+## M8 GPAT, quality gate and the versioned synthetic bank
+
+M8 turns the M7 recipes into a **quality-gated synthetic bank**. Two generation routes produce the
+same 1120 planned candidates: the frozen M7 `PhysicsEngine`, and **GPAT**, a 910,538-parameter Haar
+wavelet residual generator whose LL band is structurally absent so low-frequency identity content
+cannot be edited. Every candidate is finalized to discrete uint8 with an exact changed-pixel mask, so
+`max |output − input|` outside that mask is **0**, re-proven after PNG decode.
+
+Each candidate is scored against eight hard gates — face detection, identity cosine, landmark NME,
+outside-mask parsing Dice, outside-mask error, artifact strength, high-frequency fingerprint and
+support overlap — plus a quality weight `q`. **`q` is an M9 sample weight, never a live/spoof
+label**, and a candidate is never rejected for a low `q` when every hard gate passes.
+
+```bash
+modal run modal_m8.py --stage calibrate                  # v1 quality calibration
+modal run modal_m8.py --stage calibrate_identity_v2      # v2 identity calibration
+modal run modal_m8.py --stage calibrate_structural_v3    # v3 structural calibration
+modal run --detach modal_m8.py --stage generate_v3_spawn --interrupt-after 96
+modal run modal_m8.py --stage export_v3 --bank-id <bank_id>
+
+python scripts/m8_validate_downloaded_bank.py --archive <bank_id>.tar \
+  --expected-archive-sha256 <sha> --expected-identity <identity>
+```
+
+Every threshold is calibrated on `source_train` **only**, and every rule was declared before the
+candidates it judges were re-evaluated. The calibration population was versioned twice, and both the
+superseded runs are retained rather than deleted:
+
+| | calibration population | outcome |
+|---|---|---|
+| v1 | same image under ±2 % brightness/contrast | retained, missed two operational minimums |
+| v2 | real same-identity cross-record pairs | retained, missed one operational minimum |
+| **v3** | same image under a **localized benign appearance edit** | **all minimums met** |
+
+Protocols: [docs/M8_QUALITY_GATE_CONTRACT.md](docs/M8_QUALITY_GATE_CONTRACT.md),
+[docs/M8_IDENTITY_CALIBRATION_V2.md](docs/M8_IDENTITY_CALIBRATION_V2.md),
+[docs/M8_STRUCTURAL_CALIBRATION_V3.md](docs/M8_STRUCTURAL_CALIBRATION_V3.md),
+[docs/M8_GPAT_CONTRACT.md](docs/M8_GPAT_CONTRACT.md),
+[docs/M8_SYNTHETIC_BANK_CONTRACT.md](docs/M8_SYNTHETIC_BANK_CONTRACT.md).
+
+The frozen bank `prism_synthetic_bank_m8_v3_e84c78cd2a9b` holds **1120** candidates — 871 accepted,
+249 rejected, 0 failed — covering all 8 artifact types and all 9 semantic regions, with both GPAT
+domain relations present. It validates with 39/39 checks and 0 errors, regenerates a 32-candidate
+subset with 0 mismatches, and its identity survives the archive round trip to Windows unchanged.
+
+**M8 produces synthetic training material, not a detector result.** No detector was trained on this
+bank, no target label was read, and no FAS or target-test performance is claimed.
 
 ## What is not in this repository
 

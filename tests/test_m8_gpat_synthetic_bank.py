@@ -2753,3 +2753,262 @@ def test_real_v3_reuse_decision_keeps_all_1120_candidate_ids():
     assert "candidate_plan" not in report["where_calibration_IS_bound"]["candidate_record_identity"]
     for name in ("modal", "quality_calibration", "structural_calibration", "identity_calibration"):
         assert name not in report["candidate_plan_module_imports"]
+
+
+# --- real v3 re-evaluation report contracts ---------------------------------------
+RECIPE_BANK_IDENTITY = "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+PAIR_PLAN_IDENTITY = "301868301dd11739ec018eed438704f9e4da7896ea52a0e60d50de563f2ccad3"
+CANDIDATE_PLAN_IDENTITY = "b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67abfc8890f40b8"
+GPAT_CHECKPOINT_SHA = "2047cdb513767010cfdf368c6f53a3664922451c56e1e837ec59cb96918a5b63"
+GPAT_ARCHITECTURE_HASH = "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc"
+FINGERPRINT_REFERENCE_SHA = "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
+V3_THRESHOLD_SHA = "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19"
+V3_BANK_ID = "prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+V3_BANK_IDENTITY = "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542"
+V3_ARCHIVE_SHA = "38a92fda0c7ae004f092624d99bfb0b46605484aa433b8fe91a47527e68d0db2"
+def test_real_v3_pilot_report_contract():
+    pilot = _report("v3_pilot.json")
+    assert pilot["passed"] is True and all(pilot["checks"].values())
+    assert pilot["payload_errors"] == []
+    assert pilot["planned"] == 32
+    assert sum(pilot["terminal_counts"].values()) == 32
+    assert pilot["coverage"]["bucket_counts"]["route:physics"] == 16
+    assert pilot["coverage"]["bucket_counts"]["route:gpat"] == 16
+    assert pilot["thresholds_unchanged"] is True
+    assert pilot["acceptance_rate_is_not_an_implementation_verdict"] is True
+    identity = pilot["identity"]
+    assert identity["candidate_plan_identity"] == CANDIDATE_PLAN_IDENTITY
+    assert identity["gpat_checkpoint_sha256"] == GPAT_CHECKPOINT_SHA
+    assert identity["threshold_sha256"] == V3_THRESHOLD_SHA
+    assert identity["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    assert pilot["source_isolation"]["source_dev_opened"] is False
+    assert pilot["source_isolation"]["target_test_opened"] is False
+
+
+def test_real_v3_pilot_determinism_report_contract():
+    audit = _report("v3_pilot_determinism.json")
+    assert audit["passed"] is True and audit["identical"] is True
+    assert audit["candidates"] == 32 and audit["compared"] == 32
+    assert audit["mismatch_count"] == 0 and audit["mismatches"] == []
+
+
+def test_real_v3_resume_audit_report_contract():
+    audit = _report("v3_resume_audit.json")
+    assert audit["passed"] is True and all(audit["checks"].values())
+    assert audit["planned"] == 1120
+    assert sum(audit["terminal_counts"].values()) == 1120
+    phases = {phase["phase"]: phase for phase in audit["phases"]}
+    # the completed rerun must reuse everything and rebuild nothing
+    assert phases["completed_rerun"]["examined"] == 1120
+    assert phases["completed_rerun"]["reused"] == 1120
+    assert phases["completed_rerun"]["rebuilt"] == 0
+    # the interruption and the corruption probe were real
+    assert phases["interrupted"]["rebuilt"] == 96
+    probe = audit["corruption_probe"]
+    assert probe["performed"] is True
+    assert probe["detected_as_unusable"] is True
+    assert probe["rebuilt_bytes_identical"] is True
+    assert audit["source_isolation"]["source_dev_opened"] is False
+    assert audit["source_isolation"]["target_test_opened"] is False
+
+
+def test_real_v3_determinism_audit_report_contract():
+    audit = _report("v3_determinism_audit.json")
+    assert audit["passed"] is True and audit["identical"] is True
+    assert audit["candidates"] == 32 and audit["compared"] == 32
+    assert audit["mismatch_count"] == 0 and audit["mismatches"] == []
+    assert audit["identity"]["threshold_sha256"] == V3_THRESHOLD_SHA
+
+
+def test_real_v3_bank_validation_report_contract():
+    report = _report("v3_synthetic_bank_validation.json")
+    assert report["counts"]["candidates"] == 1120
+    assert (report["counts"]["accepted"] + report["counts"]["rejected"]
+            + report["counts"]["failed_generation"]) == 1120
+    assert report["counts"]["failed_generation"] == 0
+    for name in ("terminal_accounting", "no_duplicate_synthetic_ids", "accepted_files_exist",
+                 "accepted_hashes_match", "images_decode_rgb_224", "masks_binary_0_255",
+                 "artifact_maps_load_without_pickle", "artifact_maps_finite_in_range",
+                 "artifact_maps_zero_outside_exact_mask", "saved_outside_mask_error_exactly_zero",
+                 "exact_mask_pixel_counts_match", "every_accepted_row_passes_every_hard_gate",
+                 "every_rejected_row_names_a_failed_gate", "recipe_match_not_applicable",
+                 "shards_validate", "shard_hashes_match_lock", "shards_index_digest",
+                 "source_only_isolation_evidence", "source_package_unchanged", "recipe_bank_unchanged",
+                 "gpat_checkpoint_hash_matches", "threshold_hash_matches_lock",
+                 "bank_content_identity_reproducible", "no_target_or_private_fields",
+                 "calibration_declares_no_source_dev_or_target"):
+        assert report["checks"][name] is True, name
+    assert report["shard_report"]["passed"] is True
+
+
+def test_real_v3_decision_comparison_contract():
+    report = _report("v1_v2_v3_decision_comparison.json")
+    assert report["compared"] == 1120
+    assert report["missing_earlier_records"] == {"v1": 0, "v2": 0}
+    assert sum(report["v1_v2_v3_transitions"].values()) == 1120
+    per_route = report["per_route"]
+    assert sorted(per_route) == ["gpat", "physics"]
+    for bucket in per_route.values():
+        assert set(bucket) == {"v2_to_v3_accepted", "v3_to_v2_rejected", "unchanged_from_v2"}
+    assert sum(sum(bucket.values()) for bucket in per_route.values()) == 1120
+    # the report must not dress a larger accepted count up as an improvement
+    note = report["interpretation_note"]
+    assert "not evidence of a" in note and "better bank" in note
+    assert "detector or target performance" in note
+
+
+def test_real_v3_bank_lock_binds_the_v3_calibration_and_unchanged_parents():
+    lock = _report("v3_BANK_LOCK_remote.json")
+    structural = _report("STRUCTURAL_CALIBRATION_V3_LOCK.json")
+    # the parent identities are inherited untouched from v1/v2
+    assert lock["package_identity"] == PACKAGE_IDENTITY
+    assert lock["recipe_bank_identity"] == RECIPE_BANK_IDENTITY
+    assert lock["gpat_pair_plan_identity"] == PAIR_PLAN_IDENTITY
+    assert lock["candidate_plan_identity"] == CANDIDATE_PLAN_IDENTITY
+    assert lock["gpat_checkpoint_sha256"] == GPAT_CHECKPOINT_SHA
+    assert lock["gpat_architecture_hash"] == GPAT_ARCHITECTURE_HASH
+    assert lock["physics_engine_version"] == "m7-physics-v1"
+    assert lock["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+    # and only the calibration-bearing identities moved
+    assert lock["threshold_sha256"] == V3_THRESHOLD_SHA == structural["threshold_sha256"]
+    assert lock["threshold_sha256"] != "a3f20e5e46641deeac0f1110f6783869ed88ee01786baa8d006bf5ca8d159754"
+    assert lock["bank_id"].startswith("prism_synthetic_bank_m8_v3_")
+    assert lock["candidate_count"] == 1120
+    assert (lock["accepted_count"] + lock["rejected_count"] + lock["failed_count"]) == 1120
+    assert lock["status"] == ("validated" if lock["operational_minimums_passed"]
+                              else "operational_minimums_failed")
+
+
+def test_v1_and_v2_artifacts_were_not_modified_by_v3():
+    """The retained v1 and v2 runs keep their exact identities and failed status."""
+    v1 = _report("BANK_LOCK_remote.json")
+    v2 = _report("v2_BANK_LOCK_remote.json")
+    assert v1["bank_id"] == "prism_synthetic_bank_m8_v1_ef6a76ed46f0"
+    assert v1["bank_content_identity_sha256"] == (
+        "ef6a76ed46f0a17b2953061d2b563272743c37a46261082cbac6a3421c17b1bb")
+    assert v1["status"] == "operational_minimums_failed"
+    assert v2["bank_id"] == "prism_synthetic_bank_m8_v2_1abc9e83c2a5"
+    assert v2["bank_content_identity_sha256"] == (
+        "1abc9e83c2a5db087f3fa3b119ff17ea3027b845b7c96a23622d1b164697ddcc")
+    assert v2["status"] == "operational_minimums_failed"
+    assert v1["threshold_sha256"] == "4798a392243c85f89b37a14dc51958637d4ae177756bf88f693804f065c4c297"
+    assert v2["threshold_sha256"] == "a3f20e5e46641deeac0f1110f6783869ed88ee01786baa8d006bf5ca8d159754"
+    # the v1 and v2 calibrations still report their own superseded thresholds
+    assert _report("quality_calibration.json")["thresholds"]["tau_lm"] == TAU_LM_V1
+    assert _report("quality_calibration.json")["thresholds"]["tau_parse"] == TAU_PARSE_V1
+    assert _report("quality_calibration_v2.json")["thresholds"]["tau_lm"] == TAU_LM_V1
+    assert _report("quality_calibration_v2.json")["thresholds"]["tau_parse"] == TAU_PARSE_V1
+    assert _report("quality_calibration_v2.json")["tau_id_v2"] == TAU_ID_V2
+
+
+def test_real_v3_run_meets_every_pre_declared_operational_minimum():
+    """The minimums are the ones frozen in v1 and never re-declared."""
+    lock = _report("v3_BANK_LOCK_remote.json")
+    minimums = lock["operational_minimums"]
+    declared = minimums["declared_minimums"]
+    config = yaml.safe_load((ROOT / "configs" / "synthesis" / "synthetic_bank_m8.yaml").read_text(encoding="utf-8"))
+    assert declared == config["operational_minimums"]
+    assert declared == yaml.safe_load(V3_CONFIG.read_text(encoding="utf-8"))["operational_minimums"]
+    assert declared["accepted_total"] == 400 and declared["accepted_physics"] == 200
+    assert minimums["passed"] is True and all(minimums["checks"].values())
+    observed = minimums["observed"]
+    assert observed["candidates"] == 1120
+    assert observed["accepted_total"] >= declared["accepted_total"]
+    assert observed["accepted_route_counts"]["physics"] >= declared["accepted_physics"]
+    assert observed["accepted_route_counts"]["gpat"] >= declared["accepted_gpat"]
+    assert observed["accepted_live_target_datasets"]["casia_fasd"] >= declared["accepted_live_casia"]
+    assert observed["accepted_live_target_datasets"]["msu_mfsd"] >= declared["accepted_live_msu"]
+    assert observed["artifact_type_count"] == 8 and observed["region_count"] == 9
+    assert sorted(observed["accepted_gpat_domain_relations"]) == ["cross_domain", "same_domain"]
+    assert lock["status"] == "validated" and lock["operational_minimums_passed"] is True
+
+
+def test_real_v3_thresholds_were_not_touched_by_the_re_evaluation():
+    """The gate the bank shipped is exactly the frozen v3 calibration."""
+    lock = _report("v3_BANK_LOCK_remote.json")
+    structural = _report("STRUCTURAL_CALIBRATION_V3_LOCK.json")
+    summary = _report("structural_calibration_v3_summary.json")
+    assert lock["threshold_sha256"] == structural["threshold_sha256"] == V3_THRESHOLD_SHA
+    assert structural["thresholds"]["tau_lm"] == summary["tau_lm_v3"] == 0.00836817528937794
+    assert structural["thresholds"]["tau_parse"] == summary["tau_parse_v3"] == 0.7094826178704915
+    assert structural["thresholds"]["tau_id"] == TAU_ID_V2
+    assert structural["thresholds"]["tau_fd"] == 0.5 and structural["thresholds"]["tau_out"] == 0.0
+    assert structural["thresholds"]["tau_fp"] == 5.687657785453908
+    assert lock["fingerprint_reference_sha256"] == FINGERPRINT_REFERENCE_SHA
+
+
+def test_real_v3_accepted_rows_sit_inside_the_frozen_v3_thresholds():
+    """Measured acceptance must be consistent with the frozen gate, not asserted."""
+    quality = _report("v3_quality_summary_remote.json")
+    accepted = quality["accepted_metric_distributions"]
+    assert accepted["landmark_nme"]["max"] <= 0.00836817528937794
+    assert accepted["outside_mask_parsing_dice"]["min"] >= 0.7094826178704915
+    assert accepted["identity_cosine"]["min"] >= TAU_ID_V2
+    assert accepted["face_detection_score"]["min"] >= 0.5
+    assert accepted["fingerprint_score"]["max"] <= 5.687657785453908
+    assert accepted["outside_mask_max_error"]["max"] == 0.0
+    assert accepted["support_overlap"]["min"] >= 0.90
+    assert quality["recipe_match"] == "not_applicable"
+    q = quality["q_statistics"]
+    assert 0.0 <= q["min"] <= q["median"] <= q["max"] <= 1.0
+    # the identity gate still rejects nothing, and only the unchanged gates remain
+    assert "identity" not in quality["dominant_rejection_reasons"]
+    assert quality["dominant_rejection_reasons"]["artifact_strength"] == 158
+
+
+def test_real_v3_payloads_were_reused_not_regenerated_where_v2_retained_them():
+    """Re-calibration changes a DECISION, never a payload byte."""
+    generation = _report("v3_generation_summary_remote.json")
+    sources = generation["payload_sources"]
+    assert sources["reused_prior_payload"] == 475          # exactly the v2 accepted set
+    assert sources["generated"] == 645                     # v2 kept no binary for these
+    assert sources["reused_prior_payload"] + sources["generated"] == 1120
+    assert generation["terminal_counts"]["failed_generation"] == 0
+    assert generation["route_counts"] == {"gpat": 560, "physics": 560}
+    assert generation["source_isolation"]["source_dev_opened"] is False
+    assert generation["source_isolation"]["target_test_opened"] is False
+    assert generation["source_isolation"]["raw_dataset_path_opened"] is False
+    assert generation["source_isolation"]["manifests_opened"] == ["manifests/source_train.parquet"]
+    pilot = _report("v3_pilot.json")
+    assert pilot["passed"] is True
+
+
+def test_real_v3_relaxing_only_two_gates_rejected_nothing_v2_accepted():
+    """A more permissive landmark/parsing gate cannot reject a previously accepted
+    candidate, and the measured comparison confirms it did not."""
+    comparison = _report("v1_v2_v3_decision_comparison.json")
+    for bucket in comparison["per_route"].values():
+        assert bucket["v3_to_v2_rejected"] == 0
+    transitions = comparison["v1_v2_v3_transitions"]
+    assert not any(key.endswith("->rejected") and "accepted->" in key for key in transitions)
+    assert transitions["accepted->accepted->accepted"] == 391       # every v1 acceptance survives
+    assert sum(transitions.values()) == 1120
+
+
+def test_real_v3_local_downloaded_bank_validation_report_contract():
+    report = _report("local_downloaded_bank_validation_v3.json")
+    assert report["passed"] is True and report["error_count"] == 0 and report["errors"] == []
+    assert report["local_identity_equals_remote"] is True
+    assert report["bank_content_identity_sha256"] == V3_BANK_IDENTITY == report["expected_identity"]
+    assert report["bank_id"] == V3_BANK_ID
+    assert report["local_bank_root_name"] == V3_BANK_ID
+    assert report["counts"] == {"candidates": 1120, "accepted": 871, "rejected": 249,
+                                "failed_generation": 0}
+    assert report["operational_minimums"]["passed"] is True
+    assert report["shard_report"]["passed"] is True
+    transport = report["transport"]
+    assert transport["archive_sha256"] == V3_ARCHIVE_SHA
+    assert transport["archive_sha256_matches"] is True
+    assert transport["archive_bytes"] == 126689280
+    assert all(report["checks"].values())
+
+
+def test_real_v3_archive_is_transport_only_and_outside_the_bank_identity():
+    lock = _report("v3_BANK_LOCK_remote.json")
+    text = json.dumps(lock)
+    assert V3_ARCHIVE_SHA not in text
+    assert "archive" not in {key.lower() for key in lock}
+    assert lock["bank_content_identity_sha256"] == V3_BANK_IDENTITY
+    assert lock["bank_id"] == V3_BANK_ID == f"prism_synthetic_bank_m8_v3_{V3_BANK_IDENTITY[:12]}"
+    for name in ("created_at", "bank_id"):
+        assert name in lock["identity_excluded_fields"] or name == "created_at"

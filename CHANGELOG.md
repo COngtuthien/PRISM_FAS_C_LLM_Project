@@ -1,5 +1,69 @@
 # Changelog
 
+## M8 GPAT, Quality Gate and Versioned Synthetic Bank — 2026-08-07
+
+- Added `src/prism_fas/synthesis/` M8 modules: differentiable Haar DWT/IDWT, the GPAT residual model
+  (910,538 parameters, ΔLL structurally absent), the declared loss set, the trainer with strict
+  checkpoint/resume, the pinned quality-model registry, the source-only pair plan, quality
+  calibration, the quality gate, the 24-d high-frequency fingerprint, the candidate plan, discrete
+  uint8 finalization, resume-safe generation, deterministic shards, bank validation and export.
+- Added `modal_m8.py` with GPAT training and every calibration, pilot, generation, re-assembly and
+  export stage, plus `scripts/m8_validate_downloaded_bank.py` and the `prism synthesis` commands. No
+  module under `src/prism_fas/synthesis/` imports modal.
+- Trained GPAT on L4 for 15 epochs; best epoch 11, `validation_total_loss` 0.048736,
+  `validation_identity_cosine` 0.999893, checkpoint SHA `2047cdb513767010…`.
+- Generated the frozen 1120-candidate plan (560 physics + 560 GPAT over all 280 `source_train` live
+  samples, 128 distinct recipes), identity `b167c169dcb92426…`.
+- **Calibrated the quality gate three times, and retained every superseded run.** Each revision
+  changed a calibration *population*, never a threshold, and each rule was declared before the
+  candidates it judges were re-evaluated:
+  - **v1** — same image under ±2 % brightness/contrast and noise 0.002. 391 accepted; missed
+    `accepted_total` (391 < 400) and `accepted_physics` (71 < 200). Retained as
+    `prism_synthetic_bank_m8_v1_ef6a76ed46f0`, status `operational_minimums_failed`.
+  - **v2** — real same-identity cross-record pairs (560 genuine / 13440 impostor, no distribution
+    overlap). `tau_id` 0.9995203357934952 → **0.547440037939055**; identity rejections fell to 0 and
+    475 were accepted, but `accepted_physics` was still 151 < 200. Retained as
+    `prism_synthetic_bank_m8_v2_1abc9e83c2a5`, status `operational_minimums_failed`.
+  - **v3** — same image under a **localized benign appearance edit**: 280 live × 8 frozen transforms
+    (brightness 0.90/1.10, contrast 0.90/1.10, gamma 0.90/1.10, noise std 0.005, blur sigma 0.75)
+    applied inside one deterministic semantic region. `tau_lm` → **0.00836817528937794** (p99),
+    `tau_parse` → **0.7094826178704915** (p01).
+- v3 versions only `tau_lm` and `tau_parse`; `tau_fd`, `tau_id`, `tau_out`, `tau_fp`, the fingerprint
+  reference, the artifact-strength and support-overlap rules, the `q` formula and every operational
+  minimum are unchanged, and the v1/v2 configs and artifacts were never modified.
+- v3 calibration measured 2240/2240 valid landmark comparisons, 0 face-detection failures, 0
+  region-mask failures and an outside-support uint8 error of exactly 0 on every observation, and
+  reproduced with **0 mismatches** across two runs. Its logical row digest was re-verified locally
+  under pyarrow 25.0.0 against the remote 18.1.0 write.
+- Computed the 560 cross-record genuine pairs as a **diagnostic only**, and refused to derive a
+  structural threshold from them: their landmark NME median is 0.0828 against 0.0013 for the
+  same-image population, so they measure real pose/expression/crop variation rather than detector
+  jitter under an appearance-only edit. Their 1st percentile alone is 3.3× larger than `tau_lm_v3`.
+- Froze `prism_synthetic_bank_m8_v3_e84c78cd2a9b`
+  (`e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542`, status **`validated`**):
+  1120 candidates = 871 accepted + 249 rejected + 0 failed; physics 419, gpat 452; CASIA 491,
+  MSU 380; 8/8 artifact types, 9/9 regions; same- and cross-domain gpat 226 each; 2 shards.
+- Reused **475 payloads byte-identically** from the retained v2 run and regenerated 645 under their
+  original ids, inputs and seeds. Re-calibration changes a decision, never a payload byte, and the
+  measured comparison shows **0 accepted → rejected** transitions in either route.
+- Verified: bank validation 39/39 checks with 0 errors; resume audit with a real interruption, a
+  hash-detected truncation rebuilt byte-identically and a completed rerun of 1120 examined / 1120
+  reused / **0 rebuilt**; a 32-candidate determinism audit with **0 mismatches**; and a Windows round
+  trip of the 126,689,280-byte archive (SHA `38a92fda0c7ae004…`) whose extracted local bank identity
+  **equals** the remote identity.
+- Fixed real defects found during M8, each documented in `DECISIONS.md`: the physics artifact-map
+  units error (a recipe requesting 0.0915 measured 0.780, rejecting every physics candidate); a
+  non-portable pair-plan identity that folded in parquet bytes; a `PYTHONHASHSEED`-dependent batch
+  order that made training irreproducible across processes; duplicate candidate ids from drawing
+  recipes with replacement; an unconditional `BANK_LOCK.status = "validated"` that made both the
+  field and the validator's check vacuous; config loaders and a leak scanner that rejected artifacts
+  for *honestly declaring* the splits they refuse to open; and a v2 bank named with a v1 prefix.
+- Source isolation on every M8 stage: only `manifests/source_train.parquet`, `images/` and `priors/`
+  were opened; `source_dev_opened false`, `target_test_opened false`, `raw_dataset_path_opened false`.
+- **No FAS detector quality or target-test performance is claimed.** `q` is an M9 sample weight, not
+  a live/spoof label. M9 is NOT STARTED.
+- Tests: 662 passed, 0 failed, 0 skipped (was 465 after M7).
+
 ## M7 Recipe Compiler and Physics Engine — 2026-08-06
 
 - Added `src/prism_fas/recipes/`: strict recipe schema v1.1 (extra keys forbidden), the source-only

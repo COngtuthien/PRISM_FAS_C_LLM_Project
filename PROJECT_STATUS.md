@@ -1,8 +1,9 @@
 # Project status
 
-- Current milestone: **M7 COMPLETED** — source-only recipe schema/compiler, frozen deterministic recipe
-  bank and CPU physics engine with exact masks. M8 is NOT STARTED.
-- M0–M7: COMPLETED; M8: NOT STARTED.
+- Current milestone: **M8 COMPLETED** — GPAT residual generator, source-only quality calibration
+  (three frozen versions), the 1120-candidate quality gate and the frozen versioned synthetic bank
+  `prism_synthetic_bank_m8_v3_e84c78cd2a9b`. **M9 is NOT STARTED.**
+- M0–M8: COMPLETED; M9: NOT STARTED.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
@@ -101,7 +102,91 @@ crop images, Parquet manifests, run logs and local path configuration are ignore
 reproducible from source using the documented CLI and the frozen preprocessing configuration.
 
 - Blockers: none.
-- Next milestone: M8 — GPAT, quality gate and versioned synthetic bank (NOT STARTED).
+- Next milestone: M9 — PromptHead and detector training (NOT STARTED).
+
+## M8 GPAT, quality calibration and the versioned synthetic bank
+
+Source-only throughout: every M8 stage opens `manifests/source_train.parquet`, `source_train` images
+and priors, the frozen M7 recipe bank and the pinned quality weights, and nothing else.
+`source_dev_opened false`, `target_test_opened false`, `raw_dataset_path_opened false` on every run.
+
+### Frozen inputs
+
+| Item | Value |
+|---|---|
+| Source package | `prism_data_v1_m3b`, `b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6` |
+| M7 recipe bank | `fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb` |
+| GPAT pair plan | `301868301dd11739ec018eed438704f9e4da7896ea52a0e60d50de563f2ccad3` (896 train / 224 validation) |
+| GPAT checkpoint | epoch 11, `2047cdb513767010cfdf368c6f53a3664922451c56e1e837ec59cb96918a5b63` |
+| Candidate plan | `b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67abfc8890f40b8` — **1120** = 560 physics + 560 GPAT |
+
+GPAT is a 910,538-parameter Haar-DWT residual generator whose LL band is structurally absent, trained
+15 epochs on L4; best `validation_total_loss` 0.048736, `validation_identity_cosine` 0.999893.
+
+### Quality calibration history — three frozen versions, honestly recorded
+
+The calibration population was versioned twice. **Both revisions changed a population, not a
+threshold**, and each rule was declared before any candidate was re-evaluated under it.
+
+| | population | result |
+|---|---|---|
+| **v1** | same image under ±2 % brightness/contrast, noise 0.002 | 391 accepted; **failed** `accepted_total` (391 < 400) and `accepted_physics` (71 < 200) |
+| **v2** | real same-identity cross-record pairs (560 genuine / 13440 impostor) | `tau_id` 0.99952 → **0.547440037939055**; identity rejections fell to **0**; 475 accepted; physics 151, so `accepted_physics` still **failed**; `landmark` (467) and `parsing_dice` (233) became the blockers |
+| **v3** | same image under a **localized benign appearance edit** (280 live × 8 frozen transforms = 2240 observations) | `tau_lm` → **0.00836817528937794**, `tau_parse` → **0.7094826178704915**; **871 accepted, every minimum met** |
+
+v3 versions only `tau_lm` and `tau_parse`. `tau_fd` (0.5), `tau_id` (the v2 value), `tau_out` (0),
+`tau_fp` (5.687657785453908), the fingerprint reference, the artifact-strength and support-overlap
+rules, the `q` formula and every operational minimum are carried over unchanged. The v1 and v2 runs,
+reports, locks, namespaces and archives are retained unmodified and still read
+`operational_minimums_failed`. Protocols: `docs/M8_IDENTITY_CALIBRATION_V2.md`,
+`docs/M8_STRUCTURAL_CALIBRATION_V3.md`.
+
+The v3 calibration measured 2240/2240 valid landmark comparisons, 0 detection failures, 0 region-mask
+failures and an outside-support uint8 error of exactly 0 on every observation, and reproduced with
+**0 mismatches** across two runs. The 560 cross-record genuine pairs were computed as a **diagnostic
+only** and set no threshold: their landmark NME median is 0.0828 against 0.0013 for the same-image
+population, so they measure real pose/expression/crop variation rather than detector jitter.
+
+### The frozen bank
+
+| Item | Value |
+|---|---|
+| Bank id | `prism_synthetic_bank_m8_v3_e84c78cd2a9b` |
+| Content identity | `e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542` |
+| Status | **`validated`** (derived from the operational-minimum result, never unconditional) |
+| Candidates | **1120** = 871 accepted + 249 rejected + **0** failed |
+| Accepted by route | physics **419** (min 200), gpat **452** (min 100) |
+| Accepted by domain | CASIA **491**, MSU **380** (min 100 each) |
+| Coverage | **8/8** artifact types, **9/9** semantic regions; gpat same-domain 226 / cross-domain 226 |
+| `q` | min 0.2174, median 0.7717, mean 0.7544, max 0.9421 |
+| Threshold SHA | `8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19` |
+| Shards | 2, loose/shard parity verified |
+| Frozen path | `prism-fas-b-data:/synthetic_banks/prism_synthetic_bank_m8_v3_e84c78cd2a9b` |
+
+Remaining rejections are dominated by the **unchanged** `artifact_strength` gate (158), then
+`landmark` 86, `parsing_dice` 23, `fingerprint` 6, `identity` **0**. Relaxing only the landmark and
+parsing gates cannot reject a previously accepted candidate, and the measured comparison confirms
+**0 accepted → rejected** transitions in either route.
+
+### Verification
+
+- bank validation **39/39 checks, 0 errors**, including exact outside-mask uint8 error 0, artifact
+  maps finite in [0,1] and exactly 0 outside the exact mask, NPZ loaded with `allow_pickle=False`,
+  every accepted row passing every hard gate and every rejected row naming its failed gates
+- resume audit **passed**: interrupted after 96 rebuilds, resumed reusing 95, the deliberately
+  truncated candidate detected by hash and rebuilt byte-identically, completed rerun **1120 examined /
+  1120 reused / 0 rebuilt**
+- determinism audit **passed**: 32 candidates regenerated in a separate namespace, **0 mismatches**
+- payload provenance: **475 payloads reused byte-identically** from the retained v2 run and 645
+  regenerated deterministically under their original ids, inputs and seeds — payload recovery, never
+  candidate replacement
+- Windows round trip: archive **126,689,280 bytes**, SHA-256
+  `38a92fda0c7ae004f092624d99bfb0b46605484aa433b8fe91a47527e68d0db2`, 3501 members; downloaded,
+  extracted and re-validated locally with **local bank identity equal to the remote identity** and
+  0 errors
+
+`q` is an M9 sample weight, not a live/spoof label. **M8 makes no claim about FAS detector quality or
+target-test performance**: no detector was trained on this bank and no target label was ever read.
 
 ## M7 recipe compiler and physics engine
 

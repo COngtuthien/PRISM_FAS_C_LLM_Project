@@ -129,4 +129,37 @@ M6 is COMPLETED.
 | Real 64-preview source_train-live audit (16 CASIA + 16 MSU) | COMPLETED |
 | Determinism rerun with zero mismatches | COMPLETED |
 
-M7 is COMPLETED. Next milestone: M8 — GPAT, quality gate and versioned synthetic bank (NOT STARTED).
+M7 is COMPLETED.
+
+## M8 components (completed)
+
+| Component | Status |
+|---|---|
+| Deterministic source-only GPAT pair plan (896 train / 224 validation) | COMPLETED |
+| Differentiable Haar DWT/IDWT with a structurally absent ΔLL band | COMPLETED |
+| GPAT residual model (910,538 parameters) and the declared loss set | COMPLETED |
+| GPAT trainer, strict checkpoint/resume and the Modal M8 wrapper | COMPLETED |
+| Full GPAT training on L4 (15 epochs, best epoch 11) | COMPLETED |
+| Pinned SCRFD / FaceXFormer / AdaFace quality-model registry | COMPLETED |
+| Quality calibration **v1** (same-image mild photometric population) | COMPLETED — retained, failed two minimums |
+| Identity calibration **v2** (real cross-record genuine/impostor pairs) | COMPLETED — retained, failed one minimum |
+| Structural calibration **v3** (same-image localized benign appearance edits) | COMPLETED |
+| 24-d high-frequency fingerprint reference, leave-one-record-out `tau_fp` | COMPLETED |
+| Quality gate: 8 hard gates, `q` weight, `recipe_match = not_applicable` | COMPLETED |
+| Deterministic 1120-candidate plan (560 physics + 560 GPAT) | COMPLETED |
+| Discrete uint8 finalization with exact masks and zero outside-mask error | COMPLETED |
+| Resume-safe generation of all 1120 candidates, both routes | COMPLETED |
+| Operational minimums (all nine) | COMPLETED — met under v3 |
+| Versioned bank layout, deterministic shards and BANK_LOCK | COMPLETED |
+| Full bank validation (39/39 checks, 0 errors) | COMPLETED |
+| Resume audit and 32-candidate determinism audit (0 mismatches) | COMPLETED |
+| Remote freeze, transport archive, Windows download and local re-validation | COMPLETED |
+
+M8 is COMPLETED: the frozen bank is `prism_synthetic_bank_m8_v3_e84c78cd2a9b`
+(`e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542`, status `validated`,
+1120 candidates = 871 accepted + 249 rejected + 0 failed).
+
+M8 delivers **synthetic training material and a sample weight**, not a detector result. No detector
+was trained on it and no target label was read, so no FAS or target-test claim is made.
+
+Next milestone: M9 — PromptHead and detector training (NOT STARTED).

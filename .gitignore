@@ -6,6 +6,8 @@
 data/work/
 data/processed/
 data/packages/
+# Downloaded M8 transport archives: transport-only, never part of a bank identity.
+data/transport/
 outputs/
 artifacts/
 runs/
