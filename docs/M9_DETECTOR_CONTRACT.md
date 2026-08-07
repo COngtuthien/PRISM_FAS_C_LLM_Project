@@ -154,6 +154,7 @@ K-means is deterministic given a fixed seed and a stable input ordering.
 
 | Symbol | Engineering default | Config key |
 |---|---|---|
+| **distance scale convention** | **`mean_per_dimension`** — `d_rk = (1/D) sum_d (z_rd - mu_rkd)^2 / max(var_rkd, eps)` | `model.manifold.distance_scale_convention` |
 | `tau_prototype` | **1.0** | `model.manifold.tau_prototype` |
 | epsilon floor | **1e-4** on the variance | `model.manifold.covariance_epsilon` |
 | K-means implementation | deterministic Lloyd, k-means++ init from a seeded PCG64, fixed iteration cap 100, stable tie-break by index | `model.manifold.kmeans` |
@@ -161,6 +162,18 @@ K-means is deterministic given a fixed seed and a stable input ordering.
 
 The spec fixes *what* updates prototypes (live + visible only) and *when they are initialized*
 (K-means after warm-up); it does not fix the online update rule, so an EMA is used and declared.
+
+**Why the distance scale convention is a declared default, not a substitution.** The spec fixes
+neither `D` nor the scale of `d_r`, yet §10.4 pins `margin_out = 3.0` against that same `d_r` and
+`clean_cap` inherits it. A raw `D`-dimensional squared Mahalanobis has expectation `D`
+in-distribution, so at `D = 256` a live region distance measures ~250 and **both** declared
+constants become inoperative — `max(0, 3 - d)` is always exactly 0 and `min(d, 3)` is always
+exactly 3, so `L_out` and `L_clean` carry no gradient at all. That was observed on the first real
+CPU batch (`L_real ≈ 2.1e3`, `L_out ≡ 0`, `L_clean ≡ 3`), not predicted. Dividing by `D` gives
+`E[d] = 1` in-distribution and places the spec's own `3.0` exactly where its numbers imply, at a
+3× in-distribution deviation. The formula's structure and every declared weight are unchanged;
+only the free scale is fixed. Both conventions remain selectable by config, and `mean_per_dimension`
+enters the architecture identity, so a checkpoint can never silently change it.
 
 ## 6. Visibility gating
 

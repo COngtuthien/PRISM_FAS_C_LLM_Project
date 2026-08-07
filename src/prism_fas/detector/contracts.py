@@ -136,11 +136,14 @@ class ModelOutput:
         for name in ("p_global", "s_region", "p_prompt_spoof", "s_final"):
             value = getattr(self, name)
             _check(value, name, (batch,))
-            if float(value.min()) < -1e-6 or float(value.max()) > 1.0 + 1e-6:
+            # `.detach()` before the scalar read: these are live graph tensors during
+            # training, and torch warns about implicit scalar conversion.
+            bounded = value.detach()
+            if float(bounded.min()) < -1e-6 or float(bounded.max()) > 1.0 + 1e-6:
                 raise DetectorContractError(f"{name} must lie in [0,1]")
         if self.region_valid.shape != (batch, REGION_COUNT):
             raise DetectorContractError("region_valid must be [B,R]")
-        if float(self.region_distances.min()) < 0.0:
+        if float(self.region_distances.detach().min()) < 0.0:
             raise DetectorContractError("a squared Mahalanobis distance cannot be negative")
         return self
 

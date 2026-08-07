@@ -1,0 +1,128 @@
+# M9 PRISM regional CNN-VLM detector.
+#
+# Spec section 9.2 (Table 32) fixes the architecture, section 9.3 (Table 33) the
+# manifolds and section 9.4 (Table 34) the fusion. Values the spec does not fix are
+# marked SPEC_UNDERSPECIFIED here and in docs/M9_DETECTOR_CONTRACT.md; none of them
+# may be presented as a spec requirement.
+model_schema_version: "m9-prism-detector-v1"
+experiment_id: m9_prism_detector
+stage: M9
+
+# --- immutable inputs ------------------------------------------------------
+source_package:
+  expected_package_id: prism_data_v1_m3b
+  expected_content_identity_sha256: "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+
+synthetic_bank:
+  # The ONLY bank M9 may open. Not the v1 bank, not the v2 bank, not a working
+  # namespace, not a rejected candidate.
+  bank_id: "prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+  expected_content_identity_sha256: "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542"
+  require_status: validated
+  accepted_samples: 871
+  route_counts: {physics: 419, gpat: 452}
+
+recipe_bank:
+  bank_id: "prism_recipe_bank_m7_v1"
+  expected_identity_sha256: "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+  recipe_count: 128
+
+# --- backbones -------------------------------------------------------------
+backbones:
+  local:
+    # Spec Table 5 allows ConvNeXt V2 Atto or Tiny; Atto is already pinned,
+    # verified and uploaded by M5/M6.
+    component: convnext
+    model_id: "timm/convnextv2_atto.fcmae_ft_in1k"
+    timm_name: "convnextv2_atto.fcmae_ft_in1k"
+    revision: "timm/convnextv2_atto.fcmae_ft_in1k"
+    weight_sha256: "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+    normalization_mean: [0.485, 0.456, 0.406]
+    normalization_std: [0.229, 0.224, 0.225]
+    trainable: true
+    local_tokens: 49            # stage-4 stride 32 at 224 input -> 7x7 = P
+  global:
+    # Table 5: "SigLIP2 Base P16-224 frozen, train fusion/heads". Revision and file
+    # SHA-256 were resolved from the real downloaded bytes; never `main`.
+    component: siglip
+    model_id: "google/siglip2-base-patch16-224"
+    revision: "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2"
+    architecture: SiglipModel
+    tokenizer_class: GemmaTokenizer
+    frozen: true
+    normalization_mean: [0.5, 0.5, 0.5]
+    normalization_std: [0.5, 0.5, 0.5]
+    vision_hidden_size: 768
+    text_hidden_size: 768
+    patch_tokens: 196           # 224/16 = 14 -> 14*14
+    identity_sha256: "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
+    file_sha256:
+      config.json: "fe8b5fe6d5734360678fd71c11c21e1ea3364bd8598d34295d9206335973ffd7"
+      model.safetensors: "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b"
+      preprocessor_config.json: "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc"
+      special_tokens_map.json: "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+      tokenizer.json: "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+      tokenizer.model: "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+      tokenizer_config.json: "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+
+# --- architecture ----------------------------------------------------------
+model:
+  input_size: 224
+  region_count: 9
+  # Frozen three times over: M3B visibility priors, M7 masks, M8 coverage.
+  region_order: [left_eye, right_eye, nose, mouth, forehead,
+                 left_cheek, right_cheek, face_boundary, context]
+  region_embedding_dim: 256          # SPEC_UNDERSPECIFIED (`D` in Table 53)
+  region_attention_heads: 4          # SPEC_UNDERSPECIFIED
+  region_pool: prior_weighted_mean   # SPEC_UNDERSPECIFIED
+  visibility_threshold: 0.30         # SPEC_UNDERSPECIFIED
+  optional_highpass: false           # spec section 9.1 makes it optional; M9 runs it OFF
+  global_head: linear_single_logit   # SPEC_UNDERSPECIFIED; live=0, spoof=1
+  global_head_dropout: 0.0
+  # Region priors are SOFT MASKS (spec section 9.1). They are never nine hard crops.
+  region_prior: soft_mask_query_initialization
+  region_prior_storage: 56           # exact integer area reduction to the 14x14 and 7x7 grids
+  region_prior_blur_sigma: 2.0
+
+  manifold:
+    prototype_k: 4                   # spec section 9.3 MVP; K in {2,4,6} is an M10 search
+    covariance: diagonal
+    covariance_epsilon: 1.0e-4       # SPEC_UNDERSPECIFIED
+    tau_prototype: 1.0               # SPEC_UNDERSPECIFIED
+    update: ema                      # SPEC_UNDERSPECIFIED
+    update_decay: 0.99
+    # SPEC_UNDERSPECIFIED. The spec fixes neither D nor the scale of d_r, but pins
+    # margin_out = clean_cap = 3.0 against it. A raw 256-dim squared Mahalanobis
+    # averages ~250 in-distribution, which makes both constants inoperative, so the
+    # per-dimension mean form is used: E[d] = 1 in-distribution.
+    distance_scale_convention: mean_per_dimension
+    init: kmeans_source_train_live_after_warmup
+    kmeans: {implementation: deterministic_lloyd, init: kmeans_plus_plus_pcg64,
+             max_iterations: 100, tie_break: lowest_index}
+    update_population: live_visible_only
+
+  prompt:
+    temperature: 0.07                # SPEC_UNDERSPECIFIED
+    projection: linear_to_text_space  # SPEC_UNDERSPECIFIED
+    spoof_reduction: max_softmax_over_attacked_regions   # SPEC_UNDERSPECIFIED
+    logit_reduction: max_over_applicable_regions         # SPEC_UNDERSPECIFIED
+    n_prompt: 128                    # derived from the frozen M7 bank
+    text_source: "prism_fas.recipes.canonical.recipe_description"
+    text_encoder: frozen_siglip2_text_tower
+    tokenization: {padding: max_length, max_length: 64, truncation: true,
+                   add_special_tokens: true, use_fast: false}
+    normalization: l2
+    cache_identity_sha256: "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+    # The M8 quality-gate row `recipe_match = not_applicable` is an M8 placeholder
+    # and is NEVER a PromptHead training target.
+    m8_recipe_match_used_as_target: false
+
+  fusion:
+    # Table 34, implemented literally.
+    formula: "s_final = 1 - (1 - p_global) * (1 - s_region) * (1 - p_prompt_spoof)"
+    region_score: topk_mean
+    topk: 2                          # specified by the spec, not a default
+    topk_invalid_policy: exclude_before_topk
+    distance_normalizer: "1 - exp(-d_r / d_scale)"    # SPEC_UNDERSPECIFIED
+    distance_scale: median_live_distance_per_region_frozen_after_warmup
+    confidence_features: [entropy, global_local_disagreement]

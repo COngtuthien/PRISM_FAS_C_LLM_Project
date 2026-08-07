@@ -249,7 +249,11 @@ def compute_losses(output: Any, batch: Any, manifold: Any, *, weights: dict[str,
                                    margin=float(lam["margin_out"])) if on["L_out"] else zero)
     terms["L_clean"] = (clean_loss(output.region_distances, attack, synthetic, valid,
                                    clean_cap=float(clean_cap)) if on["L_clean"] else zero)
-    terms["L_prompt"] = (prompt_loss(output.region_embeddings, text_embeddings, batch.recipe_index,
+    # `z_attack_region` is the PromptHead's projection of `z_r` into the frozen text
+    # space (Table 32); the raw `z_r` lives in the region dim and cannot be dotted
+    # against a text embedding at all. The detector exposes the projection by name.
+    prompt_embeddings = (output.aux or {}).get("prompt_region_embeddings", output.region_embeddings)
+    terms["L_prompt"] = (prompt_loss(prompt_embeddings, text_embeddings, batch.recipe_index,
                                      attack, synthetic, valid, temperature=prompt_temperature)
                          if on["L_prompt"] and text_embeddings is not None and batch.recipe_index is not None
                          else zero)

@@ -1,0 +1,100 @@
+# M9 Modal wrapper configuration.
+#
+# Workspace/environment are recorded at run time from the active Modal profile; no
+# token, account id or local absolute path belongs in this file. The wrapper only
+# orchestrates: `src/prism_fas/detector/**` never imports modal (spec Table 41).
+cloud_schema_version: "m9-modal-v1"
+app_name: "prism-fas-b-m9"
+
+volumes:
+  # Reused, never duplicated. The M3B package and the frozen M8 bank are already
+  # uploaded and are not re-uploaded by M9.
+  data:
+    name: "prism-fas-b-data"
+    mount: "/vol/data"
+    mode: read_only
+  models:
+    name: "prism-fas-b-models"
+    mount: "/vol/models"
+    mode: read_only
+  runs:
+    name: "prism-fas-b-runs"
+    mount: "/vol/runs"
+    mode: read_write
+
+remote_paths:
+  package: "/vol/data/packages/prism_data_v1_m3b"
+  synthetic_bank: "/vol/data/synthetic_banks/prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+  weight_root: "/vol/models/pretrained/m9"
+  runs_root: "/vol/runs/runs"
+  cache_root: "/vol/runs/m9_cache"
+
+package:
+  expected_package_id: "prism_data_v1_m3b"
+  expected_content_identity_sha256: "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+  expected_split_counts:
+    source_train: 1440
+    source_dev: 2079
+    target_test: 3140
+  # G1/G2/G5 open source_train; G6 and checkpoint selection open source_dev.
+  # target_test is never opened.
+  opened_splits: ["source_train", "source_dev"]
+
+synthetic_bank:
+  bank_id: "prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+  expected_content_identity_sha256: "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542"
+  require_status: validated
+  accepted_samples: 871
+
+recipe_bank:
+  bank_id: "prism_recipe_bank_m7_v1"
+  expected_identity_sha256: "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+
+pretrained:
+  siglip2:
+    remote_dir: "/vol/models/pretrained/m9/siglip2"
+    model_id: "google/siglip2-base-patch16-224"
+    revision: "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2"
+    identity_sha256: "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
+    weight_sha256: "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b"
+    verify_in_container: true
+    download_at_runtime: false      # HF_HUB_OFFLINE=1; a silent newer model is a failure
+  convnext:
+    remote_path: "/vol/models/pretrained/m9/convnextv2_atto/model.safetensors"
+    weight_sha256: "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+
+gpu:
+  # One GPU. H100/H200/B200 are never requested; L40S is a documented fallback only
+  # after a real L4 OOM or availability failure.
+  allow_list: ["L4", "L40S"]
+  default: "L4"
+  fallback: "L40S"
+  fallback_policy: "documented_after_real_l4_oom_or_unavailability"
+
+timeouts_seconds:
+  environment_probe: 900
+  detector_smoke: 5400
+  initialize_prototypes: 5400
+  train_reference: 86400
+  validate_checkpoint: 5400
+
+image:
+  python_version: "3.11"
+  pip_packages:
+    - "torch==2.5.1"
+    - "torchvision==0.20.1"
+    - "numpy==2.1.3"
+    - "pyarrow==18.1.0"
+    - "opencv-python-headless==4.10.0.84"
+    - "timm==1.0.11"
+    - "transformers==4.49.0"
+    - "safetensors==0.4.5"
+    - "sentencepiece==0.2.0"
+    - "pydantic==2.10.3"
+    - "PyYAML==6.0.2"
+
+runs:
+  smoke_run_id: "m9_reference_smoke_seed20260806"
+  reference_run_id: "m9_reference_seed20260806"
+  seed: 20260806
+  detach_reference_run: true

@@ -1,0 +1,130 @@
+# The single M9 reference training configuration.
+#
+# Spec section 10.1 (Table 35) losses, section 10.2 (Table 36 / Table 65) batch,
+# section 10.3 (Table 37) optimization, section 10.4 (Table 38) initial weights,
+# section 11 (Table 39) stages. M9 does not tune any of these and runs exactly one
+# configuration and one seed; the K search, the baselines and the ablations are M10.
+#
+# There is no target path anywhere in this file, and no M8 v1/v2 bank path.
+training_schema_version: "m9-trainer-v1"
+experiment_id: m9_prism_reference
+stage: M9
+model_config: configs/models/m9_detector.yaml
+loader_config: configs/data/loader_m4.yaml
+
+run:
+  id: "m9_reference_seed20260806"
+  seed: 20260806
+  resume: true
+
+# --- batch contract (Table 36, Table 65) -----------------------------------
+batch:
+  # Mixed training (G5).
+  live: 12
+  real_spoof: 12
+  synthetic_spoof: 8
+  batch_size: 32
+  domain_balance: true             # CASIA/MSU, on both real partitions
+  require_both_routes: true        # "mix physics and GPAT"; no ratio is imposed
+  synthetic_max_fraction: 0.25
+  accumulation_steps: 1            # effective composition is preserved if raised
+  steps_per_epoch: 45              # ceil(1440 / 32)
+  # SPEC_UNDERSPECIFIED: G1/G2 read "Source real live/spoof" (Table 39), so the
+  # warm-up batch drops the synthetic quarter and keeps Table 36's 1:1 real ratio.
+  warmup:
+    live: 16
+    real_spoof: 16
+    synthetic_spoof: 0
+    phase: real_only
+
+# --- optimization (Table 37) -----------------------------------------------
+optimizer:
+  name: AdamW
+  backbone_lr: 1.0e-5
+  head_lr: 1.0e-4                  # heads and manifold
+  weight_decay: 0.05
+  betas: [0.9, 0.999]
+
+scheduler:
+  name: cosine
+  warmup_fraction: 0.05
+  min_lr_scale: 0.0
+
+gradient_clip_norm: 1.0
+amp: true                          # bf16 when supported, else fp16; CPU runs fp32
+ema:
+  enabled: false                   # Table 37 makes EMA optional and requires reporting it
+  decay: 0.999
+
+# --- stage schedule (Table 37 + Table 39) ----------------------------------
+stages:
+  flow: [G1, G2, G5, G6]           # G7/G8 are M10 and unreachable from M9
+  warmup_detector_epochs: 3        # G1
+  manifold_warmup_epochs: 2        # G2 tail, after K-means initialization
+  mixed_epochs: 30                 # G5
+  total_epochs: 35
+  prototype_initialization_stage: G2
+  calibration_stage: G6
+
+# --- losses (Table 35, Table 38) -------------------------------------------
+loss:
+  weights:
+    lambda_syn: 0.50
+    lambda_M: 1.00
+    lambda_out: 1.00
+    lambda_clean: 0.25
+    lambda_local: 1.00
+    lambda_MIL: 0.50
+    lambda_P: 0.20
+    lambda_cons: 0.05
+    lambda_risk: 0.10
+    margin_out: 3.0
+  clean_cap: 3.0                   # SPEC_UNDERSPECIFIED
+  mil_temperature: 1.0             # SPEC_UNDERSPECIFIED
+  prompt_temperature: 0.07         # SPEC_UNDERSPECIFIED
+  classification: bce_with_logits_single_logit
+  local_weighting: artifact_map_mass
+  risk:
+    domain_groups: [casia_fasd, msu_mfsd]
+    family_groups: m7_primary_artifact_name
+  # `q` multiplies ONLY the synthetic bracket of L_total. It is a sample weight and
+  # never a class label (spec section 8, Table 30).
+  quality_weight_applies_to: [L_cls_syn, L_local, L_out]
+
+# --- prototypes (section 9.3) ----------------------------------------------
+prototypes:
+  k: 4
+  seed: 20260806
+  population: source_train_live_only
+  expected_population: 280
+  expected_population_domains: {casia_fasd: 160, msu_mfsd: 120}
+  batch_size: 28
+  export: prototypes.npz
+  allow_pickle: false
+
+# --- checkpoint selection (Table 37, Table 65) -----------------------------
+checkpoint:
+  every_steps: 250
+  keep: [last, best]
+  selection_metric: "source_dev/acer"
+  tie_break_metric: "source_dev/bpcer"
+  calibration_metric: "source_dev/nll"
+  # Selection never reads a target metric; no target metric exists in this run.
+  selection_uses_target: false
+
+validation:
+  every_epochs: 1
+  batch_size: 32
+  split: source_dev
+  produces_gradient: false
+
+determinism:
+  cudnn_deterministic: true
+  cudnn_benchmark: false
+  sampler_seed_material: "sha256(schema|pool_identity|seed|epoch|pool)"
+  python_hash_independent: true
+
+isolation:
+  allowed_datasets: [casia_fasd, msu_mfsd]
+  forbidden_splits: [target_test]
+  target_paths_in_config: 0

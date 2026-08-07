@@ -14,6 +14,22 @@ Because the spec fixes a diagonal covariance, the Mahalanobis form is exactly
 `sum_d (z_d - mu_d)^2 / max(var_d, eps)`. That is the spec's own formula under the
 spec's own constraint, not a substitution.
 
+SPEC_UNDERSPECIFIED — distance scale convention. The spec fixes neither the region
+embedding dimension `D` nor the scale convention of `d_r`, but section 10.1 fixes
+`margin_out = 3.0` and `clean_cap = 3.0` against that same `d_r`. A raw
+`D`-dimensional squared Mahalanobis has expectation `D` in-distribution, so at
+`D = 256` every live distance is ~250 and BOTH declared constants become
+inoperative: `max(0, 3 - d)` is always 0 and `min(d, 3)` is always 3. M9 therefore
+uses the per-dimension mean form,
+
+    d_rk = (1/D) * sum_d (z_rd - mu_rkd)^2 / max(var_rkd, eps)
+
+which has expectation 1 in-distribution and puts the spec's own 3.0 exactly where
+its numbers imply (a 3x in-distribution deviation). The formula's structure and
+every declared weight are unchanged; only the free scale is fixed. This is an
+engineering default, recorded in DECISIONS.md and in
+`configs/models/m9_detector.yaml`, and is never presented as a spec value.
+
 Nothing here may be updated by a spoof sample, by a synthetic sample or by an
 invalid-visibility region; each is enforced and separately tested.
 """
@@ -32,6 +48,11 @@ DEFAULT_COVARIANCE_EPSILON = 1.0e-4
 DEFAULT_TAU_PROTOTYPE = 1.0
 DEFAULT_UPDATE_DECAY = 0.99
 KMEANS_MAX_ITERATIONS = 100
+# SPEC_UNDERSPECIFIED: see the module docstring. "mean_per_dimension" divides the
+# diagonal Mahalanobis sum by D; "sum" is the raw form and leaves the spec's
+# margin/clean_cap constants inoperative at D = 256.
+DISTANCE_SCALE_CONVENTIONS = ("mean_per_dimension", "sum")
+DEFAULT_DISTANCE_SCALE_CONVENTION = "mean_per_dimension"
 
 
 class ManifoldError(RuntimeError):
@@ -94,7 +115,10 @@ class PrototypeState:
             raise ManifoldError("counts/valid must be [R,K]")
         if not np.isfinite(self.centers).all() or not np.isfinite(self.variances).all():
             raise ManifoldError("prototype state contains non-finite values")
-        if float(self.variances.min()) < self.epsilon - 1e-12:
+        # Relative tolerance, not absolute: the module holds the buffers in float32
+        # and exports float64, so a value clamped at exactly epsilon comes back a
+        # few ULPs low. That is a representation artifact, not a floor violation.
+        if float(self.variances.min()) < self.epsilon * (1.0 - 1e-5) - 1e-15:
             raise ManifoldError("a variance fell below the declared epsilon floor")
         if tuple(self.region_names) != REGION_ORDER: raise ManifoldError("region ordering drifted")
         return self
@@ -125,10 +149,14 @@ class RealManifold(nn.Module):
 
     def __init__(self, dim: int, *, k: int = DEFAULT_K, epsilon: float = DEFAULT_COVARIANCE_EPSILON,
                  tau_prototype: float = DEFAULT_TAU_PROTOTYPE, decay: float = DEFAULT_UPDATE_DECAY,
-                 regions: int = REGION_COUNT):
+                 regions: int = REGION_COUNT,
+                 distance_scale_convention: str = DEFAULT_DISTANCE_SCALE_CONVENTION):
         super().__init__()
         self.dim, self.k, self.regions = int(dim), int(k), int(regions)
         self.epsilon, self.tau_prototype, self.decay = float(epsilon), float(tau_prototype), float(decay)
+        if distance_scale_convention not in DISTANCE_SCALE_CONVENTIONS:
+            raise ManifoldError(f"unknown distance scale convention {distance_scale_convention!r}")
+        self.distance_scale_convention = str(distance_scale_convention)
         self.register_buffer("centers", torch.zeros(regions, k, dim))
         self.register_buffer("variances", torch.full((regions, k, dim), float(epsilon)))
         self.register_buffer("counts", torch.zeros(regions, k, dtype=torch.long))
@@ -153,6 +181,8 @@ class RealManifold(nn.Module):
         delta = embeddings.unsqueeze(2) - self.centers.unsqueeze(0)
         floored = self.variances.clamp_min(self.epsilon).unsqueeze(0)
         distances = (delta * delta / floored).sum(dim=-1)
+        if self.distance_scale_convention == "mean_per_dimension":
+            distances = distances / float(self.dim)
         # An unfilled prototype slot must never win the min.
         return distances.masked_fill(~self.valid.unsqueeze(0), float("inf")).clamp_min(0.0)
 
