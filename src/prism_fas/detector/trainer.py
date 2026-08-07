@@ -27,9 +27,10 @@ from typing import Any, Callable, Sequence
 import numpy as np
 import torch
 from prism_fas.utils.core import atomic_json_write
-from .checkpoint import (M9CheckpointError, RunIdentity, StageLineage, apply_checkpoint,
-                         check_stage_transition, check_status_transition, checkpoint_summary,
-                         config_hash, git_commit, load_checkpoint, save_checkpoint)
+from .checkpoint import (STAGE_ORDER, M9CheckpointError, RunIdentity, StageLineage,
+                         apply_checkpoint, check_stage_transition, check_status_transition,
+                         checkpoint_summary, config_hash, git_commit, load_checkpoint,
+                         save_checkpoint)
 from .contracts import LIVE, REGION_COUNT, DetectorBatch
 from .dataset import M9TrainingDataset, M9ValidationDataset, batch_composition, domain_composition
 from .heads import read_recipe_text_cache
@@ -678,6 +679,24 @@ class M9Trainer:
                               stage_lineage=self.lineage.payload(), history=self.history,
                               resolved_config=self.config.resolved(), ema_enabled=self.config.ema_enabled)
         return sha
+
+    def finish(self) -> dict[str, Any]:
+        """Close the run once every declared stage is COMPLETED.
+
+        Without this the run summary reports `RUNNING` forever, and the acceptance
+        report would describe a finished run as still in flight. The transition is
+        refused unless the lineage really covers the whole declared flow.
+        """
+        completed = [str(entry["stage"]) for entry in self.lineage.payload()
+                     if entry.get("status") == "COMPLETED"]
+        outstanding = [stage for stage in STAGE_ORDER if stage not in completed]
+        if outstanding:
+            return {"status": self.status, "completed_stages": completed,
+                    "outstanding_stages": outstanding, "closed": False}
+        self.status = check_status_transition("RUNNING", "COMPLETED")
+        self.write_run_json()
+        return {"status": self.status, "completed_stages": completed,
+                "outstanding_stages": [], "closed": True}
 
     def reconcile_lineage_from_disk(self) -> list[str]:
         """Adopt the on-disk stage markers into the restored lineage.
