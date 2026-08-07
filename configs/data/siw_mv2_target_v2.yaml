@@ -17,7 +17,15 @@
 # ingestion time by the evaluator-only path — it is never read at scoring time and
 # never inferred from a filename by the metric code.
 dataset: siw_mv2
-adapter_version: "2.0"
+# DELIBERATELY still "1.0". `preprocess_m2.sample_id` hashes the adapter version, so
+# bumping it here would change the sample_id of all 785 live frames and forfeit the
+# reproduction check in docs/M10_TARGET_DATA_CONTRACT.md section 7.3. The adapter
+# IMPLEMENTATION (`SiWMv2Adapter`) is unchanged — only these layout rules are extended
+# — and the change is versioned by the package id and by this file's own hash recorded
+# in TARGET_PACKAGE_LOCK.json. Verified: with adapter_version 1.0, sampling uniform-v1
+# and preprocessing m2-v1, the frozen target sample_ids reproduce exactly.
+adapter_version: "1.0"
+layout_rules_version: "siw-mv2-layout-v2"
 root_relative: "SiW-Mv2"
 
 # Live stays flat; Spoof recurses exactly one level into the attack family.

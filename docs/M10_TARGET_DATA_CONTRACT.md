@@ -143,9 +143,17 @@ frozen, and that transition is recorded once in
 The frozen frame plan is **4 frames per video** for every split. Table 60's frame-count
 ablation asks for 16 / 32 / 48-64. Those densities are not available from the frozen
 plan, and re-extracting the SOURCE splits at a different density would change the
-source package identity and break the M8/M9 chain. The frame-count ablation is
-therefore recorded as **BLOCKED — declared data not available at the frozen frame
-plan**, with this reason, rather than silently substituted with a different ablation.
-Raising target-side frame density would require a further versioned package and is a
-separate decision; it is not taken here, and it is certainly not taken after seeing any
-target result.
+source package identity and break the M8/M9 chain.
+
+**Decision, taken before any target label was opened:** this package is built at the
+frozen 4-frame plan. That keeps the target population directly comparable to source
+training and preserves the byte-for-byte reproduction check of §7.3, which a denser
+plan would forfeit — uniform-4 indices are not a subset of uniform-16, so the live
+crops would no longer reproduce the frozen package.
+
+The frame-count ablation is therefore recorded as **BLOCKED — declared data not
+available at the frozen frame plan**, with this reason, rather than silently
+substituted with a different ablation. Whether to build a denser target-side v3
+package for that one ablation row is a separate decision, deliberately deferred until
+after this package is locked and M10 can produce valid target metrics. It will not be
+taken on the basis of any observed target result.
