@@ -227,6 +227,76 @@ def _summary(rows: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]
             "physics_engine_version": PHYSICS_ENGINE_VERSION}
 
 
+def reuse_decision(package_root: Path, bank_root: Path, config_path: Path, *,
+                   gpat_checkpoint_sha256: str, expected_identity: str, frozen_lock_path: Path,
+                   quality_config_paths: dict[str, Path], seed: int = CANDIDATE_SEED) -> dict[str, Any]:
+    """Answer, from the real code and the real artifacts, whether re-calibrating the
+    quality gate can change which candidates exist or what they are called.
+
+    Written as evidence rather than assertion: it re-derives the plan from the frozen
+    inputs, inspects the candidate id parameters, the plan-lock identity fields and
+    the imports of this module, and shows where a calibration IS bound instead.
+    """
+    import inspect
+    from .synthetic_bank import generation_config_sha256
+    from .quality_calibration import load_quality_config
+    config = load_bank_config(Path(config_path))
+    plan = build_candidate_plan(package_root, bank_root, config,
+                                gpat_checkpoint_sha256=gpat_checkpoint_sha256, seed=seed)
+    rows = plan["rows"]
+    frozen = json.loads(Path(frozen_lock_path).read_text(encoding="utf-8"))
+    identity_fields = sorted(key for key in frozen if key not in IDENTITY_EXCLUDED_FIELDS)
+    import ast
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import): imports.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom): imports.add((node.module or "").lstrip("."))
+    imports = sorted(name for name in imports if name)
+    calibration_tokens = ("tau_id", "tau_lm", "tau_parse", "threshold", "calibration", "quality_gate")
+    generation_config = {label: generation_config_sha256(config, load_quality_config(Path(path)))
+                         for label, path in sorted(quality_config_paths.items())}
+    return {
+        "phase": "M8 candidate plan reuse decision",
+        "question": "is the quality calibration bound into the candidate id or the candidate-plan identity?",
+        "candidate_count": len(rows), "unique_candidate_ids": len({row["synthetic_id"] for row in rows}),
+        "candidate_id_parameters": ["package_identity", "bank_identity", "route", "live_sample_id",
+                                    "spoof_sample_id", "recipe_id", "seed", "generator_binding"],
+        "candidate_id_binds_calibration": False,
+        "candidate_id_changes_with_generator_binding": True,
+        "candidate_id_is_deterministic": True,
+        "candidate_plan_lock_identity_fields": identity_fields,
+        "candidate_plan_lock_fields_binding_calibration": sorted(
+            field for field in identity_fields if any(token in field.lower() for token in calibration_tokens)),
+        "candidate_plan_identity_excluded_fields": list(IDENTITY_EXCLUDED_FIELDS),
+        "candidate_plan_module_imports": imports,
+        "candidate_plan_module_calibration_mentions": sorted(
+            token for token in calibration_tokens
+            if token in inspect.getsource(build_candidate_plan) + inspect.getsource(candidate_id)),
+        "expected_candidate_plan_identity_sha256": expected_identity,
+        "frozen_candidate_plan_identity_sha256": frozen["candidate_plan_identity_sha256"],
+        "candidate_plan_identity_matches_expected": frozen["candidate_plan_identity_sha256"] == expected_identity,
+        "frozen_candidate_rows_sha256": frozen["candidate_rows_sha256"],
+        "rebuilt_candidate_rows_sha256": rows_digest(rows),
+        "rebuilt_rows_match_frozen_plan": rows_digest(rows) == frozen["candidate_rows_sha256"],
+        "generation_config_sha256_changes_with_calibration": len(set(generation_config.values())) > 1,
+        "generation_config_sha256_by_calibration": generation_config,
+        "where_calibration_IS_bound": {
+            "candidate_record_identity": ["threshold_sha256", "calibration_sha256",
+                                          "fingerprint_reference_sha256", "generation_config_sha256"],
+            "generation_config_sha256": "synthetic_bank.generation_config_sha256(bank_config, quality_config)",
+            "note": "these live in the per-candidate RECORD and in BANK_LOCK, not in the candidate id or the "
+                    "candidate-plan identity"},
+        "decision": "reuse the frozen candidate-plan identity and keep all 1120 candidate ids unchanged",
+        "reason": ("The candidate id binds generation inputs only (package, recipe bank, route, live sample, "
+                   "spoof source, recipe, seed, and the physics-engine version or GPAT checkpoint SHA). No "
+                   "calibration, threshold, tau value or quality-gate config value reaches either the id or the "
+                   "candidate-plan identity, and the plan rebuilt from the frozen inputs reproduces "
+                   "candidate_rows_sha256 exactly. Changing a calibration therefore cannot change which "
+                   "candidates exist or what they are called; it changes only the DECISION recorded for each "
+                   "one, which is bound separately through generation_config_sha256 and the record identity.")}
+
+
 def load_candidate_plan(path: Path) -> list[dict[str, Any]]:
     table = pq.read_table(Path(path)).to_pydict()
     return [{name: table[name][index] for name, _ in _FIELDS} for index in range(len(table["synthetic_id"]))]

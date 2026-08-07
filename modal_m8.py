@@ -444,6 +444,306 @@ def _v1_v2_decision_comparison(records: list) -> dict:
                                    "better bank and says nothing about detector or target performance"}
 
 
+# --- M8 structural calibration v3 --------------------------------------------
+# v3 versions ONLY tau_lm and tau_parse, from a same-image localized benign
+# appearance population. tau_id stays at the frozen identity calibration v2 value
+# and every other threshold, bound, formula and minimum is carried over unchanged.
+# Nothing under /synthetic_banks/m8_work/ or /synthetic_banks/m8_work_v2/ is ever
+# written by a v3 stage.
+REMOTE_SYNTHETIC_WORK_V3 = f"{RUNS_MOUNT}/synthetic_banks/m8_work_v3"
+REMOTE_CALIBRATION_V3 = f"{REMOTE_SYNTHETIC_WORK_V3}/calibration"
+REMOTE_GENERATION_V3 = f"{REMOTE_SYNTHETIC_WORK_V3}/generation"
+REMOTE_QUALITY_GATE_V3 = f"{REMOTE_CALIBRATION_V3}/quality_gate_v3.json"
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=14400)
+def m8_calibrate_structural_v3() -> dict:
+    """Source-train-only same-image localized benign structural calibration.
+
+    Opens the `source_train` manifest, `source_train` live images and their stored
+    priors only. No generated candidate, no `source_dev`, no target, no M7 physics
+    operator and no GPAT checkpoint. Runs twice and refuses to write unless both
+    runs agree.
+    """
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.identity_calibration import (build_genuine_pairs, live_rows,
+                                                          load_identity_config)
+    from prism_fas.synthesis.structural_calibration import (StructuralBackends, calibrate_structural,
+                                                            compare_calibrations, load_structural_config,
+                                                            write_calibration_artifacts)
+    from prism_fas.synthesis.synthetic_bank import FrozenCalibration
+    config = load_structural_config(PROJECT / "configs" / "synthesis" / "quality_gate_m8_v3.yaml")
+    # Rebuilt deterministically from the frozen v2 artifacts rather than trusted to
+    # still be on the volume; tau_id/tau_fd/tau_out/tau_fp come from it unchanged.
+    v2_gate = FrozenCalibration.load(_build_quality_gate_v2())
+    # The 560 v2 genuine pairs, reused as a DIAGNOSTIC ONLY. They set no threshold.
+    v2_config = load_identity_config(PROJECT / "configs" / "synthesis" / "quality_gate_m8_v2.yaml")
+    block = v2_config["identity_calibration"]
+    pairs = build_genuine_pairs(live_rows(Path(REMOTE_PACKAGE)), seed=int(block["seed"]),
+                                maximum_per_identity=int(block["maximum_genuine_pairs_per_identity"]))
+    backends = StructuralBackends(Path(REMOTE_WEIGHT_ROOT), device="cuda")
+    runs = [calibrate_structural(Path(REMOTE_PACKAGE), config, backends, v2_thresholds=v2_gate.thresholds,
+                                 progress=_progress, device_report=gpu, cross_record_pairs=pairs)
+            for _ in range(2)]
+    comparison = compare_calibrations(runs[0], runs[1])
+    if not comparison["identical"]:
+        raise RuntimeError(f"v3 calibration is not reproducible: {comparison['mismatches'][:5]}")
+    written = write_calibration_artifacts(Path(REMOTE_CALIBRATION_V3), runs[0],
+                                          package_identity=verified["package_identity"], config=config)
+    from prism_fas.utils.core import atomic_json_write
+    atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V3) / "reports" / "structural_calibration_v3_determinism.json",
+                      comparison)
+    runs_volume.commit()
+    return {"stage": "calibrate_structural_v3", "gpu": gpu, **verified,
+            "calibration": written["calibration"], "lock": written["lock"], "determinism": comparison,
+            "remote_calibration_path": REMOTE_CALIBRATION_V3, "written": written["written"],
+            "v2_tau_lm": v2_gate.thresholds.tau_lm, "v2_tau_parse": v2_gate.thresholds.tau_parse,
+            "v2_threshold_sha256": v2_gate.threshold_sha256}
+
+
+def _build_quality_gate_v3() -> "Path":
+    """Materialize the loadable v3 gate: v3 `tau_lm`/`tau_parse` on top of the v1
+    calibration and the frozen v2 `tau_id`."""
+    _paths()
+    from prism_fas.synthesis.structural_calibration import build_quality_gate_v3
+    from prism_fas.utils.core import atomic_json_write
+    target = Path(REMOTE_QUALITY_GATE_V3)
+    v1 = json.loads(Path(REMOTE_CALIBRATION).read_text(encoding="utf-8"))
+    v2 = json.loads((Path(REMOTE_CALIBRATION_V2) / "quality_calibration_v2.json").read_text(encoding="utf-8"))
+    v2_lock = json.loads((Path(REMOTE_CALIBRATION_V2) / "IDENTITY_CALIBRATION_V2_LOCK.json").read_text(encoding="utf-8"))
+    v3 = json.loads((Path(REMOTE_CALIBRATION_V3) / "quality_calibration_v3.json").read_text(encoding="utf-8"))
+    v3_lock = json.loads((Path(REMOTE_CALIBRATION_V3) / "STRUCTURAL_CALIBRATION_V3_LOCK.json").read_text(encoding="utf-8"))
+    atomic_json_write(target, build_quality_gate_v3(v1, v2, v3, v2_lock, v3_lock))
+    return target
+
+
+def _generator_v3(work_root: str, *, device: str = "cuda"):
+    """A generator gated by v3 that reuses the v2 payloads it can validate.
+
+    The v2 run retained binaries for its 475 accepted candidates, which is a
+    superset of v1's 391 (v2 turned nothing from accepted to rejected), so the v2
+    work root is the single best reuse source. A candidate whose payload was not
+    retained is regenerated deterministically under its original id, inputs and
+    seed — payload recovery, never candidate replacement.
+    """
+    _paths()
+    from prism_fas.synthesis.m8_pipeline import build_generator
+    from prism_fas.synthesis.quality_calibration import QualityBackends
+    configs = PROJECT / "configs" / "synthesis"
+    return build_generator(
+        package_root=Path(REMOTE_PACKAGE), bank_root=_bank_root(), work_root=Path(work_root),
+        plan_root=_plan_root(), calibration_path=_build_quality_gate_v3(),
+        gpat_checkpoint_path=Path(GPAT_CHECKPOINT),
+        backends=QualityBackends(Path(REMOTE_WEIGHT_ROOT), device=device), device=device,
+        quality_config_path=configs / "quality_gate_m8_v3.yaml",
+        expected_gpat_sha256=EXPECTED_GPAT_CHECKPOINT_SHA,
+        expected_pair_plan_identity=EXPECTED_PAIR_PLAN_IDENTITY,
+        reuse_root=Path(REMOTE_GENERATION_V2),
+        bank_id_prefix="prism_synthetic_bank_m8_v3",
+        calibration_files={
+            "identity_calibration_v2.json": Path(REMOTE_CALIBRATION_V2) / "quality_calibration_v2.json",
+            "IDENTITY_CALIBRATION_V2_LOCK.json": Path(REMOTE_CALIBRATION_V2) / "IDENTITY_CALIBRATION_V2_LOCK.json",
+            "structural_calibration_v3.json": Path(REMOTE_CALIBRATION_V3) / "quality_calibration_v3.json",
+            "STRUCTURAL_CALIBRATION_V3_LOCK.json": Path(REMOTE_CALIBRATION_V3) / "STRUCTURAL_CALIBRATION_V3_LOCK.json"})
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_pilot_v3(count: int = 32) -> dict:
+    """The v3 correctness pilot over the SAME 32 candidate ids as the v1/v2 pilots."""
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.m8_pipeline import run_pilot, run_pilot_determinism, select_pilot_rows
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v3(f"{REMOTE_SYNTHETIC_WORK_V3}/_pilot")
+    rows = select_pilot_rows(generator.plan_rows, generator.bank, count=count)
+    pilot = run_pilot(generator, pilot_root=Path(f"{REMOTE_SYNTHETIC_WORK_V3}/_pilot"), count=count,
+                      progress=_progress)
+    audit = run_pilot_determinism(generator, first=pilot,
+                                  rerun_root=Path(f"{REMOTE_SYNTHETIC_WORK_V3}/_pilot_rerun"), count=count)
+    comparison = _compare_payloads([row["synthetic_id"] for row in rows],
+                                   Path(REMOTE_GENERATION_V2), Path(f"{REMOTE_SYNTHETIC_WORK_V3}/_pilot"))
+    for name, payload in (("v3_pilot.json", {key: value for key, value in pilot.items() if key != "fingerprints"}),
+                          ("v3_pilot_determinism.json", {key: value for key, value in audit.items()
+                                                         if key != "fingerprints"})):
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V3) / "reports" / name, payload)
+    runs_volume.commit()
+    return {"stage": "pilot_v3", "gpu": gpu, **verified,
+            "pilot": {key: value for key, value in pilot.items() if key != "fingerprints"},
+            "determinism": {key: value for key, value in audit.items() if key != "fingerprints"},
+            "payload_comparison_against_v2": comparison}
+
+
+def _compare_payloads(synthetic_ids: list, earlier_root: "Path", later_root: "Path") -> dict:
+    """Payload bytes must be identical wherever the earlier run retained them."""
+    _paths()
+    identical, differing, absent = [], [], []
+    for synthetic_id in synthetic_ids:
+        first_path = Path(earlier_root) / "records" / f"{synthetic_id}.json"
+        second_path = Path(later_root) / "records" / f"{synthetic_id}.json"
+        if not first_path.is_file() or not second_path.is_file(): absent.append(synthetic_id); continue
+        first = json.loads(first_path.read_text(encoding="utf-8"))
+        second = json.loads(second_path.read_text(encoding="utf-8"))
+        if first.get("terminal_state") != "accepted" or second.get("terminal_state") != "accepted":
+            absent.append(synthetic_id); continue
+        same = all(first["outputs"][key] == second["outputs"][key]
+                   for key in ("image_sha256", "mask_sha256", "artifact_map_sha256"))
+        (identical if same else differing).append(synthetic_id)
+    return {"compared": len(identical) + len(differing), "identical": len(identical),
+            "differing": len(differing), "differing_ids": differing[:10], "not_comparable": len(absent),
+            "note": "the earlier run retained binaries for accepted candidates only; a candidate it rejected "
+                    "has no payload to compare against and is regenerated deterministically",
+            "passed": not differing}
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=21600)
+def m8_generate_bank_v3(interrupt_after: int | None = 96, determinism_audit: bool = True) -> dict:
+    """Re-evaluate all 1120 candidates under calibration v3 and build the v3 bank."""
+    _paths()
+    gpu = _require_cuda()
+    verified = _verify_inputs()
+    from prism_fas.synthesis.m8_pipeline import run_determinism_audit, run_full_generation
+    from prism_fas.synthesis.synthetic_bank import assemble_bank
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v3(REMOTE_GENERATION_V3)
+    audit = run_full_generation(generator, interrupt_after=interrupt_after, progress=_progress)
+    runs_volume.commit()
+    assembled = assemble_bank(generator, audit["records"], pairs_root=_pair_plan_root())
+    runs_volume.commit()
+    bank_root = Path(assembled["bank_root"])
+    validation = validate_bank(bank_root, package_root=Path(REMOTE_PACKAGE), recipe_bank_root=_bank_root(),
+                               gpat_checkpoint_path=Path(GPAT_CHECKPOINT))
+    determinism = {"skipped": True, "passed": True, "mismatch_count": 0}
+    if determinism_audit:
+        determinism = run_determinism_audit(generator, work_root=Path(REMOTE_GENERATION_V3),
+                                            rerun_root=Path(f"{REMOTE_SYNTHETIC_WORK_V3}/_determinism"),
+                                            progress=_progress)
+    resume_report = {key: value for key, value in audit.items() if key != "records"}
+    decisions = _decision_comparison(audit["records"])
+    for name, payload in (("v3_resume_audit.json", resume_report),
+                          ("v3_determinism_audit.json", determinism),
+                          ("v3_synthetic_bank_validation.json", validation),
+                          ("v1_v2_v3_decision_comparison.json", decisions)):
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V3) / "reports" / name, payload)
+    runs_volume.commit()
+    return {"stage": "generate_bank_v3", "gpu": gpu, **verified,
+            "bank": {key: assembled[key] for key in ("status", "bank_id", "bank_root")},
+            "lock": assembled["lock"], "operational_minimums": assembled["operational_minimums"],
+            "quality_summary": assembled["quality_summary"],
+            "generation_summary": assembled["generation_summary"],
+            "resume_audit": resume_report, "determinism_audit": determinism,
+            "decision_comparison": decisions,
+            "validation": {key: value for key, value in validation.items() if key != "checks"},
+            "validation_checks": validation["checks"]}
+
+
+def _decision_comparison(records: list) -> dict:
+    """v1 versus v2 versus v3 decisions, per route. Measured gate behaviour only."""
+    _paths()
+    def earlier(root: str, synthetic_id: str) -> str | None:
+        path = Path(root) / "records" / f"{synthetic_id}.json"
+        if not path.is_file(): return None
+        return json.loads(path.read_text(encoding="utf-8"))["terminal_state"]
+
+    transitions: dict = {}
+    per_route: dict = {}
+    missing = {"v1": 0, "v2": 0}
+    for record in records:
+        after = record["terminal_state"]
+        before_v1 = earlier(REMOTE_GENERATION, record["synthetic_id"])
+        before_v2 = earlier(REMOTE_GENERATION_V2, record["synthetic_id"])
+        if before_v1 is None: missing["v1"] += 1
+        if before_v2 is None: missing["v2"] += 1
+        key = f"{before_v1 or 'absent'}->{before_v2 or 'absent'}->{after}"
+        transitions[key] = transitions.get(key, 0) + 1
+        bucket = per_route.setdefault(record["route"], {"v2_to_v3_accepted": 0, "v3_to_v2_rejected": 0,
+                                                        "unchanged_from_v2": 0})
+        if before_v2 == after: bucket["unchanged_from_v2"] += 1
+        elif after == "accepted": bucket["v2_to_v3_accepted"] += 1
+        else: bucket["v3_to_v2_rejected"] += 1
+    gates: dict = {}
+    for record in records:
+        if record["terminal_state"] != "rejected": continue
+        for name in record["quality"]["failed_gates"]:
+            key = f"{record['route']}:{name}"
+            gates[key] = gates.get(key, 0) + 1
+    return {"compared": len(records), "missing_earlier_records": missing,
+            "v1_v2_v3_transitions": dict(sorted(transitions.items())),
+            "per_route": dict(sorted(per_route.items())),
+            "v3_failed_gate_counts_by_route": dict(sorted(gates.items())),
+            "interpretation_note": "counts describe measured gate behaviour under a different structural "
+                                   "calibration population; a larger accepted count is not evidence of a "
+                                   "better bank and says nothing about detector or target performance"}
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_reassemble_bank_v3(export: bool = False, allow_unvalidated: bool = False) -> dict:
+    """Re-assemble and re-validate the v3 bank from the terminal records already on
+    the volume. Every valid record is reused, so nothing is regenerated."""
+    _paths()
+    gpu = _require_cuda()
+    from prism_fas.synthesis.synthetic_bank import assemble_bank
+    from prism_fas.synthesis.synthetic_export import export_archive
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    from prism_fas.utils.core import atomic_json_write
+    generator = _generator_v3(REMOTE_GENERATION_V3)
+    rerun = generator.run(resume=True, progress=_progress)
+    if rerun["rebuilt"]:
+        raise RuntimeError(f"a completed rerun must rebuild nothing, rebuilt {rerun['rebuilt']}")
+    assembled = assemble_bank(generator, rerun["records"], pairs_root=_pair_plan_root())
+    runs_volume.commit()
+    bank_root = Path(assembled["bank_root"])
+    validation = validate_bank(bank_root, package_root=Path(REMOTE_PACKAGE), recipe_bank_root=_bank_root(),
+                               gpat_checkpoint_path=Path(GPAT_CHECKPOINT))
+    atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V3) / "reports" / "v3_synthetic_bank_validation.json",
+                      validation)
+    archive = {"status": "skipped"}
+    if export:
+        Path(REMOTE_EXPORTS).mkdir(parents=True, exist_ok=True)
+        archive = export_archive(bank_root, Path(REMOTE_EXPORTS), require_validated=not allow_unvalidated)
+        atomic_json_write(Path(REMOTE_SYNTHETIC_WORK_V3) / "reports" / "v3_export.json", archive)
+    runs_volume.commit()
+    return {"stage": "reassemble_bank_v3", "gpu": gpu,
+            "rerun": {key: rerun[key] for key in ("status", "planned", "examined", "reused", "rebuilt")},
+            "payload_sources": rerun.get("payload_sources", {}),
+            "payload_reuse_reasons": rerun.get("payload_reuse_reasons", {}),
+            "bank": {key: assembled[key] for key in ("status", "bank_id", "bank_root")},
+            "lock_status": assembled["lock"]["status"],
+            "bank_content_identity_sha256": assembled["lock"]["bank_content_identity_sha256"],
+            "lock": assembled["lock"],
+            "operational_minimums": assembled["operational_minimums"],
+            "quality_summary": assembled["quality_summary"],
+            "validation_passed": validation["passed"], "validation_errors": validation["errors"],
+            "validation_checks": validation["checks"], "archive": archive}
+
+
+@app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=10800)
+def m8_export_bank_v3(bank_id: str) -> dict:
+    """Freeze the VALIDATED v3 bank under its immutable versioned path and write the
+    single deterministic transport archive. v1 and v2 are never overwritten."""
+    _paths()
+    from prism_fas.synthesis.synthetic_export import export_archive, freeze_bank
+    from prism_fas.synthesis.synthetic_validation import validate_bank
+    source = Path(REMOTE_GENERATION_V3) / bank_id
+    report = validate_bank(source, package_root=Path(REMOTE_PACKAGE), recipe_bank_root=_bank_root(),
+                           gpat_checkpoint_path=Path(GPAT_CHECKPOINT))
+    if not report["passed"]:
+        raise RuntimeError(f"refusing to export an invalid bank: {report['errors'][:5]}")
+    frozen = freeze_bank(source, Path(REMOTE_FROZEN_BANKS))
+    data_volume.commit()
+    Path(REMOTE_EXPORTS).mkdir(parents=True, exist_ok=True)
+    archive = export_archive(source, Path(REMOTE_EXPORTS))
+    runs_volume.commit()
+    return {"stage": "export_bank_v3", "bank_id": bank_id, "frozen": frozen, "archive": archive,
+            "frozen_remote_path": f"{REMOTE_FROZEN_BANKS}/{bank_id}".replace(DATA_MOUNT, "prism-fas-b-data:"),
+            "archive_remote_path": f"{REMOTE_EXPORTS}/{bank_id}.tar".replace(RUNS_MOUNT, "prism-fas-b-runs:"),
+            "validation_passed": report["passed"],
+            "bank_content_identity_sha256": report["bank_content_identity_sha256"]}
+
+
 @app.function(image=image, volumes=VOLUMES, gpu=DEFAULT_GPU, timeout=7200)
 def m8_generation_pilot(count: int = 32, determinism: bool = True) -> dict:
     """Deterministic correctness pilot. Never changes a frozen threshold."""
@@ -627,7 +927,7 @@ def m8_export_bank(bank_id: str) -> dict:
 def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs: int = 0,
          limit_steps_per_epoch: int = 0, run_id: str = "", resume: bool = True,
          count: int = 32, interrupt_after: int = 64, bank_id: str = "",
-         allow_unvalidated: bool = False) -> None:
+         allow_unvalidated: bool = False, export: bool = False) -> None:
     if stage == "probe":
         print(json.dumps(m8_environment_probe.remote(), indent=2, default=str))
     elif stage == "smoke":
@@ -650,6 +950,26 @@ def main(stage: str = "probe", steps: int = 5, resume_steps: int = 6, max_epochs
     elif stage == "generate_v2_spawn":
         call = m8_generate_bank_v2.spawn(interrupt_after=interrupt_after or None)
         print(json.dumps({"spawned": True, "function_call_id": call.object_id, "stage": "generate_v2"}))
+    elif stage == "calibrate_structural_v3":
+        print(json.dumps(m8_calibrate_structural_v3.remote(), indent=2, default=str))
+    elif stage == "calibrate_structural_v3_spawn":
+        call = m8_calibrate_structural_v3.spawn()
+        print(json.dumps({"spawned": True, "function_call_id": call.object_id,
+                          "stage": "calibrate_structural_v3"}))
+    elif stage == "pilot_v3":
+        print(json.dumps(m8_pilot_v3.remote(count=count), indent=2, default=str))
+    elif stage == "generate_v3":
+        print(json.dumps(m8_generate_bank_v3.remote(interrupt_after=interrupt_after or None),
+                         indent=2, default=str))
+    elif stage == "generate_v3_spawn":
+        call = m8_generate_bank_v3.spawn(interrupt_after=interrupt_after or None)
+        print(json.dumps({"spawned": True, "function_call_id": call.object_id, "stage": "generate_v3"}))
+    elif stage == "reassemble_v3":
+        print(json.dumps(m8_reassemble_bank_v3.remote(export=export, allow_unvalidated=allow_unvalidated),
+                         indent=2, default=str))
+    elif stage == "export_v3":
+        if not bank_id: raise SystemExit("--bank-id is required to export")
+        print(json.dumps(m8_export_bank_v3.remote(bank_id=bank_id), indent=2, default=str))
     elif stage == "pilot":
         print(json.dumps(m8_generation_pilot.remote(count=count), indent=2, default=str))
     elif stage == "pilot_spawn":

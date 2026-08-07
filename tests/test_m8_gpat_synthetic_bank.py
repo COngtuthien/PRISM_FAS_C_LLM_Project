@@ -8,12 +8,14 @@ Stages still to come (see reports/m8/M8_HANDOFF.md): quality calibration/gate,
 candidate plan, synthetic bank, shards, validation, export and the Modal runs.
 """
 from __future__ import annotations
+import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
+import yaml
 
 from prism_fas.synthesis.dwt import (BAND_ORDER, DWT_CONVENTION, DWT_RECONSTRUCTION_TOLERANCE_FP32, DWTError,
                                      dwt_bands, haar_dwt2, haar_idwt2, idwt_bands, pack_high, reconstruction_error,
@@ -2215,3 +2217,539 @@ def test_v2_bank_id_prefix_is_versioned(tmp_path):
     assert versioned["lock"]["bank_content_identity_sha256"] == default["lock"]["bank_content_identity_sha256"]
     text = (ROOT / "modal_m8.py").read_text(encoding="utf-8")
     assert 'bank_id_prefix="prism_synthetic_bank_m8_v2"' in text
+
+
+# --- M8 structural calibration v3 -----------------------------------------------
+from prism_fas.synthesis.structural_calibration import (  # noqa: E402
+    EXPECTED_LIVE_SAMPLES, EXPECTED_OBSERVATIONS, METRIC_TOLERANCE, MINIMUM_VALID_LANDMARK_FRACTION,
+    OBSERVATION_FIELDS, STRUCTURAL_CALIBRATION_VERSION, TAU_LM_PERCENTILE, TAU_PARSE_PERCENTILE,
+    TRANSFORM_SLOTS, TRANSFORM_SUITE, StructuralCalibrationError, apply_transform, assign_region,
+    audit_observation_plan, build_calibration_pair, build_observation_plan)
+from prism_fas.synthesis.structural_calibration import build_lock as build_structural_lock  # noqa: E402
+from prism_fas.synthesis.structural_calibration import (  # noqa: E402
+    compare_calibrations as compare_structural, load_structural_config, noise_seed, observation_digest,
+    plan_digest, preprocessing_contract_identity as structural_preprocessing_identity, rows_digest,
+    write_rows_parquet)
+from prism_fas.synthesis.masks import REGION_ORDER  # noqa: E402
+
+V3_CONFIG = ROOT / "configs" / "synthesis" / "quality_gate_m8_v3.yaml"
+TAU_ID_V2 = 0.547440037939055
+TAU_LM_V1 = 0.002135227532959269
+TAU_PARSE_V1 = 0.8747814437904173
+PACKAGE_IDENTITY = "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+
+
+def _live_population(samples=EXPECTED_LIVE_SAMPLES):
+    """A structurally faithful stand-in for the 280 source_train live samples."""
+    rows = []
+    for index in range(samples):
+        dataset = "casia_fasd" if index % 7 else "msu_mfsd"
+        rows.append(_row(f"live_{index:04d}", dataset, f"rec_{index // 4}", str(index // 8)))
+    return sorted(rows, key=lambda row: row.sample_id)
+
+
+def test_the_transform_suite_has_exactly_eight_frozen_slots():
+    assert TRANSFORM_SLOTS == 8 and len(TRANSFORM_SUITE) == 8
+    assert [entry["slot"] for entry in TRANSFORM_SUITE] == list(range(8))
+    assert [(entry["kind"], entry["parameter"]) for entry in TRANSFORM_SUITE] == [
+        ("brightness", 0.90), ("brightness", 1.10), ("contrast", 0.90), ("contrast", 1.10),
+        ("gamma", 0.90), ("gamma", 1.10), ("noise", 0.005), ("blur", 0.75)]
+    assert len({entry["name"] for entry in TRANSFORM_SUITE}) == 8
+    declared = yaml.safe_load(V3_CONFIG.read_text(encoding="utf-8"))["transform_suite"]
+    assert [(row["kind"], row["parameter"]) for row in declared] == [
+        (entry["kind"], entry["parameter"]) for entry in TRANSFORM_SUITE]
+
+
+def test_config_refuses_a_drifted_transform_suite(tmp_path):
+    payload = yaml.safe_load(V3_CONFIG.read_text(encoding="utf-8"))
+    payload["transform_suite"][0]["parameter"] = 0.80
+    path = tmp_path / "drifted.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    with pytest.raises(StructuralCalibrationError, match="transform suite"):
+        load_structural_config(path)
+
+
+def test_the_observation_plan_is_exactly_2240_deterministic_observations():
+    rows = _live_population()
+    plan = build_observation_plan(rows, package_identity=PACKAGE_IDENTITY)
+    assert len(plan) == EXPECTED_OBSERVATIONS == 2240 == EXPECTED_LIVE_SAMPLES * TRANSFORM_SLOTS
+    audit = audit_observation_plan(plan)
+    assert audit["supports_structural_calibration"]
+    assert audit["requirements"]["exactly_eight_transform_slots"]
+    assert audit["requirements"]["expected_observation_count"]
+    assert audit["requirements"]["all_nine_regions_represented"]
+    assert audit["requirements"]["every_sample_has_every_slot"]
+    assert audit["requirements"]["both_datasets_in_every_transform"]
+    assert audit["region_count"] == len(REGION_ORDER) == 9
+    assert sorted(audit["regions"]) == sorted(REGION_ORDER)
+    assert set(audit["observations_by_transform"].values()) == {EXPECTED_LIVE_SAMPLES}
+    assert plan_digest(build_observation_plan(rows, package_identity=PACKAGE_IDENTITY)) == plan_digest(plan)
+
+
+def test_region_assignment_is_deterministic_and_bound_to_the_declared_digest():
+    digest = observation_digest("live_0001", 3, package_identity=PACKAGE_IDENTITY, seed=20260806)
+    assert digest == hashlib.sha256(
+        f"{STRUCTURAL_CALIBRATION_VERSION}|{PACKAGE_IDENTITY}|live_0001|3|20260806".encode("utf-8")).hexdigest()
+    assert assign_region(digest) == REGION_ORDER[int(digest[:16], 16) % 9]
+    for changed in (observation_digest("live_0002", 3, package_identity=PACKAGE_IDENTITY, seed=20260806),
+                    observation_digest("live_0001", 4, package_identity=PACKAGE_IDENTITY, seed=20260806),
+                    observation_digest("live_0001", 3, package_identity="other", seed=20260806),
+                    observation_digest("live_0001", 3, package_identity=PACKAGE_IDENTITY, seed=1)):
+        assert changed != digest
+    assert noise_seed(digest) != int(digest[:16], 16)
+
+
+def test_every_transform_preserves_geometry_and_is_deterministic():
+    rng = np.random.Generator(np.random.PCG64(11))
+    image = rng.random((3, 224, 224)).astype(np.float32)
+    for entry in TRANSFORM_SUITE:
+        first = apply_transform(image, dict(entry), noise_seed=1234)
+        second = apply_transform(image, dict(entry), noise_seed=1234)
+        assert first.shape == image.shape
+        assert first.dtype == np.float32
+        assert np.isfinite(first).all() and first.min() >= 0.0 and first.max() <= 1.0
+        assert np.array_equal(first, second)
+        assert not np.array_equal(first, image)
+    noisy = dict(TRANSFORM_SUITE[6])
+    assert not np.array_equal(apply_transform(image, noisy, noise_seed=1),
+                              apply_transform(image, noisy, noise_seed=2))
+
+
+def test_no_transform_moves_a_coordinate():
+    """A geometric warp would displace a sharp feature; an appearance edit cannot.
+
+    A single bright pixel keeps its argmax position under every slot, and the
+    blur, the only kernel in the suite, stays symmetric about it.
+    """
+    image = np.full((3, 224, 224), 0.2, dtype=np.float32)
+    image[:, 100, 137] = 1.0
+    for entry in TRANSFORM_SUITE:
+        out = apply_transform(image, dict(entry), noise_seed=7)
+        assert divmod(int(np.argmax(out[0])), 224) == (100, 137), entry["name"]
+    blurred = apply_transform(image, dict(TRANSFORM_SUITE[7]), noise_seed=0)[0]
+    assert blurred[99, 137] == pytest.approx(blurred[101, 137], rel=1e-6)
+    assert blurred[100, 136] == pytest.approx(blurred[100, 138], rel=1e-6)
+
+
+def test_the_calibration_edit_is_exactly_zero_outside_the_support():
+    rng = np.random.Generator(np.random.PCG64(5))
+    image = rng.random((3, 224, 224)).astype(np.float32)
+    support = np.zeros((224, 224), dtype=bool)
+    support[40:120, 50:150] = True
+    for entry in TRANSFORM_SUITE:
+        pair = build_calibration_pair(image, support, dict(entry), seed=99)
+        outside = ~support
+        assert int(np.abs(pair["edited_uint8"].astype(np.int32)
+                          - pair["original_uint8"].astype(np.int32))[outside].max()) == 0
+        assert pair["outside_support_max_error"] == 0
+        assert not pair["exact_changed"][outside].any()
+        assert pair["exact_changed"].sum() > 0
+        assert pair["support_pixels"] == int(support.sum())
+
+
+def test_the_calibration_sample_carries_no_candidate_semantics():
+    rng = np.random.Generator(np.random.PCG64(6))
+    image = rng.random((3, 224, 224)).astype(np.float32)
+    support = np.zeros((224, 224), dtype=bool)
+    support[10:60, 10:60] = True
+    pair = build_calibration_pair(image, support, dict(TRANSFORM_SUITE[0]), seed=1)
+    for banned in ("label", "recipe_id", "synthetic_id", "artifact_map", "gpat", "physics", "spoof"):
+        assert banned not in pair
+    row = build_observation_plan(_live_population(2), package_identity=PACKAGE_IDENTITY)[0]
+    assert set(OBSERVATION_FIELDS) <= set(row)
+    for banned in ("recipe_id", "synthetic_id", "spoof_source_sample_id", "label_live_spoof"):
+        assert banned not in row
+
+
+def test_structural_calibration_uses_no_physics_engine_gpat_or_candidate():
+    """Asserted from the real imports and call graph of the module, not from a claim."""
+    import ast
+    path = ROOT / "src" / "prism_fas" / "synthesis" / "structural_calibration.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported = set()
+    for node in ast.walk(tree):
+        names = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                 else [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+        imported.update(name.lstrip(".") for name in names)
+    for banned in ("modal", "physics", "gpat_model", "gpat_trainer", "gpat_checkpoint", "candidate_plan"):
+        assert not any(name.split(".")[0] == banned for name in imported), banned
+    called = {node.func.id for node in ast.walk(tree)
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert "PhysicsEngine" not in called and "GPATRoute" not in called and "compile_recipe" not in called
+    for literal in [node.value for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)]:
+        for banned in ("source_dev.parquet", "target_test.parquet", "candidate_plan", "records/",
+                       "synthetic_id", "shards"):
+            assert banned not in literal, f"{banned!r} in {literal!r}"
+
+
+def test_v3_config_is_source_train_live_only_and_declares_the_rules():
+    payload = load_structural_config(V3_CONFIG)
+    block = payload["structural_calibration"]
+    assert block["version"] == STRUCTURAL_CALIBRATION_VERSION == "m8-structural-calibration-v3"
+    assert block["comparison"] == "same_image_before_and_after_appearance_edit"
+    assert block["cross_record_pairs_are_diagnostic_only"] is True
+    assert block["landmark_percentile"] == TAU_LM_PERCENTILE == 99.0
+    assert block["parsing_percentile"] == TAU_PARSE_PERCENTILE == 1.0
+    assert block["observations"] == 2240 and block["transform_slots"] == 8
+    assert block["uses_m7_physics_operators"] is False and block["uses_gpat"] is False
+    assert block["uses_generated_candidates"] is False
+    assert payload["calibration_population"]["split"] == "source_train"
+    assert payload["calibration_population"]["label"] == "live"
+    assert payload["threshold_rule"]["tuned_on_candidate_acceptance"] is False
+    assert payload["threshold_rule"]["derived_from_cross_record_pairs"] is False
+    assert payload["transform_policy"]["jpeg_used"] is False
+    for flag in ("rotation", "translation", "scaling", "affine", "perspective", "crop_change",
+                 "landmark_movement", "face_replacement"):
+        assert payload["transform_policy"][flag] is False
+    assert payload["inherited"]["tau_id"] == TAU_ID_V2
+    assert payload["inherited"]["tau_fd"] == 0.5 and payload["inherited"]["tau_out"] == 0.0
+    assert payload["inherited"]["tau_fp"] == 5.687657785453908
+    assert payload["operational_minimums"] == {
+        "candidates": 1120, "accepted_total": 400, "accepted_physics": 200, "accepted_gpat": 100,
+        "accepted_live_casia": 100, "accepted_live_msu": 100, "require_all_artifact_types": 8,
+        "require_all_regions": 9, "require_same_and_cross_domain_gpat": True}
+
+
+def test_v3_config_rejects_a_forbidden_split_at_any_depth(tmp_path):
+    payload = yaml.safe_load(V3_CONFIG.read_text(encoding="utf-8"))
+    payload["structural_calibration"]["notes"] = {"extra": ["source_dev"]}
+    path = tmp_path / "leaky.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    with pytest.raises(StructuralCalibrationError, match="source_dev"):
+        load_structural_config(path)
+
+
+def test_v1_and_v2_quality_gate_configs_were_not_modified_by_v3():
+    v1 = yaml.safe_load((ROOT / "configs" / "synthesis" / "quality_gate_m8.yaml").read_text(encoding="utf-8"))
+    v2 = yaml.safe_load(V2_CONFIG.read_text(encoding="utf-8"))
+    assert v1["quality_gate_schema_version"] == "m8-quality-gate-v1"
+    assert v2["quality_gate_schema_version"] == "m8-quality-gate-v2"
+    assert v2["inherited_from_v1"]["tau_lm"] == TAU_LM_V1
+    assert v2["inherited_from_v1"]["tau_parse"] == TAU_PARSE_V1
+    assert "structural_calibration" not in v1 and "structural_calibration" not in v2
+
+
+def test_v3_percentile_rules_are_exact_and_declared():
+    landmark = [0.001 * index for index in range(1, 201)]
+    parsing = [0.5 + 0.002 * index for index in range(200)]
+    assert float(np.percentile(landmark, TAU_LM_PERCENTILE)) == float(np.percentile(landmark, 99.0))
+    assert float(np.percentile(parsing, TAU_PARSE_PERCENTILE)) == float(np.percentile(parsing, 1.0))
+    assert MINIMUM_VALID_LANDMARK_FRACTION == 0.95
+
+
+def test_structural_row_identity_is_logical_not_parquet_bytes(tmp_path):
+    rows = [{"observation_id": f"obs_{index:04d}", "dataset": "casia_fasd", "sample_id": f"live_{index}",
+             "transform_slot": index % 8, "transform_name": TRANSFORM_SUITE[index % 8]["name"],
+             "transform_kind": TRANSFORM_SUITE[index % 8]["kind"],
+             "transform_parameter": float(TRANSFORM_SUITE[index % 8]["parameter"]),
+             "region": REGION_ORDER[index % 9], "support_pixels": 100 + index, "changed_pixels": 90 + index,
+             "outside_support_max_error": 0, "landmark_nme": 0.001 * (index + 1), "landmark_valid": True,
+             "outside_support_parsing_dice": 0.9, "outside_exact_parsing_dice": 0.91}
+            for index in range(16)]
+    digest = write_rows_parquet(tmp_path / "rows.parquet", rows)
+    assert digest == rows_digest(rows) == rows_digest(list(reversed(rows)))
+    assert digest != hashlib.sha256((tmp_path / "rows.parquet").read_bytes()).hexdigest()
+    nulled = [{**row, "landmark_nme": None, "landmark_valid": False} if index == 0 else row
+              for index, row in enumerate(rows)]
+    assert rows_digest(nulled) != digest
+
+
+def _structural_lock_payload():
+    return {
+        "seed": 20260806, "populations": {"population_sha256": "pop", "live_samples": 280, "observations": 2240},
+        "quality_models": {"models": {
+            "detector": {"backend": "scrfd_10g_bnkps", "verified_sha256": "det", "input_size": 320,
+                         "threshold": 0.5},
+            "parsing": {"backend": "facexformer", "repo_id": "kartiknarayan/facexformer",
+                        "revision": "fd12148d0b19", "verified_sha256": "par"}}},
+        "preprocessing_contract_identity_sha256": {"detector": "a", "parsing": "b"},
+        "transform_suite": [dict(entry) for entry in TRANSFORM_SUITE], "transform_suite_sha256": "suite",
+        "observation_plan_identity_sha256": "plan", "landmark_percentile": 99.0, "parsing_percentile": 1.0,
+        "tau_lm_v3": 0.01, "tau_parse_v3": 0.8, "threshold_rule": "rule",
+        "unchanged_from_v2": {"tau_fd": 0.5, "tau_id": TAU_ID_V2, "tau_out": 0.0, "tau_fp": 5.687657785453908},
+        "thresholds": {"tau_fd": 0.5, "tau_id": TAU_ID_V2, "tau_lm": 0.01, "tau_parse": 0.8,
+                       "tau_out": 0.0, "tau_fp": 5.687657785453908},
+        "threshold_sha256": "thr", "structural_rows_sha256": "rows",
+        "source_isolation": {"source_train_opened": True}}
+
+
+def test_structural_lock_is_deterministic_and_excludes_runtime_metadata():
+    payload = _structural_lock_payload()
+    config = load_structural_config(V3_CONFIG)
+    lock = build_structural_lock(payload, package_identity=PACKAGE_IDENTITY, config=config)
+    again = build_structural_lock(dict(payload), package_identity=PACKAGE_IDENTITY, config=config)
+    assert lock["calibration_content_identity_sha256"] == again["calibration_content_identity_sha256"]
+    assert lock["inherited_tau_id_v2"] == TAU_ID_V2
+    assert lock["cross_record_pairs_set_no_threshold"] is True
+    assert lock["uses_m7_physics_operators"] is False and lock["uses_gpat"] is False
+    for name in ("created_at", "device_report", "parquet_byte_hashes"):
+        assert name in lock["identity_excluded_fields"]
+    text = json.dumps(lock)
+    assert "/vol/" not in text and "C:\\" not in text and "modal" not in text.lower() and "/tmp" not in text
+    moved = build_structural_lock({**payload, "tau_lm_v3": 0.02}, package_identity=PACKAGE_IDENTITY,
+                                  config=config)
+    assert moved["calibration_content_identity_sha256"] != lock["calibration_content_identity_sha256"]
+
+
+def test_structural_comparison_detects_drift_and_never_tolerates_a_threshold_change():
+    left = {"observation_plan_identity_sha256": "p", "structural_rows_sha256": "r",
+            "transform_suite_sha256": "s", "tau_lm_v3": 0.01, "tau_parse_v3": 0.8, "threshold_sha256": "t",
+            "_rows": [{"observation_id": "obs_1", "region": "nose", "transform_name": "blur_075",
+                       "support_pixels": 10, "changed_pixels": 9, "landmark_valid": True,
+                       "landmark_nme": 0.001, "outside_support_parsing_dice": 0.9}]}
+    assert compare_structural(left, json.loads(json.dumps(left)))["identical"]
+    within = json.loads(json.dumps(left))
+    within["_rows"][0]["landmark_nme"] = 0.001 + METRIC_TOLERANCE / 10
+    assert compare_structural(left, within)["identical"]
+    drifted = json.loads(json.dumps(left))
+    drifted["_rows"][0]["landmark_nme"] = 0.001 + 10 * METRIC_TOLERANCE
+    assert not compare_structural(left, drifted)["identical"]
+    for field in ("tau_lm_v3", "tau_parse_v3", "threshold_sha256", "structural_rows_sha256"):
+        nudged = {**left, field: (left[field] + METRIC_TOLERANCE / 1000
+                                  if isinstance(left[field], float) else "changed")}
+        assert not compare_structural(left, nudged)["identical"], field
+    regionned = json.loads(json.dumps(left))
+    regionned["_rows"][0]["region"] = "mouth"
+    assert not compare_structural(left, regionned)["identical"]
+
+
+def test_v3_preprocessing_contracts_are_the_pinned_production_models():
+    detector = structural_preprocessing_identity("detector")
+    parsing = structural_preprocessing_identity("parsing")
+    assert detector != parsing and len(detector) == 64 and len(parsing) == 64
+    assert structural_preprocessing_identity("detector") == detector
+    assert PINNED["detector"]["input_size"] == 320 and PINNED["detector"]["threshold"] == 0.5
+    assert PINNED["parsing"]["revision"] == "fd12148d0b19"
+    with pytest.raises(StructuralCalibrationError):
+        structural_preprocessing_identity("identity")
+
+
+def test_v3_gate_keeps_tau_id_v2_and_every_other_inherited_threshold():
+    from prism_fas.synthesis.quality_gate import Thresholds
+    from prism_fas.synthesis.structural_calibration import build_quality_gate_v3
+    v3_thresholds = {"tau_fd": 0.5, "tau_id": TAU_ID_V2, "tau_lm": 0.02, "tau_parse": 0.7,
+                     "tau_out": 0.0, "tau_fp": 5.687657785453908}
+    v1 = {"thresholds": {"tau_fd": 0.5, "tau_id": TAU_ID_V1, "tau_lm": TAU_LM_V1, "tau_parse": TAU_PARSE_V1,
+                         "tau_out": 0.0, "tau_fp": 5.687657785453908},
+          "threshold_sha256": "v1", "fingerprint": {"reference_sha256": "fp", "references": {}},
+          "quality_models": {"models": {}}}
+    v2 = {"tau_id_v2": TAU_ID_V2, "threshold_sha256": "v2"}
+    v3 = {"thresholds": v3_thresholds, "threshold_sha256": Thresholds.from_dict(v3_thresholds).sha256(),
+          "tau_lm_v3": 0.02, "tau_parse_v3": 0.7, "threshold_rule": "rule",
+          "observation_plan_identity_sha256": "plan", "structural_rows_sha256": "rows",
+          "transform_suite_sha256": "suite"}
+    merged = build_quality_gate_v3(v1, v2, v3, {"calibration_content_identity_sha256": "idv2"},
+                                   {"calibration_content_identity_sha256": "stv3"})
+    assert merged["thresholds"]["tau_id"] == TAU_ID_V2
+    assert merged["thresholds"]["tau_fd"] == 0.5 and merged["thresholds"]["tau_out"] == 0.0
+    assert merged["thresholds"]["tau_fp"] == 5.687657785453908
+    assert merged["thresholds"]["tau_lm"] == 0.02 and merged["thresholds"]["tau_parse"] == 0.7
+    assert merged["fingerprint"]["reference_sha256"] == "fp"
+    assert merged["quality_gate_version"] == "m8-quality-gate-v3"
+    assert merged["structural_calibration_content_identity_sha256"] == "stv3"
+    assert merged["identity_calibration_content_identity_sha256"] == "idv2"
+    assert merged["tau_lm_v1_superseded"] == TAU_LM_V1
+    assert merged["tau_parse_v1_superseded"] == TAU_PARSE_V1
+    assert merged["used_generated_candidates"] is False
+    assert Thresholds.from_dict(merged["thresholds"]).sha256() == merged["threshold_sha256"]
+
+
+def test_modal_v3_stages_write_only_the_v3_namespace():
+    text = (ROOT / "modal_m8.py").read_text(encoding="utf-8")
+    assert 'REMOTE_SYNTHETIC_WORK_V3 = f"{RUNS_MOUNT}/synthetic_banks/m8_work_v3"' in text
+    assert 'bank_id_prefix="prism_synthetic_bank_m8_v3"' in text
+    block = text.split("def _generator_v3(")[1].split("@app.function")[0]
+    assert "reuse_root=Path(REMOTE_GENERATION_V2)" in block
+    assert "work_root=Path(work_root)" in block
+    assert "quality_gate_m8_v3.yaml" in block
+    # every v3 write target lives under the v3 roots, which are themselves v3 paths
+    assert 'REMOTE_CALIBRATION_V3 = f"{REMOTE_SYNTHETIC_WORK_V3}/calibration"' in text
+    assert 'REMOTE_GENERATION_V3 = f"{REMOTE_SYNTHETIC_WORK_V3}/generation"' in text
+    assert 'REMOTE_QUALITY_GATE_V3 = f"{REMOTE_CALIBRATION_V3}/quality_gate_v3.json"' in text
+    v1_v2_roots = ("REMOTE_SYNTHETIC_WORK_V2", "REMOTE_CALIBRATION_V2", "REMOTE_GENERATION_V2",
+                   "REMOTE_QUALITY_GATE_V2", "REMOTE_SYNTHETIC_WORK,", "REMOTE_SYNTHETIC_WORK)",
+                   "REMOTE_CALIBRATION)", "REMOTE_GENERATION)", "REMOTE_GENERATION,")
+    for function in ("m8_generate_bank_v3", "m8_reassemble_bank_v3", "m8_pilot_v3",
+                     "m8_calibrate_structural_v3", "_build_quality_gate_v3"):
+        body = text.split(f"def {function}(")[1].split("\n@app")[0]
+        for line in body.splitlines():
+            if "atomic_json_write(" in line or "write_calibration_artifacts(" in line:
+                for banned in v1_v2_roots:
+                    assert banned not in line, f"{function}: {line}"
+
+
+# --- real v3 calibration report contracts -----------------------------------------
+def _v3_rows():
+    import pyarrow.parquet as pq
+    from prism_fas.synthesis.structural_calibration import PARQUET_FIELDS
+    path = REPORTS / "structural_calibration_v3.parquet"
+    if not path.is_file():
+        pytest.skip("structural_calibration_v3.parquet missing; run: modal_m8.py --stage calibrate_structural_v3")
+    table = pq.read_table(path).to_pydict()
+    return [{name: table[name][index] for name, _ in PARQUET_FIELDS}
+            for index in range(len(table["observation_id"]))]
+
+
+def test_real_v3_calibration_report_contract():
+    report = _report("structural_calibration_v3_summary.json")
+    assert report["calibration_version"] == STRUCTURAL_CALIBRATION_VERSION
+    assert report["populations"]["live_samples"] == EXPECTED_LIVE_SAMPLES == 280
+    assert report["populations"]["observations"] == EXPECTED_OBSERVATIONS == 2240
+    assert report["populations"]["live_by_dataset"] == {"casia_fasd": 160, "msu_mfsd": 120}
+    assert report["populations"]["transform_slots"] == 8
+    plan = report["observation_plan"]
+    assert all(plan["requirements"].values()) and plan["region_count"] == 9
+    assert sorted(plan["regions"]) == sorted(REGION_ORDER)
+    assert set(plan["observations_by_transform"].values()) == {280}
+    # the whole population was measurable: nothing was censored away
+    assert report["landmark"]["total_observations"] == 2240
+    assert report["landmark"]["valid_comparisons"] == 2240
+    assert report["landmark"]["face_detection_failures"] == 0
+    assert report["landmark"]["region_mask_failures"] == 0
+    assert report["landmark"]["valid_fraction"] == 1.0
+    assert report["landmark"]["valid_fraction"] >= report["landmark"]["minimum_valid_fraction"]
+    assert report["parsing"]["valid_comparisons"] == 2240
+    # the discrete invariant the protocol asserts on every observation
+    assert report["discrete_invariants"]["outside_support_max_error_max"] == 0
+    assert report["discrete_invariants"]["observations_with_a_nonzero_outside_error"] == 0
+    assert report["discrete_invariants"]["observations_with_an_empty_change"] == 0
+    assert report["source_isolation"]["manifests_opened"] == ["manifests/source_train.parquet"]
+    assert report["source_isolation"]["source_dev_opened"] is False
+    assert report["source_isolation"]["target_test_opened"] is False
+    assert report["source_isolation"]["raw_dataset_path_opened"] is False
+    assert sorted(report["source_isolation"]["path_prefixes"]) == ["images", "manifests", "priors"]
+
+
+def test_real_v3_thresholds_are_the_declared_percentiles_of_the_real_rows():
+    report = _report("structural_calibration_v3_summary.json")
+    rows = _v3_rows()
+    assert len(rows) == 2240
+    landmark = [float(row["landmark_nme"]) for row in rows if row["landmark_nme"] is not None]
+    dice = [float(row["outside_support_parsing_dice"]) for row in rows
+            if row["outside_support_parsing_dice"] is not None]
+    assert report["tau_lm_v3"] == float(np.percentile(landmark, 99.0))
+    assert report["tau_parse_v3"] == float(np.percentile(dice, 1.0))
+    assert report["thresholds"]["tau_lm"] == report["tau_lm_v3"]
+    assert report["thresholds"]["tau_parse"] == report["tau_parse_v3"]
+    # every observation compares ONE image against itself under ONE frozen transform
+    assert {row["transform_slot"] for row in rows} == set(range(8))
+    assert {row["transform_name"] for row in rows} == {entry["name"] for entry in TRANSFORM_SUITE}
+    for row in rows:
+        entry = TRANSFORM_SUITE[int(row["transform_slot"])]
+        assert row["transform_name"] == entry["name"]
+        assert float(row["transform_parameter"]) == float(entry["parameter"])
+        assert row["region"] in REGION_ORDER
+        assert int(row["outside_support_max_error"]) == 0
+        assert int(row["changed_pixels"]) > 0
+        assert int(row["changed_pixels"]) <= int(row["support_pixels"])
+    assert len({row["sample_id"] for row in rows}) == 280
+    assert len({row["observation_id"] for row in rows}) == 2240
+
+
+def test_real_v3_keeps_tau_id_v2_and_every_other_inherited_threshold():
+    report = _report("structural_calibration_v3_summary.json")
+    v2 = _report("quality_calibration_v2.json")
+    assert report["thresholds"]["tau_id"] == v2["tau_id_v2"] == TAU_ID_V2
+    assert report["unchanged_from_v2"]["tau_id"] == TAU_ID_V2
+    assert report["thresholds"]["tau_fd"] == v2["thresholds"]["tau_fd"] == 0.5
+    assert report["thresholds"]["tau_out"] == v2["thresholds"]["tau_out"] == 0.0
+    assert report["thresholds"]["tau_fp"] == v2["thresholds"]["tau_fp"] == 5.687657785453908
+    # exactly two thresholds moved
+    moved = {name for name, value in report["thresholds"].items() if v2["thresholds"][name] != value}
+    assert moved == {"tau_lm", "tau_parse"}
+    assert report["tau_lm_v1_superseded"] == TAU_LM_V1
+    assert report["tau_parse_v1_superseded"] == TAU_PARSE_V1
+
+
+def test_real_v3_calibration_determinism_report_contract():
+    determinism = _report("structural_calibration_v3_determinism.json")
+    assert determinism["identical"] is True
+    assert determinism["mismatch_count"] == 0 and determinism["mismatches"] == []
+    assert determinism["metric_tolerance"] == METRIC_TOLERANCE == 1e-6
+    assert determinism["thresholds_compared_exactly"] is True
+
+
+def test_real_v3_lock_binds_every_declared_identity():
+    lock = _report("STRUCTURAL_CALIBRATION_V3_LOCK.json")
+    report = _report("structural_calibration_v3_summary.json")
+    required = ("calibration_version", "package_identity", "source_population_sha256",
+                "scrfd_weight_sha256", "scrfd_input_size", "scrfd_threshold",
+                "facexformer_weight_sha256", "facexformer_revision",
+                "preprocessing_contract_identity_sha256", "config_sha256", "seed",
+                "transform_suite", "transform_suite_sha256", "region_assignment_identity_sha256",
+                "observations", "tau_lm_v3", "tau_parse_v3", "inherited_tau_id_v2",
+                "thresholds", "threshold_sha256", "structural_rows_sha256", "source_isolation",
+                "calibration_content_identity_sha256")
+    for name in required:
+        assert name in lock and lock[name] not in (None, "", {}), name
+    assert lock["package_identity"] == PACKAGE_IDENTITY
+    assert lock["scrfd_weight_sha256"] == PINNED["detector"]["sha256"]
+    assert lock["facexformer_weight_sha256"] == PINNED["parsing"]["sha256"]
+    assert lock["facexformer_revision"] == PINNED["parsing"]["revision"]
+    assert lock["inherited_tau_id_v2"] == TAU_ID_V2
+    assert lock["observations"] == 2240 and lock["live_samples"] == 280
+    assert lock["regions"] == list(REGION_ORDER)
+    assert lock["uses_m7_physics_operators"] is False and lock["uses_gpat"] is False
+    assert lock["used_generated_candidates"] is False and lock["used_source_dev"] is False
+    assert lock["used_target"] is False and lock["cross_record_pairs_set_no_threshold"] is True
+    assert lock["structural_rows_sha256"] == report["structural_rows_sha256"]
+    assert lock["threshold_sha256"] == report["threshold_sha256"]
+    # the lock is reproducible from the report, and excludes runtime metadata
+    rebuilt = build_structural_lock(_report("quality_calibration_v3.json"),
+                                    package_identity=lock["package_identity"],
+                                    config=load_structural_config(V3_CONFIG))
+    assert rebuilt["calibration_content_identity_sha256"] == lock["calibration_content_identity_sha256"]
+    text = json.dumps(lock)
+    assert "/vol/" not in text and "C:\\" not in text and "/tmp" not in text
+    assert "modal" not in text.lower() and "created_at" not in lock
+
+
+def test_real_v3_row_identity_is_portable_across_pyarrow_versions():
+    """The remote run wrote these rows with pyarrow 18.1.0; this reads them with the
+    local version. A logical digest must agree; a byte digest would not."""
+    report = _report("structural_calibration_v3_summary.json")
+    rows = _v3_rows()
+    assert rows_digest(rows) == report["structural_rows_sha256"]
+    written = (REPORTS / "structural_calibration_v3.parquet").read_bytes()
+    assert report["structural_rows_sha256"] != hashlib.sha256(written).hexdigest()
+
+
+def test_real_v3_cross_record_diagnostic_is_reported_and_sets_no_threshold():
+    """The cross-record population is measured so the exclusion is evidenced, not
+    asserted — and it must be far wider than the same-image population."""
+    report = _report("structural_calibration_v3_summary.json")
+    diagnostic = report["cross_record_diagnostic"]
+    assert diagnostic["sets_any_threshold"] is False
+    assert report["cross_record_pairs_set_no_threshold"] is True
+    assert diagnostic["pairs"] == 560                       # the frozen v2 genuine pairs
+    assert diagnostic["valid_comparisons"] == 560
+    cross = diagnostic["landmark_nme_distribution"]
+    same = report["landmark"]["distribution"]
+    # cross-record landmark motion dwarfs same-image jitter, which is exactly why it
+    # may not set tau_lm: it measures pose/expression/crop variation, not detector jitter
+    assert cross["p50"] > 10 * same["p50"]
+    assert cross["p01"] > report["tau_lm_v3"]
+    # and the threshold really did come from the same-image population
+    assert report["tau_lm_v3"] == same["p99"]
+
+
+def test_real_v3_reuse_decision_keeps_all_1120_candidate_ids():
+    report = _report("candidate_plan_v3_reuse_decision.json")
+    assert report["candidate_count"] == 1120 and report["unique_candidate_ids"] == 1120
+    assert report["candidate_id_binds_calibration"] is False
+    assert report["candidate_plan_lock_fields_binding_calibration"] == []
+    assert report["candidate_plan_module_calibration_mentions"] == []
+    assert report["candidate_plan_identity_matches_expected"] is True
+    assert report["rebuilt_rows_match_frozen_plan"] is True
+    assert report["frozen_candidate_plan_identity_sha256"] == (
+        "b167c169dcb92426c0dc2ee96a80eb69f4645fbf887360a1b67abfc8890f40b8")
+    assert report["frozen_candidate_rows_sha256"] == report["rebuilt_candidate_rows_sha256"]
+    # calibration is bound where a DECISION belongs, not where an identity does
+    assert report["generation_config_sha256_changes_with_calibration"] is True
+    by_calibration = report["generation_config_sha256_by_calibration"]
+    assert sorted(by_calibration) == ["v1", "v2", "v3"]
+    assert len(set(by_calibration.values())) == 3
+    assert "candidate_plan" not in report["where_calibration_IS_bound"]["candidate_record_identity"]
+    for name in ("modal", "quality_calibration", "structural_calibration", "identity_calibration"):
+        assert name not in report["candidate_plan_module_imports"]

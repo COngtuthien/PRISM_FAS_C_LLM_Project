@@ -1,0 +1,169 @@
+# M8 quality gate v3: source_train-only SAME-IMAGE LOCALIZED BENIGN structural
+# robustness calibration.
+#
+# configs/synthesis/quality_gate_m8.yaml (v1) and quality_gate_m8_v2.yaml (v2) are
+# NOT modified. They remain the frozen policies under which the retained v1 and v2
+# experimental runs were decided.
+#
+# Only the structural-calibration population and the resulting tau_lm / tau_parse
+# are versioned here. tau_id stays exactly at the frozen identity calibration v2
+# value, every other threshold, bound, formula and policy is carried over
+# unchanged, and the operational minimums are untouched.
+#
+# THIS IS THE FINAL PLANNED CALIBRATION REVISION FOR M8. If the v3 bank still
+# misses an operational minimum, there is no v4: see docs/M8_STRUCTURAL_CALIBRATION_V3.md §11.
+quality_gate_schema_version: "m8-quality-gate-v3"
+calibration_schema_version: "m8-structural-calibration-v3"
+seed: 20260806
+
+structural_calibration:
+  version: m8-structural-calibration-v3
+  seed: 20260806
+  # Same image before and after an appearance-only edit. Cross-record pairs are a
+  # DIAGNOSTIC ONLY and may never determine a structural threshold: two source
+  # records differ in real pose, expression, head-geometry projection, landmark
+  # position, occlusion and crop, which is scene variation, not detector jitter.
+  comparison: same_image_before_and_after_appearance_edit
+  cross_record_pairs_are_diagnostic_only: true
+  live_samples: 280
+  transform_slots: 8
+  observations: 2240
+  landmark_percentile: 99.0
+  parsing_percentile: 1.0
+  # A threshold fitted on a heavily censored population would not describe the
+  # population it claims to, so the protocol stops instead of reporting one.
+  minimum_valid_landmark_fraction: 0.95
+  require_source_train_live: true
+  require_same_image_comparison: true
+  require_all_nine_regions: true
+  require_no_geometric_transform: true
+  uses_m7_physics_operators: false
+  uses_gpat: false
+  uses_generated_candidates: false
+
+# Frozen before any v3 result exists. Never changed after seeing calibration or
+# candidate results.
+transform_suite:
+  - {slot: 0, name: brightness_090, kind: brightness, parameter: 0.90}
+  - {slot: 1, name: brightness_110, kind: brightness, parameter: 1.10}
+  - {slot: 2, name: contrast_090,   kind: contrast,   parameter: 0.90}
+  - {slot: 3, name: contrast_110,   kind: contrast,   parameter: 1.10}
+  - {slot: 4, name: gamma_090,      kind: gamma,      parameter: 0.90}
+  - {slot: 5, name: gamma_110,      kind: gamma,      parameter: 1.10}
+  - {slot: 6, name: noise_0005,     kind: noise,      parameter: 0.005}
+  - {slot: 7, name: blur_075,       kind: blur,       parameter: 0.75}
+
+transform_policy:
+  preserves_dimensions: true
+  preserves_pixel_coordinates: true
+  geometric_resampling: none_except_the_fixed_gaussian_filter
+  rotation: false
+  translation: false
+  scaling: false
+  affine: false
+  perspective: false
+  crop_change: false
+  landmark_movement: false
+  face_replacement: false
+  deterministic: true
+  noise_rng: "local PCG64 seeded from a SHA-256 digest; never global RNG state"
+  # cv2 JPEG encoding is not provably byte-deterministic across OpenCV builds.
+  jpeg_used: false
+  jpeg_exclusion_reason: "byte and decode determinism is not independently proven"
+
+region_assignment:
+  digest: 'SHA256(calibration_version | source_package_identity | sample_id | transform_slot | seed)'
+  mapping: 'REGION_ORDER[int(digest[:16], 16) mod 9]'
+  regions: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek",
+            "right_cheek", "face_boundary", "context"]
+  mask_builder: prism_fas.synthesis.masks.RegionMaskBuilder
+  coverage: 1.0
+  policy: parsing_first_geometry_fallback
+  crop_mapping: "the M7/M8 crop_box mapping, unchanged"
+
+calibration_population:
+  split: source_train
+  allowed_datasets: ["casia_fasd", "msu_mfsd"]
+  label: live
+  uses_generated_candidates: false
+  forbidden_splits: ["source_dev", "target_test"]
+
+threshold_rule:
+  tau_lm_v3: "99th percentile of valid same-image structural-calibration landmark NME"
+  tau_parse_v3: "1st percentile of valid outside-support parsing Dice"
+  acceptance: "landmark_nme <= tau_lm_v3 and outside_mask_parsing_dice >= tau_parse_v3"
+  tuned_on_candidate_acceptance: false
+  rounded_manually: false
+  derived_from_cross_record_pairs: false
+
+# Carried over verbatim. Only tau_lm and tau_parse are re-fitted.
+inherited:
+  tau_fd: 0.5
+  tau_id: 0.547440037939055
+  tau_out: 0.0
+  tau_fp: 5.687657785453908
+  tau_id_source: m8-identity-calibration-v2
+  identity_calibration_v2_content_identity_sha256: "b99cd561ec06069c54afb3627c12572d625249847163e0223e2a502a3c363c48"
+  threshold_sha256_v2: "a3f20e5e46641deeac0f1110f6783869ed88ee01786baa8d006bf5ca8d159754"
+  fingerprint_reference_sha256: "c5c09cfa26819e125eafb4640eec6ab02eec5419ae6a83bad9a293ae4c4ebb39"
+  tau_lm_v1_superseded: 0.002135227532959269
+  tau_parse_v1_superseded: 0.8747814437904173
+
+hard_gates:
+  face_detection_score: ">= tau_fd"
+  identity_cosine: ">= tau_id"
+  landmark_nme: "<= tau_lm_v3"
+  outside_mask_parsing_dice: ">= tau_parse_v3"
+  outside_mask_max_error: "== 0"
+  measured_artifact_strength: "within dynamic bounds"
+  fingerprint_score: "<= tau_fp"
+  support_overlap: ">= 0.90"
+
+artifact_strength_bounds:
+  lower: "max(0.01, 0.25 * a)"
+  upper: "min(0.50, 1.75 * a)"
+
+quality_weight:
+  formula: "q = exp(mean(log(max(component, eps))))"
+  components: ["q_fd", "q_id", "q_lm", "q_parse", "q_strength", "q_fp", "q_support"]
+  epsilon: 1.0e-6
+  dtype: float32
+  range: [0.0, 1.0]
+  is_label: false
+
+recipe_match:
+  status: not_applicable
+  reason: "M9 PromptHead does not exist in M8; no prompt score is invented"
+
+# Unchanged. Never re-declared after seeing a v3 acceptance count.
+operational_minimums:
+  candidates: 1120
+  accepted_total: 400
+  accepted_physics: 200
+  accepted_gpat: 100
+  accepted_live_casia: 100
+  accepted_live_msu: 100
+  require_all_artifact_types: 8
+  require_all_regions: 9
+  require_same_and_cross_domain_gpat: true
+
+determinism:
+  runs: 2
+  metric_tolerance: 1.0e-6
+  thresholds_must_match_exactly: true
+  required_mismatch_count: 0
+
+quality_models:
+  detector:
+    backend: scrfd_10g_bnkps
+    sha256: "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+    input_size: 320
+    threshold: 0.5
+  parsing:
+    backend: facexformer
+    revision: "fd12148d0b19"
+    sha256: "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+  identity:
+    backend: adaface_ir50
+    revision: "60a65befbcf7"
+    sha256: "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
