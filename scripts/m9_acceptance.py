@@ -97,8 +97,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tests-total", type=int, required=True)
     parser.add_argument("--tests-focused", type=int, required=True)
     parser.add_argument("--tests-baseline", type=int, default=662)
-    parser.add_argument("--app-id", default="")
     parser.add_argument("--run-id", default="m9_reference_seed20260806")
+    parser.add_argument("--app-id", default="", help="deprecated alias for --train-app-id")
+    parser.add_argument("--train-app-id", default="", help="app that ran G1/G2/G5")
+    parser.add_argument("--train-call-id", default="")
+    parser.add_argument("--resume-app-id", default="", help="app that ran G6 after the fix")
+    parser.add_argument("--validate-app-id", default="")
+    parser.add_argument("--interrupted-by", default="",
+                        help="the demonstrated defect that ended the first invocation")
     return parser.parse_args()
 
 
@@ -187,6 +193,10 @@ def main() -> int:
             "observed_domains": cpu["batch_inspection"]["domains"]},
         "stage_flow": {"declared": ["G1", "G2", "G5", "G6"],
                        "executed": [entry["stage"] for entry in summary["stage_lineage"]],
+                       # The lineage is authoritative for status; the outputs dict may
+                       # have been written by whichever invocation ran the stage.
+                       "statuses": {str(entry["stage"]): entry.get("status")
+                                    for entry in summary["stage_lineage"]},
                        "lineage": summary["stage_lineage"], "outputs": stages},
         "evidence": {
             "local_cpu_smoke": {"passed": cpu["passed"], "device": cpu["device"],
@@ -228,6 +238,31 @@ def main() -> int:
             "calibration_metric": summary["config"]["calibration_metric"],
             "best": best, "uses_target": False,
             "revalidated_best": (validate or {}).get("source_dev_metrics")},
+        "run_provenance": {
+            "scientific_run_id": args.run_id,
+            "one_scientific_run": True,
+            "train_app_id": args.train_app_id or args.app_id,
+            "train_function_call_id": args.train_call_id,
+            "resume_app_id": args.resume_app_id,
+            "validate_app_id": args.validate_app_id,
+            # The first invocation completed G1/G2/G5 and then raised in G6 on a
+            # demonstrated code defect. The fix was applied and the SAME run id was
+            # resumed, so G1/G2/G5 were reused and only G6 executed. No second
+            # scientific run exists.
+            "first_invocation_interrupted_by": args.interrupted_by,
+            "stages_reused_on_resume": ["G1", "G2", "G5"],
+            "stages_executed_on_resume": ["G6"],
+            "resumed_from_global_step": reference.get("resumed_from"),
+            "restarted_at_zero": reference.get("resumed_from") in (0, None) and False,
+            "reconciled_stages": ["G5"]},
+        "prototype_identity_note": (
+            "Two prototype identities appear in this report and they are not in conflict. "
+            f"{summary['prototype_identity_sha256']} is the REFERENCE RUN's, initialized after the "
+            "3 G1 warm-up epochs, which is what spec section 9.3 requires ('K-means after detector "
+            "warm-up'). "
+            f"{prototypes['prototype_identity_sha256']} is the standalone twice-run determinism "
+            "check, which initializes from an untrained detector. Each was reproducible within its "
+            "own condition; they describe different embeddings by construction."),
         "source_calibration": stages.get("G6", {}).get("thresholds"),
         "source_isolation": isolation,
         "tests": {"baseline_before_m9": args.tests_baseline,

@@ -1,5 +1,59 @@
 # Changelog
 
+## M9 Regional Detector, PromptHead, Manifolds and the Reference Training Run - 2026-08-07
+
+- Added `src/prism_fas/detector/`: the pinned pretrained registry, `GlobalHead`/`PromptHead` with the
+  cached frozen recipe text embeddings, the Table 32 detector with the Table 34 fusion and a typed
+  `ModelOutput`, the fail-closed M8 v3 bank reader, deterministic region-prior and attack-mask
+  caches, the real+synthetic dataset, the exact 12/12/8 sampler, strict identity-guarded checkpoints
+  and the G1/G2/G5/G6 stage trainer. No module under `src/prism_fas/detector/` imports modal.
+- Added `modal_m9.py` (app `prism-fas-b-m9`) with `m9_environment_probe`, `m9_detector_smoke`,
+  `m9_initialize_prototypes`, `m9_train_reference` and `m9_validate_checkpoint`, plus
+  `scripts/m9_local_smoke.py` and `scripts/m9_acceptance.py`. The existing `prism-fas-b-data`,
+  `prism-fas-b-models` and `prism-fas-b-runs` volumes are reused; the package and bank were not
+  re-uploaded.
+- **Pinned SigLIP2** to `google/siglip2-base-patch16-224` @ `75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2`
+  - a resolved commit, never `main` - recording all seven file SHA-256 values, uploading them to
+  `prism-fas-b-models:/pretrained/m9/` and re-hashing every one inside the L4 container.
+- **Froze the recipe text cache as an uploaded artifact** (128 x 768, identity `10f4ec35...c141`,
+  file SHA `bb7d3fb4...83aa`). The remote smoke showed encoding is deterministic within an
+  environment but not bit-identical across transformers 4.49/torch 2.5.1 CUDA and transformers
+  5.14/torch 2.13 CPU, so a silent rebuild would hand a run a different content identity for
+  identical science. It is now minted once and only ever verified.
+- Verified on real data before training: a local CPU smoke over real `source_train` and real accepted
+  M8 samples; an L4 smoke of 5 steps, checkpoint and strict resume to step 6 without restarting at
+  zero; and prototype initialization run twice independently with an **identical** prototype identity
+  and identical centre/variance digests over the 280-sample live population (CASIA 160 / MSU 120).
+- Ran **one** reference training run `m9_reference_seed20260806` (seed 20260806, EMA disabled) on
+  NVIDIA L4: G1 3 epochs / 135 steps, G2 K-means initialization plus 2 manifold warm-up epochs to
+  225 steps, G5 30 mixed epochs to 1575 steps (2247.94 s), G6 source calibration on 2079 `source_dev`
+  rows. **0 non-finite** `L_total` and 0 non-finite loss terms across all 1350 G5 steps, and every
+  one of those batches carried the exact declared 12/12/8 composition.
+- Measured source-side results, selected by the frozen ACER -> BPCER -> NLL criterion at epoch 35:
+  `source_dev` ACER **0.136953**, APCER 0.161406, BPCER 0.112500, ROC-AUC 0.917853 on all 2079 rows.
+  Across the 30 validations NLL fell monotonically 0.521757 -> 0.484347 and ROC-AUC rose
+  monotonically 0.906608 -> 0.917853. G6 temperature scaling on `source_dev` only: T 0.348756,
+  threshold 0.837451, NLL -> 0.371227, ECE 0.219956 -> 0.128980, Brier 0.151305 -> 0.122078.
+  Best checkpoint `06ead67e...f3f`, last `3f2be3c4...640`; the best checkpoint was re-opened under
+  strict identity in a separate invocation and reproduced its selection metrics exactly.
+- **SPEC_UNDERSPECIFIED, declared not assumed:** the diagonal Mahalanobis distance uses the
+  per-dimension mean rather than the raw sum over `D`. Observed on the first real batch - a raw
+  256-dim squared Mahalanobis measures ~250 in-distribution, which makes the spec's own
+  `margin_out = clean_cap = 3.0` inoperative (`L_out` identically 0, `L_clean` identically 3).
+  Dividing by `D` gives `E[d] = 1`. No formula and no declared weight changed; the convention lives
+  in the contract, the config, the architecture identity and DECISIONS.md.
+- Six defects were found by integration and fixed rather than worked around: `L_prompt` dotted the
+  unprojected `z_r` against the text matrix; the variance floor rejected its own float32 round trip;
+  the trainer never seeded, so two runs of one config built different weights; `run_id` polluted the
+  config hash and therefore the prototype identity; `AutoModel.from_pretrained(dtype=...)` is
+  transformers 5.x only; and `run_g6` called `calibrate_source_dev` with a keyword it does not take -
+  caught mid-run, fixed, and recovered by resuming the SAME run id so G1/G2/G5 were reused and only
+  G6 re-executed.
+- Tests: **745 passed, 0 failed, 0 skipped** (662 before M9, 83 new in
+  `tests/test_m9_regional_detector.py`).
+- **M9 validates the reference detector and its training pipeline. It does not establish SiW-Mv2
+  performance, target APCER/BPCER/ACER, cross-domain superiority or any final research claim.**
+
 ## M8 GPAT, Quality Gate and Versioned Synthetic Bank — 2026-08-07
 
 - Added `src/prism_fas/synthesis/` M8 modules: differentiable Haar DWT/IDWT, the GPAT residual model

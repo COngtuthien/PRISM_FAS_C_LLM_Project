@@ -1,12 +1,69 @@
 # Project status
 
-- Current milestone: **M8 COMPLETED** — GPAT residual generator, source-only quality calibration
-  (three frozen versions), the 1120-candidate quality gate and the frozen versioned synthetic bank
-  `prism_synthetic_bank_m8_v3_e84c78cd2a9b`. **M9 is NOT STARTED.**
-- M0–M8: COMPLETED; M9: NOT STARTED.
+- Current milestone: **M9 COMPLETED** — the PRISM regional CNN-VLM detector, PromptHead over frozen
+  SigLIP2 recipe-text embeddings, nine regional multi-prototype real manifolds, the Table 34 fusion,
+  the nine declared losses, and ONE reference training run `m9_reference_seed20260806` on NVIDIA L4.
+  **M10 is NOT STARTED.**
+- M0–M9: COMPLETED; M10: NOT STARTED.
+- M9 validates the implementation and training of the reference detector. M9 does **not** establish
+  SiW-Mv2 performance, target APCER/BPCER/ACER, cross-domain superiority, ablation superiority or any
+  final research claim; those belong to M10.
 - M3A package foundation and deterministic quality priors: **COMPLETED**.
 - M3B model-dependent priors: **COMPLETED**.
 - Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
+
+## M9 reference detector (m9_reference_seed20260806)
+
+One configuration, one seed (20260806), one run. EMA disabled and reported. No K search, no
+baselines, no ablations, no multi-seed statistics — those are M10.
+
+| Component | Value |
+|---|---|
+| Local branch | ConvNeXt V2 Atto `convnextv2_atto.fcmae_ft_in1k`, weight SHA `6389c2f5…7ebb` |
+| Global branch | SigLIP2 Base P16-224 **frozen**, `google/siglip2-base-patch16-224` @ `75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2` |
+| SigLIP2 identity | `7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822` (all 7 files re-hashed in-container) |
+| Recipe text cache | frozen artifact, identity `10f4ec35…c141`, file SHA `bb7d3fb4…83aa`, 128 x 768, never rebuilt at runtime |
+| Architecture identity | `d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0` |
+| Parameters | trainable **4,135,050**; frozen SigLIP2 vision tower 92,884,224 (outside the checkpoint) |
+| Prototypes | K=4 per region, D=256, diagonal covariance, eps 1e-4, identity `f74969c31f474957efb075b1d5a1c12297ed082d1ac9b744b745428e97b1813f` |
+| Prototype population | 280 `source_train` LIVE only — CASIA 160 / MSU 120; no spoof, synthetic, source_dev or target |
+
+Stage flow, all COMPLETED: **G1** 3 warm-up epochs / 135 steps (244.35 s) -> **G2** K-means
+initialization + 2 manifold warm-up epochs / 225 steps (47.67 s) -> **G5** 30 mixed epochs to
+1575 steps (2247.94 s) -> **G6** source calibration on 2079 `source_dev` rows (29.64 s, no gradient).
+
+Training integrity: **0 non-finite** `L_total` and 0 non-finite loss terms across all 1350 G5 steps;
+every one of those batches carried exactly the declared 12 real live / 12 real spoof / 8 synthetic
+composition.
+
+### Measured source-side results (source_dev only, 2079 rows: 400 live / 1679 spoof)
+
+Checkpoint selection by the frozen criterion ACER -> BPCER -> calibration NLL, best at epoch 35:
+
+| Metric | Value |
+|---|---|
+| source_dev ACER | **0.136953** |
+| source_dev APCER | 0.161406 |
+| source_dev BPCER | 0.112500 |
+| source_dev ROC-AUC | 0.917853 |
+| source_dev NLL (uncalibrated) | 0.484347 |
+
+G6 temperature scaling, fitted on `source_dev` only: temperature **0.348756**, selected threshold
+**0.837451**; NLL 0.484347 -> **0.371227**, ECE 0.219956 -> **0.128980**, Brier 0.151305 -> **0.122078**.
+EER 0.144865. Confusion at the selected threshold: TP 1408, FN 271, TN 355, FP 45.
+
+Across the 30 validations NLL and ROC-AUC improved monotonically (0.521757 -> 0.484347 and
+0.906608 -> 0.917853) and ACER fell from 0.150533 to 0.136953 — the "source-dev training stable"
+bar of spec Table 62.
+
+Checkpoints: best `06ead67ebbb04d26016016fbc930092d8dd032d18448527e9f9419df9f967f3f`,
+last `3f2be3c4a3608cc2015d5abfbbdb51caa792f098b381e460e6494da023b81640`. The best checkpoint was
+re-opened under strict identity in a separate Modal invocation and reproduced the selection metrics
+exactly.
+
+Source isolation for the run: `source_train` opened, the validated M8 v3 bank opened, `source_dev`
+opened for validation/calibration only and producing **no** gradient; `target_test`, target labels,
+raw datasets, M8 rejected candidates and the M8 v1/v2 banks all **not** used.
 
 ## M3B model priors (prism_data_v1_m3b)
 

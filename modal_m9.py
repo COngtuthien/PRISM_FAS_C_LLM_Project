@@ -247,8 +247,14 @@ def m9_train_reference(run_id: str = REFERENCE_RUN_ID, resume: bool = True) -> d
     # A resumed run only executes the stages that were still outstanding, so the
     # per-stage evidence is taken from the restored lineage and then overlaid with
     # whatever this invocation actually produced. The report is complete either way.
-    stages = {**{str(entry["stage"]): {"status": entry.get("status"), **(entry.get("output_hashes") or {})}
-                 for entry in trainer.lineage.payload()}, **stages}
+    merged: dict = {}
+    for entry in trainer.lineage.payload():
+        merged[str(entry["stage"])] = {"status": entry.get("status"),
+                                       **(entry.get("output_hashes") or {})}
+    # Merge per stage rather than replacing, so a stage this invocation ran keeps the
+    # lineage's status instead of dropping it.
+    for name, value in stages.items(): merged[name] = {**merged.get(name, {}), **value}
+    stages = merged
     summary = trainer.run_summary()
     isolation = source_isolation_report(trainer, source_dev_opened=True)
     runs_volume.commit()

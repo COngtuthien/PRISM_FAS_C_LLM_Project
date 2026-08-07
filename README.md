@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M8 complete; M9 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M9 complete; M10 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -224,6 +224,57 @@ subset with 0 mismatches, and its identity survives the archive round trip to Wi
 
 **M8 produces synthetic training material, not a detector result.** No detector was trained on this
 bank, no target label was read, and no FAS or target-test performance is claimed.
+
+## M9 regional detector, PromptHead, manifolds and the reference training run
+
+M9 implements the PRISM detector exactly as the spec states it and trains **one** reference
+configuration on source data only.
+
+```
+F_local            = ConvNeXtV2(x_rgb)                      # Atto, weight SHA 6389c2f5...7ebb
+T_global, z_global = SigLIP2.image_encoder(x_rgb)           # Base P16-224, FROZEN
+q_r = RegionQuery(parsing_r, landmarks_r, learnable_token_r)
+z_r = CrossAttention(q_r, K=F_local, V=F_local) + RegionPool(T_global, parsing_r)
+p_global = GlobalHead(z_global);  d_r = RealManifold.distance(z_r)
+p_prompt = PromptHead(z_r, frozen_recipe_text_embeddings)
+s_region = TopKMean(normalize(d_r), k=2)
+s_final  = 1 - (1 - p_global) * (1 - s_region) * (1 - p_prompt_spoof)
+```
+
+The nine region priors are **soft masks**, never nine hard crops: the image is encoded once and the
+regions are read out by prior-biased attention and prior-weighted pooling. SigLIP2 is pinned to
+`google/siglip2-base-patch16-224` @ `75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2` with all seven file
+SHA-256 values re-hashed inside the container; it is frozen and kept out of the checkpoint, bound by
+its SHA identity instead. PromptHead scores the attacked regions against **cached** frozen recipe
+text embeddings - a 128 x 768 uploaded artifact, so no text encoder, network call or LLM is involved
+at train or inference time, and the M8 `recipe_match = not_applicable` placeholder is never used as
+a target.
+
+Training runs the spec stages **G1 -> G2 -> G5 -> G6** (G7/G8 are M10, where target data first
+becomes readable). Batches are exactly 12 real live / 12 real spoof / 8 accepted-synthetic,
+CASIA/MSU-balanced on both real partitions, deterministic from `seed + epoch` via SHA-256.
+Prototypes are K=4 per region over the 280 `source_train` LIVE samples only (CASIA 160 / MSU 120);
+running the initialization twice reproduces an identical prototype identity.
+
+The single reference run `m9_reference_seed20260806` (seed 20260806, EMA disabled) completed all
+four stages on an NVIDIA L4 with **0 non-finite losses** across all 1350 G5 steps and every batch at
+the declared composition. Selected by the frozen `source_dev` ACER -> BPCER -> NLL criterion:
+
+| source_dev (2079 rows) | ACER | APCER | BPCER | ROC-AUC |
+|---|---|---|---|---|
+| best checkpoint, epoch 35 | **0.136953** | 0.161406 | 0.112500 | 0.917853 |
+
+G6 fits temperature scaling on `source_dev` alone (T 0.348756, threshold 0.837451), improving NLL
+0.484347 -> 0.371227 and ECE 0.219956 -> 0.128980.
+
+Contracts: [docs/M9_DETECTOR_CONTRACT.md](docs/M9_DETECTOR_CONTRACT.md),
+[docs/M9_TRAINING_CONTRACT.md](docs/M9_TRAINING_CONTRACT.md).
+
+**M9 validates the implementation and training of the reference detector - nothing more.** It does
+not establish SiW-Mv2 performance, target APCER/BPCER/ACER, cross-domain generalization, ablation
+superiority or any final research claim. `source_dev` was read only for checkpoint selection and
+source calibration and produced no gradient; `target_test` was never opened. The experiment matrix
+and the controlled blind target evaluation are M10.
 
 ## What is not in this repository
 

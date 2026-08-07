@@ -10,8 +10,8 @@
 | M5 | B00 local baseline and source calibration | trainer/tests | target prediction report | **completed** |
 | M6 | Modal wrapper and parity smoke test | modal modules/tests | PC/Modal parity | **completed** |
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
-| M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | planned |
-| M9 | Regional CNN–ViT fusion/manifolds/losses | model modules/tests | loss checks | planned |
+| M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | **completed** |
+| M9 | Regional CNN–ViT fusion/manifolds/losses | detector modules; 83 focused tests | toy tests + source-dev training stable | **completed** |
 | M10 | Experiment matrix and report | experiments/tests | reproducible report | planned |
 
 Each milestone requires: objective, implementation tasks, expected files, unit/integration tests, a command, and an acceptance report. Detailed task expansion occurs only when that milestone is assigned.
@@ -162,4 +162,38 @@ M8 is COMPLETED: the frozen bank is `prism_synthetic_bank_m8_v3_e84c78cd2a9b`
 M8 delivers **synthetic training material and a sample weight**, not a detector result. No detector
 was trained on it and no target label was read, so no FAS or target-test claim is made.
 
-Next milestone: M9 — PromptHead and detector training (NOT STARTED).
+## M9 components (completed)
+
+| Component | Status |
+|---|---|
+| SigLIP2 Base P16-224 pinned to revision `75de2d55…` with all seven file SHA-256 values | COMPLETED |
+| Frozen recipe text cache as an uploaded artifact (128 x 768, never rebuilt at runtime) | COMPLETED |
+| `GlobalHead` and `PromptHead` over the frozen recipe text embeddings | COMPLETED |
+| Table 32 architecture with soft region priors (never nine crops) and typed `ModelOutput` | COMPLETED |
+| Table 34 fusion with every evidence term exposed by name | COMPLETED |
+| Nine regional multi-prototype real manifolds, K=4, diagonal covariance + epsilon floor | COMPLETED |
+| All nine Table 35 losses, `q` weighting only the declared synthetic bracket | COMPLETED |
+| Fail-closed read-only M8 v3 bank reader, accepted rows only, loose/shard parity | COMPLETED |
+| Deterministic region-prior and attack-mask caches | COMPLETED |
+| Exact 12/12/8 domain-balanced sampler, deterministic from seed + epoch | COMPLETED |
+| Strict identity-guarded checkpoints, no `strict=False` path | COMPLETED |
+| G1/G2/G5/G6 stage machine and the Table 40 status machine | COMPLETED |
+| Local CPU real-data smoke | COMPLETED |
+| L4 smoke: 5 steps, checkpoint, strict resume to step 6 | COMPLETED |
+| Prototype initialization run twice — identical identity and digests | COMPLETED |
+| Reference training run `m9_reference_seed20260806` (G1 -> G2 -> G5 -> G6) | COMPLETED |
+| Source calibration on `source_dev` only, no gradient | COMPLETED |
+| Focused M9 tests (83) and full suite (745) | COMPLETED |
+
+M9 is COMPLETED: the reference detector trained end to end with 0 non-finite losses across all
+1350 G5 steps, every batch at the exact declared 12/12/8 composition, and monotonically improving
+`source_dev` NLL and ROC-AUC. Best checkpoint by the frozen ACER -> BPCER -> NLL criterion:
+`source_dev` ACER **0.136953**, APCER 0.161406, BPCER 0.112500, ROC-AUC 0.917853 on all 2079
+`source_dev` rows.
+
+M9 delivers **a verified reference detector and training pipeline**, not a target result. No target
+sample or target label was read, so no SiW-Mv2, cross-domain, ablation or state-of-the-art claim is
+made.
+
+Next milestone: M10 — experiment matrix, ablations and the controlled blind target evaluation
+(NOT STARTED).
