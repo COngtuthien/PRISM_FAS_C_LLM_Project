@@ -226,6 +226,31 @@ def write_recipe_text_cache(path: Path, cache: RecipeTextCache) -> dict[str, Any
             "embedding_dim": cache.dim}
 
 
+RECIPE_TEXT_CACHE_FILENAME = "recipe_text_cache.npz"
+# Candidate locations, relative to a weight root, in the order they are tried.
+RECIPE_TEXT_CACHE_RELPATHS = (RECIPE_TEXT_CACHE_FILENAME,
+                              f"m9/{RECIPE_TEXT_CACHE_FILENAME}",
+                              f"pretrained/m9/{RECIPE_TEXT_CACHE_FILENAME}")
+
+
+def resolve_recipe_text_cache(weight_root: Path, *, expected_identity: str | None = None) -> RecipeTextCache:
+    """Load the FROZEN recipe text cache artifact that ships beside the SigLIP2 pin.
+
+    The cache is an artifact, not a recomputation. Encoding 128 descriptions with a
+    frozen tower is deterministic within one environment but not bit-identical
+    across torch/transformers builds or across CPU and GPU, so recomputing it
+    remotely would produce a different content identity for the same science. It is
+    therefore built once, uploaded next to the weights, and only ever verified.
+    """
+    root = Path(weight_root)
+    path = next((root / relative for relative in RECIPE_TEXT_CACHE_RELPATHS
+                 if (root / relative).is_file()), None)
+    if path is None:
+        raise TextCacheError(f"the frozen recipe text cache is missing under {root.name}; "
+                             f"looked for {list(RECIPE_TEXT_CACHE_RELPATHS)}")
+    return read_recipe_text_cache(path, expected_identity=expected_identity)
+
+
 def read_recipe_text_cache(path: Path, *, expected_identity: str | None = None) -> RecipeTextCache:
     """Load and re-derive. The stored identity is recomputed from the stored
     binding, so a hand-edited cache cannot claim an identity it does not have."""

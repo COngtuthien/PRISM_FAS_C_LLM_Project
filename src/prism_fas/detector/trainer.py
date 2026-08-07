@@ -51,6 +51,23 @@ class TrainerError(RuntimeError):
     """The M9 trainer cannot proceed as declared."""
 
 
+def seed_everything(seed: int) -> dict[str, Any]:
+    """Seed python, numpy and torch from the declared run seed.
+
+    Reuses the M5 seeding helper rather than adding a second convention.
+    """
+    from prism_fas.train.seed import seed_everything as _seed
+    _seed(int(seed))
+    return {"seed": int(seed)}
+
+
+def configure_determinism() -> dict[str, Any]:
+    """cuDNN deterministic, benchmark off (`configs/train/m9_reference.yaml`)."""
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    return {"cudnn_deterministic": True, "cudnn_benchmark": False}
+
+
 @dataclass(frozen=True)
 class M9TrainingConfig:
     """Spec section 10.3 (Table 37) plus the declared M9 schedule."""
@@ -89,13 +106,24 @@ class M9TrainingConfig:
     def total_epochs(self) -> int:
         return self.warmup_detector_epochs + self.manifold_warmup_epochs + self.mixed_epochs
 
-    def payload(self) -> dict[str, Any]:
-        body = {key: value for key, value in vars(self).items()}
+    # `run_id` is a run LABEL, not a configuration value. Spec section 11.1 makes the
+    # run id the thing you change when the science changes, so folding it into the
+    # config hash would make every identity derived from that hash — including the
+    # prototype identity — differ between two runs of the identical configuration.
+    HASH_EXCLUDED_FIELDS = ("run_id",)
+
+    def payload(self, *, include_run_id: bool = False) -> dict[str, Any]:
+        body = {key: value for key, value in vars(self).items()
+                if include_run_id or key not in self.HASH_EXCLUDED_FIELDS}
         body["schema_version"] = TRAINER_SCHEMA_VERSION
         body["total_epochs"] = self.total_epochs
         return body
 
     def hash(self) -> str: return config_hash(self.payload())
+
+    def resolved(self) -> dict[str, Any]:
+        """The full resolved config, run label included, for `run.json`."""
+        return {**self.payload(include_run_id=True), "config_hash": self.hash()}
 
 
 def stage_for_epoch(epoch: int, config: M9TrainingConfig) -> str:
@@ -151,6 +179,9 @@ class M9Trainer:
     device: str = "cpu"
     text_cache_path: Path | None = None
     validation_limit: int | None = None
+    # Opt-in, and only used to MINT the frozen recipe text cache artifact. A
+    # reference run always loads the uploaded artifact instead.
+    allow_text_cache_build: bool = False
     progress: Callable[[dict[str, Any]], None] | None = None
 
     def __post_init__(self) -> None:
@@ -163,6 +194,13 @@ class M9Trainer:
         self.run_root.mkdir(parents=True, exist_ok=True)
         self.cache_root.mkdir(parents=True, exist_ok=True)
         self.loader_config = load_loader_config(self.loader_config_path)
+        # Seed BEFORE the model is built (spec section 12.7). Without this the head
+        # and fusion weights come from ambient RNG state, so two independent runs of
+        # the same config produce different initial embeddings and therefore
+        # different prototypes — which is exactly what the twice-run prototype
+        # initialization check is there to catch.
+        self.seed_state = seed_everything(int(self.config.seed))
+        self.determinism = configure_determinism()
         self.siglip = SigLIP2Artifacts.resolve(self.weight_root)
         self.convnext_path = resolve_convnext_weight(self.weight_root)
         self.convnext_sha256 = sha256_file(self.convnext_path)
@@ -200,15 +238,24 @@ class M9Trainer:
 
     # --- setup helpers ------------------------------------------------------
     def _text_cache(self) -> Any:
-        """Reuse a cached matrix when its identity still binds, else rebuild it
-        from the frozen bank and the verified SigLIP2 — deterministically."""
-        from .heads import build_recipe_text_cache, write_recipe_text_cache
-        path = Path(self.text_cache_path or (self.cache_root / "m9_recipe_text_cache.npz"))
-        if path.is_file():
-            try: return read_recipe_text_cache(path)
-            except Exception: pass                    # noqa: BLE001 - rebuild rather than trust
+        """Load the FROZEN recipe text cache artifact.
+
+        It is never rebuilt during training. Encoding the 128 descriptions is
+        deterministic within one environment but not bit-identical across
+        torch/transformers builds or across CPU and GPU, so a silent rebuild would
+        hand the run a different content identity for the same science — which is
+        exactly the drift the identity guard exists to catch. `allow_text_cache_build`
+        is opt-in and used only to MINT the artifact, never inside a reference run.
+        """
+        from .heads import build_recipe_text_cache, resolve_recipe_text_cache, write_recipe_text_cache
+        if self.text_cache_path is not None:
+            return read_recipe_text_cache(Path(self.text_cache_path))
+        try:
+            return resolve_recipe_text_cache(self.weight_root)
+        except Exception:                             # noqa: BLE001 - reported below if not allowed
+            if not self.allow_text_cache_build: raise
         cache = build_recipe_text_cache(self.recipe_bank_root, self.siglip, device=self.device)
-        write_recipe_text_cache(path, cache)
+        write_recipe_text_cache(self.cache_root / "recipe_text_cache.npz", cache)
         return cache
 
     def _amp(self) -> tuple[Any, bool]:
@@ -593,7 +640,7 @@ class M9Trainer:
                               stage=self.stage, identity=self.identity, sampler_state=self.sampler_state(),
                               prototype_identity=self.prototype_identity, best_metrics=self.best_metrics,
                               stage_lineage=self.lineage.payload(), history=self.history,
-                              resolved_config=self.config.payload(), ema_enabled=self.config.ema_enabled)
+                              resolved_config=self.config.resolved(), ema_enabled=self.config.ema_enabled)
         return sha
 
     def resume(self, kind: str = "last") -> dict[str, Any]:
@@ -678,9 +725,10 @@ class M9Trainer:
                 "stage_lineage_identity": self.lineage.identity(),
                 "prototype_identity_sha256": self.prototype_identity,
                 "best_metrics": dict(self.best_metrics), "ema_enabled": self.config.ema_enabled,
+                "seed": int(self.config.seed), "determinism": dict(self.determinism),
                 "amp": {"enabled": self.amp_enabled, "dtype": str(self.amp_dtype)},
                 "parameter_counts": self.model.parameter_counts(),
-                "dataset": self.dataset.summary(), "config": self.config.payload(),
+                "dataset": self.dataset.summary(), "config": self.config.resolved(),
                 "git_commit": git_commit(), "target_test_opened": False}
 
 

@@ -157,8 +157,11 @@ class SigLIP2Artifacts:
         """
         import torch
         from transformers import AutoModel
-        model = AutoModel.from_pretrained(str(self.root), local_files_only=True,
-                                          dtype=dtype or torch.float32)
+        # The dtype kwarg was renamed between transformers 4.x (`torch_dtype`) and
+        # 5.x (`dtype`), so the load stays at the checkpoint's own fp32 and the cast
+        # happens afterwards. Both versions then behave identically.
+        model = AutoModel.from_pretrained(str(self.root), local_files_only=True)
+        if dtype is not None: model = model.to(dtype)
         model.eval()
         for parameter in model.parameters(): parameter.requires_grad_(False)
         return model.to(device)

@@ -31,6 +31,8 @@ EXPECTED_BANK_IDENTITY = "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be9
 EXPECTED_BANK_ID = "prism_synthetic_bank_m8_v3_e84c78cd2a9b"
 EXPECTED_RECIPE_BANK_IDENTITY = "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
 EXPECTED_SIGLIP2_IDENTITY = "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
+EXPECTED_TEXT_CACHE_IDENTITY = "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+EXPECTED_TEXT_CACHE_SHA256 = "bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa"
 GPU_ALLOW_LIST = ("L4", "L40S")
 DEFAULT_GPU = "L4"
 SMOKE_RUN_ID = "m9_reference_smoke_seed20260806"
@@ -114,7 +116,17 @@ def _verify_inputs() -> dict:
         raise RuntimeError(f"recipe bank identity {recipe_identity} != {EXPECTED_RECIPE_BANK_IDENTITY}")
     from prism_fas.detector.pretrained import resolve_convnext_weight, sha256_file
     convnext = sha256_file(resolve_convnext_weight(Path(REMOTE_WEIGHT_ROOT)))
+    # The frozen recipe text cache is an uploaded artifact, verified by both its file
+    # bytes and its own recomputed identity. It is never rebuilt inside a run.
+    cache_path = Path(REMOTE_WEIGHT_ROOT) / "recipe_text_cache.npz"
+    cache_sha = sha256_file(cache_path)
+    if cache_sha != EXPECTED_TEXT_CACHE_SHA256:
+        raise RuntimeError(f"recipe text cache SHA {cache_sha} != pinned {EXPECTED_TEXT_CACHE_SHA256}")
+    from prism_fas.detector.heads import resolve_recipe_text_cache
+    cache = resolve_recipe_text_cache(Path(REMOTE_WEIGHT_ROOT), expected_identity=EXPECTED_TEXT_CACHE_IDENTITY)
     return {"package_identity": package_identity, "package_status": lock["status"],
+            "recipe_text_cache_sha256": cache_sha, "recipe_text_cache_identity": cache.identity,
+            "recipe_text_cache_recipes": cache.count, "recipe_text_cache_rebuilt": False,
             "package_split_counts": lock["per_split_counts"],
             "m8_bank_id": str(bank_lock["bank_id"]), "m8_bank_identity": bank_identity,
             "m8_bank_accepted": int(bank_lock["accepted_count"]),
@@ -264,21 +276,29 @@ def m9_validate_checkpoint(run_id: str = REFERENCE_RUN_ID, kind: str = "best") -
 
 @app.local_entrypoint()
 def main(action: str = "probe", run_id: str = "", steps: int = 5, resume_steps: int = 6,
-         repeats: int = 2, kind: str = "best", resume: bool = True) -> None:
-    """Thin dispatcher. Every action calls exactly one remote function."""
+         repeats: int = 2, kind: str = "best", resume: bool = True, report: str = "") -> None:
+    """Thin dispatcher. Every action calls exactly one remote function.
+
+    `--report` writes the returned JSON locally so the evidence is a file rather
+    than console scrollback that has to be re-run to recover.
+    """
     if action == "probe":
-        print(json.dumps(m9_environment_probe.remote(), indent=1, sort_keys=True))
+        result = m9_environment_probe.remote()
     elif action == "smoke":
-        print(json.dumps(m9_detector_smoke.remote(steps=steps, resume_steps=resume_steps,
-                                                  run_id=run_id or SMOKE_RUN_ID), indent=1, sort_keys=True))
+        result = m9_detector_smoke.remote(steps=steps, resume_steps=resume_steps,
+                                          run_id=run_id or SMOKE_RUN_ID)
     elif action == "prototypes":
-        print(json.dumps(m9_initialize_prototypes.remote(
-            run_id=run_id or "m9_prototype_init_seed20260806", repeats=repeats), indent=1, sort_keys=True))
+        result = m9_initialize_prototypes.remote(run_id=run_id or "m9_prototype_init_seed20260806",
+                                                 repeats=repeats)
     elif action == "train":
-        print(json.dumps(m9_train_reference.remote(run_id=run_id or REFERENCE_RUN_ID, resume=resume),
-                         indent=1, sort_keys=True))
+        result = m9_train_reference.remote(run_id=run_id or REFERENCE_RUN_ID, resume=resume)
     elif action == "validate":
-        print(json.dumps(m9_validate_checkpoint.remote(run_id=run_id or REFERENCE_RUN_ID, kind=kind),
-                         indent=1, sort_keys=True))
+        result = m9_validate_checkpoint.remote(run_id=run_id or REFERENCE_RUN_ID, kind=kind)
     else:
         raise SystemExit(f"unknown action {action!r}; expected probe|smoke|prototypes|train|validate")
+    payload = json.dumps(result, indent=1, sort_keys=True, default=str)
+    if report:
+        Path(report).parent.mkdir(parents=True, exist_ok=True)
+        Path(report).write_text(payload, encoding="utf-8")
+        print(f"wrote {report}")
+    print(payload)

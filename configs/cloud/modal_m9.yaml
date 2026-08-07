@@ -62,6 +62,14 @@ pretrained:
   convnext:
     remote_path: "/vol/models/pretrained/m9/convnextv2_atto/model.safetensors"
     weight_sha256: "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+  recipe_text_cache:
+    # Minted once from the frozen M7 bank and the verified SigLIP2 text tower, then
+    # uploaded. Never rebuilt inside a run: the identity must be the same bytes in
+    # every environment.
+    remote_path: "/vol/models/pretrained/m9/recipe_text_cache.npz"
+    file_sha256: "bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa"
+    identity_sha256: "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+    rebuilt_at_runtime: false
 
 gpu:
   # One GPU. H100/H200/B200 are never requested; L40S is a documented fallback only

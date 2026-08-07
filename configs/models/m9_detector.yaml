@@ -112,7 +112,14 @@ model:
     tokenization: {padding: max_length, max_length: 64, truncation: true,
                    add_special_tokens: true, use_fast: false}
     normalization: l2
+    # The cache is a FROZEN ARTIFACT that ships beside the SigLIP2 pin, not a
+    # recomputation: encoding the 128 descriptions is deterministic within one
+    # environment but not bit-identical across torch/transformers builds or across
+    # CPU and GPU, so a run loads and verifies these bytes rather than rebuilding.
+    cache_file: recipe_text_cache.npz
+    cache_file_sha256: "bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa"
     cache_identity_sha256: "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+    rebuilt_at_runtime: false
     # The M8 quality-gate row `recipe_match = not_applicable` is an M8 placeholder
     # and is NEVER a PromptHead training target.
     m8_recipe_match_used_as_target: false
