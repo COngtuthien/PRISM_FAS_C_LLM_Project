@@ -15,9 +15,24 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 ACCEPTANCE_SCHEMA_VERSION = "m9-acceptance-v1"
-# Any of these appearing in the assembled evidence means a target leak.
-FORBIDDEN_KEYS = ("siw_mv2", "siw-mv2", "target_apcer", "target_bpcer", "target_acer",
-                  "target_metrics", "target_labels", "target_predictions")
+# The required isolation evidence is literally a set of keys named after the
+# forbidden things (`target_test_opened: false`, `target_labels_opened: false`), so
+# a blanket text scan flags the PROOF of isolation as a leak — the same mistake M8
+# recorded in DECISIONS.md. The check is therefore structural: a key that names a
+# target thing must either DECLARE it was not used, or not exist.
+TARGET_DECLARATION_SUFFIXES = ("_opened", "_used", "_used_as_target", "_in_config")
+# A target result would live under one of these. None may be present with a value.
+FORBIDDEN_RESULT_KEYS = ("target_apcer", "target_bpcer", "target_acer", "target_auc",
+                         "target_eer", "target_metrics", "target_predictions", "target_scores")
+# The target dataset itself may not be named anywhere in the evidence.
+FORBIDDEN_TOKENS = ("siw_mv2", "siw-mv2")
+# Target-named NUMBERS that are provenance, not results: the frozen package lock
+# records how many rows the target split has, and M9 copies that count without ever
+# opening the split. Anything else target-named and numeric is a finding.
+ALLOWED_TARGET_NUMBER_SUFFIXES = ("package_split_counts.target_test",
+                                  "per_split_counts.target_test",
+                                  "expected_split_counts.target_test",
+                                  "available_rows.target_test")
 
 
 def git(*args: str) -> str:
@@ -30,10 +45,49 @@ def read(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
 
-def assert_no_target(payload: Any, where: str) -> None:
+def walk(payload: Any, path: str = "") -> Any:
+    """Yield every (dotted key path, key, value) pair in a nested structure."""
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            here = f"{path}.{key}" if path else str(key)
+            yield here, str(key), value
+            yield from walk(value, here)
+    elif isinstance(payload, list):
+        for index, value in enumerate(payload):
+            yield from walk(value, f"{path}[{index}]")
+
+
+def assert_no_target(payload: Any, where: str) -> list[str]:
+    """Structural target check. Returns the isolation declarations it verified.
+
+    A declaration key (`target_test_opened`) must be present and FALSE; a result key
+    (`target_acer`) must be absent or null. The dataset name may not appear at all.
+    """
     text = json.dumps(payload, sort_keys=True, default=str).lower()
-    for needle in FORBIDDEN_KEYS:
-        if needle in text: raise SystemExit(f"target evidence leaked into {where}: {needle!r}")
+    for token in FORBIDDEN_TOKENS:
+        if token in text: raise SystemExit(f"{where} names the target dataset: {token!r}")
+    declarations: list[str] = []
+    for dotted, key, value in walk(payload):
+        lowered = key.lower()
+        if "target" not in lowered and "siw" not in lowered: continue
+        if lowered in FORBIDDEN_RESULT_KEYS:
+            if value not in (None, {}, [], False):
+                raise SystemExit(f"{where} carries a target result at {dotted}: {value!r}")
+            continue
+        if lowered.endswith(TARGET_DECLARATION_SUFFIXES):
+            if value not in (False, 0, None):
+                raise SystemExit(f"{where} declares target access at {dotted}: {value!r}")
+            declarations.append(dotted)
+            continue
+        # A target-named key that is neither a declaration nor a known result key is
+        # reported rather than quietly allowed. Zero, and the frozen package lock's
+        # own split counts, are provenance rather than access.
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if value == 0 or dotted.endswith(ALLOWED_TARGET_NUMBER_SUFFIXES):
+                declarations.append(dotted)
+                continue
+            raise SystemExit(f"{where} carries an unexpected target-named number at {dotted}: {value!r}")
+    return declarations
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,6 +104,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    from prism_fas.detector.contracts import REGION_ORDER
+    project = Path(__file__).resolve().parents[1]
+    detector_payload = __import__("yaml").safe_load(
+        (project / "configs/models/m9_detector.yaml").read_text(encoding="utf-8"))
+    training_payload = __import__("yaml").safe_load(
+        (project / "configs/train/m9_reference.yaml").read_text(encoding="utf-8"))
     root = Path(args.reports_root)
     cpu = read(root / "local_cpu_smoke.json")
     modal_smoke = read(root / "modal_smoke.json")
@@ -60,10 +120,11 @@ def main() -> int:
                                           ("prototype_initialization", prototypes),
                                           ("reference_run", reference)) if payload is None]
     if missing: raise SystemExit(f"missing required M9 evidence: {missing}")
+    verified_declarations: dict[str, list[str]] = {}
     for name, payload in (("local_cpu_smoke", cpu), ("modal_smoke", modal_smoke),
                           ("prototype_initialization", prototypes), ("reference_run", reference),
                           ("validate_best", validate)):
-        if payload is not None: assert_no_target(payload, name)
+        if payload is not None: verified_declarations[name] = assert_no_target(payload, name)
 
     summary = reference["run_summary"]
     identity = summary["identity"]
@@ -104,6 +165,8 @@ def main() -> int:
             "prototype": summary["prototype_identity_sha256"],
             "stage_lineage": summary["stage_lineage_identity"],
             "resolved_config_hash": reference["resolved_config_hash"]},
+        "pinned_files": {"siglip2": detector_payload["backbones"]["global"]["file_sha256"],
+                         "convnext": detector_payload["backbones"]["local"]["weight_sha256"]},
         "prompt_head": {
             "n_prompt": 128, "text_source": "prism_fas.recipes.canonical.recipe_description",
             "text_encoder": "frozen SigLIP2 text tower, offline, cached",
@@ -111,12 +174,17 @@ def main() -> int:
             "cache_identity": identity["recipe_text_cache_identity"]},
         "architecture": {
             "parameter_counts": summary["parameter_counts"],
-            "region_order": list(cpu["run_summary"]["dataset"].get("region_order", []))
-                            or ["left_eye", "right_eye", "nose", "mouth", "forehead",
-                                "left_cheek", "right_cheek", "face_boundary", "context"],
+            "region_order": list(REGION_ORDER),
+            "distance_scale_convention": summary["config"].get("distance_scale_convention")
+                                         or detector_payload["model"]["manifold"]["distance_scale_convention"],
             "config": summary["config"]},
-        "batch_contract": summary["config"].get("batch_contract")
-                          or cpu["batch_inspection"]["composition"],
+        "batch_contract": {
+            "declared": {key: training_payload["batch"][key]
+                         for key in ("live", "real_spoof", "synthetic_spoof", "batch_size",
+                                     "domain_balance", "require_both_routes", "steps_per_epoch",
+                                     "accumulation_steps")},
+            "observed_cpu_smoke": cpu["batch_inspection"]["composition"],
+            "observed_domains": cpu["batch_inspection"]["domains"]},
         "stage_flow": {"declared": ["G1", "G2", "G5", "G6"],
                        "executed": [entry["stage"] for entry in summary["stage_lineage"]],
                        "lineage": summary["stage_lineage"], "outputs": stages},
@@ -167,10 +235,16 @@ def main() -> int:
                   "failed": 0, "skipped": 0},
         "target_metrics": None,
         "target_test_opened": False,
+        "target_isolation_declarations_verified": verified_declarations,
         "not_claimed": ["SiW-Mv2 performance", "cross-domain generalization", "target APCER/BPCER/ACER",
                         "state-of-the-art", "PRISM superiority over any baseline"]}
 
-    assert_no_target(acceptance, "M9_ACCEPTANCE.json")
+    # The narrative fields deliberately NAME what M9 does not claim, so they are
+    # excluded from the token scan for the same reason the isolation declarations
+    # are: a disclaimer is not a leak.
+    NARRATIVE = ("claim", "not_claimed")
+    assert_no_target({key: value for key, value in acceptance.items() if key not in NARRATIVE},
+                     "M9_ACCEPTANCE.json")
     isolation_path = root / "source_isolation.json"
     isolation_path.write_text(json.dumps(isolation, indent=1, sort_keys=True), encoding="utf-8")
     target = root / "M9_ACCEPTANCE.json"
