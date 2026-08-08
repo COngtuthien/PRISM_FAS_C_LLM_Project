@@ -308,8 +308,17 @@ class GPATRoute:
     """
 
     def __init__(self, checkpoint_path: Path, config: dict[str, Any], *, expected_sha256: str,
-                 expected_identity: dict[str, str], device: str = "cpu"):
+                 expected_identity: dict[str, str], device: str = "cpu",
+                 conditioning_control: Any = None):
+        """`conditioning_control` is the ONE declared A02 scientific control, or None.
+
+        `None` — every ordinary M8/M9/B08/M10 path — checks the full identity,
+        `recipe_bank_identity` included, and fails closed on a mismatch. The control
+        is a typed, self-validating object, never a boolean, so a caller cannot ask
+        for the exemption without naming the exact frozen identities it applies to.
+        """
         import torch
+        from .conditioning_control import expected_identity_for
         from .gpat_checkpoint import load_checkpoint, sha256_file
         from .gpat_model import build_gpat_model
         actual = sha256_file(Path(checkpoint_path))
@@ -318,8 +327,11 @@ class GPATRoute:
         self.checkpoint_sha256 = actual
         self.binding = actual
         self.device = device
+        self.conditioning_control = conditioning_control
         self.model = build_gpat_model(config).to(device)
-        payload = load_checkpoint(Path(checkpoint_path), expected_identity=expected_identity)
+        payload = load_checkpoint(
+            Path(checkpoint_path),
+            expected_identity=expected_identity_for(expected_identity, control=conditioning_control))
         self.model.load_state_dict(payload["model_state"], strict=True)
         self.model.eval()
         for parameter in self.model.parameters(): parameter.requires_grad_(False)
@@ -354,6 +366,11 @@ class GPATRoute:
                            binding=self.checkpoint_sha256,
                            trace={"checkpoint_sha256": self.checkpoint_sha256,
                                   "architecture_hash": self.architecture_hash,
+                                  # Present only under the declared A02 control, so a
+                                  # sample generated out of the training conditioning
+                                  # distribution says so in its own record.
+                                  **({"conditioning_control": self.conditioning_control.policy_payload()}
+                                     if self.conditioning_control is not None else {}),
                                   "ll_invariant_max_abs_error": output.ll_invariant_error(),
                                   "delta_high_abs_max": float(output.trace["delta_high_abs_max"]),
                                   "graph_hash": graph.graph_hash, "recipe_hash": graph.recipe_hash})
@@ -539,6 +556,9 @@ class SyntheticBankGenerator:
     bank_id_prefix: str | None = None
     # Extra calibration artifacts shipped inside the bank, as {file name: path}.
     calibration_files: dict[str, Path] = field(default_factory=dict)
+    # The ONE declared A02 scientific control, or None. `None` keeps the full GPAT
+    # identity guard, `recipe_bank_identity` included; see `conditioning_control`.
+    conditioning_control: Any = None
 
     def __post_init__(self) -> None:
         from prism_fas.recipes.bank import load_bank
@@ -583,7 +603,7 @@ class SyntheticBankGenerator:
 
     # --- identity ---------------------------------------------------------
     def identity(self) -> dict[str, str]:
-        return {"package_identity": self.package_identity,
+        body = {"package_identity": self.package_identity,
                 "recipe_bank_identity": self.recipe_bank_identity,
                 "candidate_plan_identity": self.candidate_plan_identity,
                 "threshold_sha256": self.calibration.threshold_sha256,
@@ -594,6 +614,15 @@ class SyntheticBankGenerator:
                 "physics_engine_version": PHYSICS_ENGINE_VERSION,
                 "generator_version": GENERATOR_VERSION,
                 "discrete_convention": DISCRETE_CONVENTION}
+        # Present ONLY under the declared A02 control, and absent otherwise, so the
+        # M8 v3 bank's identity is unchanged while any artifact built under the
+        # control carries the policy — including the bank the generator was TRAINED
+        # on and the out-of-distribution caveat — inside its own identity.
+        if self.conditioning_control is not None:
+            body["conditioning_control_identity"] = self.conditioning_control.identity()
+            body["gpat_trained_on_recipe_bank_identity"] = \
+                self.conditioning_control.trained_on_recipe_bank_identity
+        return body
 
     def _route(self, name: str) -> Any:
         if name == "physics": return self.physics
@@ -605,7 +634,8 @@ class SyntheticBankGenerator:
             if self.expected_pair_plan_identity: expected["pair_plan_identity"] = self.expected_pair_plan_identity
             self.gpat = GPATRoute(Path(self.gpat_checkpoint_path), self.gpat_config,
                                   expected_sha256=str(self.plan_lock["gpat_checkpoint_sha256"]),
-                                  expected_identity=expected, device=self.device)
+                                  expected_identity=expected, device=self.device,
+                                  conditioning_control=self.conditioning_control)
         return self.gpat
 
     # --- one candidate ----------------------------------------------------

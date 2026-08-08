@@ -142,6 +142,27 @@ def _pairs_root() -> Path:
     return Path(RUNS_MOUNT) / "synthetic_banks" / "m8_work" / "pairs"
 
 
+def _conditioning_control():
+    """The ONE declared A02 scientific control, constructed from frozen pins.
+
+    The frozen GPAT checkpoint binds the STRUCTURED M7 bank it was trained on, so
+    feeding it the random-operator conditioning vector needs this single named
+    exemption. It authorizes exactly one pairing of exact identities; every other
+    path in M8/M9/B08/M10 passes no control and keeps the full guard, and the object
+    validates its own pins, so it cannot be used for anything else.
+
+    The weights are unchanged, the quality gate is unchanged, and the
+    out-of-training-conditioning-distribution caveat is recorded inside the
+    identity this control contributes to the artifact.
+    """
+    _paths()
+    from prism_fas.synthesis.conditioning_control import ConditioningBankControl
+    return ConditioningBankControl.for_a02_random_operators(
+        conditioning_recipe_bank_identity=EXPECTED_RANDOM_RECIPE_BANK_IDENTITY,
+        gpat_checkpoint_sha256=EXPECTED_GPAT_CHECKPOINT_SHA,
+        source_package_identity=EXPECTED_PACKAGE_IDENTITY)
+
+
 def _generator(work_root: str, *, device: str = "cuda"):
     """The M8 v3 generator with ONLY the recipe bank substituted.
 
@@ -155,6 +176,7 @@ def _generator(work_root: str, *, device: str = "cuda"):
     calibration = Path(REMOTE_M8_V3_BANK) / "calibration"
     configs = PROJECT / "configs" / "synthesis"
     return build_generator(
+        conditioning_control=_conditioning_control(),
         package_root=Path(REMOTE_PACKAGE), bank_root=Path(REMOTE_A02_RECIPE_BANK),
         work_root=Path(work_root), plan_root=_plan_root(),
         calibration_path=calibration / "quality_gate_v3.json",
@@ -222,7 +244,10 @@ def a02_pilot(count: int = 32) -> dict:
     for name, payload in (("a02_pilot.json", strip(pilot)), ("a02_pilot_determinism.json", strip(audit))):
         atomic_json_write(Path(REMOTE_A02_WORK) / "reports" / name, payload)
     runs_volume.commit()
+    control = _conditioning_control()
     return {"stage": "a02_pilot", "gpu": gpu, **verified,
+            "conditioning_control": control.policy_payload(),
+            "conditioning_control_identity": control.identity(),
             "pilot": strip(pilot), "determinism": strip(audit)}
 
 

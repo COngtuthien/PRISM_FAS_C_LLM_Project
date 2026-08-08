@@ -201,8 +201,14 @@ def build_generator(*, package_root: Path, bank_root: Path, work_root: Path, pla
                     expected_gpat_sha256: str | None = None,
                     expected_pair_plan_identity: str | None = None,
                     reuse_root: Path | None = None, bank_id_prefix: str | None = None,
-                    calibration_files: dict[str, Path] | None = None) -> Any:
-    """Assemble a `SyntheticBankGenerator` from the frozen configs and artifacts."""
+                    calibration_files: dict[str, Path] | None = None,
+                    conditioning_control: Any = None) -> Any:
+    """Assemble a `SyntheticBankGenerator` from the frozen configs and artifacts.
+
+    `conditioning_control` defaults to `None`, which is every M8/M9/B08 path: the
+    GPAT identity guard stays complete and a recipe-bank mismatch fails closed. Only
+    the declared A02 control passes a validated `ConditioningBankControl`.
+    """
     from .candidate_plan import load_bank_config
     from .quality_calibration import load_quality_config
     from .synthetic_bank import SyntheticBankGenerator
@@ -218,7 +224,8 @@ def build_generator(*, package_root: Path, bank_root: Path, work_root: Path, pla
         gpat_config=gpat_config, device=device, expected_gpat_sha256=expected_gpat_sha256,
         expected_pair_plan_identity=expected_pair_plan_identity,
         reuse_root=None if reuse_root is None else Path(reuse_root),
-        bank_id_prefix=bank_id_prefix, calibration_files=dict(calibration_files or {}))
+        bank_id_prefix=bank_id_prefix, calibration_files=dict(calibration_files or {}),
+        conditioning_control=conditioning_control)
 
 
 def _pilot_key(row: dict[str, Any]) -> int:
