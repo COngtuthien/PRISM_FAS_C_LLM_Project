@@ -107,6 +107,15 @@ class M9TrainingConfig:
     # The M10 switch set. Defaults to the frozen B08 reference, so an M9 call site
     # that never mentions a variant gets exactly the M9 reference training config.
     variant: ResolvedExperimentVariant = field(default_factory=ResolvedExperimentVariant.reference)
+    # The content identity of the synthetic bank this row actually opens. Empty means
+    # the frozen M8 v3 bank, which is what `frozen_inputs` already pins for every
+    # structured row — so the reference config hash is unchanged. A row that opens a
+    # DIFFERENT bank (A02's random-operator artifact) carries its identity here, and
+    # the config hash therefore differs. The identity is also bound independently as
+    # `RunIdentity.m8_bank_identity` and inside `dataset_contract_identity`; this
+    # field is what puts it in the TRAINING CONFIG identity as well, so an A02
+    # checkpoint can never be resumed against the structured bank.
+    synthetic_bank_identity: str = ""
 
     @property
     def total_epochs(self) -> int:
@@ -126,15 +135,20 @@ class M9TrainingConfig:
     # `variant` is excluded from the raw dump and re-entered below as a DELTA, so the
     # M9 reference configuration keeps the config hash its checkpoints were written
     # with while every ablation gets a different one.
-    HASH_EXCLUDED_FIELDS = ("run_id", "variant")
+    HASH_EXCLUDED_FIELDS = ("run_id", "variant", "synthetic_bank_identity")
 
     def payload(self, *, include_run_id: bool = False) -> dict[str, Any]:
         body = {key: value for key, value in vars(self).items()
-                if key != "variant" and (include_run_id or key not in self.HASH_EXCLUDED_FIELDS)}
+                if key not in ("variant", "synthetic_bank_identity")
+                and (include_run_id or key not in self.HASH_EXCLUDED_FIELDS)}
         body["schema_version"] = TRAINER_SCHEMA_VERSION
         body["total_epochs"] = self.total_epochs
         delta = training_delta(self.variant)
         if delta: body["variant_training"] = delta
+        # Carried only when this row opens a bank other than the frozen M8 v3 one, so
+        # every structured row keeps the config hash its checkpoints were written with.
+        if self.synthetic_bank_identity:
+            body["synthetic_bank_identity"] = str(self.synthetic_bank_identity)
         return body
 
     def hash(self) -> str: return config_hash(self.payload())
