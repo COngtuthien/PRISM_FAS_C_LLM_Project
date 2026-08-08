@@ -12,7 +12,8 @@ import yaml
 from .losses import DEFAULT_WEIGHTS
 from .prism_detector import DetectorConfig
 from .sampler import BatchContract
-from .trainer import M9TrainingConfig
+from .trainer import M9TrainingConfig, batch_contract_for
+from .variant import ResolvedExperimentVariant
 
 CONFIG_SCHEMA_VERSION = "m9-config-v1"
 
@@ -27,11 +28,22 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return payload
 
 
-def detector_config_from(payload: dict[str, Any]) -> DetectorConfig:
+def detector_config_from(payload: dict[str, Any],
+                         variant: ResolvedExperimentVariant | None = None) -> DetectorConfig:
+    """Build the detector config for one M10 variant.
+
+    `variant` defaults to the frozen B08 reference, so every M9 call site keeps
+    building exactly the M9 reference detector. `prototype_k` follows the variant
+    when it declares a manifold, because the flag set is the authority on the
+    science and the YAML carries the reference value.
+    """
+    resolved = (variant or ResolvedExperimentVariant.reference()).validate()
     model = payload["model"]
     backbones = payload["backbones"]
     manifold, prompt, fusion = model["manifold"], model["prompt"], model["fusion"]
+    prototype_k = int(resolved.prototype_k) if resolved.has_manifold else int(manifold["prototype_k"])
     return DetectorConfig(
+        variant=resolved,
         region_dim=int(model["region_embedding_dim"]),
         region_attention_heads=int(model["region_attention_heads"]),
         visibility_threshold=float(model["visibility_threshold"]),
@@ -39,7 +51,7 @@ def detector_config_from(payload: dict[str, Any]) -> DetectorConfig:
         local_model_name=str(backbones["local"]["timm_name"]),
         global_model_id=str(backbones["global"]["model_id"]),
         global_revision=str(backbones["global"]["revision"]),
-        prototype_k=int(manifold["prototype_k"]),
+        prototype_k=prototype_k,
         covariance_epsilon=float(manifold["covariance_epsilon"]),
         tau_prototype=float(manifold["tau_prototype"]),
         prototype_decay=float(manifold["update_decay"]),
@@ -51,7 +63,9 @@ def detector_config_from(payload: dict[str, Any]) -> DetectorConfig:
 
 
 def training_config_from(payload: dict[str, Any], *, run_id: str | None = None,
-                         overrides: dict[str, Any] | None = None) -> M9TrainingConfig:
+                         overrides: dict[str, Any] | None = None,
+                         variant: ResolvedExperimentVariant | None = None) -> M9TrainingConfig:
+    resolved = (variant or ResolvedExperimentVariant.reference()).validate()
     run, batch, optimizer = payload["run"], payload["batch"], payload["optimizer"]
     scheduler, stages, loss = payload["scheduler"], payload["stages"], payload["loss"]
     checkpoint, validation = payload["checkpoint"], payload["validation"]
@@ -79,19 +93,33 @@ def training_config_from(payload: dict[str, Any], *, run_id: str | None = None,
         mil_temperature=float(loss["mil_temperature"]),
         prompt_temperature=float(loss["prompt_temperature"]),
         prototype_seed=int(payload["prototypes"]["seed"]),
-        prototype_batch_size=int(payload["prototypes"]["batch_size"]))
+        prototype_batch_size=int(payload["prototypes"]["batch_size"]),
+        variant=resolved)
     if overrides:
         from dataclasses import replace
         config = replace(config, **overrides)
     return config
 
 
-def batch_contract_from(payload: dict[str, Any]) -> BatchContract:
+def batch_contract_from(payload: dict[str, Any],
+                        variant: ResolvedExperimentVariant | None = None) -> BatchContract:
+    """The G5 batch contract this variant declares.
+
+    For the reference this is Table 36's 12/12/8. For a `synthetic: none` row it is
+    the real-only composition: no fabricated synthetic slots, and no synthetic loss
+    evaluating as a constant placeholder.
+    """
+    resolved = (variant or ResolvedExperimentVariant.reference()).validate()
     batch = payload["batch"]
+    if not resolved.uses_synthetic or not resolved.domain_balance:
+        from dataclasses import replace as _replace
+        base = training_config_from(payload, variant=resolved)
+        return batch_contract_for("G5", base)
     return BatchContract(real_live=int(batch["live"]), real_spoof=int(batch["real_spoof"]),
                          synthetic=int(batch["synthetic_spoof"]),
                          domain_balance=bool(batch["domain_balance"]),
-                         require_both_routes=bool(batch["require_both_routes"]),
+                         require_both_routes=resolved.requires_both_routes,
+                         routes=resolved.synthetic_routes,
                          accumulation_steps=int(batch["accumulation_steps"])).validate()
 
 
@@ -141,8 +169,16 @@ def resolved_config_hash(model_payload: dict[str, Any], training_payload: dict[s
                                      default=str).encode("utf-8")).hexdigest()
 
 
-def load_m9_configs(model_path: Path, training_path: Path) -> dict[str, Any]:
-    """Everything the trainer and the Modal wrapper need, from the two YAMLs."""
+def load_m9_configs(model_path: Path, training_path: Path,
+                    variant: ResolvedExperimentVariant | None = None) -> dict[str, Any]:
+    """Everything the trainer and the Modal wrapper need, from the two YAMLs.
+
+    One loader for every M10 row: the YAMLs carry the shared, frozen
+    hyper-parameters and `variant` carries the row's scientific switches. There is
+    no second config file per baseline, because every baseline is a CONFIGURATION of
+    the shared implementation.
+    """
+    resolved = (variant or ResolvedExperimentVariant.reference()).validate()
     model_payload = load_yaml(Path(model_path))
     training_payload = load_yaml(Path(training_path))
     assert_no_target_paths(training_payload)
@@ -150,7 +186,8 @@ def load_m9_configs(model_path: Path, training_path: Path) -> dict[str, Any]:
     assert_no_superseded_bank(training_payload)
     assert_no_superseded_bank(model_payload)
     return {"model_payload": model_payload, "training_payload": training_payload,
-            "detector_config": detector_config_from(model_payload),
-            "training_config": training_config_from(training_payload),
-            "batch_contract": batch_contract_from(training_payload),
+            "variant": resolved,
+            "detector_config": detector_config_from(model_payload, resolved),
+            "training_config": training_config_from(training_payload, variant=resolved),
+            "batch_contract": batch_contract_from(training_payload, resolved),
             "resolved_config_hash": resolved_config_hash(model_payload, training_payload)}

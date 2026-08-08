@@ -321,14 +321,25 @@ class PromptHead(nn.Module):
             return torch.zeros_like(region_valid, dtype=torch.bool)
         return (is_synthetic.bool().unsqueeze(1) & attack_region_mask.bool() & region_valid.bool())
 
-    def forward(self, region_embeddings: torch.Tensor, applicable: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward(self, region_embeddings: torch.Tensor, applicable: torch.Tensor, *,
+                text_embeddings: torch.Tensor | None = None) -> dict[str, torch.Tensor]:
         """Returns the per-region logits, the Table 53 `[B,N_prompt]` reduction, the
-        bounded fusion evidence and the projected embeddings the loss needs."""
+        bounded fusion evidence and the projected embeddings the loss needs.
+
+        `text_embeddings` overrides the cached constant. It exists for the
+        `prompt: adapter` variant, whose adapter transforms the CACHED matrix rather
+        than fine-tuning any text encoder; `frozen_prompt` passes nothing and the
+        cached buffer is used unchanged.
+        """
         projected = self.project_regions(region_embeddings)
         keep = applicable.bool()
         if keep.shape != (projected.shape[0], self.regions):
             raise DetectorContractError("PromptHead applicability mask must be [B,R]")
-        text = self.text_embeddings.to(projected.dtype)
+        source = self.text_embeddings if text_embeddings is None else text_embeddings
+        if source.shape != self.text_embeddings.shape:
+            raise DetectorContractError(
+                f"prompt text matrix must stay [{self.n_prompt},{self.text_dim}], got {tuple(source.shape)}")
+        text = source.to(projected.dtype)
         region_logits = projected @ text.transpose(0, 1) / self.temperature     # [B,R,N_prompt]
         mask = keep.unsqueeze(-1)
         # SPEC_UNDERSPECIFIED reduction (docs/M9_DETECTOR_CONTRACT.md section 4):

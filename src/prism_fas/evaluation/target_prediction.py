@@ -73,15 +73,30 @@ class TargetInferenceBatch:
 
 @dataclass(frozen=True)
 class VariantCapabilities:
-    """Which evidence terms the variant that produced a row actually has."""
+    """Which evidence terms the variant that produced a row actually has.
+
+    Derived from the ONE resolved variant object the trainer used, so a prediction
+    can never claim a term the model it came from does not compute.
+
+    `has_region_detail` is separate on purpose. A single global center DOES fuse a
+    regional evidence term — `s_region` is measured and belongs in the row — but it
+    has no per-region decomposition, so `top_region_ids` and `region_distances` stay
+    empty rather than reporting site 0 as though it were `left_eye`.
+    """
     has_region: bool
     has_prompt: bool
+    has_region_detail: bool = True
+
+    @classmethod
+    def from_variant(cls, variant: Any) -> "VariantCapabilities":
+        return cls(has_region=bool(variant.fuses_region_evidence),
+                   has_prompt=bool(variant.fuses_prompt_evidence),
+                   has_region_detail=variant.manifold_scope == "regional")
 
     @classmethod
     def from_flags(cls, flags: dict[str, Any]) -> "VariantCapabilities":
-        return cls(has_region=str(flags.get("region", "off")) == "on"
-                   and str(flags.get("manifold", "off")) == "multi_prototype",
-                   has_prompt=str(flags.get("prompt", "off")) != "off")
+        from prism_fas.detector.variant import ResolvedExperimentVariant
+        return cls.from_variant(ResolvedExperimentVariant.resolve(dict(flags)))
 
 
 def load_evaluation_config(path: Path) -> dict[str, Any]:
@@ -452,28 +467,41 @@ def predict_target(model: Any, batches: Iterable[TargetInferenceBatch], *, capab
             if temperature is not None:
                 logit = output.global_logit.detach().float().cpu().numpy().reshape(-1)
                 p_global = 1.0 / (1.0 + np.exp(-logit / float(temperature)))
-            s_region = output.s_region.detach().float().cpu().numpy()
-            p_prompt = output.p_prompt_spoof.detach().float().cpu().numpy()
-            distances = output.aux["normalized_distances"].detach().float().cpu().numpy()
-            valid = output.region_valid.detach().cpu().numpy()
+            # A term the variant does not produce is absent here too, so an absent
+            # component can never be read out of a zero-filled array.
+            s_region = (output.s_region.detach().float().cpu().numpy()
+                        if output.s_region is not None else None)
+            p_prompt = (output.p_prompt_spoof.detach().float().cpu().numpy()
+                        if output.p_prompt_spoof is not None else None)
+            distances = (output.aux["normalized_distances"].detach().float().cpu().numpy()
+                         if "normalized_distances" in output.aux else None)
+            valid = (output.region_valid.detach().cpu().numpy()
+                     if output.region_valid is not None else None)
             # PromptHead applicability is `is_synthetic AND attacked region AND
             # visible`. A target sample is never synthetic and carries no attack
             # mask, so no region is applicable and the head returns an EXACT
             # structural zero. Writing that 0.0 as a computed value would present a
             # constant as a measurement, which is the same mistake as writing 0.0
             # for a branch the variant does not have.
-            applicable = output.aux["prompt_applicable"].detach().float().cpu().numpy()
+            applicable = (output.aux["prompt_applicable"].detach().float().cpu().numpy()
+                          if "prompt_applicable" in output.aux else None)
             for position, sample_id in enumerate(moved.sample_ids):
-                if capabilities.has_region:
-                    ranked = np.argsort(-np.where(valid[position], distances[position], -np.inf))
-                    top = [int(index) for index in ranked[:int(top_region_count)]
-                           if bool(valid[position][int(index)])]
-                    region_distances = [float(value) for value in distances[position]]
-                    region_value: float | None = float(s_region[position])
-                else:
-                    top, region_distances, region_value = [], [], None
+                top: list[int] = []
+                region_distances: list[float] = []
+                region_value: float | None = None
+                if capabilities.has_region and s_region is not None:
+                    region_value = float(s_region[position])
+                    # Per-region ids and distances exist only for the nine-site
+                    # regional manifold; a single global center reports the fused
+                    # score without pretending to a regional decomposition.
+                    if capabilities.has_region_detail and distances is not None and valid is not None:
+                        ranked = np.argsort(-np.where(valid[position], distances[position], -np.inf))
+                        top = [int(index) for index in ranked[:int(top_region_count)]
+                               if bool(valid[position][int(index)])]
+                        region_distances = [float(value) for value in distances[position]]
                 prompt_value = (float(p_prompt[position])
-                                if capabilities.has_prompt and float(applicable[position].sum()) > 0.0
+                                if capabilities.has_prompt and p_prompt is not None
+                                and applicable is not None and float(applicable[position].sum()) > 0.0
                                 else None)
                 rows.append(build_prediction_row(
                     sample_id=sample_id, video_id=moved.video_ids[position],

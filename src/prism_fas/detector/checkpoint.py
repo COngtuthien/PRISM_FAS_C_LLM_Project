@@ -290,19 +290,28 @@ def check_status_transition(current: str, nxt: str, *, recoverable: bool = False
     return nxt
 
 
-def check_stage_transition(current: str | None, nxt: str) -> str:
-    """M9 runs G1 -> G2 -> G5 -> G6 and never skips or repeats backwards."""
+def check_stage_transition(current: str | None, nxt: str, *, order: tuple[str, ...] = STAGE_ORDER) -> str:
+    """The declared flow, walked forwards, never skipped and never repeated backwards.
+
+    `order` is the stage flow THIS RUN declares. The full method runs
+    G1 -> G2 -> G5 -> G6; a variant with `manifold: off` has no prototypes to
+    initialize, so its declared flow is G1 -> G5 -> G6 and G2 is not a stage it may
+    enter. Running G2 for a variant that has no manifold would be a meaningless
+    stage; skipping it for one that does would be a missing stage. Both are refused.
+    """
     if nxt not in STAGE_ORDER: raise StageTransitionError(f"{nxt!r} is not an M9 stage; G7/G8 are M10")
+    if nxt not in order:
+        raise StageTransitionError(f"{nxt!r} is not part of this run's declared flow {' -> '.join(order)}")
     if current is None:
-        if nxt != STAGE_ORDER[0]:
-            raise StageTransitionError(f"an M9 run must start at {STAGE_ORDER[0]!r}, not {nxt!r}")
+        if nxt != order[0]:
+            raise StageTransitionError(f"this run must start at {order[0]!r}, not {nxt!r}")
         return nxt
-    if current not in STAGE_ORDER: raise StageTransitionError(f"{current!r} is not an M9 stage")
-    position = STAGE_ORDER.index(current)
+    if current not in order: raise StageTransitionError(f"{current!r} is not part of the declared flow")
+    position = order.index(current)
     if nxt == current: return nxt
-    if STAGE_ORDER.index(nxt) != position + 1:
-        raise StageTransitionError(f"illegal M9 stage transition {current!r} -> {nxt!r}; "
-                                   f"the frozen flow is {' -> '.join(STAGE_ORDER)}")
+    if order.index(nxt) != position + 1:
+        raise StageTransitionError(f"illegal stage transition {current!r} -> {nxt!r}; "
+                                   f"the declared flow is {' -> '.join(order)}")
     return nxt
 
 
@@ -310,13 +319,15 @@ def check_stage_transition(current: str | None, nxt: str) -> str:
 class StageLineage:
     """The recorded chain of stages, each with its input and output identities."""
     entries: list[dict[str, Any]] = field(default_factory=list)
+    # The stage flow this run declares; see `check_stage_transition`.
+    order: tuple[str, ...] = STAGE_ORDER
 
     @property
     def current(self) -> str | None:
         return str(self.entries[-1]["stage"]) if self.entries else None
 
     def enter(self, stage: str, *, input_hashes: dict[str, Any]) -> dict[str, Any]:
-        check_stage_transition(self.current, stage)
+        check_stage_transition(self.current, stage, order=self.order)
         if self.current == stage: return self.entries[-1]
         entry = {"stage": stage, "input_hashes": dict(input_hashes), "output_hashes": {},
                  "status": "RUNNING"}
@@ -337,5 +348,6 @@ class StageLineage:
                                          default=str).encode("utf-8")).hexdigest()
 
     @classmethod
-    def from_payload(cls, entries: list[dict[str, Any]] | None) -> "StageLineage":
-        return cls(entries=[dict(entry) for entry in (entries or [])])
+    def from_payload(cls, entries: list[dict[str, Any]] | None,
+                     *, order: tuple[str, ...] = STAGE_ORDER) -> "StageLineage":
+        return cls(entries=[dict(entry) for entry in (entries or [])], order=tuple(order))

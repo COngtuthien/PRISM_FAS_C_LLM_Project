@@ -35,10 +35,12 @@ from .contracts import LIVE, REGION_COUNT, DetectorBatch
 from .dataset import M9TrainingDataset, M9ValidationDataset, batch_composition, domain_composition
 from .heads import read_recipe_text_cache
 from .losses import (DEFAULT_CLEAN_CAP, DEFAULT_MIL_TEMPERATURE, DEFAULT_PROMPT_TEMPERATURE,
-                     DEFAULT_WEIGHTS, LOSS_NAMES, compute_losses, loss_contract_identity)
+                     DEFAULT_WEIGHTS, LOSS_NAMES, compute_losses, loss_contract_identity,
+                     loss_graph_delta)
 from .manifold import initialize_prototypes, write_prototypes_npz
 from .prism_detector import DetectorConfig, PRISMDetector, build_detector
-from .sampler import BatchContract, M9BatchSampler
+from .sampler import DEFAULT_COMPOSITION, BatchContract, M9BatchSampler
+from .variant import ResolvedExperimentVariant
 
 TRAINER_SCHEMA_VERSION = "m9-trainer-v1"
 # Loss terms that need initialized prototypes. Absent during G1 by construction,
@@ -102,22 +104,37 @@ class M9TrainingConfig:
     prompt_temperature: float = DEFAULT_PROMPT_TEMPERATURE
     prototype_seed: int = 20260806
     prototype_batch_size: int = 28
+    # The M10 switch set. Defaults to the frozen B08 reference, so an M9 call site
+    # that never mentions a variant gets exactly the M9 reference training config.
+    variant: ResolvedExperimentVariant = field(default_factory=ResolvedExperimentVariant.reference)
 
     @property
     def total_epochs(self) -> int:
+        """Identical for EVERY variant: 3 + 2 + 30.
+
+        A variant without a manifold has no prototypes to warm up, but it still
+        trains for the same number of epochs — its two manifold warm-up epochs are
+        ordinary G1 epochs. Shortening the schedule for the simpler baselines would
+        confound every Table 59 comparison with a difference in training length.
+        """
         return self.warmup_detector_epochs + self.manifold_warmup_epochs + self.mixed_epochs
 
     # `run_id` is a run LABEL, not a configuration value. Spec section 11.1 makes the
     # run id the thing you change when the science changes, so folding it into the
     # config hash would make every identity derived from that hash — including the
     # prototype identity — differ between two runs of the identical configuration.
-    HASH_EXCLUDED_FIELDS = ("run_id",)
+    # `variant` is excluded from the raw dump and re-entered below as a DELTA, so the
+    # M9 reference configuration keeps the config hash its checkpoints were written
+    # with while every ablation gets a different one.
+    HASH_EXCLUDED_FIELDS = ("run_id", "variant")
 
     def payload(self, *, include_run_id: bool = False) -> dict[str, Any]:
         body = {key: value for key, value in vars(self).items()
-                if include_run_id or key not in self.HASH_EXCLUDED_FIELDS}
+                if key != "variant" and (include_run_id or key not in self.HASH_EXCLUDED_FIELDS)}
         body["schema_version"] = TRAINER_SCHEMA_VERSION
         body["total_epochs"] = self.total_epochs
+        delta = training_delta(self.variant)
+        if delta: body["variant_training"] = delta
         return body
 
     def hash(self) -> str: return config_hash(self.payload())
@@ -127,42 +144,72 @@ class M9TrainingConfig:
         return {**self.payload(include_run_id=True), "config_hash": self.hash()}
 
 
+def training_delta(variant: ResolvedExperimentVariant) -> dict[str, Any]:
+    """The training switches on which `variant` differs from the B08 reference.
+
+    These change WHAT IS OPTIMIZED without changing a single parameter shape, so an
+    architecture hash cannot catch them. Binding them into the training config hash
+    is what makes a B08 checkpoint refuse to resume as A04.
+    """
+    reference = ResolvedExperimentVariant.reference().training_payload()
+    return {key: value for key, value in variant.training_payload().items()
+            if reference.get(key) != value}
+
+
 def stage_for_epoch(epoch: int, config: M9TrainingConfig) -> str:
-    """The frozen schedule, expressed once."""
-    if epoch < config.warmup_detector_epochs: return "G1"
-    if epoch < config.warmup_detector_epochs + config.manifold_warmup_epochs: return "G2"
+    """The frozen schedule, expressed once, for the variant's declared flow.
+
+    With a manifold: 3 G1 epochs, 2 G2 manifold warm-up epochs, then the mixed
+    epochs. Without one there is nothing to warm up, so those two epochs are
+    ordinary G1 epochs and the total schedule length is unchanged.
+    """
+    warmup = config.warmup_detector_epochs
+    if not config.variant.has_manifold:
+        return "G1" if epoch < warmup + config.manifold_warmup_epochs else "G5"
+    if epoch < warmup: return "G1"
+    if epoch < warmup + config.manifold_warmup_epochs: return "G2"
     return "G5"
 
 
-def enabled_terms(stage: str) -> dict[str, bool]:
-    """Which declared losses are live in a stage.
+def enabled_terms(stage: str, variant: ResolvedExperimentVariant | None = None) -> dict[str, bool]:
+    """Which declared losses are live in a stage, for this variant.
 
     G1: prototypes are absent and no synthetic sample is in the batch, so the
     manifold and synthetic terms are switched OFF rather than silently evaluating
     to a meaningless constant.
     G2: prototypes exist; the manifold terms come on. Synthetic still absent.
-    G5: everything the contract declares.
+    G5: everything the variant declares — which for `synthetic: none` still excludes
+    every synthetic term, because those samples do not exist for that row.
     """
-    on = {name: True for name in LOSS_NAMES}
-    if stage == "G1":
-        for name in set(MANIFOLD_TERMS) | set(SYNTHETIC_TERMS): on[name] = False
-    elif stage == "G2":
-        for name in SYNTHETIC_TERMS: on[name] = False
-        for name in MANIFOLD_TERMS: on[name] = name not in SYNTHETIC_TERMS
-    return on
+    return (variant or ResolvedExperimentVariant.reference()).stage_loss_terms(stage)
 
 
 def batch_contract_for(stage: str, config: M9TrainingConfig) -> BatchContract:
-    """Table 36 for G5; the real-only warm-up composition for G1/G2.
+    """Table 36 for a mixed G5; the real-only composition otherwise.
 
     G1/G2 read "Source real live/spoof" (Table 39). Removing the synthetic quarter
     and keeping Table 36's 1:1 real live/spoof ratio at batch size 32 gives 16/16.
     That split is SPEC_UNDERSPECIFIED and declared in DECISIONS.md.
+
+    A variant with `synthetic: none` uses the SAME real-only composition for G5. It
+    is not given a fake 12/12/8 batch with eight fabricated synthetic slots, and its
+    synthetic loss terms are structurally inactive rather than evaluating to a
+    constant placeholder. The real live/spoof partitions stay balanced according to
+    the row's own sampler policy.
     """
-    if stage in ("G1", "G2"):
+    variant = config.variant
+    if stage in ("G1", "G2") or not variant.uses_synthetic:
         return BatchContract(real_live=16, real_spoof=16, synthetic=0, phase="real_only",
-                             accumulation_steps=config.accumulation_steps)
-    return BatchContract(accumulation_steps=config.accumulation_steps)
+                             accumulation_steps=config.accumulation_steps,
+                             domain_balance=variant.domain_balance,
+                             require_both_routes=False, routes=variant.synthetic_routes or ("physics", "gpat"))
+    return BatchContract(real_live=DEFAULT_COMPOSITION["real_live"],
+                         real_spoof=DEFAULT_COMPOSITION["real_spoof"],
+                         synthetic=DEFAULT_COMPOSITION["synthetic"],
+                         accumulation_steps=config.accumulation_steps,
+                         domain_balance=variant.domain_balance,
+                         require_both_routes=variant.requires_both_routes,
+                         routes=variant.synthetic_routes)
 
 
 @dataclass
@@ -184,6 +231,11 @@ class M9Trainer:
     # reference run always loads the uploaded artifact instead.
     allow_text_cache_build: bool = False
     progress: Callable[[dict[str, Any]], None] | None = None
+    # The pinned identity of the synthetic bank this row opens. `None` keeps the
+    # frozen M8 v3 pin; the A02 random-operator row passes its own bank's pin, and
+    # neither is ever a fallback for the other.
+    bank_identity: str | None = None
+    bank_id: str | None = None
 
     def __post_init__(self) -> None:
         from prism_fas.data.loader.config import load_loader_config
@@ -209,8 +261,11 @@ class M9Trainer:
         self.recipe_bank_identity = str(bank["lock"]["bank_content_identity_sha256"])
         self.recipe_ids = tuple(recipe.recipe_id for recipe in bank["recipes"])
         self.text_cache = self._text_cache()
+        self.variant = self.config.variant.validate().require_executable()
         self.dataset = M9TrainingDataset(self.package_root, self.bank_root, self.loader_config,
                                          cache_root=self.cache_root, recipe_ids=self.recipe_ids,
+                                         variant=self.variant,
+                                         bank_identity=self.bank_identity, bank_id=self.bank_id,
                                          progress=lambda done, total: self._emit(
                                              {"stage": "prepare", "cache_progress": done, "total": total}))
         self.text_embeddings = self.text_cache.tensor(device=self.device)
@@ -227,7 +282,8 @@ class M9Trainer:
         self.amp_dtype, self.amp_enabled = self._amp()
         self.scaler = torch.amp.GradScaler(self.device, enabled=self.amp_enabled and self.amp_dtype == torch.float16)
         self.identity = self._identity()
-        self.lineage = StageLineage()
+        self.stages = self.variant.required_stages()
+        self.lineage = StageLineage(order=self.stages)
         self.epoch, self.global_step, self.step_in_epoch, self.stage = 0, 0, 0, "G1"
         self.status = "PENDING"
         self.best_metrics: dict[str, Any] = {}
@@ -236,6 +292,11 @@ class M9Trainer:
         self._validation: M9ValidationDataset | None = None
         self.samplers = {stage: self._sampler(stage) for stage in ("G1", "G5")}
         self.samplers["G2"] = self.samplers["G1"]
+        # AdamW receives only non-empty groups (B01 has no trainable backbone), so
+        # a learning rate is read by NAME rather than by a positional index that
+        # would silently point at the wrong group.
+        self.lr_group = {str(group.get("name", index)): index
+                         for index, group in enumerate(self.optimizer.param_groups)}
 
     # --- setup helpers ------------------------------------------------------
     def _text_cache(self) -> Any:
@@ -290,7 +351,8 @@ class M9Trainer:
             loss_contract_hash=loss_contract_identity(
                 self.config.loss_weights, {"clean_cap": self.config.clean_cap,
                                            "mil_temperature": self.config.mil_temperature,
-                                           "prompt_temperature": self.config.prompt_temperature}),
+                                           "prompt_temperature": self.config.prompt_temperature,
+                                           **loss_graph_delta(self.variant)}),
             batch_contract_hash=batch_contract_for("G5", self.config).identity(),
             dataset_contract_identity=self.dataset.contract_identity(),
             convnext_weight_sha256=self.convnext_sha256,
@@ -332,6 +394,8 @@ class M9Trainer:
         payload = {"stage": stage, "run_id": self.config.run_id,
                    "training": self.config.resolved(), "detector": self.detector_config.payload(),
                    "batch_contract": batch_contract_for(stage, self.config).payload(),
+                   "variant": self.variant.payload(),
+                   "active_loss_terms": enabled_terms(stage, self.variant),
                    "identity": self.identity.payload()}
         path.write_text(yaml.safe_dump(payload, sort_keys=True, default_flow_style=False),
                         encoding="utf-8")
@@ -361,11 +425,14 @@ class M9Trainer:
                    "recipe_text_cache_identity": self.text_cache.identity,
                    "batch_contract": batch_contract_for(stage, self.config).payload(),
                    "config_hash": self.config.hash(), "target_test_opened": False}
+        payload["variant_identity"] = self.variant.identity()
         if stage in ("G2", "G5"):
             payload["live_population_identity"] = self.dataset.population_identity(self.dataset.live_positions())
-        if stage == "G5":
+        if stage == "G5" and self.variant.uses_synthetic:
             payload["m8_bank_identity"] = self.dataset.bank.identity
             payload["m8_bank_id"] = self.dataset.bank.bank_id
+            payload["synthetic_routes"] = list(self.variant.synthetic_routes)
+        if stage == "G5":
             payload["prototype_identity"] = self.prototype_identity
         if stage == "G6":
             payload["prototype_identity"] = self.prototype_identity
@@ -374,11 +441,17 @@ class M9Trainer:
 
     # --- training -----------------------------------------------------------
     def losses_for(self, output: Any, batch: DetectorBatch, stage: str) -> Any:
+        # The adapted text matrix when the variant declares `prompt: adapter`, the
+        # frozen cache otherwise. `L_prompt` must score against the same matrix the
+        # head scored against, or the InfoNCE target and the fusion evidence would
+        # disagree.
+        text = self.model.text_matrix()
         return compute_losses(output, batch, self.model.manifold, weights=self.config.loss_weights,
-                              text_embeddings=self.text_embeddings, clean_cap=self.config.clean_cap,
+                              text_embeddings=text if text is not None else self.text_embeddings,
+                              clean_cap=self.config.clean_cap,
                               mil_temperature=self.config.mil_temperature,
                               prompt_temperature=self.config.prompt_temperature,
-                              enabled=enabled_terms(stage))
+                              enabled=enabled_terms(stage, self.variant), variant=self.variant)
 
     def train_step(self, plan: Any, stage: str) -> dict[str, Any]:
         """One optimizer step over the plan, split into micro-batches that each
@@ -403,10 +476,12 @@ class M9Trainer:
             for name, value in result.applicable.items():
                 applicable[name] = applicable.get(name, 0) + int(value)
             total_value += float(result.total.detach()) / len(micro)
-            # Prototype update: LIVE, non-synthetic, valid regions only, under
-            # no_grad inside `RealManifold.update`.
-            if stage in ("G2", "G5"):
-                self.model.manifold.update(output.region_embeddings.detach(),
+            # Prototype update: LIVE, non-synthetic, valid sites only, under
+            # no_grad inside `RealManifold.update`. A variant with no manifold has
+            # no prototype state to move.
+            if stage in ("G2", "G5") and self.model.manifold is not None:
+                sites = (output.aux or {}).get("manifold_embeddings", output.region_embeddings)
+                self.model.manifold.update(sites.detach(),
                                            is_live=(batch.label == LIVE) & ~batch.is_synthetic,
                                            is_synthetic=batch.is_synthetic,
                                            region_valid=output.region_valid)
@@ -421,10 +496,11 @@ class M9Trainer:
         self.scheduler.step()
         self.global_step += 1
         if not math.isfinite(total_value): raise TrainerError(f"L_total is not finite at step {self.global_step}")
+        learning_rates = {f"lr_{name}": self.optimizer.param_groups[index]["lr"]
+                          for name, index in self.lr_group.items()}
         return {"stage": stage, "epoch": self.epoch, "global_step": self.global_step,
                 "step_in_epoch": plan.step, "L_total": total_value, "grad_norm": grad_norm,
-                "lr_backbone": self.optimizer.param_groups[0]["lr"],
-                "lr_heads": self.optimizer.param_groups[1]["lr"],
+                **learning_rates,
                 "composition": composition, "microbatches": len(micro),
                 **{name: value for name, value in sorted(accumulated.items())},
                 **{f"applicable/{name}": value for name, value in sorted(applicable.items())}}
@@ -464,17 +540,26 @@ class M9Trainer:
         self.write_stage_state(stage, "COMPLETED", {"output_hashes": output_hashes})
         self.write_run_json()
 
+    def g1_epochs(self) -> int:
+        """3 detector warm-up epochs, plus the 2 manifold warm-up epochs when this
+        variant has no manifold to warm up. The total schedule length is the same for
+        every variant, so no Table 59 comparison is confounded by training length."""
+        return self.config.warmup_detector_epochs + (
+            0 if self.variant.has_manifold else self.config.manifold_warmup_epochs)
+
     def run_g1(self) -> dict[str, Any]:
         """Baseline warm-up on real source data. Prototypes are absent."""
         self.enter_stage("G1")
         started = time.time()
-        for _ in range(self.config.warmup_detector_epochs):
+        planned = self.g1_epochs()
+        for _ in range(planned):
             self.run_epoch("G1")
             self.epoch += 1
             self.step_in_epoch = 0
         sha = self.save("last")
-        output = {"epochs": self.config.warmup_detector_epochs, "global_step": self.global_step,
+        output = {"epochs": planned, "global_step": self.global_step,
                   "checkpoint_sha256": sha, "prototypes_initialized": False,
+                  "manifold_declared": self.variant.has_manifold,
                   "seconds": round(time.time() - started, 2)}
         self.complete_stage("G1", output)
         return output
@@ -500,7 +585,10 @@ class M9Trainer:
             if bool(batch.is_synthetic.any()):
                 raise TrainerError("a synthetic sample reached prototype initialization")
             output = self.model(batch)
-            embeddings.append(output.region_embeddings.detach().float().cpu().numpy())
+            # The MANIFOLD sites, which are the nine region embeddings for a regional
+            # manifold and one pooled image embedding for a global center.
+            sites = (output.aux or {}).get("manifold_embeddings", output.region_embeddings)
+            embeddings.append(sites.detach().float().cpu().numpy())
             valid.append(output.region_valid.detach().cpu().numpy())
             for index in batch.dataset_id.tolist():
                 name = batch.datasets[index]
@@ -510,20 +598,27 @@ class M9Trainer:
         mask = np.concatenate(valid, axis=0)
         audit = {"live_samples": len(positions), "datasets": dict(sorted(datasets.items())),
                  "valid_per_region": {name: int(mask[:, index].sum())
-                                      for index, name in enumerate(self.model.config.region_order)},
+                                      for index, name in enumerate(self.model.manifold.region_names)},
                  "population_identity_sha256": self.dataset.population_identity(positions),
                  "spoof_used": False, "synthetic_used": False, "source_dev_used": False,
                  "target_used": False}
         return stacked, mask, audit
 
     def run_g2(self, *, prototypes_path: Path | None = None) -> dict[str, Any]:
-        """K-means prototype initialization plus the manifold warm-up epochs."""
+        """K-means prototype initialization plus the manifold warm-up epochs.
+
+        Only variants that declare a manifold have this stage at all; the stage
+        machine refuses it for the others rather than running an empty one.
+        """
+        if not self.variant.has_manifold:
+            raise TrainerError("this variant declares manifold=off; G2 is not part of its declared flow")
         self.enter_stage("G2")
         started = time.time()
         embeddings, valid, audit = self.collect_live_embeddings()
-        state = initialize_prototypes(embeddings, valid, k=self.detector_config.prototype_k,
+        state = initialize_prototypes(embeddings, valid, k=self.variant.prototype_k,
                                       epsilon=self.detector_config.covariance_epsilon,
-                                      seed=self.config.prototype_seed)
+                                      seed=self.config.prototype_seed,
+                                      region_names=self.model.manifold.region_names)
         self.model.manifold.load_state(state)
         population = self.dataset.population_identity(self.dataset.live_positions())
         self.prototype_identity = state.identity(config_hash=self.config.hash(),
@@ -541,7 +636,9 @@ class M9Trainer:
             self.step_in_epoch = 0
         sha = self.save("last")
         output = {"prototype_identity_sha256": self.prototype_identity, "prototypes": export,
-                  "population": audit, "k": self.detector_config.prototype_k,
+                  "population": audit, "k": self.variant.prototype_k,
+                  "manifold_scope": self.variant.manifold_scope,
+                  "manifold_sites": list(self.model.manifold.region_names),
                   "distance_scale": self.model.distance_scale.detach().cpu().tolist(),
                   "manifold_warmup_epochs": self.config.manifold_warmup_epochs,
                   "checkpoint_sha256": sha, "global_step": self.global_step,
@@ -555,8 +652,9 @@ class M9Trainer:
         from here on. Uses the module's declared distance scale convention, so the
         normalizer and the losses measure the same quantity."""
         convention = self.model.manifold.distance_scale_convention
-        scale = np.ones(REGION_COUNT, dtype=np.float32)
-        for region in range(REGION_COUNT):
+        sites = int(embeddings.shape[1])
+        scale = np.ones(sites, dtype=np.float32)
+        for region in range(sites):
             rows = embeddings[valid[:, region], region, :]
             if rows.shape[0] < 2: continue
             centre = rows.mean(axis=0)
@@ -569,7 +667,7 @@ class M9Trainer:
     def run_g5(self, *, epochs: int | None = None) -> dict[str, Any]:
         """Mixed training: real + the accepted synthetic bank."""
         self.enter_stage("G5")
-        if not bool(self.model.manifold.initialized):
+        if self.variant.has_manifold and not bool(self.model.manifold.initialized):
             raise TrainerError("G5 requires initialized prototypes; run G2 first")
         started = time.time()
         planned = int(epochs if epochs is not None else self.config.mixed_epochs)
@@ -689,7 +787,7 @@ class M9Trainer:
         """
         completed = [str(entry["stage"]) for entry in self.lineage.payload()
                      if entry.get("status") == "COMPLETED"]
-        outstanding = [stage for stage in STAGE_ORDER if stage not in completed]
+        outstanding = [stage for stage in self.stages if stage not in completed]
         if outstanding:
             return {"status": self.status, "completed_stages": completed,
                     "outstanding_stages": outstanding, "closed": False}
@@ -730,7 +828,7 @@ class M9Trainer:
         self.prototype_identity = restored["prototype_identity"]
         self.best_metrics = restored["best_metrics"]
         self.history = restored["history"]
-        self.lineage = StageLineage.from_payload(restored["stage_lineage"])
+        self.lineage = StageLineage.from_payload(restored["stage_lineage"], order=self.stages)
         restored["reconciled_stages"] = self.reconcile_lineage_from_disk()
         self.status = check_status_transition("INTERRUPTED", "RESUMING")
         self.status = check_status_transition(self.status, "RUNNING")
@@ -777,9 +875,10 @@ class M9Trainer:
         """G2 with a single manifold warm-up step instead of two full epochs."""
         self.enter_stage("G2")
         embeddings, valid, audit = self.collect_live_embeddings()
-        state = initialize_prototypes(embeddings, valid, k=self.detector_config.prototype_k,
+        state = initialize_prototypes(embeddings, valid, k=self.variant.prototype_k,
                                       epsilon=self.detector_config.covariance_epsilon,
-                                      seed=self.config.prototype_seed)
+                                      seed=self.config.prototype_seed,
+                                      region_names=self.model.manifold.region_names)
         self.model.manifold.load_state(state)
         population = self.dataset.population_identity(self.dataset.live_positions())
         self.prototype_identity = state.identity(config_hash=self.config.hash(), population_identity=population)
@@ -806,6 +905,11 @@ class M9Trainer:
                 "amp": {"enabled": self.amp_enabled, "dtype": str(self.amp_dtype)},
                 "parameter_counts": self.model.parameter_counts(),
                 "dataset": self.dataset.summary(), "config": self.config.resolved(),
+                "variant": self.variant.payload(), "declared_stages": list(self.stages),
+                "optimizer_groups": [{"name": str(group.get("name", index)),
+                                      "parameters": sum(p.numel() for p in group["params"]),
+                                      "lr": float(group["lr"])}
+                                     for index, group in enumerate(self.optimizer.param_groups)],
                 "git_commit": git_commit(), "target_test_opened": False}
 
 

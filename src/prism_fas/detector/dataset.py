@@ -72,11 +72,21 @@ class M9TrainingDataset:
 
     def __init__(self, package_root: Path, bank_root: Path, loader_config: LoaderConfig, *,
                  cache_root: Path, recipe_ids: Sequence[str] = (), backend: str = "loose",
-                 progress: Callable[[int, int], None] | None = None):
+                 progress: Callable[[int, int], None] | None = None,
+                 variant: Any = None, bank_identity: str | None = None, bank_id: str | None = None):
         from prism_fas.data.loader.loose_dataset import CanonicalPackageDataset
+        from .variant import ResolvedExperimentVariant
         assert_source_only(TRAINING_SPLIT)
+        self.variant = (variant or ResolvedExperimentVariant.reference()).validate()
         self.real = CanonicalPackageDataset(Path(package_root), TRAINING_SPLIT, loader_config, mode="training")
-        self.bank = SyntheticBankReader.open(Path(bank_root), backend=backend)
+        # A row that declares `recipe_conditioning: random_operators` opens the M10
+        # random-operator bank instead of the M7-structured M8 v3 bank. Both are
+        # opened fail-closed against their own pinned identity; neither is a fallback
+        # for the other, and no threshold or acceptance rule is shared by accident.
+        open_kwargs: dict[str, Any] = {"backend": backend}
+        if bank_identity: open_kwargs["expected_identity"] = bank_identity
+        if bank_id: open_kwargs["expected_bank_id"] = bank_id
+        self.bank = SyntheticBankReader.open(Path(bank_root), **open_kwargs)
         self.package_root = Path(package_root)
         self.package_identity = self.real.index.content_identity
         if self.bank.lock["package_identity"] != self.package_identity:
@@ -106,9 +116,19 @@ class M9TrainingDataset:
         return live, spoof
 
     def _synthetic_pools(self) -> dict[str, list[int]]:
+        """Accepted rows by route, restricted to the routes the variant declares.
+
+        A03 `physics_only` / `gpat_only` RESTRICT the accepted M8 v3 rows. They do
+        not regenerate a bank, do not touch a rejected candidate and do not move a
+        quality threshold — the bank identity is unchanged in every row that uses
+        synthetic data.
+        """
+        allowed = set(self.variant.synthetic_routes)
         pools: dict[str, list[int]] = {}
         for position, row in enumerate(self.bank.rows):
-            pools.setdefault(str(row["route"]), []).append(position)
+            route = str(row["route"])
+            if allowed and route not in allowed: continue
+            pools.setdefault(route, []).append(position)
         return {name: sorted(values) for name, values in sorted(pools.items())}
 
     def live_positions(self) -> list[int]:
@@ -147,10 +167,17 @@ class M9TrainingDataset:
             visibility=self.prior_cache.visible(live_position), is_synthetic=True,
             artifact_map=np.asarray(sample.artifact_map, dtype=np.float32),
             attack_region_mask=np.asarray(mask, dtype=np.float32),
+            # `q` is loaded unchanged whatever the variant does with it: the M8 gate
+            # and its acceptance are never rebuilt. `quality_weighting` decides only
+            # how the loss WEIGHTS an accepted sample, and q never becomes a label.
             quality_weight=float(sample.quality_weight),
-            recipe_index=int(self.recipe_index.get(sample.recipe_id, -1)),
-            recipe_id=sample.recipe_id,
-            artifact_family=self.bank.primary_artifact_family(int(position)))
+            # `recipe_conditioning: off` means the recipe identity does not reach the
+            # loss graph at all — no prompt target and no artifact-family risk group.
+            recipe_index=(int(self.recipe_index.get(sample.recipe_id, -1))
+                          if self.variant.consumes_recipe_identity else -1),
+            recipe_id=sample.recipe_id if self.variant.consumes_recipe_identity else "",
+            artifact_family=(self.bank.primary_artifact_family(int(position))
+                             if self.variant.consumes_recipe_identity else ""))
 
     def batch_from_plan(self, plan: Any) -> DetectorBatch:
         """Assemble one `BatchPlan` into a validated `DetectorBatch`."""
@@ -175,7 +202,12 @@ class M9TrainingDataset:
                 "real_live": {name: len(values) for name, values in sorted(self.real_live.items())},
                 "real_spoof": {name: len(values) for name, values in sorted(self.real_spoof.items())},
                 "synthetic_routes": {name: len(values) for name, values in self.synthetic_routes.items()},
-                "synthetic_total": len(self.bank), "recipe_count": len(self.recipe_index),
+                "synthetic_total": sum(len(values) for values in self.synthetic_routes.values()),
+                "synthetic_accepted_in_bank": len(self.bank),
+                "declared_routes": list(self.variant.synthetic_routes),
+                "recipe_source": self.variant.recipe_source,
+                "consumes_recipe_identity": self.variant.consumes_recipe_identity,
+                "recipe_count": len(self.recipe_index),
                 "backend": self.bank.backend, "prior_storage_size": PRIOR_STORAGE_SIZE,
                 "region_prior_cache": {"state": self.prior_cache_state,
                                        "identity_sha256": self.prior_cache.identity},

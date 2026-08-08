@@ -88,6 +88,14 @@ class ExperimentRow:
 
 
 def _check_flags(experiment_id: str, flags: dict[str, Any], vocabulary: dict[str, list[Any]]) -> None:
+    """Validate a row's flag set against the YAML vocabulary AND the implementation.
+
+    The consistency rules live in `prism_fas.detector.variant`, which is what the
+    trainer and the model actually consume. Delegating here is what guarantees that
+    a row the planner accepts is a variant the implementation can build — the two
+    cannot drift, because there is only one list of rules.
+    """
+    from prism_fas.detector.variant import ResolvedExperimentVariant, VariantError
     unknown = sorted(set(flags) - set(FLAG_KEYS))
     if unknown: raise M10ContractError(f"{experiment_id}: unknown flags {unknown}")
     missing = sorted(set(FLAG_KEYS) - set(flags))
@@ -96,34 +104,10 @@ def _check_flags(experiment_id: str, flags: dict[str, Any], vocabulary: dict[str
         allowed = vocabulary.get(key)
         if allowed is not None and value not in allowed:
             raise M10ContractError(f"{experiment_id}: flag {key}={value!r} is outside {allowed}")
-    region, manifold, k = flags["region"], flags["manifold"], int(flags["prototype_k"])
-    fusion, prompt, outlier = flags["fusion"], flags["prompt"], flags["outlier_loss"]
-    synthetic, quality, recipe = flags["synthetic"], flags["quality_weighting"], flags["recipe_conditioning"]
-    branches = (flags["local_branch"] != "off") + (flags["global_branch"] != "off")
-    problems = []
-    if (manifold == "off") != (k == 0): problems.append("manifold=off must pair with prototype_k=0")
-    if manifold == "global_center" and k != 1: problems.append("a global center is exactly one prototype")
-    if manifold == "multi_prototype" and (k < 1 or region != "on"):
-        problems.append("multi-prototype manifolds are regional and need at least one prototype")
-    if region == "on" and fusion != "prism_noisy_or":
-        problems.append("the regional detector uses the Table 34 fusion")
-    if region == "off" and fusion == "prism_noisy_or":
-        problems.append("the Table 34 fusion needs the regional evidence term")
-    if prompt != "off" and (region != "on" or flags["global_branch"] == "off"):
-        problems.append("PromptHead is defined over region embeddings and the frozen text tower")
-    if outlier == "mask_aware" and region != "on":
-        problems.append("a mask-aware outlier loss needs region masks")
-    if synthetic == "none" and quality != "off":
-        problems.append("q weights synthetic samples; with no synthetic data there is nothing to weight")
-    if quality != "off" and synthetic == "none":
-        problems.append("quality weighting requires synthetic samples")
-    if recipe != "off" and synthetic == "none":
-        problems.append("recipe conditioning requires synthetic samples")
-    if fusion == "single_logit" and branches != 1:
-        problems.append("a single-logit baseline has exactly one backbone branch")
-    if fusion in ("simple_concat", "prism_noisy_or") and branches != 2:
-        problems.append(f"{fusion} needs both backbone branches")
-    if problems: raise M10ContractError(f"{experiment_id}: contradictory flags: {problems}")
+    try:
+        ResolvedExperimentVariant.resolve(flags)
+    except VariantError as error:
+        raise M10ContractError(f"{experiment_id}: {error}") from error
 
 
 def _stages(config: dict[str, Any], flags: dict[str, Any], *, role: str, status: str) -> tuple[str, ...]:

@@ -79,6 +79,33 @@ def matrix_validate(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN
     if not all(checks.values()): raise typer.Exit(1)
 
 
+@matrix_app.command("audit")
+def matrix_audit(config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=True, dir_okay=False),
+                 output: Path = typer.Option(DEFAULT_REPORTS / "M10_IMPLEMENTABILITY.json", "--output"),
+                 dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Instantiate and step EVERY executable row before any GPU hour is spent.
+
+    Each unique scientific configuration is built as the real detector, given a real
+    batch, run forward and backward through one optimizer step, and checked against
+    what it declares. A row that cannot be materialized is reported, never repaired
+    into a neighbouring configuration.
+    """
+    from prism_fas.evaluation.variant_audit import audit_matrix, write_audit
+    plan = experiment_matrix.build_plan(Path(config))
+    report = audit_matrix(plan)
+    if not dry_run: write_audit(Path(output), report)
+    _echo({"passed": report["all_executable_rows_implementable"],
+           "m10_matrix_identity": report["m10_matrix_identity"],
+           "audited_rows": report["audited_rows"],
+           "implementable_rows": report["implementable_rows"],
+           "unique_variant_configs": report["unique_variant_configs"],
+           "unique_scientific_configs_covered": report["unique_scientific_configs_covered"],
+           "not_implementable": report["not_implementable"],
+           "blocked_rows": [row["experiment_id"] for row in report["blocked_rows"]],
+           "written": [] if dry_run else [str(output)]})
+    if not report["all_executable_rows_implementable"]: raise typer.Exit(1)
+
+
 # --- registry ----------------------------------------------------------------
 @app.command("registry")
 def registry_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",

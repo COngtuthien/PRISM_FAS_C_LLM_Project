@@ -113,38 +113,75 @@ class ModelOutput:
 
     Typed on purpose: the spec's contract is a named structure, and M10 ablations
     must be able to read each evidence term without re-deriving it.
+
+    **Absent means `None`, never a zero tensor.** An M10 baseline without a local
+    branch, without the semantic region path or without a manifold writes `None` for
+    the components it does not have. A fabricated zero would flow into the fusion
+    arithmetic, into a loss denominator and into the report as a measured value;
+    `None` cannot, and every consumer is forced to say what it does when a term is
+    missing. For the full B08 method every field is populated and every shape is
+    exactly what M9 froze.
+
+    `region_*` fields describe the nine-region semantic path. `manifold_*` fields
+    describe the manifold sites, of which there are nine for a regional manifold and
+    exactly one for a single global center — so the two are not interchangeable and
+    are not conflated.
     """
     global_logit: torch.Tensor               # [B,1]
-    local_logits: torch.Tensor               # [B,P]
-    region_embeddings: torch.Tensor          # [B,R,D]
-    region_distances: torch.Tensor           # [B,R]
-    region_valid: torch.Tensor               # [B,R] bool, from visibility
+    local_logits: torch.Tensor | None        # [B,P], None without a local branch
+    region_embeddings: torch.Tensor | None   # [B,R,D], None without the region path
+    region_distances: torch.Tensor | None    # [B,M], None without a manifold
+    region_valid: torch.Tensor | None        # [B,M] bool, aligned with the distances
     prompt_logits: torch.Tensor | None       # [B,N_prompt] or None
     p_global: torch.Tensor                   # [B] sigmoid(global_logit)
-    s_region: torch.Tensor                   # [B] TopKMean(normalize(d_r), k=2)
-    p_prompt_spoof: torch.Tensor             # [B] bounded prompt evidence in [0,1]
+    s_region: torch.Tensor | None            # [B] TopKMean(normalize(d_r), k=2)
+    p_prompt_spoof: torch.Tensor | None      # [B] bounded prompt evidence in [0,1]
     s_final: torch.Tensor                    # [B] fused score
     confidence_features: dict[str, torch.Tensor] = field(default_factory=dict)
     aux: dict[str, torch.Tensor] = field(default_factory=dict)
+    # Visibility over the NINE semantic regions. Equal to `region_valid` for a
+    # regional manifold; carried separately for a single global center, whose
+    # `region_valid` is [B,1].
+    region_visibility_valid: torch.Tensor | None = None
+
+    @property
+    def manifold_slots(self) -> int:
+        return 0 if self.region_distances is None else int(self.region_distances.shape[1])
 
     def validate(self) -> "ModelOutput":
         batch = self.global_logit.shape[0]
         _check(self.global_logit, "global_logit", (batch, 1))
-        _check(self.local_logits, "local_logits", (batch, None))
-        _check(self.region_embeddings, "region_embeddings", (batch, REGION_COUNT, None))
-        _check(self.region_distances, "region_distances", (batch, REGION_COUNT))
+        if self.local_logits is not None:
+            _check(self.local_logits, "local_logits", (batch, None))
+        if self.region_embeddings is not None:
+            _check(self.region_embeddings, "region_embeddings", (batch, REGION_COUNT, None))
+        if self.region_distances is not None:
+            _check(self.region_distances, "region_distances", (batch, None))
+            if self.region_distances.shape[1] not in (1, REGION_COUNT):
+                raise DetectorContractError(
+                    f"a manifold has either one global site or {REGION_COUNT} regional sites, "
+                    f"got {self.region_distances.shape[1]}")
+            if float(self.region_distances.detach().min()) < 0.0:
+                raise DetectorContractError("a squared Mahalanobis distance cannot be negative")
         for name in ("p_global", "s_region", "p_prompt_spoof", "s_final"):
             value = getattr(self, name)
+            if value is None:
+                if name in ("p_global", "s_final"):
+                    raise DetectorContractError(f"{name} is always produced")
+                continue
             _check(value, name, (batch,))
             # `.detach()` before the scalar read: these are live graph tensors during
             # training, and torch warns about implicit scalar conversion.
             bounded = value.detach()
             if float(bounded.min()) < -1e-6 or float(bounded.max()) > 1.0 + 1e-6:
                 raise DetectorContractError(f"{name} must lie in [0,1]")
-        if self.region_valid.shape != (batch, REGION_COUNT):
-            raise DetectorContractError("region_valid must be [B,R]")
-        if float(self.region_distances.detach().min()) < 0.0:
-            raise DetectorContractError("a squared Mahalanobis distance cannot be negative")
+        if (self.region_valid is None) != (self.region_distances is None):
+            raise DetectorContractError("region_valid and region_distances must both exist or both be absent")
+        if self.region_valid is not None and self.region_valid.shape != self.region_distances.shape:
+            raise DetectorContractError("region_valid must align with region_distances")
+        if self.region_visibility_valid is not None \
+                and self.region_visibility_valid.shape != (batch, REGION_COUNT):
+            raise DetectorContractError("region_visibility_valid must be [B,R]")
         return self
 
 

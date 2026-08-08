@@ -220,12 +220,19 @@ def test_selected_target_rows_keep_their_dataset_position():
 
 
 def test_variant_capabilities_read_the_flags():
-    assert g7.VariantCapabilities.from_flags(
-        {"region": "on", "manifold": "multi_prototype", "prompt": "frozen_prompt"}) == \
-        g7.VariantCapabilities(has_region=True, has_prompt=True)
-    assert g7.VariantCapabilities.from_flags(
-        {"region": "off", "manifold": "off", "prompt": "off"}) == \
-        g7.VariantCapabilities(has_region=False, has_prompt=False)
+    """Capabilities come from a RESOLVED variant, so a partial or self-contradictory
+    flag set fails closed instead of yielding capabilities no model could have."""
+    from prism_fas.detector.variant import ResolvedExperimentVariant, VariantError
+    assert g7.VariantCapabilities.from_flags(ResolvedExperimentVariant.reference().flags()) == \
+        g7.VariantCapabilities(has_region=True, has_prompt=True, has_region_detail=True)
+    b00 = ResolvedExperimentVariant.resolve(
+        {"global_branch": "off", "fusion": "single_logit", "region": "off", "manifold": "off",
+         "prototype_k": 0, "synthetic": "none", "recipe_conditioning": "off",
+         "quality_weighting": "off", "outlier_loss": "off", "prompt": "off"})
+    assert g7.VariantCapabilities.from_flags(b00.flags()) == \
+        g7.VariantCapabilities(has_region=False, has_prompt=False, has_region_detail=False)
+    with pytest.raises(VariantError):
+        g7.VariantCapabilities.from_flags({"region": "off", "manifold": "off", "prompt": "off"})
 
 
 # --- PREDICTION_LOCK --------------------------------------------------------

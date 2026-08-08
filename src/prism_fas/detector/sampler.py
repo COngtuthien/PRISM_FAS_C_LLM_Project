@@ -22,6 +22,7 @@ SAMPLER_SCHEMA_VERSION = "m9-batch-sampler-v1"
 DEFAULT_COMPOSITION = {"real_live": 12, "real_spoof": 12, "synthetic": 8}
 DOMAINS = ("casia_fasd", "msu_mfsd")
 ROUTES = ("physics", "gpat")
+LIVE_KIND, SPOOF_KIND = "live", "spoof"
 
 
 class SamplerError(ValueError):
@@ -55,6 +56,10 @@ class BatchContract:
     # exist for them, so a real-only warm-up contract is explicitly allowed. It is
     # never allowed for G5, whose input is "Real + synthetic".
     phase: str = "mixed"
+    # Which routes of the accepted M8 bank this row is allowed to draw from. The
+    # A03 single-route variants restrict the ACCEPTED rows; they never regenerate a
+    # bank and never change a quality threshold.
+    routes: tuple[str, ...] = ROUTES
 
     @property
     def batch_size(self) -> int: return self.real_live + self.real_spoof + self.synthetic
@@ -64,6 +69,10 @@ class BatchContract:
             raise SamplerError(f"unknown batch phase {self.phase!r}")
         if min(self.real_live, self.real_spoof) <= 0:
             raise SamplerError("every batch must contain real live AND real spoof (Table 9)")
+        if not self.domain_balance and int(self.accumulation_steps) > 1:
+            raise SamplerError("naive concatenation draws a variable per-class split, which cannot be "
+                               "guaranteed to divide into accumulation micro-batches; declare "
+                               "accumulation_steps=1 for this sampler")
         if self.phase == "real_only":
             if self.synthetic: raise SamplerError("a real-only warm-up batch cannot carry synthetic samples")
         elif self.synthetic <= 0:
@@ -72,6 +81,12 @@ class BatchContract:
             raise SamplerError("synthetic may never exceed 25 % of a batch (Table 9)")
         if self.domain_balance and (self.real_live % len(DOMAINS) or self.real_spoof % len(DOMAINS)):
             raise SamplerError(f"domain-balanced real quotas must divide by {len(DOMAINS)}")
+        if self.synthetic and not self.routes:
+            raise SamplerError("a mixed batch must declare at least one synthetic route")
+        unknown = sorted(set(self.routes) - set(ROUTES))
+        if unknown: raise SamplerError(f"unknown synthetic route(s) {unknown}")
+        if self.require_both_routes and len(self.routes) < len(ROUTES):
+            raise SamplerError("a single-route bank cannot be asked to carry both routes in every batch")
         steps = int(self.accumulation_steps)
         if steps < 1: raise SamplerError("accumulation_steps must be >= 1")
         if steps > 1 and any(count % steps for count in (self.real_live, self.real_spoof, self.synthetic)):
@@ -79,7 +94,7 @@ class BatchContract:
         return self
 
     def payload(self) -> dict[str, Any]:
-        return {"schema_version": SAMPLER_SCHEMA_VERSION, "real_live": self.real_live,
+        body = {"schema_version": SAMPLER_SCHEMA_VERSION, "real_live": self.real_live,
                 "real_spoof": self.real_spoof, "synthetic": self.synthetic,
                 "batch_size": self.batch_size, "domain_balance": self.domain_balance,
                 "require_both_routes": self.require_both_routes and bool(self.synthetic),
@@ -87,6 +102,10 @@ class BatchContract:
                 "ratios": {"real_live": self.real_live / self.batch_size,
                            "real_spoof": self.real_spoof / self.batch_size,
                            "synthetic": self.synthetic / self.batch_size}}
+        # Carried only when the row restricts the accepted bank to one route, so the
+        # reference contract keeps the hash its M9 checkpoints were written with.
+        if tuple(self.routes) != ROUTES: body["routes"] = list(self.routes)
+        return body
 
     def identity(self) -> str:
         return hashlib.sha256(json.dumps(self.payload(), sort_keys=True,
@@ -169,14 +188,21 @@ class M9BatchSampler:
         if self.steps_per_epoch <= 0: raise SamplerError("steps_per_epoch must be positive")
         self.real_live_pools = {name: list(values) for name, values in sorted(real_live.items())}
         self.real_spoof_pools = {name: list(values) for name, values in sorted(real_spoof.items())}
-        self.synthetic_pools = {name: list(values) for name, values in sorted(synthetic_routes.items())}
+        # A row that declares one route sees ONLY that route's accepted rows. The
+        # bank is not rebuilt and no threshold moves; the pool is restricted.
+        self.synthetic_pools = {name: list(values) for name, values in sorted(synthetic_routes.items())
+                                if name in self.contract.routes}
         if self.contract.domain_balance:
             for label, pools in (("live", self.real_live_pools), ("spoof", self.real_spoof_pools)):
                 missing = [name for name in DOMAINS if not pools.get(name)]
                 if missing: raise SamplerError(f"domain balance needs real {label} samples from {missing}")
-        if self.contract.synthetic and self.contract.require_both_routes:
-            missing = [name for name in ROUTES if not self.synthetic_pools.get(name)]
-            if missing: raise SamplerError(f"the synthetic pool is missing route(s) {missing}")
+        else:
+            for label, pools in (("live", self.real_live_pools), ("spoof", self.real_spoof_pools)):
+                if not any(pools.values()):
+                    raise SamplerError(f"naive concatenation still needs at least one real {label} row (Table 9)")
+        if self.contract.synthetic:
+            missing = [name for name in self.contract.routes if not self.synthetic_pools.get(name)]
+            if missing: raise SamplerError(f"the synthetic pool is missing declared route(s) {missing}")
 
     # --- state --------------------------------------------------------------
     def state(self, *, epoch: int, step: int) -> dict[str, Any]:
@@ -202,14 +228,47 @@ class M9BatchSampler:
         return streams
 
     def _real(self, streams: dict[str, _Stream], prefix: str, quota: int) -> list[int]:
-        # Table 36 requires domain balance on both real partitions; there is no
-        # unbalanced variant in the frozen M9 contract to fall back to.
-        if not self.contract.domain_balance:
-            raise SamplerError("unbalanced real sampling is not part of the frozen M9 contract")
+        # Table 36 requires domain balance on both real partitions.
         per_domain = quota // len(DOMAINS)
         out: list[int] = []
         for name in DOMAINS: out.extend(streams[f"{prefix}/{name}"].take(per_domain))
         return out
+
+    def _naive_real(self, epoch: int, step: int) -> tuple[list[int], list[int]]:
+        """The A01 `naive_concat` control: draw the real quota from a NAIVE
+        CONCATENATION of every real `source_train` row.
+
+        Table 60 asks "naive concat vs domain/class balanced", so this drops BOTH
+        balances: no per-domain quota and no per-class quota. Whatever proportion of
+        CASIA/MSU and live/spoof the concatenated pool happens to have is the
+        proportion the batch gets, which is the entire point of hypothesis H1.
+
+        The ONE thing it does not drop is Table 9's hard requirement that every batch
+        contains real live AND real spoof. When a draw is single-class the last slot
+        is deterministically replaced by the next draw from the absent class — a
+        presence repair, never a ratio repair, and exactly the pattern the synthetic
+        route mixing already uses.
+        """
+        quota = self.contract.real_live + self.contract.real_spoof
+        pooled = [(LIVE_KIND, index) for values in self.real_live_pools.values() for index in values]
+        pooled += [(SPOOF_KIND, index) for values in self.real_spoof_pools.values() for index in values]
+        pooled.sort()
+        if len(pooled) < quota:
+            raise SamplerError(f"the concatenated real pool holds {len(pooled)} rows, quota is {quota}")
+        rng = generator(SAMPLER_SCHEMA_VERSION, self.identity, self.seed, int(epoch),
+                        "naive_concat_real", int(step))
+        chosen = [pooled[index] for index in rng.choice(len(pooled), size=quota, replace=False)]
+        present = {kind for kind, _ in chosen}
+        for kind, bucket in ((LIVE_KIND, self.real_live_pools), (SPOOF_KIND, self.real_spoof_pools)):
+            if kind in present: continue
+            candidates = sorted(index for values in bucket.values() for index in values)
+            if not candidates: raise SamplerError(f"the real pool has no {kind} rows at all")
+            repair = generator(SAMPLER_SCHEMA_VERSION, self.identity, self.seed, int(epoch),
+                               "naive_concat_repair", kind, int(step))
+            chosen[-1] = (kind, candidates[int(repair.integers(len(candidates)))])
+            present.add(kind)
+        return ([index for kind, index in chosen if kind == LIVE_KIND],
+                [index for kind, index in chosen if kind == SPOOF_KIND])
 
     def _synthetic(self, streams: dict[str, _Stream], quota: int, *, epoch: int, step: int) -> list[int]:
         """`quota` draws from the pooled accepted set.
@@ -219,16 +278,18 @@ class M9BatchSampler:
         deterministically only when a batch would otherwise be single-route.
         """
         if int(quota) <= 0: return []
-        route_streams = [streams[f"synthetic/{name}"] for name in ROUTES if f"synthetic/{name}" in streams]
+        allowed = tuple(name for name in ROUTES if name in self.contract.routes)
+        route_streams = [streams[f"synthetic/{name}"] for name in allowed if f"synthetic/{name}" in streams]
         pooled: list[tuple[str, int]] = []
-        for name in ROUTES:
+        for name in allowed:
             key = f"synthetic/{name}"
             if key in streams: pooled.extend((name, index) for index in streams[key].members)
+        if not pooled: raise SamplerError(f"no accepted synthetic rows for route(s) {list(allowed)}")
         rng = generator(SAMPLER_SCHEMA_VERSION, self.identity, self.seed, int(epoch), "synthetic_batch", int(step))
         chosen = [pooled[index] for index in rng.choice(len(pooled), size=int(quota), replace=False)]
         if self.contract.require_both_routes and len({route for route, _ in chosen}) < len(route_streams):
             present = {route for route, _ in chosen}
-            for name in ROUTES:
+            for name in allowed:
                 if name in present or f"synthetic/{name}" not in streams: continue
                 # Deterministic repair: the last slot is replaced by the next draw
                 # from the absent route's own stream.
@@ -240,9 +301,12 @@ class M9BatchSampler:
         streams = self._streams(epoch)
         plans: list[BatchPlan] = []
         for step in range(self.steps_per_epoch):
-            plan = BatchPlan(step=step, epoch=int(epoch),
-                             real_live=tuple(self._real(streams, "live", self.contract.real_live)),
-                             real_spoof=tuple(self._real(streams, "spoof", self.contract.real_spoof)),
+            if self.contract.domain_balance:
+                live = self._real(streams, "live", self.contract.real_live)
+                spoof = self._real(streams, "spoof", self.contract.real_spoof)
+            else:
+                live, spoof = self._naive_real(epoch, step)
+            plan = BatchPlan(step=step, epoch=int(epoch), real_live=tuple(live), real_spoof=tuple(spoof),
                              synthetic=tuple(self._synthetic(streams, self.contract.synthetic,
                                                              epoch=epoch, step=step)))
             if plan.size != self.contract.batch_size:

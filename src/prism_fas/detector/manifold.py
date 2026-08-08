@@ -53,6 +53,11 @@ KMEANS_MAX_ITERATIONS = 100
 # margin/clean_cap constants inoperative at D = 256.
 DISTANCE_SCALE_CONVENTIONS = ("mean_per_dimension", "sum")
 DEFAULT_DISTANCE_SCALE_CONVENTION = "mean_per_dimension"
+# The M10 `manifold: global_center` scope. Table 59 B05 reads "one global real
+# center/Gaussian": the SAME RealManifold code with one site over a pooled image
+# embedding and K = 1, not a second implementation. The site is named so a global
+# state can never be loaded into a regional module or vice versa.
+GLOBAL_SITE_NAMES = ("image",)
 
 
 class ManifoldError(RuntimeError):
@@ -109,7 +114,8 @@ class PrototypeState:
 
     def validate(self) -> "PrototypeState":
         regions, k, dim = self.centers.shape
-        if regions != REGION_COUNT: raise ManifoldError(f"expected {REGION_COUNT} regions, got {regions}")
+        if regions != len(self.region_names):
+            raise ManifoldError(f"expected {len(self.region_names)} manifold sites, got {regions}")
         if self.variances.shape != (regions, k, dim): raise ManifoldError("variance shape must match centers")
         if self.counts.shape != (regions, k) or self.valid.shape != (regions, k):
             raise ManifoldError("counts/valid must be [R,K]")
@@ -120,7 +126,13 @@ class PrototypeState:
         # few ULPs low. That is a representation artifact, not a floor violation.
         if float(self.variances.min()) < self.epsilon * (1.0 - 1e-5) - 1e-15:
             raise ManifoldError("a variance fell below the declared epsilon floor")
-        if tuple(self.region_names) != REGION_ORDER: raise ManifoldError("region ordering drifted")
+        # A regional manifold keeps the frozen nine-region ordering. A single global
+        # center has exactly one site and is named so it can never be mistaken for a
+        # region, nor a regional state loaded into a global one.
+        if regions == REGION_COUNT:
+            if tuple(self.region_names) != REGION_ORDER: raise ManifoldError("region ordering drifted")
+        elif tuple(self.region_names) != GLOBAL_SITE_NAMES:
+            raise ManifoldError(f"a {regions}-site manifold must be named {list(GLOBAL_SITE_NAMES)}")
         return self
 
     @property
@@ -153,6 +165,10 @@ class RealManifold(nn.Module):
                  distance_scale_convention: str = DEFAULT_DISTANCE_SCALE_CONVENTION):
         super().__init__()
         self.dim, self.k, self.regions = int(dim), int(k), int(regions)
+        self.region_names = REGION_ORDER if int(regions) == REGION_COUNT else GLOBAL_SITE_NAMES
+        if len(self.region_names) != int(regions):
+            raise ManifoldError(f"a manifold has either 1 global site or {REGION_COUNT} regional sites, "
+                                f"got {regions}")
         self.epsilon, self.tau_prototype, self.decay = float(epsilon), float(tau_prototype), float(decay)
         if distance_scale_convention not in DISTANCE_SCALE_CONVENTIONS:
             raise ManifoldError(f"unknown distance scale convention {distance_scale_convention!r}")
@@ -202,6 +218,9 @@ class RealManifold(nn.Module):
         state.validate()
         if state.dim != self.dim or state.k != self.k:
             raise ManifoldError(f"prototype state is [K={state.k},D={state.dim}], module is [K={self.k},D={self.dim}]")
+        if tuple(state.region_names) != tuple(self.region_names):
+            raise ManifoldError(f"prototype state covers sites {list(state.region_names)}, module covers "
+                                f"{list(self.region_names)}; a global center is not a regional manifold")
         device = self.centers.device
         self.centers.copy_(torch.as_tensor(state.centers, dtype=torch.float32, device=device))
         self.variances.copy_(torch.as_tensor(state.variances, dtype=torch.float32, device=device).clamp_min(self.epsilon))
@@ -214,7 +233,7 @@ class RealManifold(nn.Module):
                               variances=self.variances.detach().cpu().numpy().astype(np.float64),
                               counts=self.counts.detach().cpu().numpy().astype(np.int64),
                               valid=self.valid.detach().cpu().numpy().astype(bool),
-                              epsilon=self.epsilon).validate()
+                              epsilon=self.epsilon, region_names=self.region_names).validate()
 
     @torch.no_grad()
     def update(self, embeddings: torch.Tensor, *, is_live: torch.Tensor, is_synthetic: torch.Tensor,
@@ -252,19 +271,25 @@ class RealManifold(nn.Module):
 
 
 def initialize_prototypes(embeddings: np.ndarray, valid: np.ndarray, *, k: int = DEFAULT_K,
-                          epsilon: float = DEFAULT_COVARIANCE_EPSILON, seed: int = 20260806) -> PrototypeState:
+                          epsilon: float = DEFAULT_COVARIANCE_EPSILON, seed: int = 20260806,
+                          region_names: tuple[str, ...] | None = None) -> PrototypeState:
     """Deterministic K-means initialization on `source_train` LIVE embeddings.
 
-    `embeddings` is `[N,R,D]` and `valid` is `[N,R]`. A region with fewer than `k`
-    valid samples raises: the spec fixes K per region for MVP, so silently reducing
-    it would change the declared model without saying so.
+    `embeddings` is `[N,M,D]` and `valid` is `[N,M]`, where `M` is the number of
+    manifold sites: nine for the regional manifold, one for a single global center.
+    A site with fewer than `k` valid samples raises: the spec fixes K per region for
+    MVP, so silently reducing it would change the declared model without saying so.
     """
     data = np.asarray(embeddings, dtype=np.float64)
     mask = np.asarray(valid).astype(bool)
-    if data.ndim != 3 or data.shape[1] != REGION_COUNT:
-        raise ManifoldError(f"embeddings must be [N,{REGION_COUNT},D]")
-    if mask.shape != data.shape[:2]: raise ManifoldError("valid mask must be [N,R]")
-    regions, dim = REGION_COUNT, data.shape[2]
+    if data.ndim != 3: raise ManifoldError("embeddings must be [N,M,D]")
+    sites = int(data.shape[1])
+    names = tuple(region_names) if region_names is not None else (
+        REGION_ORDER if sites == REGION_COUNT else GLOBAL_SITE_NAMES)
+    if len(names) != sites:
+        raise ManifoldError(f"embeddings carry {sites} sites but {len(names)} names were given")
+    if mask.shape != data.shape[:2]: raise ManifoldError("valid mask must be [N,M]")
+    regions, dim = sites, data.shape[2]
     centers = np.zeros((regions, k, dim), dtype=np.float64)
     variances = np.full((regions, k, dim), float(epsilon), dtype=np.float64)
     counts = np.zeros((regions, k), dtype=np.int64)
@@ -273,7 +298,7 @@ def initialize_prototypes(embeddings: np.ndarray, valid: np.ndarray, *, k: int =
     for region in range(regions):
         points = data[mask[:, region], region, :]
         if points.shape[0] < k:
-            shortfalls.append(f"{REGION_ORDER[region]}={points.shape[0]}")
+            shortfalls.append(f"{names[region]}={points.shape[0]}")
             continue
         # Deterministic ordering before clustering: the caller's row order must not
         # decide the result.
@@ -289,7 +314,7 @@ def initialize_prototypes(embeddings: np.ndarray, valid: np.ndarray, *, k: int =
     if shortfalls:
         raise ManifoldError(f"regions with fewer than k={k} valid live samples: {sorted(shortfalls)}")
     return PrototypeState(centers=centers, variances=variances, counts=counts, valid=flags,
-                          epsilon=float(epsilon)).validate()
+                          epsilon=float(epsilon), region_names=names).validate()
 
 
 def write_prototypes_npz(path: Any, state: PrototypeState, *, config_hash: str,

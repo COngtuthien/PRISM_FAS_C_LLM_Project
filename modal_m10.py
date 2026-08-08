@@ -36,6 +36,9 @@ DATA_MOUNT, MODELS_MOUNT, RUNS_MOUNT = "/vol/data", "/vol/models", "/vol/runs"
 
 REMOTE_PACKAGE = f"{DATA_MOUNT}/packages/prism_data_v1_m3b"
 REMOTE_BANK = f"{DATA_MOUNT}/synthetic_banks/prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+# The A02 control artifact: source-only, equal budget, same routes, same frozen
+# quality thresholds, random operator composition instead of the structured recipe.
+REMOTE_RANDOM_BANK = f"{DATA_MOUNT}/synthetic_banks/prism_synthetic_bank_m10_random_v1"
 REMOTE_TARGET_FEATURES = f"{DATA_MOUNT}/target_eval/prism_target_eval_v2"
 REMOTE_WEIGHT_ROOT = f"{MODELS_MOUNT}/pretrained/m9"
 REMOTE_RUNS_ROOT = f"{RUNS_MOUNT}/runs"
@@ -51,6 +54,11 @@ EXPECTED_BANK_IDENTITY = "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be9
 EXPECTED_SIGLIP2_IDENTITY = "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
 EXPECTED_TEXT_CACHE_IDENTITY = "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
 EXPECTED_ARCHITECTURE_IDENTITY = "d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0"
+EXPECTED_MATRIX_IDENTITY = "a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5"
+# Filled in when the A02 random-operator bank is built and frozen; until then the
+# A02 rows fail closed rather than falling back to the structured M8 v3 bank.
+EXPECTED_RANDOM_BANK_ID = "prism_synthetic_bank_m10_random_v1"
+EXPECTED_RANDOM_BANK_IDENTITY = ""
 
 # A target feature row may never carry any of these, remotely or locally.
 FORBIDDEN_FEATURE_FIELDS = (
@@ -209,7 +217,7 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
     from prism_fas.detector.config import detector_config_from, load_yaml
     from prism_fas.detector.heads import resolve_recipe_text_cache
     from prism_fas.detector.pretrained import SigLIP2Artifacts, resolve_convnext_weight
-    from prism_fas.detector.prism_detector import build_detector
+    from prism_fas.detector.prism_detector import architecture_delta, build_detector
     from prism_fas.evaluation import target_prediction as g7
     from prism_fas.evaluation.firewall import TargetLabelFirewall, load_firewall_config
 
@@ -218,8 +226,21 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
                                    project_root=project)
     evidence = firewall.assert_cannot_resolve_labels("G7")
 
+    # The variant the checkpoint was trained under, re-derived from the frozen
+    # matrix. G7 must understand the simpler baselines: a row without a regional
+    # branch or a PromptHead writes `null` for the components it does not have, and
+    # B00-B07 are never forced through the B08 fusion.
+    from prism_fas.detector.variant import ResolvedExperimentVariant
+    try:
+        resolved = resolve_matrix_row(experiment_id)["variant"]
+    except RuntimeError:
+        # An engineering smoke uses an id that is not a matrix row; it is the
+        # reference configuration by construction and is labelled as a smoke below.
+        if not engineering_smoke: raise
+        resolved = ResolvedExperimentVariant.reference()
+
     model_payload = load_yaml(project / "configs/models/m9_detector.yaml")
-    detector_config = detector_config_from(model_payload)
+    detector_config = detector_config_from(model_payload, resolved)
     siglip = SigLIP2Artifacts.resolve(Path(REMOTE_WEIGHT_ROOT))
     text_cache = resolve_recipe_text_cache(Path(REMOTE_WEIGHT_ROOT))
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -227,8 +248,14 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
                            local_weight_file=resolve_convnext_weight(Path(REMOTE_WEIGHT_ROOT)),
                            text_cache_identity=text_cache.identity, device=device)
     opened = g7.load_checkpoint_for_inference(Path(REMOTE_RUNS_ROOT) / checkpoint_relative, model)
-    if opened["identity"].get("architecture_identity") != EXPECTED_ARCHITECTURE_IDENTITY:
-        raise RuntimeError("checkpoint architecture identity does not match the M9 pin")
+    # The checkpoint must be the one THIS variant produced. For the reference that is
+    # the M9 pin; for every other row it is that row's own architecture identity, so
+    # a B08 checkpoint can never be scored as though it were a baseline.
+    expected_architecture = (EXPECTED_ARCHITECTURE_IDENTITY if not architecture_delta(resolved)
+                             else model.architecture_identity())
+    if opened["identity"].get("architecture_identity") != expected_architecture:
+        raise RuntimeError(f"checkpoint architecture identity {opened['identity'].get('architecture_identity')} "
+                           f"does not match this variant's {expected_architecture}")
 
     # Bind the FROZEN source calibration from the run that produced the checkpoint.
     # It is source-side only: fitted on `source_dev`, never on target.
@@ -261,12 +288,12 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
                                 cache_root=Path(REMOTE_M10_CACHE), limit=limit,
                                 batch_size=batch_size, firewall=None, video_ids=selected)
     inference_hash = g7.inference_config_hash(
-        variant=variant, flags={"region": "on", "prompt": "frozen_prompt"}, threshold=threshold,
+        variant=variant, flags=resolved.flags(), threshold=threshold,
         unknown_threshold=None, temperature=temperature,
         package_identity=EXPECTED_TARGET_FEATURE_IDENTITY,
         architecture_identity=model.architecture_identity())
     rows = g7.predict_target(model, batches,
-                             capabilities=g7.VariantCapabilities(has_region=True, has_prompt=True),
+                             capabilities=g7.VariantCapabilities.from_variant(resolved),
                              threshold=threshold, unknown_threshold=None, temperature=temperature,
                              checkpoint_hash=opened["checkpoint_sha256"],
                              calibration_hash=calibration_hash,
@@ -297,6 +324,7 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
             "scientific_use": prediction_lock["scientific_use"],
             "prompt_status": sorted({row["prompt_status"] for row in rows}),
             "region_status": sorted({row["region_status"] for row in rows}),
+            "variant_flags": resolved.flags(), "variant_identity": resolved.identity(),
             "firewall": evidence, "target_labels_opened": False,
             "target_metrics_computed": False,
             "written": [str(destination / g7.PREDICTION_FILE),
@@ -305,14 +333,61 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
 
 # --- bounded source-only matrix training ----------------------------------------
 
+def resolve_matrix_row(experiment_id: str, *, expected_scientific_config_hash: str = "") -> dict:
+    """Re-plan the frozen matrix INSIDE the container and return one row.
+
+    The row's flags are not passed in over the wire: they are re-derived from
+    `configs/experiments/m10_matrix.yaml`, which travels with the image, and the
+    caller's `scientific_config_hash` is verified against the re-derived one. A
+    launcher can therefore never hand a container a flag set the frozen matrix does
+    not contain, and a drifting image can never silently train a different variant.
+    """
+    from prism_fas.detector.variant import variant_from_row
+    from prism_fas.evaluation.experiment_matrix import build_plan
+    plan = build_plan(Path("/root/project/configs/experiments/m10_matrix.yaml"))
+    if plan["m10_matrix_identity"] != EXPECTED_MATRIX_IDENTITY:
+        raise RuntimeError(f"matrix identity {plan['m10_matrix_identity']} != the frozen pin")
+    matched = [row for row in plan["rows"] if row["experiment_id"] == experiment_id]
+    if not matched: raise RuntimeError(f"{experiment_id!r} is not a row of the frozen matrix")
+    row = matched[0]
+    if row["status"] == "BLOCKED":
+        raise RuntimeError(f"{experiment_id} is BLOCKED: {row['blocked_reason']}")
+    if expected_scientific_config_hash and row["scientific_config_hash"] != expected_scientific_config_hash:
+        raise RuntimeError(f"{experiment_id}: scientific config hash mismatch; the launcher expected "
+                           f"{expected_scientific_config_hash} and the frozen matrix says "
+                           f"{row['scientific_config_hash']}")
+    return {"row": row, "variant": variant_from_row(row),
+            "m10_matrix_identity": plan["m10_matrix_identity"]}
+
+
+def bank_root_for(variant) -> tuple[str, str | None, str | None]:
+    """The synthetic bank this variant's `recipe_conditioning` declares.
+
+    `structured` reads the frozen M8 v3 bank. `random_operators` reads the M10
+    random-operator bank — a separate, source-only, separately identified artifact
+    built from the SAME live targets, the SAME operator implementations, the SAME
+    routes and the SAME frozen quality thresholds, differing only in how the
+    operator composition was chosen. Neither is ever a fallback for the other.
+    """
+    if variant.recipe_source == "m10_random_operator_bank":
+        return REMOTE_RANDOM_BANK, EXPECTED_RANDOM_BANK_IDENTITY, EXPECTED_RANDOM_BANK_ID
+    return REMOTE_BANK, None, None
+
+
 @app.function(image=image, gpu=DEFAULT_GPU, volumes=TRAIN_VOLUMES, timeout=24 * 3600)
 def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = True,
-                  max_epochs: int | None = None) -> dict:
-    """One matrix row, source-only.
+                  max_epochs: int | None = None, scientific_config_hash: str = "",
+                  engineering_smoke: bool = False) -> dict:
+    """One matrix row, source-only, under that row's OWN resolved variant.
 
     `source_train` optimizes; `source_dev` selects the checkpoint and fits the
     calibration and produces no gradient. The target feature package is NOT opened
     by this function and target labels are nowhere on any mounted volume.
+
+    Every scientific switch comes from the frozen matrix row, so a baseline is a
+    configuration of the shared implementation and never a forked model. The stages
+    that run are the stages the variant declares: G2 exists exactly where prototypes
+    do.
     """
     import time
     import torch
@@ -321,14 +396,22 @@ def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = Tru
 
     project = Path("/root/project")
     started = time.time()
+    resolved = resolve_matrix_row(experiment_id,
+                                  expected_scientific_config_hash=scientific_config_hash)
+    variant, row = resolved["variant"], resolved["row"]
+    if int(seed) != int(row["seed"]):
+        raise RuntimeError(f"{experiment_id} declares seed {row['seed']}, the launcher asked for {seed}")
+    variant.require_executable()
     configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
-                              project / "configs/train/m9_reference.yaml")
+                              project / "configs/train/m9_reference.yaml", variant)
     from dataclasses import replace
     training_config = replace(configs["training_config"], run_id=run_id, seed=int(seed))
     if max_epochs is not None: training_config = replace(training_config, mixed_epochs=int(max_epochs))
+    bank_root, bank_identity, bank_id = bank_root_for(variant)
     trainer = M9Trainer(
         config=training_config, detector_config=configs["detector_config"],
-        package_root=Path(REMOTE_PACKAGE), bank_root=Path(REMOTE_BANK),
+        package_root=Path(REMOTE_PACKAGE), bank_root=Path(bank_root),
+        bank_identity=bank_identity, bank_id=bank_id,
         recipe_bank_root=project / "assets/recipe_banks/prism_recipe_bank_m7_v1",
         run_root=Path(REMOTE_RUNS_ROOT) / run_id, cache_root=Path(REMOTE_CACHE_ROOT),
         weight_root=Path(REMOTE_WEIGHT_ROOT),
@@ -338,33 +421,50 @@ def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = Tru
         progress=lambda payload: print(json.dumps({"progress": payload})))
     if resume and (Path(REMOTE_RUNS_ROOT) / run_id / "checkpoints" / "last.pt").is_file():
         trainer.resume()
-    for stage in ("G1", "G2", "G5", "G6"):
+    for stage in trainer.stages:
         getattr(trainer, f"run_{stage.lower()}")()
         runs_volume.commit()
+    # Close the run. Without this a finished run reports RUNNING forever and the
+    # acceptance report would describe completed work as still in flight.
+    closure = trainer.finish()
     summary = trainer.run_summary()
     runs_volume.commit()
     return {"experiment_id": experiment_id, "run_id": run_id, "seed": int(seed),
+            "scientific_config_hash": row["scientific_config_hash"],
+            "m10_matrix_identity": resolved["m10_matrix_identity"],
+            "variant_identity": variant.identity(), "flags": variant.flags(),
+            "declared_stages": list(trainer.stages), "closure": closure,
+            "synthetic_bank_root": bank_root,
             "elapsed_seconds": round(time.time() - started, 1),
             "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
             "peak_vram_bytes": int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else None,
             "summary": summary,
             "isolation": source_isolation_report(trainer, source_dev_opened=True),
+            "engineering_smoke": bool(engineering_smoke),
+            "scientific_use": not bool(engineering_smoke),
             "target_features_opened": False, "target_labels_opened": False}
 
 
 @app.local_entrypoint()
 def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
          checkpoint_relative: str = "", limit: int | None = 320, seed: int = 20260806,
-         run_id: str = "", threshold: float = 0.5, temperature: float | None = None) -> None:
+         run_id: str = "", threshold: float = 0.5, temperature: float | None = None,
+         max_epochs: int | None = None, scientific_config_hash: str = "",
+         engineering_smoke: bool = False, variant: str = "B08") -> None:
     if action == "verify":
         print(json.dumps(m10_verify_target_features.remote(), indent=1, default=str))
     elif action == "g7":
-        print(json.dumps(m10_g7_predict.remote(experiment_id, checkpoint_relative, limit=limit,
+        print(json.dumps(m10_g7_predict.remote(experiment_id, checkpoint_relative, variant=variant,
+                                               seed=seed, limit=limit,
                                                threshold=threshold, temperature=temperature,
+                                               engineering_smoke=engineering_smoke,
                                                cover_short_videos=24, cover_full_videos=76),
                          indent=1, default=str))
     elif action == "train":
-        print(json.dumps(m10_train_row.remote(experiment_id, seed, run_id or experiment_id),
+        print(json.dumps(m10_train_row.remote(experiment_id, seed, run_id or experiment_id,
+                                              max_epochs=max_epochs,
+                                              scientific_config_hash=scientific_config_hash,
+                                              engineering_smoke=engineering_smoke),
                          indent=1, default=str))
     else:
         raise SystemExit(f"unknown action {action!r}; use verify | g7 | train")
