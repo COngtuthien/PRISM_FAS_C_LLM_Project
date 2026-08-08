@@ -124,10 +124,17 @@ class M9TrainingDataset:
         synthetic data.
         """
         allowed = set(self.variant.synthetic_routes)
+        # `synthetic: none` declares NO routes, so the allowed set is empty and every
+        # pool is empty too. Writing this as `if allowed and route not in allowed`
+        # short-circuits on the empty set and admits all 871 accepted rows into pools
+        # that are then never sampled — harmless to training (the batch quota is 0)
+        # but it made `run.json` report 871 synthetic samples for a row that used
+        # none. A row reports the pool it actually declares.
+        if not allowed: return {}
         pools: dict[str, list[int]] = {}
         for position, row in enumerate(self.bank.rows):
             route = str(row["route"])
-            if allowed and route not in allowed: continue
+            if route not in allowed: continue
             pools.setdefault(route, []).append(position)
         return {name: sorted(values) for name, values in sorted(pools.items())}
 

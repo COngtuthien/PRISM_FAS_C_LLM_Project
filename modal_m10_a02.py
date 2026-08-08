@@ -303,15 +303,57 @@ def a02_verify(bank_id: str) -> dict:
             "target_labels_opened": False}
 
 
+@app.function(image=image, volumes=VOLUMES, timeout=1800, cpu=2.0, memory=8192)
+def a02_failures(work: str = "_pilot") -> dict:
+    """Summarize the terminal states and the FAILURE REASONS of a generation root.
+
+    A control whose candidates fail to generate is telling us something about the
+    composition policy, and the report has to say what. This reads the per-candidate
+    records rather than guessing from counts.
+    """
+    _paths()
+    import collections
+    root = Path(REMOTE_A02_WORK) / work / "records"
+    states: collections.Counter = collections.Counter()
+    reasons: collections.Counter = collections.Counter()
+    stages: collections.Counter = collections.Counter()
+    by_route: dict = {}
+    example: dict = {}
+    for path in sorted(root.glob("*.json")):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        state = str(record.get("terminal_state"))
+        states[state] += 1
+        route = str(record.get("route") or (record.get("plan") or {}).get("route") or "?")
+        by_route.setdefault(route, collections.Counter())[state] += 1
+        if state != "failed_generation": continue
+        failure = record.get("failure") or {}
+        stage = str(failure.get("stage") or record.get("stage") or "?")
+        stages[stage] += 1
+        reason = str(failure.get("reason") or failure.get("error") or record.get("error") or "")
+        # Keep the operator/condition, drop the per-sample ids so reasons group.
+        key = reason.split(":")[-1].strip()[:120] or reason[:120]
+        reasons[key] += 1
+        example.setdefault(key, {"synthetic_id": record.get("synthetic_id"), "route": route,
+                                 "recipe_id": record.get("recipe_id"), "failure": failure})
+    return {"stage": "a02_failures", "work_root": work,
+            "terminal_states": dict(states),
+            "failure_reasons": dict(reasons.most_common()),
+            "failure_stages": dict(stages),
+            "by_route": {route: dict(counter) for route, counter in sorted(by_route.items())},
+            "examples": example, "records": sum(states.values())}
+
+
 @app.local_entrypoint()
 def main(action: str = "plan", count: int = 32, interrupt_after: int | None = 96,
-         determinism_audit: bool = True, bank_id: str = "") -> None:
+         determinism_audit: bool = True, bank_id: str = "", work_root: str = "_pilot") -> None:
     if action == "plan":
         print(json.dumps(a02_plan.remote(), indent=1, default=str))
     elif action == "pilot":
         print(json.dumps(a02_pilot.remote(count), indent=1, default=str))
     elif action == "generate":
         print(json.dumps(a02_generate_bank.remote(interrupt_after, determinism_audit), indent=1, default=str))
+    elif action == "failures":
+        print(json.dumps(a02_failures.remote(work_root), indent=1, default=str))
     elif action == "verify":
         if not bank_id: raise SystemExit("--bank-id is required for verify")
         print(json.dumps(a02_verify.remote(bank_id), indent=1, default=str))

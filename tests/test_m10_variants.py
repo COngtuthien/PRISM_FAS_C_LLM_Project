@@ -411,6 +411,28 @@ def test_a_single_route_row_never_asks_for_both_routes(plan):
             require_both_routes=True).validate()
 
 
+def test_a_synthetic_none_row_declares_an_empty_synthetic_pool(plan):
+    """Regression: the route filter was written `if allowed and route not in
+    allowed`, which short-circuits on the EMPTY allowed set that `synthetic: none`
+    produces — so all 871 accepted rows entered pools that were never sampled, and
+    `run.json` reported 871 synthetic samples for a row that used none. Training was
+    never affected (the batch quota is 0), but the report was wrong. Found by
+    reading the real runs' artifacts, not by inspection."""
+    # Exactly the rows that declare `synthetic: none`. A05 is NOT one of them — it
+    # inherits `bank_physics_gpat` from B08 and only ablates the region path, which
+    # the real A05 run confirms (`declared_routes: [physics, gpat]`, pool 871).
+    for experiment_id in ("B00-s20260806", "B01-s20260806", "B02-s20260806",
+                          "B05-s20260806", "B06-s20260806", "B07-s20260806"):
+        resolved = row_variant(plan, experiment_id)
+        assert resolved.uses_synthetic is False, experiment_id
+        assert resolved.synthetic_routes == ()
+        contract = batch_contract_for("G5", M9TrainingConfig(variant=resolved))
+        assert contract.synthetic == 0
+    # And A05 really does keep the full bank, so the fix must not silence it.
+    a05 = row_variant(plan, "A05-region-global_only-s20260806")
+    assert a05.uses_synthetic is True and a05.synthetic_routes == ("physics", "gpat")
+
+
 def test_a_route_restricted_sampler_draws_only_that_route(plan):
     resolved = row_variant(plan, "A03-synthetic_route-physics_only-s20260806")
     contract = batch_contract_for("G5", M9TrainingConfig(variant=resolved))
