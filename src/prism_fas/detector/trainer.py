@@ -526,7 +526,11 @@ class M9Trainer:
 
     # --- stages -------------------------------------------------------------
     def enter_stage(self, stage: str) -> None:
-        check_stage_transition(self.lineage.current, stage)
+        # Against THIS RUN's declared flow, not the full G1->G2->G5->G6 default: a
+        # variant with `manifold: off` legitimately goes G1 -> G5, and checking it
+        # against the default here refused the transition before the lineage — which
+        # carries the right flow — ever saw it.
+        check_stage_transition(self.lineage.current, stage, order=self.stages)
         self.lineage.enter(stage, input_hashes=self.stage_inputs(stage))
         self.stage = stage
         if self.status == "PENDING": self.status = check_status_transition(self.status, "RUNNING")

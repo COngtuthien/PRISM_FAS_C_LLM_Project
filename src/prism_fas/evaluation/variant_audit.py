@@ -163,11 +163,38 @@ def audit_variant(variant: Any, *, experiment_id: str = "") -> dict[str, Any]:
         report["not_executable_reason"] = reason
         return report
 
-    # 1. stages
+    # 1. stages — declared AND actually walked through the stage machine.
+    #
+    # Walking it matters: the first real-data smoke found that the trainer checked
+    # each transition against the full G1->G2->G5->G6 default instead of the run's
+    # own declared flow, so every manifold-free variant was refused its legitimate
+    # G1 -> G5. An audit that only inspected `required_stages()` agreed with the
+    # declaration and missed it, so the audit now drives the same state machine the
+    # trainer drives.
+    from prism_fas.detector.checkpoint import StageLineage, check_stage_transition
     stages = variant.required_stages()
     report["required_stages"] = list(stages)
     if ("G2" in stages) != variant.has_manifold:
         findings.append("G2 presence does not follow the manifold declaration")
+    try:
+        lineage = StageLineage(order=stages)
+        current = None
+        for stage in stages:
+            current = check_stage_transition(current, stage, order=stages)
+            lineage.enter(stage, input_hashes={})
+            lineage.complete(stage, output_hashes={})
+        report["stage_flow_walked"] = [str(entry["stage"]) for entry in lineage.payload()]
+        if report["stage_flow_walked"] != list(stages):
+            findings.append("the walked stage flow does not match the declared one")
+    except Exception as error:                        # noqa: BLE001 - reported, not raised
+        findings.append(f"the declared stage flow cannot be walked: {error}")
+    # A stage the variant does not declare must be refused, not merely unused.
+    for absent in [stage for stage in ("G1", "G2", "G5", "G6") if stage not in stages]:
+        try:
+            check_stage_transition("G1", absent, order=stages)
+            findings.append(f"{absent} is not declared but the stage machine allowed it")
+        except Exception:                             # noqa: BLE001 - refusing is correct
+            pass
 
     # 2. architecture
     model = build_audit_detector(variant)
@@ -290,6 +317,30 @@ def audit_variant(variant: Any, *, experiment_id: str = "") -> dict[str, Any]:
         report["checkpoint_identity_computable"] = True
     except Exception as error:                        # noqa: BLE001
         findings.append(f"checkpoint identity does not resolve: {error}")
+
+    # 6b. checkpoint round-trip. Computing an identity is not the same as being able
+    # to WRITE and READ a checkpoint: the first real-data smoke found that
+    # `prototype_payload` called `manifold.export_state()` unconditionally, so every
+    # manifold-free variant crashed at its first save. The audit now saves, reloads
+    # and re-applies, which is where that surfaces.
+    import tempfile
+    from prism_fas.detector.checkpoint import apply_checkpoint, load_checkpoint, save_checkpoint
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "last.pt"
+            sha = save_checkpoint(path, model=model, optimizer=optimizer, scheduler=None, scaler=None,
+                                  epoch=0, global_step=1, stage=stages[0], identity=identity,
+                                  sampler_state={}, prototype_identity="",
+                                  best_metrics={}, stage_lineage=[])
+            payload = load_checkpoint(path, expected_identity=identity, allowed_stages=stages)
+            restored = apply_checkpoint(payload, model=model, optimizer=optimizer)
+            report["checkpoint_roundtrip"] = {
+                "sha256": sha, "stage": restored["stage"], "global_step": restored["global_step"],
+                "prototype_state_present": payload["prototype_state"].get("manifold") != "absent"}
+            if report["checkpoint_roundtrip"]["prototype_state_present"] != variant.has_manifold:
+                findings.append("the checkpoint's prototype state does not follow the manifold declaration")
+    except Exception as error:                        # noqa: BLE001
+        findings.append(f"checkpoint round-trip failed: {type(error).__name__}: {error}")
 
     # 7. source calibration contract — source_dev only, never target
     report["source_selection"] = {"selection_metric": config.selection_metric,

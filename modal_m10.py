@@ -445,12 +445,96 @@ def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = Tru
             "target_features_opened": False, "target_labels_opened": False}
 
 
+@app.function(image=image, gpu=DEFAULT_GPU, volumes=TRAIN_VOLUMES, timeout=3 * 3600)
+def m10_smoke_row(experiment_id: str, steps: int = 2, validation_limit: int = 96) -> dict:
+    """A bounded REAL-DATA verification of one row's semantic family.
+
+    Engineering only. It runs a handful of optimizer steps per declared stage on the
+    real source package and the real bank, on an L4, to prove that the variant's
+    architecture, batch composition, loss graph and stage flow survive contact with
+    real tensors — not to produce a result. Its run id lives in a separate
+    `m10_smokes/` namespace, it never enters the experiment registry, and it is
+    labelled `engineering_smoke: true` in its own return value.
+    """
+    import time
+    import torch
+    from prism_fas.detector.config import load_m9_configs
+    from prism_fas.detector.trainer import M9Trainer, source_isolation_report
+
+    project = Path("/root/project")
+    started = time.time()
+    resolved = resolve_matrix_row(experiment_id)
+    variant, row = resolved["variant"], resolved["row"]
+    variant.require_executable()
+    configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
+                              project / "configs/train/m9_reference.yaml", variant)
+    from dataclasses import replace
+    run_id = f"m10_smokes/{experiment_id}"
+    training_config = replace(configs["training_config"], run_id=run_id,
+                              seed=int(row["seed"]), validation_limit=int(validation_limit))
+    bank_root, bank_identity, bank_id = bank_root_for(variant)
+    trainer = M9Trainer(
+        config=training_config, detector_config=configs["detector_config"],
+        package_root=Path(REMOTE_PACKAGE), bank_root=Path(bank_root),
+        bank_identity=bank_identity, bank_id=bank_id,
+        recipe_bank_root=project / "assets/recipe_banks/prism_recipe_bank_m7_v1",
+        run_root=Path(REMOTE_RUNS_ROOT) / run_id, cache_root=Path(REMOTE_CACHE_ROOT),
+        weight_root=Path(REMOTE_WEIGHT_ROOT),
+        loader_config_path=project / "configs/data/loader_m4.yaml",
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        validation_limit=int(validation_limit),
+        text_cache_path=Path(REMOTE_WEIGHT_ROOT) / "recipe_text_cache.npz")
+
+    evidence: dict = {}
+    trainer.enter_stage("G1")
+    g1 = trainer.run_epoch("G1", max_steps=int(steps))
+    evidence["G1"] = {"steps": len(g1), "records": g1[:2]}
+    trainer.complete_stage("G1", {"steps": len(g1), "global_step": trainer.global_step})
+    if variant.has_manifold:
+        g2 = trainer.run_g2_smoke()
+        evidence["G2"] = {"prototype_identity_sha256": g2["prototype_identity_sha256"],
+                          "manifold_sites": list(trainer.model.manifold.region_names),
+                          "k": trainer.model.manifold.k,
+                          "distance_scale": trainer.model.distance_scale.detach().cpu().tolist()}
+    trainer.enter_stage("G5")
+    trainer.step_in_epoch = 0
+    g5 = trainer.run_epoch("G5", start_step=0, max_steps=int(steps))
+    evidence["G5"] = {"steps": len(g5), "records": g5[:2]}
+    trainer.complete_stage("G5", {"steps": len(g5), "global_step": trainer.global_step,
+                                  "checkpoint_sha256": trainer.save("last")})
+    evidence["G6"] = trainer.run_g6()["thresholds"]
+    runs_volume.commit()
+
+    records = g1 + g5
+    import math
+    return {"experiment_id": experiment_id, "run_id": run_id,
+            "engineering_smoke": True, "scientific_use": False,
+            "variant_flags": variant.flags(), "variant_identity": variant.identity(),
+            "declared_stages": list(trainer.stages),
+            "architecture_identity": trainer.model.architecture_identity(),
+            "parameter_counts": trainer.model.parameter_counts(),
+            "optimizer_groups": [{"name": str(group.get("name")),
+                                  "parameters": sum(p.numel() for p in group["params"])}
+                                 for group in trainer.optimizer.param_groups],
+            "batch_contract": trainer.samplers["G5"].contract.payload(),
+            "dataset": trainer.dataset.summary(),
+            "active_loss_terms": {stage: trainer.variant.stage_loss_terms(stage)
+                                  for stage in trainer.stages if stage != "G6"},
+            "all_losses_finite": all(math.isfinite(record["L_total"]) for record in records),
+            "composition_seen": [record["composition"] for record in records[:2]],
+            "evidence": evidence,
+            "elapsed_seconds": round(time.time() - started, 1),
+            "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+            "isolation": source_isolation_report(trainer, source_dev_opened=True),
+            "target_features_opened": False, "target_labels_opened": False}
+
+
 @app.local_entrypoint()
 def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
          checkpoint_relative: str = "", limit: int | None = 320, seed: int = 20260806,
          run_id: str = "", threshold: float = 0.5, temperature: float | None = None,
          max_epochs: int | None = None, scientific_config_hash: str = "",
-         engineering_smoke: bool = False, variant: str = "B08") -> None:
+         engineering_smoke: bool = False, variant: str = "B08", concurrency: int = 3) -> None:
     if action == "verify":
         print(json.dumps(m10_verify_target_features.remote(), indent=1, default=str))
     elif action == "g7":
@@ -466,5 +550,17 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
                                               scientific_config_hash=scientific_config_hash,
                                               engineering_smoke=engineering_smoke),
                          indent=1, default=str))
+    elif action == "smoke":
+        # Comma-separated ids so one invocation can cover several semantic families,
+        # fanned out in bounded chunks rather than all at once: the workspace GPU
+        # quota is a real limit and exceeding it deliberately is not an option.
+        ids = [value.strip() for value in experiment_id.split(",") if value.strip()]
+        width = max(1, int(concurrency))
+        results: list = []
+        for start in range(0, len(ids), width):
+            chunk = ids[start:start + width]
+            print(json.dumps({"launching": chunk}))
+            results += list(m10_smoke_row.map(chunk, kwargs={"steps": 2}))
+        print(json.dumps({"smokes": results}, indent=1, default=str))
     else:
-        raise SystemExit(f"unknown action {action!r}; use verify | g7 | train")
+        raise SystemExit(f"unknown action {action!r}; use verify | g7 | train | smoke")

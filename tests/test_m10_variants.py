@@ -694,6 +694,24 @@ def test_a_variant_with_a_manifold_may_not_skip_g2():
         check_stage_transition("G1", "G5", order=resolved.required_stages())
 
 
+def test_the_trainer_enters_stages_against_its_own_declared_flow(plan):
+    """Regression: `M9Trainer.enter_stage` checked the transition against the full
+    G1->G2->G5->G6 default before handing it to the lineage, so a manifold-free
+    variant was refused its own legitimate G1 -> G5. Found by the first real-data
+    smoke, not by inspection - B00, B01 and B02 all failed on it."""
+    import inspect
+    from prism_fas.detector import trainer as trainer_module
+    source = inspect.getsource(trainer_module.M9Trainer.enter_stage)
+    assert "order=self.stages" in source
+    # And the declared flows themselves round-trip through the stage machine.
+    for experiment_id in ("B00-s20260806", "B02-s20260806", "B08-s20260806"):
+        stages = row_variant(plan, experiment_id).required_stages()
+        current = None
+        for stage in stages:
+            current = check_stage_transition(current, stage, order=stages)
+        assert current == "G6"
+
+
 def test_the_total_schedule_length_is_the_same_for_every_variant(plan):
     lengths = set()
     for entry in plan["rows"]:
@@ -760,6 +778,39 @@ def _identity(resolved, model) -> RunIdentity:
         recipe_text_cache_identity="cache", config_hash=config.hash(),
         loss_contract_hash=loss_contract_identity(config.loss_weights, loss_graph_delta(resolved)),
         batch_contract_hash=contract.identity(), dataset_contract_identity="dataset").validate()
+
+
+def test_a_manifold_free_variant_can_save_and_reload_a_checkpoint(tmp_path, plan):
+    """Regression: `prototype_payload` called `manifold.export_state()`
+    unconditionally, so every manifold-free variant crashed at its first save. Found
+    by the second real-data smoke, not by inspection — B00, B01 and B02 all hit it.
+    The absent state is recorded EXPLICITLY, never as a zero-filled one."""
+    from prism_fas.detector.checkpoint import apply_checkpoint, load_checkpoint
+    resolved = row_variant(plan, "B02-s20260806")
+    assert resolved.has_manifold is False
+    model = build_audit_detector(resolved)
+    identity = _identity(resolved, model)
+    path = tmp_path / "last.pt"
+    save_checkpoint(path, model=model, optimizer=None, scheduler=None, scaler=None, epoch=0,
+                    global_step=1, stage="G1", identity=identity, sampler_state={},
+                    prototype_identity="", best_metrics={}, stage_lineage=[])
+    payload = load_checkpoint(path, expected_identity=identity, allowed_stages=("G1", "G5", "G6"))
+    assert payload["prototype_state"]["manifold"] == "absent"
+    assert payload["prototype_state"]["initialized"] is False
+    restored = apply_checkpoint(payload, model=model)
+    assert restored["global_step"] == 1
+
+
+def test_a_prototype_state_cannot_cross_the_manifold_boundary(plan):
+    """A checkpoint carrying prototypes must not load into a manifold-free model,
+    nor an absent state into one that has a manifold."""
+    from prism_fas.detector.checkpoint import _restore_prototypes
+    with_manifold = build_audit_detector(row_variant(plan, "B08-s20260806"))
+    with pytest.raises(M9CheckpointError):
+        _restore_prototypes(with_manifold.manifold, {"manifold": "absent", "initialized": False})
+    with pytest.raises(M9CheckpointError):
+        _restore_prototypes(None, {"initialized": True, "centers": [], "variances": [],
+                                   "counts": [], "valid": [], "epsilon": 1e-4, "region_names": []})
 
 
 def test_a_checkpoint_cannot_be_resumed_under_a_different_scientific_switch(tmp_path, plan):

@@ -132,7 +132,14 @@ def identity_diff(checkpoint: dict[str, Any], expected: dict[str, Any]) -> dict[
 
 
 def prototype_payload(manifold: Any, *, identity: str = "") -> dict[str, Any]:
-    """The prototype state as plain arrays plus its content identity."""
+    """The prototype state as plain arrays plus its content identity.
+
+    A variant with `manifold: off` has no prototype state at all. It records an
+    explicitly ABSENT payload rather than a zero-filled one, so a checkpoint can
+    never be read as carrying prototypes it never had.
+    """
+    if manifold is None:
+        return {"manifold": "absent", "initialized": False, "prototype_identity": str(identity)}
     state = manifold.export_state()
     return {"centers": state.centers, "variances": state.variances, "counts": state.counts,
             "valid": state.valid, "epsilon": float(state.epsilon),
@@ -241,6 +248,13 @@ def _restore_prototypes(manifold: Any, payload: dict[str, Any]) -> None:
     """`model_state` already carries the prototype buffers; this re-asserts them
     from the explicit prototype record so the two can never disagree."""
     from .manifold import PrototypeState
+    if manifold is None or payload.get("manifold") == "absent":
+        # Both sides must agree that there is nothing to restore; a checkpoint with
+        # prototypes must not load into a manifold-free variant, or the reverse.
+        if (manifold is None) != (payload.get("manifold") == "absent"):
+            raise M9CheckpointError(
+                "prototype state and manifold disagree: one declares a manifold and the other does not")
+        return
     if not bool(payload.get("initialized", False)):
         manifold.initialized.fill_(False)
         return
