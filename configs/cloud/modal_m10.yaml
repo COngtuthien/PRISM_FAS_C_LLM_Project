@@ -10,7 +10,7 @@
 # and `prism-fas-b-runs` already exist from M6/M8/M9.
 cloud_schema_version: "m10-modal-v1"
 app_name: "prism-fas-b-m10"
-app_created: false
+app_created: true      # created 2026-08-08; first run ap-tVjIensULUuWohoKy6q8qK (verify)
 
 volumes:
   data:
@@ -32,8 +32,14 @@ remote_paths:
   weight_root: "/vol/models/pretrained/m9"
   runs_root: "/vol/runs/runs"
   cache_root: "/vol/runs/m9_cache"
-  # The additive target FEATURE package. Not yet built and not yet uploaded.
-  target_feature_package: "/vol/data/packages/prism_target_v2_siwmv2_full"
+  # The additive target FEATURE package: built, uploaded and remotely verified.
+  # Deliberately OUTSIDE /packages so the training mount set and the G7 mount set
+  # are different directories, not just different declarations.
+  target_feature_package: "/vol/data/target_eval/prism_target_eval_v2"
+  target_feature_package_id: "prism_target_eval_v2"
+  target_feature_identity_sha256: "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
+  m10_cache_root: "/vol/runs/m10_cache"
+  m10_predictions_root: "/vol/runs/runs/m10_predictions"
 
 # --- the mount firewall, expressed as mounts ---------------------------------
 #
@@ -53,6 +59,10 @@ mounts_by_stage:
 target_label_artifact:
   uploaded_to_any_volume: false
   reachable_from_any_modal_image: false
+  # VERIFIED IN-CONTAINER, not asserted: the verification function globs every
+  # mounted volume for siw_target_labels.parquet, TARGET_LABEL_LOCK.json and any
+  # evaluation_only/ path, and reported label_artifact_resolvable: false.
+  verified_absent_in_container: true
   reason: "G8 is the only stage permitted to resolve a label path, and G8 runs locally"
 
 package:

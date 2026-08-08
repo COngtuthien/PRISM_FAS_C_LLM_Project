@@ -357,6 +357,7 @@ def load_checkpoint_for_inference(path: Path, model: Any) -> dict[str, Any]:
 
 def target_batches(package_root: Path, loader_config: Any, *, cache_root: Path, limit: int | None = None,
                    batch_size: int = 16, firewall: TargetLabelFirewall | None = None,
+                   video_ids: Sequence[str] | None = None,
                    progress: Callable[[dict[str, Any]], None] | None = None
                    ) -> Iterable[TargetInferenceBatch]:
     """Stream target FEATURE batches. No label is read, because none is reachable.
@@ -373,8 +374,20 @@ def target_batches(package_root: Path, loader_config: Any, *, cache_root: Path, 
         firewall.check_read("G7", root)
         firewall.assert_cannot_resolve_labels("G7")
     dataset = CanonicalPackageDataset(root, INFERENCE_SPLIT, loader_config, mode="inference")
-    rows = list(dataset.index.rows)
-    if limit is not None: rows = rows[:int(limit)]
+    # Keep the DATASET position beside every selected row. Selecting a subset makes
+    # the filtered list and the dataset's own indexing diverge, and `dataset[i]`
+    # always indexes the dataset — so the two must be carried together rather than
+    # assumed equal.
+    selected = list(enumerate(dataset.index.rows))
+    # `video_ids` selects whole videos by OPAQUE id. It is label-free by
+    # construction: the caller derives the set from feature-manifest row counts,
+    # which carry no label, family or path. It exists so a smoke can deliberately
+    # cover both the 4-frame and the 3-frame video cases.
+    if video_ids is not None:
+        wanted = {str(value) for value in video_ids}
+        selected = [entry for entry in selected if str(entry[1]["source_record_id"]) in wanted]
+    if limit is not None: selected = selected[:int(limit)]
+    rows = [row for _, row in selected]
     cache, _ = load_or_build_region_prior_cache(Path(cache_root), root, rows,
                                                 package_identity=dataset.index.content_identity,
                                                 split=INFERENCE_SPLIT)
@@ -393,10 +406,18 @@ def target_batches(package_root: Path, loader_config: Any, *, cache_root: Path, 
         video = str(row["source_record_id"])
         ordinal[str(row["sample_id"])] = ordinal.get(f"__count__{video}", 0)
         ordinal[f"__count__{video}"] = ordinal[str(row["sample_id"])] + 1
-    positions = list(range(len(rows)))
+    positions = list(range(len(selected)))
     for start in range(0, len(positions), int(batch_size)):
         window = positions[start:start + int(batch_size)]
-        samples = [dataset[position] for position in window]
+        samples = [dataset[selected[position][0]] for position in window]
+        # The prior is indexed by the SELECTED position and the image by the DATASET
+        # position. Asserting the sample ids agree is what makes a future divergence
+        # a loud failure instead of every prior silently belonging to another sample.
+        for position, sample in zip(window, samples):
+            if sample.sample_id != rows[position]["sample_id"]:
+                raise M10ContractError(
+                    f"target row alignment broke: prior {rows[position]['sample_id']!r} does not "
+                    f"belong to sample {sample.sample_id!r}")
         yield TargetInferenceBatch(
             image=torch.from_numpy(np.stack([np.asarray(item.image, dtype=np.float32) for item in samples])),
             region_priors=torch.from_numpy(np.stack([cache.prior(position) for position in window])),

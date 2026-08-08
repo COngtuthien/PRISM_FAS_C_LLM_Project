@@ -1,0 +1,370 @@
+"""M10 Modal wrapper: remote target-feature verification, label-free G7 prediction
+and bounded source-only matrix training.
+
+The wrapper only orchestrates. Every function calls the same core modules the local
+path uses; `src/prism_fas/evaluation/**` and `src/prism_fas/detector/**` must never
+import modal (spec Table 41 / section 12.1).
+
+MOUNT FIREWALL. Training and G7 get DIFFERENT mount sets, and neither can resolve a
+label:
+
+    train  ->  /vol/data/packages/prism_data_v1_m3b          (source package)
+               /vol/data/synthetic_banks/...m8_v3...         (M8 bank)
+               /vol/models/pretrained/m9                     (pinned weights)
+               /vol/runs                                     (run artifacts)
+               TARGET FEATURES: not mounted
+
+    g7     ->  /vol/data/target_eval/prism_target_eval_v2    (target FEATURES only)
+               /vol/models/pretrained/m9
+               /vol/runs
+               SOURCE PACKAGE: not needed;  LABELS: nowhere on any volume
+
+The sealed evaluator-only label artifact is NEVER uploaded to any Modal volume. G8
+runs locally against the local label tree, which is git-ignored.
+
+Volumes are REUSED, never duplicated.
+"""
+from __future__ import annotations
+import json
+from pathlib import Path
+
+import modal
+
+APP_NAME = "prism-fas-b-m10"
+DATA_VOLUME, MODELS_VOLUME, RUNS_VOLUME = "prism-fas-b-data", "prism-fas-b-models", "prism-fas-b-runs"
+DATA_MOUNT, MODELS_MOUNT, RUNS_MOUNT = "/vol/data", "/vol/models", "/vol/runs"
+
+REMOTE_PACKAGE = f"{DATA_MOUNT}/packages/prism_data_v1_m3b"
+REMOTE_BANK = f"{DATA_MOUNT}/synthetic_banks/prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+REMOTE_TARGET_FEATURES = f"{DATA_MOUNT}/target_eval/prism_target_eval_v2"
+REMOTE_WEIGHT_ROOT = f"{MODELS_MOUNT}/pretrained/m9"
+REMOTE_RUNS_ROOT = f"{RUNS_MOUNT}/runs"
+REMOTE_CACHE_ROOT = f"{RUNS_MOUNT}/m9_cache"
+REMOTE_M10_CACHE = f"{RUNS_MOUNT}/m10_cache"
+
+EXPECTED_SOURCE_PACKAGE_IDENTITY = "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+EXPECTED_TARGET_FEATURE_IDENTITY = "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
+EXPECTED_TARGET_PACKAGE_ID = "prism_target_eval_v2"
+EXPECTED_TARGET_ROWS = 6776
+EXPECTED_TARGET_VIDEOS = 1700
+EXPECTED_BANK_IDENTITY = "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542"
+EXPECTED_SIGLIP2_IDENTITY = "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
+EXPECTED_TEXT_CACHE_IDENTITY = "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+EXPECTED_ARCHITECTURE_IDENTITY = "d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0"
+
+# A target feature row may never carry any of these, remotely or locally.
+FORBIDDEN_FEATURE_FIELDS = (
+    "label", "label_live_spoof", "true_label", "target", "class_target", "attack_type",
+    "attack_family", "taxonomy", "private_label", "subject_id", "official_split",
+    "identity_embedding", "source_path")
+# `content_identity_sha256` is recomputed over the lock body with these excluded.
+IDENTITY_EXCLUDED_FIELDS = ("created_at", "git_commit", "content_identity_sha256",
+                            "build_seconds", "environment")
+
+GPU_ALLOW_LIST = ("L4", "L40S")
+DEFAULT_GPU = "L4"
+
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libgl1", "libglib2.0-0")
+    .pip_install(
+        "torch==2.5.1", "torchvision==0.20.1", "numpy==2.1.3", "pyarrow==18.1.0",
+        "opencv-python-headless==4.10.0.84", "timm==1.0.11", "transformers==4.49.0",
+        "safetensors==0.4.5", "sentencepiece==0.2.0", "pydantic==2.10.3", "PyYAML==6.0.2",
+        extra_index_url="https://download.pytorch.org/whl/cu121",
+    )
+    .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "PYTHONPATH": "/root/project/src",
+          "PYTHONIOENCODING": "utf-8"})
+    .add_local_dir("src", "/root/project/src")
+    .add_local_dir("configs", "/root/project/configs")
+    .add_local_dir("assets", "/root/project/assets")
+)
+app = modal.App(APP_NAME)
+data_volume = modal.Volume.from_name(DATA_VOLUME)
+models_volume = modal.Volume.from_name(MODELS_VOLUME)
+runs_volume = modal.Volume.from_name(RUNS_VOLUME)
+
+# G7 and verification mount the data volume read-only and never touch /packages.
+TARGET_VOLUMES = {DATA_MOUNT: data_volume, MODELS_MOUNT: models_volume, RUNS_MOUNT: runs_volume}
+TRAIN_VOLUMES = {DATA_MOUNT: data_volume, MODELS_MOUNT: models_volume, RUNS_MOUNT: runs_volume}
+
+
+def _sha256(path: Path, chunk: int = 1 << 20) -> str:
+    import hashlib
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(chunk), b""): digest.update(block)
+    return digest.hexdigest()
+
+
+# --- remote target feature verification ---------------------------------------
+
+@app.function(image=image, volumes=TARGET_VOLUMES, timeout=3600, cpu=4.0, memory=16384)
+def m10_verify_target_features() -> dict:
+    """Re-derive the uploaded target FEATURE package inside the container.
+
+    Fail-closed: every shard hash, every manifest hash and the content identity are
+    recomputed from the bytes that actually landed on the volume and compared
+    against the lock. A mismatch is an error, never a warning.
+    """
+    import hashlib
+    import pyarrow.parquet as pq
+
+    root = Path(REMOTE_TARGET_FEATURES)
+    errors: list[str] = []
+    lock = json.loads((root / "PACKAGE_LOCK.json").read_text(encoding="utf-8"))
+
+    # 1. shard bytes
+    shard_results = []
+    for entry in lock.get("shards") or []:
+        path = root / "shards" / entry["shard_filename"]
+        if not path.is_file():
+            errors.append(f"missing shard {entry['shard_filename']}"); continue
+        digest, size = _sha256(path), path.stat().st_size
+        ok = digest == entry["sha256"] and size == entry["byte_size"]
+        if not ok: errors.append(f"shard mismatch {entry['shard_filename']}")
+        shard_results.append({"shard": entry["shard_filename"], "rows": entry["row_count"],
+                              "sha256_matches": digest == entry["sha256"],
+                              "byte_size_matches": size == entry["byte_size"]})
+
+    # 2. manifest bytes
+    manifest_results = {}
+    for name, expected in (lock.get("manifest_sha256") or {}).items():
+        path = root / "manifests" / f"{name}.parquet"
+        if not path.is_file():
+            errors.append(f"missing manifest {name}"); continue
+        matches = _sha256(path) == expected
+        manifest_results[name] = matches
+        if not matches: errors.append(f"manifest hash mismatch {name}")
+
+    # 3. the lock must hash to its own recorded content identity
+    body = {key: value for key, value in lock.items() if key not in IDENTITY_EXCLUDED_FIELDS}
+    recomputed = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                           default=str).encode("utf-8")).hexdigest()
+    identity_self_consistent = recomputed == lock.get("content_identity_sha256")
+    identity_matches_pin = lock.get("content_identity_sha256") == EXPECTED_TARGET_FEATURE_IDENTITY
+    if not identity_self_consistent: errors.append("the remote lock does not hash to its own identity")
+    if not identity_matches_pin: errors.append("the remote feature identity does not match the pin")
+    if lock.get("package_id") != EXPECTED_TARGET_PACKAGE_ID: errors.append("unexpected package id")
+    if lock.get("status") != "validated": errors.append(f"package status is {lock.get('status')!r}")
+
+    # 4. the feature manifest itself: counts, privacy, priors
+    features = pq.read_table(root / "manifests" / "target_test_features.parquet")
+    columns = set(features.column_names)
+    leaked = sorted(columns & set(FORBIDDEN_FEATURE_FIELDS))
+    if leaked: errors.append(f"feature manifest exposes forbidden columns: {leaked}")
+    rows = features.num_rows
+    videos = len(set(features.column("source_record_id").to_pylist()))
+    if rows != EXPECTED_TARGET_ROWS: errors.append(f"feature rows {rows} != {EXPECTED_TARGET_ROWS}")
+    if videos != EXPECTED_TARGET_VIDEOS: errors.append(f"videos {videos} != {EXPECTED_TARGET_VIDEOS}")
+
+    samples = pq.read_table(root / "manifests" / "samples.parquet").to_pylist()
+    identity_computed = sum(1 for row in samples if row.get("identity_status") == "computed")
+    if identity_computed: errors.append(f"{identity_computed} target samples carry an identity embedding")
+    prior_counts = {name: sum(1 for row in samples if row.get(f"{name}_status") == "computed")
+                    for name in ("parsing", "pose", "visibility")}
+    for name, count in prior_counts.items():
+        if count != EXPECTED_TARGET_ROWS: errors.append(f"{name} priors {count} != {EXPECTED_TARGET_ROWS}")
+
+    # 5. the label artifact must not exist anywhere on any mounted volume
+    label_hits = []
+    for mount in (DATA_MOUNT, MODELS_MOUNT, RUNS_MOUNT):
+        for pattern in ("**/siw_target_labels.parquet", "**/TARGET_LABEL_LOCK.json",
+                        "**/evaluation_only/**"):
+            label_hits += [str(path) for path in Path(mount).glob(pattern)]
+    if label_hits: errors.append(f"a label artifact is resolvable remotely: {label_hits[:5]}")
+
+    return {"passed": not errors, "errors": errors,
+            "remote_root": str(root),
+            "package_id": lock.get("package_id"), "status": lock.get("status"),
+            "content_identity_sha256": lock.get("content_identity_sha256"),
+            "identity_matches_pin": identity_matches_pin,
+            "identity_self_consistent": identity_self_consistent,
+            "shards": shard_results, "shard_count": len(shard_results),
+            "shard_rows_total": sum(entry["rows"] for entry in shard_results),
+            "manifests_verified": manifest_results,
+            "feature_rows": rows, "videos": videos,
+            "prior_counts": prior_counts, "target_identity_embeddings": identity_computed,
+            "feature_label_leakage": len(leaked),
+            "label_artifact_resolvable": bool(label_hits),
+            "target_labels_opened": False}
+
+
+# --- label-free G7 prediction ---------------------------------------------------
+
+@app.function(image=image, gpu=DEFAULT_GPU, volumes=TARGET_VOLUMES, timeout=10800)
+def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = "B08",
+                   seed: int | None = 20260806, threshold: float = 0.5,
+                   temperature: float | None = None, calibration_hash: str = "",
+                   calibration_sha256: str = "", limit: int | None = None,
+                   batch_size: int = 32, engineering_smoke: bool = True,
+                   cover_short_videos: int = 0, cover_full_videos: int = 0) -> dict:
+    """G7 on the remote target FEATURE package. No label is reachable from here.
+
+    The source package is not mounted for this stage's purposes and is never opened;
+    the only data root this function touches is the target feature package.
+    """
+    import torch
+    from prism_fas.data.loader.config import load_loader_config
+    from prism_fas.detector.config import detector_config_from, load_yaml
+    from prism_fas.detector.heads import resolve_recipe_text_cache
+    from prism_fas.detector.pretrained import SigLIP2Artifacts, resolve_convnext_weight
+    from prism_fas.detector.prism_detector import build_detector
+    from prism_fas.evaluation import target_prediction as g7
+    from prism_fas.evaluation.firewall import TargetLabelFirewall, load_firewall_config
+
+    project = Path("/root/project")
+    firewall = TargetLabelFirewall(load_firewall_config(project / "configs/evaluation/m10_target.yaml"),
+                                   project_root=project)
+    evidence = firewall.assert_cannot_resolve_labels("G7")
+
+    model_payload = load_yaml(project / "configs/models/m9_detector.yaml")
+    detector_config = detector_config_from(model_payload)
+    siglip = SigLIP2Artifacts.resolve(Path(REMOTE_WEIGHT_ROOT))
+    text_cache = resolve_recipe_text_cache(Path(REMOTE_WEIGHT_ROOT))
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = build_detector(detector_config, text_embeddings=text_cache.tensor(), siglip=siglip,
+                           local_weight_file=resolve_convnext_weight(Path(REMOTE_WEIGHT_ROOT)),
+                           text_cache_identity=text_cache.identity, device=device)
+    opened = g7.load_checkpoint_for_inference(Path(REMOTE_RUNS_ROOT) / checkpoint_relative, model)
+    if opened["identity"].get("architecture_identity") != EXPECTED_ARCHITECTURE_IDENTITY:
+        raise RuntimeError("checkpoint architecture identity does not match the M9 pin")
+
+    # Bind the FROZEN source calibration from the run that produced the checkpoint.
+    # It is source-side only: fitted on `source_dev`, never on target.
+    calibration_path = (Path(REMOTE_RUNS_ROOT) / checkpoint_relative).parent.parent / "calibration" / "source_dev.json"
+    if calibration_path.is_file():
+        calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+        calibration_hash = calibration_hash or str(calibration.get("calibration_hash", ""))
+        calibration_sha256 = calibration_sha256 or _sha256(calibration_path)
+        if temperature is None: temperature = float(calibration["temperature"])
+        if threshold == 0.5: threshold = float(calibration["selected_threshold"])
+
+    lock = json.loads((Path(REMOTE_TARGET_FEATURES) / "PACKAGE_LOCK.json").read_text(encoding="utf-8"))
+    if lock.get("content_identity_sha256") != EXPECTED_TARGET_FEATURE_IDENTITY:
+        raise RuntimeError("refusing to predict against an unverified target feature package")
+
+    loader_config = load_loader_config(project / "configs/data/loader_m10_target.yaml")
+    # Deliberately cover both the 4-frame and the 3-frame video cases. The selection
+    # is LABEL-FREE: it comes from counting feature-manifest rows per opaque video
+    # id, which says nothing about live/spoof or attack family.
+    selected: list[str] | None = None
+    if cover_short_videos or cover_full_videos:
+        import pyarrow.parquet as pq
+        from collections import Counter
+        manifest = pq.read_table(Path(REMOTE_TARGET_FEATURES) / "manifests" / "target_test_features.parquet")
+        per_video = Counter(manifest.column("source_record_id").to_pylist())
+        short = sorted(video for video, count in per_video.items() if count < 4)[:cover_short_videos]
+        full = sorted(video for video, count in per_video.items() if count == 4)[:cover_full_videos]
+        selected = short + full
+    batches = g7.target_batches(Path(REMOTE_TARGET_FEATURES), loader_config,
+                                cache_root=Path(REMOTE_M10_CACHE), limit=limit,
+                                batch_size=batch_size, firewall=None, video_ids=selected)
+    inference_hash = g7.inference_config_hash(
+        variant=variant, flags={"region": "on", "prompt": "frozen_prompt"}, threshold=threshold,
+        unknown_threshold=None, temperature=temperature,
+        package_identity=EXPECTED_TARGET_FEATURE_IDENTITY,
+        architecture_identity=model.architecture_identity())
+    rows = g7.predict_target(model, batches,
+                             capabilities=g7.VariantCapabilities(has_region=True, has_prompt=True),
+                             threshold=threshold, unknown_threshold=None, temperature=temperature,
+                             checkpoint_hash=opened["checkpoint_sha256"],
+                             calibration_hash=calibration_hash,
+                             inference_config_hash=inference_hash, variant=variant, device=device)
+    prediction_lock = g7.build_prediction_lock(
+        experiment_id=experiment_id, variant=variant, seed=seed, rows=rows,
+        checkpoint_sha256=opened["checkpoint_sha256"], source_calibration_sha256=calibration_sha256,
+        calibration_hash=calibration_hash, inference_config_hash=inference_hash,
+        target_feature_package_identity=EXPECTED_TARGET_FEATURE_IDENTITY,
+        target_package_id=EXPECTED_TARGET_PACKAGE_ID, threshold=threshold, unknown_threshold=None,
+        engineering_smoke=engineering_smoke)
+    destination = Path(REMOTE_RUNS_ROOT) / "m10_predictions" / experiment_id
+    g7.write_predictions(destination / g7.PREDICTION_FILE, rows, variant=variant)
+    g7.write_prediction_lock(destination / g7.PREDICTION_LOCK_FILE, prediction_lock)
+    runs_volume.commit()
+
+    from collections import Counter
+    per_video = Counter(row["video_id"] for row in rows)
+    grouping = Counter(per_video.values())
+    return {"experiment_id": experiment_id, "device": device, "gpu": torch.cuda.get_device_name(0)
+            if torch.cuda.is_available() else None,
+            "rows": len(rows), "videos": len(per_video),
+            "frames_per_video_distribution": {str(k): v for k, v in sorted(grouping.items())},
+            "checkpoint": opened, "inference_config_hash": inference_hash,
+            "prediction_lock_identity": prediction_lock["prediction_lock_identity"],
+            "prediction_logical_identity": prediction_lock["prediction_logical_identity"],
+            "engineering_smoke": prediction_lock["engineering_smoke"],
+            "scientific_use": prediction_lock["scientific_use"],
+            "prompt_status": sorted({row["prompt_status"] for row in rows}),
+            "region_status": sorted({row["region_status"] for row in rows}),
+            "firewall": evidence, "target_labels_opened": False,
+            "target_metrics_computed": False,
+            "written": [str(destination / g7.PREDICTION_FILE),
+                        str(destination / g7.PREDICTION_LOCK_FILE)]}
+
+
+# --- bounded source-only matrix training ----------------------------------------
+
+@app.function(image=image, gpu=DEFAULT_GPU, volumes=TRAIN_VOLUMES, timeout=24 * 3600)
+def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = True,
+                  max_epochs: int | None = None) -> dict:
+    """One matrix row, source-only.
+
+    `source_train` optimizes; `source_dev` selects the checkpoint and fits the
+    calibration and produces no gradient. The target feature package is NOT opened
+    by this function and target labels are nowhere on any mounted volume.
+    """
+    import time
+    import torch
+    from prism_fas.detector.config import load_m9_configs
+    from prism_fas.detector.trainer import M9Trainer, source_isolation_report
+
+    project = Path("/root/project")
+    started = time.time()
+    configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
+                              project / "configs/train/m9_reference.yaml")
+    from dataclasses import replace
+    training_config = replace(configs["training_config"], run_id=run_id, seed=int(seed))
+    if max_epochs is not None: training_config = replace(training_config, mixed_epochs=int(max_epochs))
+    trainer = M9Trainer(
+        config=training_config, detector_config=configs["detector_config"],
+        package_root=Path(REMOTE_PACKAGE), bank_root=Path(REMOTE_BANK),
+        recipe_bank_root=project / "assets/recipe_banks/prism_recipe_bank_m7_v1",
+        run_root=Path(REMOTE_RUNS_ROOT) / run_id, cache_root=Path(REMOTE_CACHE_ROOT),
+        weight_root=Path(REMOTE_WEIGHT_ROOT),
+        loader_config_path=project / "configs/data/loader_m4.yaml",
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        text_cache_path=Path(REMOTE_WEIGHT_ROOT) / "recipe_text_cache.npz",
+        progress=lambda payload: print(json.dumps({"progress": payload})))
+    if resume and (Path(REMOTE_RUNS_ROOT) / run_id / "checkpoints" / "last.pt").is_file():
+        trainer.resume()
+    for stage in ("G1", "G2", "G5", "G6"):
+        getattr(trainer, f"run_{stage.lower()}")()
+        runs_volume.commit()
+    summary = trainer.run_summary()
+    runs_volume.commit()
+    return {"experiment_id": experiment_id, "run_id": run_id, "seed": int(seed),
+            "elapsed_seconds": round(time.time() - started, 1),
+            "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+            "peak_vram_bytes": int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else None,
+            "summary": summary,
+            "isolation": source_isolation_report(trainer, source_dev_opened=True),
+            "target_features_opened": False, "target_labels_opened": False}
+
+
+@app.local_entrypoint()
+def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
+         checkpoint_relative: str = "", limit: int | None = 320, seed: int = 20260806,
+         run_id: str = "", threshold: float = 0.5, temperature: float | None = None) -> None:
+    if action == "verify":
+        print(json.dumps(m10_verify_target_features.remote(), indent=1, default=str))
+    elif action == "g7":
+        print(json.dumps(m10_g7_predict.remote(experiment_id, checkpoint_relative, limit=limit,
+                                               threshold=threshold, temperature=temperature,
+                                               cover_short_videos=24, cover_full_videos=76),
+                         indent=1, default=str))
+    elif action == "train":
+        print(json.dumps(m10_train_row.remote(experiment_id, seed, run_id or experiment_id),
+                         indent=1, default=str))
+    else:
+        raise SystemExit(f"unknown action {action!r}; use verify | g7 | train")

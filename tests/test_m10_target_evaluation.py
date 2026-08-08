@@ -200,6 +200,25 @@ def test_a_structurally_zero_prompt_term_is_written_as_null_not_zero():
     assert rows[0]["s_final"] == pytest.approx(1 - (1 - 0.4) * (1 - 0.5))
 
 
+def test_selected_target_rows_keep_their_dataset_position():
+    """Regression: selecting a subset must not desynchronize priors from images.
+
+    `target_batches` indexes the IMAGE by dataset position and the PRIOR by
+    position within the selected subset. When a `video_ids` filter removed rows,
+    the two diverged and every prior would have belonged to a different sample.
+    The dataset position is now carried beside each selected row, and a per-item
+    sample-id assertion makes any future divergence a loud failure.
+    """
+    import inspect
+    from prism_fas.evaluation import target_prediction as module
+    source = inspect.getsource(module.target_batches)
+    assert "selected = list(enumerate(dataset.index.rows))" in source
+    assert "dataset[selected[position][0]]" in source
+    assert "target row alignment broke" in source
+    # The prior cache is still built from, and checked against, the selected rows.
+    assert "cache.sample_ids != tuple(row[\"sample_id\"] for row in rows)" in source
+
+
 def test_variant_capabilities_read_the_flags():
     assert g7.VariantCapabilities.from_flags(
         {"region": "on", "manifold": "multi_prototype", "prompt": "frozen_prompt"}) == \
