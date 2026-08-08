@@ -924,6 +924,63 @@ def test_the_parity_row_shares_the_reference_scientific_configuration(plan):
 
 
 # ============================================================================
+# THE B08 / M9 REFERENCE BINDING
+# ============================================================================
+
+def _m9_like_run(stages=("G1", "G2", "G5", "G6"), **overrides) -> dict:
+    run = {"seed": 20260806, "status": "COMPLETED", "target_test_opened": False,
+           "identity": {"architecture_identity": "arch", "config_hash": "cfg"},
+           "stage_lineage": [{"stage": stage, "status": "COMPLETED"} for stage in stages]}
+    run.update(overrides)
+    return run
+
+
+def test_the_m9_reference_binding_ignores_the_target_prediction_stage(plan):
+    """G7 is the M10 target-prediction stage and has not run for ANY row. Requiring
+    it here refused the binding for the one reason that is true of every row alike —
+    which is what the first run of this validator actually did."""
+    from prism_fas.evaluation.experiment_registry import validate_m9_reference_binding
+    row = next(entry for entry in plan["rows"] if entry["experiment_id"] == "B08-s20260806")
+    assert "G7" in row["required_stages"]
+    result = validate_m9_reference_binding(
+        row, _m9_like_run(), {"architecture_identity": "arch", "config_hash": "cfg"})
+    assert result["binding_accepted"] is True, result["mismatched"]
+    assert result["checks"]["every_declared_training_stage_completed"]["matches"] is True
+    assert result["checks"]["target_prediction_still_pending"]["matches"] is True
+
+
+@pytest.mark.parametrize("run,reason", [
+    (_m9_like_run(identity={"architecture_identity": "other", "config_hash": "cfg"}),
+     "architecture_identity"),
+    (_m9_like_run(seed=20260807), "seed_matches"),
+    (_m9_like_run(status="FAILED"), "run_completed"),
+    (_m9_like_run(stages=("G1", "G2", "G5")), "every_declared_training_stage_completed"),
+    (_m9_like_run(target_test_opened=True), "target_never_opened"),
+])
+def test_the_binding_is_refused_on_any_real_mismatch(plan, run, reason):
+    """An identity binding, not an approximation: a near-match is never a match."""
+    from prism_fas.evaluation.experiment_registry import validate_m9_reference_binding
+    row = next(entry for entry in plan["rows"] if entry["experiment_id"] == "B08-s20260806")
+    result = validate_m9_reference_binding(
+        row, run, {"architecture_identity": "arch", "config_hash": "cfg"})
+    assert result["binding_accepted"] is False
+    assert reason in result["mismatched"]
+    assert "REFUSED" in result["decision"]
+
+
+def test_the_recorded_b08_binding_evidence_was_accepted():
+    """The real evidence artifact, re-read from disk."""
+    path = PROJECT / "reports" / "m10" / "B08_M9_REFERENCE_BINDING.json"
+    if not path.is_file(): pytest.skip("binding evidence has not been produced in this checkout")
+    evidence = json.loads(path.read_text(encoding="utf-8"))
+    assert evidence["experiment_id"] == "B08-s20260806"
+    assert evidence["reference_run_id"] == "m9_reference_seed20260806"
+    assert evidence["binding_accepted"] is True and evidence["mismatched"] == []
+    assert evidence["m10_matrix_identity"] == M10_MATRIX_IDENTITY
+    assert evidence["target_labels_opened"] is False
+
+
+# ============================================================================
 # THE IMPLEMENTABILITY AUDIT
 # ============================================================================
 

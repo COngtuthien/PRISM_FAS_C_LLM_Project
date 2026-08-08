@@ -26,6 +26,10 @@ from .contracts import (M10_REGISTRY_SCHEMA_VERSION, M10ContractError, STAGE_ORD
 
 REGISTRY_FILE = "M10_REGISTRY.json"
 STAGE_STATUSES = ("PENDING", "RUNNING", "COMPLETED", "FAILED", "SKIPPED", "BLOCKED")
+# The stages a TRAINING run can complete. G7 (target prediction) and G8 (scoring)
+# are separate processes with separate permissions and are never part of a training
+# run's lineage.
+TRAINING_STAGES = ("G1", "G2", "G5", "G6")
 
 
 @dataclass
@@ -212,6 +216,56 @@ class ExperimentRegistry:
         path = self.root / REGISTRY_FILE
         if not dry_run: atomic_json_write(path, self.payload())
         return path
+
+
+def validate_m9_reference_binding(row: dict[str, Any], run_summary: dict[str, Any],
+                                  expected: dict[str, str]) -> dict[str, Any]:
+    """Decide, from the RECORDED evidence, whether `B08-s20260806` may bind the M9
+    reference run instead of retraining it.
+
+    Experiment contract §2.1 calls this an identity binding, not an approximation:
+    the row is accepted only if every recorded scientific identity and the seed
+    match. If any of them differs the binding is REFUSED and the row must be
+    retrained under a new run id — this function never reports a near-match as a
+    match, and it reads the M9 run's own `run.json` rather than recomputing what it
+    would have been.
+    """
+    identity = dict(run_summary.get("identity") or {})
+    checks: dict[str, dict[str, Any]] = {}
+    for name, value in sorted(expected.items()):
+        checks[name] = {"m9_reference": identity.get(name), "m10_row": value,
+                        "matches": identity.get(name) == value}
+    lineage = [(str(entry["stage"]), str(entry.get("status"))) for entry in run_summary.get("stage_lineage") or []]
+    completed = [stage for stage, status in lineage if status == "COMPLETED"]
+    # Only the TRAINING stages can be satisfied by a training run. G7 is the M10
+    # target-prediction stage: it is still pending for every row in the matrix, and
+    # requiring it here would refuse a binding for the one reason that is true of
+    # every row alike.
+    training_stages = [stage for stage in (row.get("required_stages") or []) if stage in TRAINING_STAGES]
+    structural = {
+        "seed_matches": {"m9_reference": run_summary.get("seed"), "m10_row": row.get("seed"),
+                         "matches": int(run_summary.get("seed", -1)) == int(row.get("seed", -2))},
+        "run_completed": {"m9_reference": run_summary.get("status"), "m10_row": "COMPLETED",
+                          "matches": run_summary.get("status") == "COMPLETED"},
+        "every_declared_training_stage_completed": {
+            "m9_reference": completed, "m10_row": training_stages,
+            "matches": bool(training_stages) and all(stage in completed for stage in training_stages)},
+        "target_prediction_still_pending": {
+            "m9_reference": [stage for stage, _ in lineage], "m10_row": "G7 has not run for any row",
+            "matches": "G7" not in [stage for stage, _ in lineage]},
+        "target_never_opened": {"m9_reference": run_summary.get("target_test_opened"),
+                                "m10_row": False,
+                                "matches": run_summary.get("target_test_opened") is False}}
+    checks.update(structural)
+    mismatched = sorted(name for name, check in checks.items() if not check["matches"])
+    return {"binding_schema_version": "m10-m9-reference-binding-v1",
+            "experiment_id": row["experiment_id"],
+            "reference_run_id": row.get("reference_run_id"),
+            "checks": checks, "mismatched": mismatched,
+            "binding_accepted": not mismatched,
+            "decision": ("bind the existing M9 reference run" if not mismatched else
+                         "REFUSED: retrain under a new run id and document why"),
+            "target_labels_opened": False}
 
 
 def source_matrix_lock(registry: ExperimentRegistry, plan: dict[str, Any]) -> dict[str, Any]:

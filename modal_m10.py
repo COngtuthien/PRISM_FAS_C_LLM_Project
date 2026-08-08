@@ -550,6 +550,26 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
                                               scientific_config_hash=scientific_config_hash,
                                               engineering_smoke=engineering_smoke),
                          indent=1, default=str))
+    elif action == "matrix":
+        # The source-only scientific matrix, in bounded chunks. One unique run id per
+        # row (the experiment id itself), so a relaunch resumes rather than
+        # duplicating, and the workspace GPU quota is respected rather than exceeded.
+        ids = [value.strip() for value in experiment_id.split(",") if value.strip()]
+        width = max(1, int(concurrency))
+        results: list = []
+        for start in range(0, len(ids), width):
+            chunk = ids[start:start + width]
+            print(json.dumps({"launching": chunk, "done": start, "total": len(ids)}))
+            seeds = [int(name.rsplit("-s", 1)[1]) for name in chunk]
+            results += list(m10_train_row.starmap(
+                [(name, seed, name) for name, seed in zip(chunk, seeds)],
+                kwargs={"max_epochs": max_epochs}))
+            for entry in results[-len(chunk):]:
+                print(json.dumps({"finished": entry["experiment_id"],
+                                  "status": entry["closure"]["status"],
+                                  "seconds": entry["elapsed_seconds"],
+                                  "best": entry["summary"]["best_metrics"]}, default=str))
+        print(json.dumps({"matrix": results}, indent=1, default=str))
     elif action == "smoke":
         # Comma-separated ids so one invocation can cover several semantic families,
         # fanned out in bounded chunks rather than all at once: the workspace GPU
