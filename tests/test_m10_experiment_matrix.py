@@ -254,7 +254,7 @@ def test_source_matrix_lock_refuses_a_completed_row_without_a_calibration(tmp_pa
     registry.claim("B00-s20260806", run_id="run", backend="modal")
     registry.update("B00-s20260806", status="COMPLETED", best_checkpoint_sha256="a" * 64)
     with pytest.raises(M10ContractError, match="no frozen"):
-        source_matrix_lock(registry, plan)
+        source_matrix_lock(registry, plan, require_terminal=False)
 
 
 def test_source_matrix_lock_records_that_selection_never_used_target(tmp_path, plan):
@@ -262,6 +262,42 @@ def test_source_matrix_lock_records_that_selection_never_used_target(tmp_path, p
     registry.claim("B00-s20260806", run_id="run", backend="modal")
     registry.update("B00-s20260806", status="COMPLETED", best_checkpoint_sha256="a" * 64,
                     source_calibration_sha256="b" * 64, calibration_hash="c" * 64)
-    lock = source_matrix_lock(registry, plan)
-    assert lock["entry_count"] == 1
+    lock = source_matrix_lock(registry, plan, require_terminal=False)
     assert lock["selection_used_target"] is False and lock["target_labels_opened"] is False
+
+
+def test_source_matrix_lock_refuses_to_freeze_while_a_row_is_in_flight(tmp_path, plan):
+    """The real lock is taken only when every row is terminal. Freezing early would
+    record a source side that can still change after the target is opened."""
+    registry = ExperimentRegistry.from_plan(tmp_path, plan)
+    with pytest.raises(M10ContractError, match="not terminal"):
+        source_matrix_lock(registry, plan)
+
+
+def test_source_matrix_lock_keeps_every_logical_row_including_failures(tmp_path, plan):
+    """A failed row is kept with its failure record, a blocked row with its reason,
+    and the lock covers all 42 logical rows — not just the ones that worked."""
+    from prism_fas.evaluation.experiment_registry import validate_source_matrix_lock
+    registry = ExperimentRegistry.from_plan(tmp_path, plan)
+    for record in registry.ordered():
+        if record.status == "BLOCKED": continue
+        registry.claim(record.experiment_id, run_id=record.experiment_id, backend=record.backend)
+        if record.experiment_id == "B01-s20260806":
+            registry.fail(record.experiment_id, stage="G5", error="deliberate test failure")
+        else:
+            registry.update(record.experiment_id, status="COMPLETED",
+                            best_checkpoint_sha256="a" * 64, source_calibration_sha256="b" * 64,
+                            calibration_hash="c" * 64, source_dev_metrics={"source_dev/acer": 0.1})
+    lock = source_matrix_lock(registry, plan, code_lineage={"head": "d" * 40},
+                              reference_binding={"binding_accepted": True})
+    assert lock["logical_rows"] == 42
+    assert lock["blocked_rows"] == 4
+    assert lock["failed_rows"] == ["B01-s20260806"]
+    failed = next(e for e in lock["entries"] if e["experiment_id"] == "B01-s20260806")
+    assert failed["failure"]["stage"] == "G5" and failed["failure"]["error"]
+    assert all(e.get("blocked_reason") for e in lock["entries"] if e["status"] == "BLOCKED")
+    # And it validates, twice, reproducing its own identity both times.
+    first = validate_source_matrix_lock(lock, plan)
+    second = validate_source_matrix_lock(lock, plan)
+    assert first["passed"] and second["passed"], first["checks"]
+    assert first["source_matrix_lock_identity"] == second["source_matrix_lock_identity"]

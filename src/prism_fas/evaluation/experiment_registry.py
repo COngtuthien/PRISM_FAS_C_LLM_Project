@@ -268,27 +268,142 @@ def validate_m9_reference_binding(row: dict[str, Any], run_summary: dict[str, An
             "target_labels_opened": False}
 
 
-def source_matrix_lock(registry: ExperimentRegistry, plan: dict[str, Any]) -> dict[str, Any]:
-    """Freeze every selected checkpoint and calibration BEFORE the first G7 run.
+TERMINAL_STATUSES = ("COMPLETED", "FAILED", "BLOCKED")
 
-    After this lock exists, no source-side selection may change; a target result
-    therefore cannot reach back into a selection decision even in principle.
+
+def source_matrix_lock(registry: ExperimentRegistry, plan: dict[str, Any], *,
+                       code_lineage: dict[str, Any] | None = None,
+                       reference_binding: dict[str, Any] | None = None,
+                       artifact_identities: dict[str, str] | None = None,
+                       require_terminal: bool = True) -> dict[str, Any]:
+    """Freeze the WHOLE source side BEFORE the first scientific G7 run.
+
+    After this lock exists, no source-side selection may change, so a target result
+    cannot reach back into a selection decision even in principle.
+
+    **Every logical row is in the lock, not just the ones that worked.** A FAILED
+    row keeps its failure record and its resume lineage; a BLOCKED row keeps its
+    frozen reason. Omitting either would turn the lock into a record of the
+    successes, which is precisely the shape of evidence that cannot be audited.
     """
-    entries = []
+    rows_by_id = {str(row["experiment_id"]): row for row in plan["rows"]}
+    if set(rows_by_id) != set(registry.records):
+        missing = sorted(set(rows_by_id) - set(registry.records))
+        extra = sorted(set(registry.records) - set(rows_by_id))
+        raise M10ContractError(f"the registry and the plan disagree on rows; missing {missing}, extra {extra}")
+
+    entries: list[dict[str, Any]] = []
     for record in registry.ordered():
-        if record.status != "COMPLETED": continue
-        if not (record.best_checkpoint_sha256 and record.source_calibration_sha256):
-            raise M10ContractError(f"{record.experiment_id} is COMPLETED but has no frozen "
-                                   f"checkpoint/calibration to lock")
-        entries.append({"experiment_id": record.experiment_id, "seed": record.seed,
-                        "scientific_config_hash": record.scientific_config_hash,
-                        "best_checkpoint_sha256": record.best_checkpoint_sha256,
-                        "source_calibration_sha256": record.source_calibration_sha256,
-                        "calibration_hash": record.calibration_hash,
-                        "source_dev_metrics": record.source_dev_metrics})
-    body = {"source_matrix_lock_schema_version": "m10-source-matrix-lock-v1",
+        row = rows_by_id[record.experiment_id]
+        if require_terminal and record.status not in TERMINAL_STATUSES:
+            raise M10ContractError(f"{record.experiment_id} is {record.status}, not terminal; "
+                                   "the source matrix cannot be locked while a row is still in flight")
+        entry: dict[str, Any] = {
+            "experiment_id": record.experiment_id, "category": record.category,
+            "family": record.family, "variant": record.variant, "seed": record.seed,
+            "replication_role": record.replication_role, "status": record.status,
+            "backend": record.backend,
+            # every config hash the row binds
+            "scientific_config_hash": record.scientific_config_hash,
+            "flags": {key: row["flags"][key] for key in sorted(row["flags"])},
+            "required_stages": list(row["required_stages"]),
+            "stage_statuses": dict(sorted(record.stage_statuses.items())),
+            "source_package_identity": record.source_package_identity,
+            "m8_bank_identity": record.m8_bank_identity,
+            "pretrained_identities": dict(sorted(record.pretrained_identities.items())),
+            "hypotheses": list(row.get("hypotheses") or []),
+            "target_prediction_required": bool(row.get("target_prediction_required")),
+        }
+        if record.status == "COMPLETED":
+            if not record.reuses_m9_reference and not (record.best_checkpoint_sha256
+                                                       and record.source_calibration_sha256):
+                raise M10ContractError(f"{record.experiment_id} is COMPLETED but has no frozen "
+                                       f"checkpoint/calibration to lock")
+            entry.update({"run_id": record.run_id,
+                          "best_checkpoint_sha256": record.best_checkpoint_sha256,
+                          "best_checkpoint_path": record.best_checkpoint_path,
+                          "source_calibration_sha256": record.source_calibration_sha256,
+                          "calibration_hash": record.calibration_hash,
+                          "source_dev_metrics": dict(sorted((record.source_dev_metrics or {}).items())),
+                          "compute": dict(sorted((record.compute or {}).items())),
+                          "git_commit": record.git_commit})
+        if record.status == "FAILED":
+            # Kept, with its evidence. A failed row never becomes a missing row.
+            entry.update({"run_id": record.run_id, "failure": record.failure,
+                          "git_commit": record.git_commit,
+                          "compute": dict(sorted((record.compute or {}).items()))})
+        if record.status == "BLOCKED":
+            entry["blocked_reason"] = record.blocked_reason or row.get("blocked_reason")
+            if not entry["blocked_reason"]:
+                raise M10ContractError(f"{record.experiment_id} is BLOCKED without a reason")
+        if record.reuses_m9_reference:
+            entry.update({"reuses_m9_reference": True,
+                          "reference_run_id": record.reference_run_id})
+        entries.append(entry)
+
+    by_status: dict[str, int] = {}
+    for entry in entries: by_status[entry["status"]] = by_status.get(entry["status"], 0) + 1
+    executable = [entry for entry in entries if entry["status"] != "BLOCKED"]
+    blocked = [entry for entry in entries if entry["status"] == "BLOCKED"]
+    failed = [entry["experiment_id"] for entry in entries if entry["status"] == "FAILED"]
+
+    body = {"source_matrix_lock_schema_version": "m10-source-matrix-lock-v2",
             "m10_matrix_identity": plan["m10_matrix_identity"],
-            "registry_identity": registry.identity(), "entries": entries,
-            "entry_count": len(entries), "target_labels_opened": False,
-            "selection_used_target": False}
+            "registry_identity": registry.identity(),
+            "logical_rows": len(entries),
+            "executable_rows": len(executable),
+            "blocked_rows": len(blocked),
+            "rows_by_status": dict(sorted(by_status.items())),
+            "failed_rows": sorted(failed),
+            "frozen_inputs": dict(sorted(plan["frozen_inputs"].items())),
+            # The A02 control artifact and any other row-specific artifact identity.
+            "artifact_identities": dict(sorted((artifact_identities or {}).items())),
+            # Which code produced these rows, and how a later commit relates to it.
+            "code_lineage": dict(sorted((code_lineage or {}).items())),
+            # The B08 / M9 reuse decision, in full, with its checks.
+            "m9_reference_binding": reference_binding,
+            "entries": entries,
+            "target_labels_opened": False, "selection_used_target": False,
+            "selection_rule": dict(sorted(plan["rows"][0]["source_selection_rule"].items()))}
     return {**body, "source_matrix_lock_identity": stable_identity(body)}
+
+
+def validate_source_matrix_lock(lock: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
+    """Re-derive the lock's own identity and re-check every structural promise.
+
+    Run twice, per the milestone contract: a lock that cannot reproduce its own
+    identity is not a lock.
+    """
+    recomputed = stable_identity({key: value for key, value in lock.items()
+                                  if key != "source_matrix_lock_identity"})
+    checks = {
+        "identity_self_consistent": recomputed == lock.get("source_matrix_lock_identity"),
+        "matrix_identity_matches_plan":
+            lock.get("m10_matrix_identity") == plan["m10_matrix_identity"],
+        "every_logical_row_present": lock.get("logical_rows") == len(plan["rows"]),
+        "row_ids_match_plan":
+            sorted(entry["experiment_id"] for entry in lock["entries"])
+            == sorted(str(row["experiment_id"]) for row in plan["rows"]),
+        "every_row_terminal":
+            all(entry["status"] in TERMINAL_STATUSES for entry in lock["entries"]),
+        "every_blocked_row_carries_a_reason":
+            all(entry.get("blocked_reason") for entry in lock["entries"]
+                if entry["status"] == "BLOCKED"),
+        "every_failed_row_carries_its_failure":
+            all(entry.get("failure") for entry in lock["entries"] if entry["status"] == "FAILED"),
+        "every_completed_row_names_its_checkpoint":
+            all(entry.get("best_checkpoint_sha256") or entry.get("reuses_m9_reference")
+                for entry in lock["entries"] if entry["status"] == "COMPLETED"),
+        "every_completed_row_names_its_calibration":
+            all(entry.get("source_calibration_sha256") or entry.get("reuses_m9_reference")
+                for entry in lock["entries"] if entry["status"] == "COMPLETED"),
+        "target_never_opened": lock.get("target_labels_opened") is False
+                               and lock.get("selection_used_target") is False,
+        "code_lineage_recorded": bool(lock.get("code_lineage")),
+        "m9_reference_binding_recorded": bool(lock.get("m9_reference_binding")),
+    }
+    return {"passed": all(checks.values()), "checks": checks,
+            "source_matrix_lock_identity": lock.get("source_matrix_lock_identity"),
+            "recomputed_identity": recomputed,
+            "logical_rows": lock.get("logical_rows"),
+            "rows_by_status": lock.get("rows_by_status")}

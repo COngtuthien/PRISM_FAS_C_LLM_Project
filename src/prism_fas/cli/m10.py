@@ -11,7 +11,8 @@ import typer
 from prism_fas.utils.core import atomic_json_write
 from prism_fas.evaluation import bootstrap, experiment_matrix, reliability, report, scoring
 from prism_fas.evaluation.contracts import M10ContractError
-from prism_fas.evaluation.experiment_registry import ExperimentRegistry, source_matrix_lock
+from prism_fas.evaluation.experiment_registry import (ExperimentRegistry, source_matrix_lock,
+                                                      validate_source_matrix_lock)
 from prism_fas.evaluation.firewall import TargetLabelFirewall, load_firewall_config
 from prism_fas.evaluation import target_prediction as g7
 
@@ -111,9 +112,16 @@ def matrix_audit(config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=
 def registry_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
                                                exists=True, dir_okay=False),
                      root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
-                     action: str = typer.Option("init", "--action", help="init | show | lock"),
+                     action: str = typer.Option("init", "--action",
+                                                help="init | show | reconcile | lock | validate-lock"),
+                     collected: Path = typer.Option(None, "--collected", exists=True, dir_okay=False,
+                                                    help="reconcile: the m10_collect_runs payload"),
+                     binding: Path = typer.Option(DEFAULT_REPORTS / "B08_M9_REFERENCE_BINDING.json",
+                                                  "--binding"),
+                     artifacts: str = typer.Option("", "--artifacts",
+                                                   help="lock: name=identity pairs, comma separated"),
                      dry_run: bool = typer.Option(False, "--dry-run")) -> None:
-    """Create, inspect or freeze the experiment registry."""
+    """Create, inspect, reconcile or freeze the experiment registry."""
     payload = json.loads(Path(plan).read_text(encoding="utf-8"))
     if action == "init":
         registry = ExperimentRegistry.from_plan(Path(root), payload)
@@ -123,15 +131,89 @@ def registry_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLA
     registry = ExperimentRegistry.load(Path(root))
     if action == "show":
         _echo({"action": "show", **registry.summary()}); return
-    if action == "lock":
-        lock = source_matrix_lock(registry, payload)
-        target = Path(root) / "SOURCE_MATRIX_LOCK.json"
-        if not dry_run: atomic_json_write(target, lock)
-        _echo({"action": "lock", "entries": lock["entry_count"],
-               "source_matrix_lock_identity": lock["source_matrix_lock_identity"],
-               "written": [] if dry_run else [str(target)]})
+    if action == "reconcile":
+        if collected is None: raise typer.BadParameter("--collected is required for reconcile")
+        result = _reconcile(registry, json.loads(Path(collected).read_text(encoding="utf-8")))
+        written = registry.write(dry_run=dry_run)
+        _echo({"action": "reconcile", **result, **registry.summary(),
+               "written": [] if dry_run else [str(written)]})
         return
-    raise typer.BadParameter("action must be one of init | show | lock")
+    if action in ("lock", "validate-lock"):
+        target = Path(root) / "SOURCE_MATRIX_LOCK.json"
+        if action == "lock":
+            reference = (json.loads(Path(binding).read_text(encoding="utf-8"))
+                         if Path(binding).is_file() else None)
+            pairs = dict(item.split("=", 1) for item in artifacts.split(",") if "=" in item)
+            lock = source_matrix_lock(registry, payload, code_lineage=_code_lineage(),
+                                      reference_binding=reference, artifact_identities=pairs)
+            if not dry_run: atomic_json_write(target, lock)
+        else:
+            lock = json.loads(target.read_text(encoding="utf-8"))
+        # Validate twice, as the milestone contract requires: a lock that cannot
+        # reproduce its own identity is not a lock.
+        first = validate_source_matrix_lock(lock, payload)
+        second = validate_source_matrix_lock(lock, payload)
+        agreed = first == second
+        _echo({"action": action, "passed": first["passed"] and agreed,
+               "validated_twice_agree": agreed, "checks": first["checks"],
+               "logical_rows": lock["logical_rows"], "rows_by_status": lock["rows_by_status"],
+               "failed_rows": lock["failed_rows"],
+               "source_matrix_lock_identity": lock["source_matrix_lock_identity"],
+               "written": [] if (dry_run or action == "validate-lock") else [str(target)]})
+        if not (first["passed"] and agreed): raise typer.Exit(1)
+        return
+    raise typer.BadParameter("action must be one of init | show | reconcile | lock | validate-lock")
+
+
+def _code_lineage() -> dict:
+    """Which code produced these rows. Read from git, not asserted."""
+    import subprocess
+    run = lambda *args: subprocess.run(args, capture_output=True, text=True, timeout=15,
+                                       check=False).stdout.strip()
+    return {"head": run("git", "rev-parse", "HEAD"),
+            "branch": run("git", "rev-parse", "--abbrev-ref", "HEAD"),
+            "describe": run("git", "describe", "--always", "--dirty"),
+            "recent": run("git", "log", "-8", "--pretty=%h %s")}
+
+
+def _reconcile(registry, collected: dict) -> dict:
+    """Advance the registry from what each run actually WROTE.
+
+    A row is recorded COMPLETED only when its own `run.json` says COMPLETED and it
+    names a checkpoint and a calibration; anything else is left alone rather than
+    optimistically promoted.
+    """
+    updated, skipped, failed = [], [], []
+    for experiment_id, entry in sorted((collected.get("collected") or {}).items()):
+        if experiment_id not in registry.records: skipped.append(experiment_id); continue
+        record = registry.get(experiment_id)
+        if record.status in ("BLOCKED", "COMPLETED"): skipped.append(experiment_id); continue
+        status = entry.get("status")
+        if status != "COMPLETED":
+            skipped.append(experiment_id); continue
+        if not (entry.get("best_checkpoint_sha256") and entry.get("source_calibration_sha256")):
+            registry.claim(experiment_id, run_id=experiment_id, backend="modal")
+            registry.fail(experiment_id, stage="G6",
+                          error="run reported COMPLETED but wrote no checkpoint/calibration")
+            failed.append(experiment_id); continue
+        if record.status == "PLANNED":
+            registry.claim(experiment_id, run_id=experiment_id, backend="modal")
+        for stage, marker in (entry.get("stage_outputs") or {}).items():
+            registry.set_stage(experiment_id, stage, "COMPLETED")
+        registry.update(
+            experiment_id, status="COMPLETED", run_id=experiment_id,
+            best_checkpoint_path=entry.get("best_checkpoint_path"),
+            best_checkpoint_sha256=entry.get("best_checkpoint_sha256"),
+            source_calibration_sha256=entry.get("source_calibration_sha256"),
+            calibration_hash=entry.get("calibration_hash"),
+            source_dev_metrics=entry.get("best_metrics") or {},
+            m8_bank_identity=(entry.get("identity") or {}).get("m8_bank_identity"),
+            compute={"global_step": entry.get("global_step"), "epoch": entry.get("epoch"),
+                     "parameter_counts": entry.get("parameter_counts"),
+                     "optimizer_groups": entry.get("optimizer_groups")})
+        updated.append(experiment_id)
+    return {"reconciled": updated, "reconciled_count": len(updated),
+            "recorded_failed": failed, "left_alone": skipped}
 
 
 # --- G7 ----------------------------------------------------------------------
