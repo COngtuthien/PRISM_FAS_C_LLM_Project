@@ -529,6 +529,60 @@ def m10_smoke_row(experiment_id: str, steps: int = 2, validation_limit: int = 96
             "target_features_opened": False, "target_labels_opened": False}
 
 
+@app.function(image=image, volumes=TRAIN_VOLUMES, timeout=3600, cpu=2.0, memory=8192)
+def m10_collect_runs(experiment_ids: list[str]) -> dict:
+    """Read each row's run artifacts from the runs volume and return the evidence
+    the registry needs. Source-side only; no target artifact is touched.
+
+    Reading rather than trusting: the status, the selected checkpoint SHA, the
+    `source_dev` metrics and the calibration are taken from what the run actually
+    wrote, so a row cannot be recorded COMPLETED because a launcher said so.
+    """
+    import hashlib
+    collected: dict = {}
+    for experiment_id in experiment_ids:
+        root = Path(REMOTE_RUNS_ROOT) / experiment_id
+        entry: dict = {"experiment_id": experiment_id, "run_root_exists": root.is_dir()}
+        run_path = root / "run.json"
+        if run_path.is_file():
+            summary = json.loads(run_path.read_text(encoding="utf-8"))
+            entry["status"] = summary.get("status")
+            entry["stage_lineage"] = [{"stage": item["stage"], "status": item.get("status")}
+                                      for item in summary.get("stage_lineage") or []]
+            entry["best_metrics"] = summary.get("best_metrics")
+            entry["identity"] = summary.get("identity")
+            entry["variant"] = summary.get("variant", {}).get("flags")
+            entry["variant_identity"] = summary.get("variant", {}).get("variant_identity_sha256")
+            entry["declared_stages"] = summary.get("declared_stages")
+            entry["global_step"] = summary.get("global_step")
+            entry["epoch"] = summary.get("epoch")
+            entry["parameter_counts"] = summary.get("parameter_counts")
+            entry["optimizer_groups"] = summary.get("optimizer_groups")
+            entry["dataset"] = summary.get("dataset")
+            entry["ema_enabled"] = summary.get("ema_enabled")
+            entry["target_test_opened"] = summary.get("target_test_opened")
+        best = root / "checkpoints" / "best.pt"
+        if best.is_file():
+            entry["best_checkpoint_path"] = f"{experiment_id}/checkpoints/best.pt"
+            entry["best_checkpoint_sha256"] = _sha256(best)
+            entry["best_checkpoint_bytes"] = best.stat().st_size
+        calibration = root / "calibration" / "source_dev.json"
+        if calibration.is_file():
+            payload = json.loads(calibration.read_text(encoding="utf-8"))
+            entry["source_calibration_sha256"] = _sha256(calibration)
+            entry["calibration_hash"] = payload.get("calibration_hash")
+            entry["calibration"] = {key: payload.get(key) for key in
+                                    ("temperature", "selected_threshold", "criterion",
+                                     "reject_policy", "checkpoint_sha256")}
+        for stage in ("G1", "G2", "G5", "G6"):
+            marker = root / "stages" / stage / "output_hashes.json"
+            if marker.is_file():
+                entry.setdefault("stage_outputs", {})[stage] = json.loads(
+                    marker.read_text(encoding="utf-8"))
+        collected[experiment_id] = entry
+    return {"collected": collected, "count": len(collected), "target_labels_opened": False}
+
+
 @app.local_entrypoint()
 def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
          checkpoint_relative: str = "", limit: int | None = 320, seed: int = 20260806,
@@ -550,6 +604,9 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
                                               scientific_config_hash=scientific_config_hash,
                                               engineering_smoke=engineering_smoke),
                          indent=1, default=str))
+    elif action == "collect":
+        ids = [value.strip() for value in experiment_id.split(",") if value.strip()]
+        print(json.dumps(m10_collect_runs.remote(ids), indent=1, default=str))
     elif action == "matrix":
         # The source-only scientific matrix, in bounded chunks. One unique run id per
         # row (the experiment id itself), so a relaunch resumes rather than
