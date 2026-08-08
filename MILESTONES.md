@@ -12,7 +12,7 @@
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | **completed** |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | detector modules; 83 focused tests | toy tests + source-dev training stable | **completed** |
-| M10 | Experiment matrix and report | experiments/tests | reproducible report | planned |
+| M10 | Experiment matrix and report | `evaluation` modules; 118 focused tests | reproducible report | **in progress** |
 
 Each milestone requires: objective, implementation tasks, expected files, unit/integration tests, a command, and an acceptance report. Detailed task expansion occurs only when that milestone is assigned.
 
@@ -196,4 +196,31 @@ sample or target label was read, so no SiW-Mv2, cross-domain, ablation or state-
 made.
 
 Next milestone: M10 — experiment matrix, ablations and the controlled blind target evaluation
-(NOT STARTED).
+(IN PROGRESS).
+
+## M10 components
+
+`target_labels_revealed: false`. No SiW-Mv2 label has ever been opened and no target metric exists.
+
+| Component | Status |
+|---|---|
+| `docs/M10_TARGET_DATA_CONTRACT.md` and `configs/data/siw_mv2_target_v2.yaml` | COMPLETED (frozen) |
+| `docs/M10_EXPERIMENT_CONTRACT.md` — B00-B08 as config switches, replication policy | COMPLETED (frozen) |
+| `docs/M10_TARGET_EVALUATION_CONTRACT.md` — Table 57 schema, aggregation, locks, firewall | COMPLETED (frozen) |
+| `docs/M10_STATISTICS_CONTRACT.md` — bootstrap, family, correction | COMPLETED (frozen) |
+| `configs/experiments/m10_matrix.yaml`, `configs/evaluation/m10_target.yaml`, `configs/cloud/modal_m10.yaml` | COMPLETED |
+| Deterministic matrix planner (42 logical rows, identity reproduced twice) | COMPLETED |
+| Experiment registry (terminal statuses, duplicate-launch refusal, SOURCE_MATRIX_LOCK) | COMPLETED |
+| Structural target-label firewall (resolvable-path permissions, AST import audit) | COMPLETED |
+| G7 label-free prediction, nullable Table 57 schema, PREDICTION_LOCK, lockset | COMPLETED |
+| Video aggregation (trimmed mean 0.10, median confidence, threshold+reject) | COMPLETED |
+| Metrics (APCER/BPCER/ACER/HTER/AUC/EER/ECE/Brier/NLL, risk-coverage, attack-wise) | COMPLETED |
+| Deterministic paired video bootstrap and Holm-Bonferroni over H1-H5 | COMPLETED |
+| Reliability/shortcut test framework (10 declared, 1 BLOCKED with reason) | COMPLETED |
+| Report assembler (16 sections, no fabricated target value) | COMPLETED |
+| M10 CLI with `--dry-run` on every writing command | COMPLETED |
+| Focused M10 tests (118) and full suite (863) | COMPLETED |
+| Label-free G7 engineering smoke on real target features | COMPLETED |
+| Additive 1700-video target evaluation package | NOT STARTED |
+| Evaluation-only label artifact | NOT STARTED |
+| Matrix execution, G7 predictions, G8 scoring | NOT STARTED |

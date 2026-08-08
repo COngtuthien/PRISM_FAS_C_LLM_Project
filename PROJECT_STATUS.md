@@ -1,16 +1,95 @@
 # Project status
 
-- Current milestone: **M9 COMPLETED** — the PRISM regional CNN-VLM detector, PromptHead over frozen
-  SigLIP2 recipe-text embeddings, nine regional multi-prototype real manifolds, the Table 34 fusion,
-  the nine declared losses, and ONE reference training run `m9_reference_seed20260806` on NVIDIA L4.
-  **M10 is NOT STARTED.**
-- M0–M9: COMPLETED; M10: NOT STARTED.
-- M9 validates the implementation and training of the reference detector. M9 does **not** establish
-  SiW-Mv2 performance, target APCER/BPCER/ACER, cross-domain superiority, ablation superiority or any
-  final research claim; those belong to M10.
-- M3A package foundation and deterministic quality priors: **COMPLETED**.
-- M3B model-dependent priors: **COMPLETED**.
-- Official package for downstream work: `prism_data_v1_m3b` (parent `prism_data_v1_m3a`, immutable).
+- Current milestone: **M10 IN PROGRESS** — the experiment matrix, the blind target evaluation
+  framework and the statistics contract are implemented, frozen and tested. **No SiW-Mv2 label has
+  ever been opened**, no target metric exists, no matrix row has been launched and no M10 Modal app
+  has ever been created.
+- M0–M9: COMPLETED; M10: **IN PROGRESS**.
+
+```
+target_labels_revealed: false
+```
+
+This flag is one-way. It becomes `true` only after the first authorized G8 pass that follows a
+frozen `reports/m10/TARGET_PREDICTION_LOCKSET.json`, and it is never reset.
+
+## M10 framework (implemented, frozen, not yet executed)
+
+Three contracts were frozen **before** anything was run: `docs/M10_EXPERIMENT_CONTRACT.md`
+(B00–B08 as configuration switches over one shared implementation, plus the replication policy),
+`docs/M10_TARGET_EVALUATION_CONTRACT.md` (Table 57 prediction schema, video aggregation, the
+prediction lock, the G7/G8 permission split) and `docs/M10_STATISTICS_CONTRACT.md` (bootstrap unit,
+seed, resamples, confidence level, comparison statistic, multiple-comparison policy).
+
+### The materialized matrix
+
+| | |
+|---|---|
+| `m10_matrix_identity` | `a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5` |
+| logical rows | **42** |
+| executable rows | **38** = 37 training + 1 bounded backend-parity run |
+| new GPU training runs | **36** (B08 seed 20260806 binds the existing M9 reference run) |
+| blocked rows | **4**, each carrying its reason |
+| unique scientific configurations | 41 (the parity row shares B08 seed 20260806's hash by design) |
+| seeds | `20260806`, `20260807`, `20260808` |
+
+Planned twice; identical rows and an identical identity both times.
+
+### Replication policy — frozen before execution, compute-aware
+
+The spec fixes 3 seeds only for "main baseline and full method" (§20.1) and leaves every auxiliary
+row genuinely `SPEC_UNDERSPECIFIED`. Rather than assume 3 everywhere or 1 everywhere, the count is
+frozen by declared scientific role:
+
+| role | seeds | may carry a statistical claim | rows |
+|---|---|---|---|
+| `spec_mandated` | 3 | yes | B00, B08 |
+| `hypothesis_critical` | 3 | yes | B06, B07, A01, A02, A04, A07 |
+| `diagnostic` | 1 | **no**, descriptive only | B01–B05, A03, A05, A06, A08 |
+| `parity` | 1 | no | A09 bounded parity |
+| `blocked` | 0 | no | A10 frame-count, A09 full training |
+
+A comparison whose either side is a single-seed row is **refused** by the statistics module, not
+silently downgraded to a point estimate with an interval.
+
+### Blocked rows, kept in the matrix with their reasons
+
+- `A10-frame_count-f16/f32/f48_64` — the frozen sampling plan is 4 frames/video. Re-extracting SOURCE
+  at another density would change the source package identity and break every M8/M9 identity bound to
+  it, and uniform-4 is not a subset of uniform-16, so a denser TARGET package would forfeit the
+  byte-for-byte live reproduction check. A denser v3 package is deferred and **will not** be decided
+  on the basis of any observed target result.
+- `A09-backend-pc_full_training` — no local CUDA device; a full-length CPU B08 run exceeds the
+  milestone budget. The bounded step-parity protocol runs instead and is reported as a parity result,
+  never as a second full training result.
+
+### Firewall — structural, never a string scan
+
+`TRAIN` cannot resolve the target feature root or the target label root; `G7` reads features and
+cannot resolve labels; `G8` reads labels and cannot write `.pt`, `.pth`, `.ckpt`, `.safetensors`,
+`optimizer`, `calibration/` or `checkpoints/`. Paths are compared after `Path.resolve()`. Isolation
+declarations (`target_labels_opened: false`) are skipped structurally, so the proof of isolation
+cannot read as a leak — the M8/M9 lesson, applied unchanged. G8 holds no optimizer, no model and no
+checkpoint writer, proved by an AST import audit of the module and its import closure.
+
+### Label-free G7 engineering smoke (real target features, no label)
+
+256 frames / 228 videos of the frozen `target_test` FEATURE package through the full M9 detector on
+CPU: feature loading, region priors, checkpoint identity guard, forward pass, Table 57 schema, finite
+outputs, video aggregation, prediction lock and firewall all verified.
+**No target metric was computed and none may be quoted.** Details: `reports/m10/G7_ENGINEERING_SMOKE.md`.
+
+The smoke found one real defect and it was fixed: `p_prompt` is a **structural zero** on target data
+because `PromptHead.applicability` requires a synthetic sample with an attack-region mask. G7 now
+reads the model's own applicability mask and writes `null`/`not_applicable` instead of recording that
+constant as a measurement. Consequence, now in the contract: on target data B08's fusion reduces to
+`s_final = 1 - (1 - p_global)(1 - s_region)`, and the A08 prompt ablation can only differ on target
+through training, never through inference-time fusion.
+
+Tests: **863 passed, 0 failed, 0 skipped** (745 at the M9 checkpoint; 118 focused M10 tests added).
+
+- Blockers: none. Next: build the additive 1700-video target evaluation package (785 live + 915 spoof,
+  14 families, 4 frames/video) with its evaluation-only label artifact physically separated.
 
 ## M9 reference detector (m9_reference_seed20260806)
 

@@ -535,6 +535,9 @@ def synthesis_validate_downloaded_bank(archive:Path|None=typer.Option(None,'--ar
         "local_identity_equals_remote":bool(matches),"counts":report["counts"],
         "error_count":report["error_count"],"errors":report["errors"][:10]}))
     if not (report["passed"] and matches): raise typer.Exit(1)
+# --- M10 experiment matrix and blind target evaluation -----------------------
+from prism_fas.cli.m10 import app as m10_app
+app.add_typer(m10_app, name="m10")
 @data_app.command("audit")
 def audit(dataset: str=typer.Option(..., help="casia_fasd, msu_mfsd, siw_mv2, or all"), config: Path=typer.Option(..., exists=True, dir_okay=False)) -> None:
     paths=load_paths(config); base=Path(__file__).parents[3] / "configs" / "data"; names=[dataset] if dataset != "all" else ["casia_fasd","msu_mfsd","siw_mv2"]

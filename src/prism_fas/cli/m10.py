@@ -1,0 +1,361 @@
+"""M10 CLI: matrix, registry, G7 prediction, prediction lock, G8 scoring,
+statistics, reliability, report and acceptance.
+
+Every writing command supports `--dry-run`. A dry run writes nothing, launches no
+Modal job and opens no target label; it reports exactly what it would have done.
+"""
+from __future__ import annotations
+import json
+from pathlib import Path
+import typer
+from prism_fas.utils.core import atomic_json_write
+from prism_fas.evaluation import bootstrap, experiment_matrix, reliability, report, scoring
+from prism_fas.evaluation.contracts import M10ContractError
+from prism_fas.evaluation.experiment_registry import ExperimentRegistry, source_matrix_lock
+from prism_fas.evaluation.firewall import TargetLabelFirewall, load_firewall_config
+from prism_fas.evaluation import target_prediction as g7
+
+app = typer.Typer(help="M10 experiment matrix and blind target evaluation", no_args_is_help=True)
+matrix_app = typer.Typer(help="Deterministic Table 59/60 experiment matrix")
+prediction_app = typer.Typer(help="G7 label-free target prediction and its lock")
+app.add_typer(matrix_app, name="matrix")
+app.add_typer(prediction_app, name="prediction")
+
+DEFAULT_MATRIX = Path("configs/experiments/m10_matrix.yaml")
+DEFAULT_EVALUATION = Path("configs/evaluation/m10_target.yaml")
+DEFAULT_REPORTS = Path("reports/m10")
+
+
+def _firewall(evaluation_config: Path) -> TargetLabelFirewall:
+    return TargetLabelFirewall(load_firewall_config(Path(evaluation_config)), project_root=Path.cwd())
+
+
+def _echo(payload: dict) -> None: typer.echo(json.dumps(payload, default=str))
+
+
+# --- matrix ------------------------------------------------------------------
+@matrix_app.command("plan")
+def matrix_plan(config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=True, dir_okay=False),
+                output: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--output"),
+                repeat: int = typer.Option(2, "--repeat", help="the contract requires two agreeing passes"),
+                dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Materialize the matrix twice and require an identical `m10_matrix_identity`."""
+    plans = [experiment_matrix.build_plan(Path(config)) for _ in range(max(1, repeat))]
+    agreement = experiment_matrix.plans_agree(plans[0], plans[-1]) if len(plans) > 1 else {
+        "identical": True, "m10_matrix_identity": plans[0]["m10_matrix_identity"]}
+    if not agreement["identical"]:
+        _echo({"passed": False, "determinism": agreement, "written": []}); raise typer.Exit(1)
+    if not dry_run: atomic_json_write(Path(output), plans[0])
+    _echo({"passed": True, "m10_matrix_identity": plans[0]["m10_matrix_identity"],
+           "determinism_passes": len(plans), **plans[0]["summary"],
+           "written": [] if dry_run else [str(output)]})
+
+
+@matrix_app.command("validate")
+def matrix_validate(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                              exists=True, dir_okay=False),
+                    config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=True, dir_okay=False),
+                    evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                                           exists=True, dir_okay=False)) -> None:
+    """Re-derive the plan from the config and check the identity plus the firewall."""
+    import yaml
+    stored = json.loads(Path(plan).read_text(encoding="utf-8"))
+    rebuilt = experiment_matrix.build_plan(Path(config))
+    firewall = _firewall(evaluation_config)
+    matrix_payload = yaml.safe_load(Path(config).read_text(encoding="utf-8"))
+    checks = {"identity_matches": stored["m10_matrix_identity"] == rebuilt["m10_matrix_identity"],
+              "rows_match": stored["rows"] == rebuilt["rows"],
+              "no_target_paths_in_matrix_config": bool(
+                  firewall.assert_no_target_paths(matrix_payload, where="m10_matrix.yaml")),
+              "no_attack_taxonomy_in_matrix_config": bool(
+                  firewall.assert_no_attack_taxonomy(matrix_payload, where="m10_matrix.yaml")),
+              "blocked_rows_carry_reasons": all(row.get("blocked_reason")
+                                                for row in stored["rows"] if row["status"] == "BLOCKED")}
+    _echo({"passed": all(checks.values()), "checks": checks,
+           "m10_matrix_identity": stored["m10_matrix_identity"], "summary": stored["summary"],
+           "firewall": firewall.report()})
+    if not all(checks.values()): raise typer.Exit(1)
+
+
+# --- registry ----------------------------------------------------------------
+@app.command("registry")
+def registry_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                               exists=True, dir_okay=False),
+                     root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+                     action: str = typer.Option("init", "--action", help="init | show | lock"),
+                     dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Create, inspect or freeze the experiment registry."""
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    if action == "init":
+        registry = ExperimentRegistry.from_plan(Path(root), payload)
+        written = registry.write(dry_run=dry_run)
+        _echo({"action": "init", **registry.summary(), "written": [] if dry_run else [str(written)]})
+        return
+    registry = ExperimentRegistry.load(Path(root))
+    if action == "show":
+        _echo({"action": "show", **registry.summary()}); return
+    if action == "lock":
+        lock = source_matrix_lock(registry, payload)
+        target = Path(root) / "SOURCE_MATRIX_LOCK.json"
+        if not dry_run: atomic_json_write(target, lock)
+        _echo({"action": "lock", "entries": lock["entry_count"],
+               "source_matrix_lock_identity": lock["source_matrix_lock_identity"],
+               "written": [] if dry_run else [str(target)]})
+        return
+    raise typer.BadParameter("action must be one of init | show | lock")
+
+
+# --- G7 ----------------------------------------------------------------------
+@app.command("target-predict")
+def target_predict(
+        package_root: Path = typer.Option(..., "--package-root", exists=True, file_okay=False),
+        model_config: Path = typer.Option(Path("configs/models/m9_detector.yaml"), "--model-config",
+                                          exists=True, dir_okay=False),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        loader_config: Path = typer.Option(Path("configs/data/loader_m4.yaml"), "--loader-config",
+                                           exists=True, dir_okay=False),
+        checkpoint: Path = typer.Option(..., "--checkpoint"),
+        weight_root: Path = typer.Option(..., "--weight-root"),
+        experiment_id: str = typer.Option(..., "--experiment-id"),
+        variant: str = typer.Option("B08", "--variant"),
+        seed: int = typer.Option(20260806, "--seed"),
+        threshold: float = typer.Option(..., "--threshold", help="the FROZEN source-dev threshold"),
+        temperature: float | None = typer.Option(None, "--temperature"),
+        calibration_hash: str = typer.Option("", "--calibration-hash"),
+        calibration_sha256: str = typer.Option("", "--calibration-sha256"),
+        output_root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--output-root"),
+        cache_root: Path = typer.Option(Path("data/processed/m10_cache"), "--cache-root"),
+        limit: int | None = typer.Option(None, "--limit"),
+        batch_size: int = typer.Option(8, "--batch-size"),
+        device: str = typer.Option("cpu", "--device"),
+        engineering_smoke: bool = typer.Option(False, "--engineering-smoke",
+                                               help="label the output as engineering verification, "
+                                                    "not a scientific result"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Predict on target FEATURES. No label is opened, because none is reachable."""
+    from prism_fas.data.loader.config import load_loader_config
+    from prism_fas.detector.config import detector_config_from, load_yaml
+    from prism_fas.detector.heads import resolve_recipe_text_cache
+    from prism_fas.detector.pretrained import SigLIP2Artifacts, resolve_convnext_weight
+    from prism_fas.detector.prism_detector import build_detector
+    firewall = _firewall(evaluation_config)
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    firewall.assert_cannot_resolve_labels("G7")
+    model_payload = load_yaml(Path(model_config))
+    detector_config = detector_config_from(model_payload)
+    capabilities = g7.VariantCapabilities(has_region=True, has_prompt=True)
+    unknown_threshold = evaluation["thresholds"]["unknown_threshold"]
+    if dry_run:
+        _echo({"status": "dry_run", "experiment_id": experiment_id, "variant": variant,
+               "package_root": str(package_root), "limit": limit, "threshold": threshold,
+               "unknown_threshold": unknown_threshold,
+               "firewall": firewall.report(), "target_labels_opened": False, "written": []})
+        return
+    siglip = SigLIP2Artifacts.resolve(Path(weight_root))
+    text_cache = resolve_recipe_text_cache(Path(weight_root))
+    model = build_detector(detector_config, text_embeddings=text_cache.tensor(), siglip=siglip,
+                           local_weight_file=resolve_convnext_weight(Path(weight_root)),
+                           text_cache_identity=text_cache.identity, device=device)
+    opened = g7.load_checkpoint_for_inference(Path(checkpoint), model)
+    inference_hash = g7.inference_config_hash(
+        variant=variant, flags={"region": "on", "prompt": "frozen_prompt"}, threshold=threshold,
+        unknown_threshold=unknown_threshold, temperature=temperature,
+        package_identity=evaluation["roots"]["target_feature_package_identity"],
+        architecture_identity=model.architecture_identity())
+    batches = g7.target_batches(Path(package_root), load_loader_config(Path(loader_config)),
+                                cache_root=Path(cache_root), limit=limit, batch_size=batch_size,
+                                firewall=firewall,
+                                progress=lambda item: typer.echo(json.dumps({"progress": item})))
+    rows = g7.predict_target(model, batches, capabilities=capabilities, threshold=threshold,
+                             unknown_threshold=unknown_threshold, temperature=temperature,
+                             checkpoint_hash=opened["checkpoint_sha256"],
+                             calibration_hash=calibration_hash,
+                             inference_config_hash=inference_hash, variant=variant, device=device)
+    root = Path(output_root) / experiment_id
+    predictions_path = g7.write_predictions(root / g7.PREDICTION_FILE, rows, variant=variant,
+                                            firewall=None)
+    lock = g7.build_prediction_lock(
+        experiment_id=experiment_id, variant=variant, seed=seed, rows=rows,
+        checkpoint_sha256=opened["checkpoint_sha256"], source_calibration_sha256=calibration_sha256,
+        calibration_hash=calibration_hash, inference_config_hash=inference_hash,
+        target_feature_package_identity=evaluation["roots"]["target_feature_package_identity"],
+        target_package_id=evaluation["roots"]["target_feature_package_id"], threshold=threshold,
+        unknown_threshold=unknown_threshold, engineering_smoke=engineering_smoke)
+    g7.write_prediction_lock(root / g7.PREDICTION_LOCK_FILE, lock)
+    _echo({"status": "completed", "experiment_id": experiment_id, "rows": lock["row_count"],
+           "videos": lock["video_count"], "checkpoint": opened,
+           "prediction_lock_identity": lock["prediction_lock_identity"],
+           "engineering_smoke": lock["engineering_smoke"], "target_labels_opened": False,
+           "written": [str(predictions_path), str(root / g7.PREDICTION_LOCK_FILE)]})
+
+
+@prediction_app.command("validate")
+def prediction_validate(predictions: Path = typer.Option(..., "--predictions", exists=True, dir_okay=False),
+                        lock: Path | None = typer.Option(None, "--lock")) -> None:
+    """Schema, finiteness, applicability and the no-label rule; the lock if given."""
+    rows = g7.read_predictions(Path(predictions))
+    summary = g7.validate_predictions(rows)
+    payload = {"passed": True, **summary,
+               "prediction_logical_identity": g7.prediction_logical_identity(rows)}
+    if lock is not None:
+        stored = json.loads(Path(lock).read_text(encoding="utf-8"))
+        payload["lock"] = g7.validate_prediction_lock(stored, rows)
+    _echo(payload)
+
+
+@prediction_app.command("lockset")
+def prediction_lockset(root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--root", exists=True,
+                                                 file_okay=False),
+                       plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                                 exists=True, dir_okay=False),
+                       registry_root: Path = typer.Option(DEFAULT_REPORTS, "--registry-root"),
+                       output: Path = typer.Option(DEFAULT_REPORTS / "TARGET_PREDICTION_LOCKSET.json",
+                                                   "--output"),
+                       dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Freeze the complete lockset. The label reveal waits behind this file."""
+    locks = [json.loads(path.read_text(encoding="utf-8"))
+             for path in sorted(Path(root).glob(f"*/{g7.PREDICTION_LOCK_FILE}"))]
+    if not locks: raise typer.BadParameter(f"no {g7.PREDICTION_LOCK_FILE} under {root}")
+    smoke = [lock["experiment_id"] for lock in locks if lock.get("engineering_smoke")]
+    if smoke:
+        _echo({"passed": False, "reason": "engineering-smoke predictions may not enter the lockset",
+               "engineering_smoke": smoke, "written": []})
+        raise typer.Exit(1)
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    registry = ExperimentRegistry.load(Path(registry_root))
+    lockset = g7.build_lockset(locks, matrix_identity=payload["m10_matrix_identity"],
+                               registry_identity=registry.identity())
+    if not dry_run: atomic_json_write(Path(output), lockset)
+    _echo({"passed": True, "entries": lockset["entry_count"],
+           "lockset_identity": lockset["lockset_identity"],
+           "written": [] if dry_run else [str(output)]})
+
+
+# --- G8 ----------------------------------------------------------------------
+@app.command("score")
+def score_command(predictions: Path = typer.Option(..., "--predictions", exists=True, dir_okay=False),
+                  lock: Path = typer.Option(..., "--lock", exists=True, dir_okay=False),
+                  labels: Path = typer.Option(..., "--labels"),
+                  evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                                         exists=True, dir_okay=False),
+                  threshold: float = typer.Option(..., "--threshold"),
+                  output: Path = typer.Option(DEFAULT_REPORTS / "scoring.json", "--output"),
+                  allow_engineering_smoke: bool = typer.Option(False, "--allow-engineering-smoke"),
+                  dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """G8. Opens the evaluation-only labels; writes no model state, ever."""
+    firewall = _firewall(evaluation_config)
+    stored = json.loads(Path(lock).read_text(encoding="utf-8"))
+    rows = g7.read_predictions(Path(predictions))
+    if dry_run:
+        _echo({"status": "dry_run", "predictions": len(rows),
+               "lock": g7.validate_prediction_lock(stored, rows),
+               "labels_opened": False, "isolation": scoring.isolation_report(), "written": []})
+        return
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    evaluation_labels = scoring.load_evaluation_labels(Path(labels), firewall=firewall, stage="G8")
+    result = scoring.score(predictions=rows, lock=stored, labels=evaluation_labels,
+                           threshold=threshold,
+                           unknown_threshold=evaluation["thresholds"]["unknown_threshold"],
+                           allow_engineering_smoke=allow_engineering_smoke)
+    written = scoring.write_scoring_report(Path(output), result, firewall=firewall)
+    _echo({"status": "completed", "experiment_id": result["experiment_id"],
+           "scoring_identity": result["scoring_identity"], "written": [str(written)]})
+
+
+# --- statistics, reliability, report, acceptance ------------------------------
+@app.command("statistics")
+def statistics_command(scored: Path = typer.Option(..., "--scored", exists=True, dir_okay=False,
+                                                   help="JSON: {experiment_id: {video_ids, scores, labels}}"),
+                       plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                                 exists=True, dir_okay=False),
+                       threshold: float = typer.Option(..., "--threshold"),
+                       output: Path = typer.Option(DEFAULT_REPORTS / "statistics.json", "--output"),
+                       dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Run the five declared comparisons and correct across them."""
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    roles = {row["experiment_id"].rsplit("-s", 1)[0]: row["replication_role"] for row in payload["rows"]}
+    data = json.loads(Path(scored).read_text(encoding="utf-8"))
+    result = bootstrap.run_declared_family(hypotheses=payload["hypotheses"], scored=data, roles=roles,
+                                           threshold=threshold)
+    if not dry_run: atomic_json_write(Path(output), result)
+    _echo({"family": result["declared_family"],
+           "computed": [name for name, entry in result["comparisons"].items()
+                        if entry.get("status") == "computed"],
+           "refused": [name for name, entry in result["comparisons"].items()
+                       if entry.get("status") == "refused"],
+           "multiple_comparison": result["multiple_comparison"]["policy"],
+           "written": [] if dry_run else [str(output)]})
+
+
+@app.command("reliability")
+def reliability_command(output: Path = typer.Option(DEFAULT_REPORTS / "RELIABILITY.json", "--output"),
+                        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Materialize the declared reliability tests and their statuses."""
+    payload = reliability.build_report(reliability.declared_tests())
+    reliability.write_report(Path(output), payload, dry_run=dry_run)
+    _echo({"tests": payload["count"], "by_status": payload["by_status"],
+           "blocked": [item["test_id"] for item in payload["blocked"]],
+           "uses_target_labels": payload["uses_target_labels"],
+           "written": [] if dry_run else [str(output)]})
+
+
+@app.command("report")
+def report_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                             exists=True, dir_okay=False),
+                   registry_root: Path = typer.Option(DEFAULT_REPORTS, "--registry-root"),
+                   reliability_json: Path | None = typer.Option(None, "--reliability"),
+                   statistics_json: Path | None = typer.Option(None, "--statistics"),
+                   output: Path = typer.Option(DEFAULT_REPORTS / "M10_REPORT.json", "--output"),
+                   dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Assemble the report from frozen artifacts. Nothing is recomputed."""
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    registry = ExperimentRegistry.load(Path(registry_root))
+    assembled = report.assemble(
+        plan=payload, registry=registry,
+        reliability=(json.loads(Path(reliability_json).read_text(encoding="utf-8"))
+                     if reliability_json else None),
+        statistics=(json.loads(Path(statistics_json).read_text(encoding="utf-8"))
+                    if statistics_json else None),
+        target_labels_revealed=False)
+    audit = report.audit_no_fabricated_target_values(assembled)
+    report.write_report(Path(output), assembled, dry_run=dry_run)
+    if not dry_run:
+        Path(output).with_suffix(".md").write_text(report.render_markdown(assembled), encoding="utf-8")
+    _echo({"report_identity": assembled["report_identity"], "sections": len(assembled["sections"]),
+           "no_fabricated_target_values": audit, "target_labels_revealed": False,
+           "written": [] if dry_run else [str(output), str(Path(output).with_suffix(".md"))]})
+
+
+@app.command("acceptance")
+def acceptance_command(config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=True, dir_okay=False),
+                       evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                                              exists=True, dir_okay=False),
+                       root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+                       output: Path = typer.Option(DEFAULT_REPORTS / "M10_ACCEPTANCE.json", "--output"),
+                       dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """What is and is not yet true about M10, checked rather than asserted."""
+    firewall = _firewall(evaluation_config)
+    first = experiment_matrix.build_plan(Path(config))
+    second = experiment_matrix.build_plan(Path(config))
+    agreement = experiment_matrix.plans_agree(first, second)
+    checks = {
+        "matrix_deterministic": agreement["identical"],
+        "blocked_rows_carry_reasons": all(row.get("blocked_reason") for row in first["rows"]
+                                          if row["status"] == "BLOCKED"),
+        "unique_experiment_ids": len({row["experiment_id"] for row in first["rows"]}) == len(first["rows"]),
+        "train_cannot_read_target_labels": firewall.permission("TRAIN", "target_label_root") == "deny",
+        "g7_cannot_read_target_labels": firewall.permission("G7", "target_label_root") == "deny",
+        "g8_reads_target_labels": firewall.permission("G8", "target_label_root") == "read",
+        "g8_has_no_training_capability": scoring.isolation_report()["static_import_audit"]["passed"],
+        "target_labels_revealed_is_false": not Path(root, "TARGET_LABEL_REVEAL.json").exists()}
+    payload = {"m10_acceptance_schema_version": "m10-acceptance-v1",
+               "m10_matrix_identity": first["m10_matrix_identity"], "checks": checks,
+               "passed": all(checks.values()), "summary": first["summary"],
+               "target_labels_revealed": False,
+               "not_claimed": ["SiW-Mv2 performance", "cross-domain superiority",
+                               "ablation superiority", "state-of-the-art comparison"]}
+    if not dry_run: atomic_json_write(Path(output), payload)
+    _echo({**{key: payload[key] for key in ("passed", "checks", "m10_matrix_identity")},
+           "written": [] if dry_run else [str(output)]})
+    if not payload["passed"]: raise typer.Exit(1)

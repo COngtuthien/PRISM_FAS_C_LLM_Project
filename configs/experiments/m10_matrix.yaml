@@ -1,0 +1,394 @@
+# The M10 experiment matrix — Table 59 baselines and Table 60 ablations.
+#
+# This file is the machine form of docs/M10_EXPERIMENT_CONTRACT.md. The planner
+# (`prism_fas.evaluation.experiment_matrix`) materializes it into
+# reports/m10/M10_MATRIX_PLAN.json and derives `m10_matrix_identity` from the
+# canonical scientific rows alone.
+#
+# Every baseline is a CONFIGURATION of the shared implementation, never a forked
+# model. No value here was chosen by looking at a SiW-Mv2 result; no SiW-Mv2 result
+# exists. There is no target path anywhere in this file.
+matrix_schema_version: "m10-matrix-v1"
+experiment_id: m10_experiment_matrix
+stage: M10
+
+# --- replication policy (contract section 4) --------------------------------
+seeds:
+  canonical: [20260806, 20260807, 20260808]
+  single_seed_default: 20260806
+  # A row may never use a seed outside `canonical`, and the list is never extended
+  # after a result is seen.
+
+replication_roles:
+  spec_mandated:       {seeds: 3, statistical_claim_allowed: true}
+  hypothesis_critical: {seeds: 3, statistical_claim_allowed: true}
+  diagnostic:          {seeds: 1, statistical_claim_allowed: false}
+  parity:              {seeds: 1, statistical_claim_allowed: false}
+  blocked:             {seeds: 0, statistical_claim_allowed: false}
+
+# --- frozen inputs every row binds ------------------------------------------
+frozen_inputs:
+  source_package_id: prism_data_v1_m3b
+  source_package_identity: "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+  m8_bank_id: "prism_synthetic_bank_m8_v3_e84c78cd2a9b"
+  m8_bank_identity: "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542"
+  m7_recipe_bank_identity: "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+  siglip2_identity: "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822"
+  recipe_text_cache_identity: "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
+  convnext_weight_sha256: "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+
+# --- source-side selection, identical for every row -------------------------
+source_selection_rule:
+  selection_metric: "source_dev/acer"
+  tie_break_metric: "source_dev/bpcer"
+  calibration_metric: "source_dev/nll"
+  temperature_fit_split: source_dev
+  threshold_criterion: min_acer_on_calibrated_source_dev
+  uses_target: false
+
+# --- the flag vocabulary the planner validates against ----------------------
+flag_vocabulary:
+  local_branch: [convnext, "off"]
+  global_branch: [siglip2_frozen, "off"]
+  fusion: [single_logit, simple_concat, prism_noisy_or]
+  region: ["on", "off"]
+  manifold: ["off", global_center, multi_prototype]
+  prototype_k: [0, 1, 2, 4, 6]
+  synthetic: [none, physics_only, gpat_only, bank_physics_gpat]
+  recipe_conditioning: [structured, random_operators, "off"]
+  quality_weighting: [q_weighted, hard_gate_only, "off"]
+  outlier_loss: ["off", image_level, mask_aware]
+  prompt: ["off", frozen_prompt, adapter]
+  sampler: [domain_class_balanced, naive_concat]
+  frames_per_video: [4, 16, 32, 64]
+
+# --- the B08 reference flag set; every other row is expressed as a delta -----
+reference_flags:
+  local_branch: convnext
+  global_branch: siglip2_frozen
+  fusion: prism_noisy_or
+  region: "on"
+  manifold: multi_prototype
+  prototype_k: 4
+  synthetic: bank_physics_gpat
+  recipe_conditioning: structured
+  quality_weighting: q_weighted
+  outlier_loss: mask_aware
+  prompt: frozen_prompt
+  sampler: domain_class_balanced
+  frames_per_video: 4
+
+# --- Table 59 baselines ------------------------------------------------------
+baselines:
+  - id: B00
+    table_59_text: "ConvNeXt binary classifier; domain-balanced source training."
+    replication_role: spec_mandated
+    flags:
+      local_branch: convnext
+      global_branch: "off"
+      fusion: single_logit
+      region: "off"
+      manifold: "off"
+      prototype_k: 0
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      outlier_loss: "off"
+      prompt: "off"
+
+  - id: B01
+    table_59_text: "SigLIP/ViT binary classifier."
+    replication_role: diagnostic
+    flags:
+      local_branch: "off"
+      global_branch: siglip2_frozen
+      fusion: single_logit
+      region: "off"
+      manifold: "off"
+      prototype_k: 0
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      outlier_loss: "off"
+      prompt: "off"
+
+  - id: B02
+    table_59_text: "CNN + ViT simple concat, no region/manifold/prompt."
+    replication_role: diagnostic
+    flags:
+      fusion: simple_concat
+      region: "off"
+      manifold: "off"
+      prototype_k: 0
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      outlier_loss: "off"
+      prompt: "off"
+
+  - id: B03
+    table_59_text: "B02 + physics augmentation only."
+    parent: B02
+    replication_role: diagnostic
+    flags:
+      fusion: simple_concat
+      region: "off"
+      manifold: "off"
+      prototype_k: 0
+      synthetic: physics_only
+      recipe_conditioning: structured
+      quality_weighting: "off"
+      outlier_loss: "off"
+      prompt: "off"
+
+  - id: B04
+    table_59_text: "B02 + GPAT synthetic bank, no recipe/manifold."
+    parent: B02
+    replication_role: diagnostic
+    flags:
+      fusion: simple_concat
+      region: "off"
+      manifold: "off"
+      prototype_k: 0
+      synthetic: gpat_only
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      outlier_loss: "off"
+      prompt: "off"
+
+  - id: B05
+    table_59_text: "B02 + one global real center/Gaussian."
+    parent: B02
+    replication_role: diagnostic
+    flags:
+      fusion: simple_concat
+      region: "off"
+      manifold: global_center
+      prototype_k: 1
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      outlier_loss: image_level
+      prompt: "off"
+
+  - id: B06
+    table_59_text: "Regional detector + global center."
+    replication_role: hypothesis_critical
+    hypotheses: [H2]
+    flags:
+      manifold: global_center
+      prototype_k: 1
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      prompt: "off"
+
+  - id: B07
+    table_59_text: "Regional detector + multi-prototype manifolds, no synthetic."
+    replication_role: hypothesis_critical
+    hypotheses: [H2]
+    flags:
+      synthetic: none
+      recipe_conditioning: "off"
+      quality_weighting: "off"
+      prompt: "off"
+
+  - id: B08
+    table_59_text: "Full PRISM-FAS-B v1.1."
+    replication_role: spec_mandated
+    hypotheses: [H1, H3, H4, H5]
+    is_full_method: true
+    # Seed 20260806 of this row has the identical scientific configuration and seed
+    # as the M9 reference run; the registry binds that run instead of retraining it,
+    # and only if every recorded identity matches.
+    reference_run_id: m9_reference_seed20260806
+    flags: {}
+
+# --- Table 60 ablations ------------------------------------------------------
+ablations:
+  - id: A01
+    family: data_balance
+    parent: B08
+    question: "Gain có phải do sampler?"
+    reference_variant: domain_class_balanced
+    variants:
+      - variant: naive_concat
+        replication_role: hypothesis_critical
+        hypotheses: [H1]
+        flags: {sampler: naive_concat}
+
+  - id: A02
+    family: recipe
+    parent: B08
+    question: "Recipe composition có giá trị không?"
+    reference_variant: structured
+    variants:
+      - variant: random_operators
+        replication_role: hypothesis_critical
+        hypotheses: [H4]
+        flags: {recipe_conditioning: random_operators}
+
+  - id: A03
+    family: synthetic_route
+    parent: B08
+    question: "Route nào tạo gain?"
+    reference_variant: bank_physics_gpat
+    variants:
+      - variant: physics_only
+        replication_role: diagnostic
+        flags: {synthetic: physics_only}
+      - variant: gpat_only
+        replication_role: diagnostic
+        flags: {synthetic: gpat_only}
+
+  - id: A04
+    family: quality_weighting
+    parent: B08
+    question: "Soft reliability có ích không?"
+    reference_variant: q_weighted
+    variants:
+      - variant: hard_gate_only
+        replication_role: hypothesis_critical
+        hypotheses: [H5]
+        flags: {quality_weighting: hard_gate_only}
+
+  - id: A05
+    family: region
+    parent: B08
+    question: "Local anomaly có cần region prior?"
+    reference_variant: semantic_regions
+    variants:
+      # The full stack minus the semantic regions: one global manifold, an
+      # image-level outlier term and no PromptHead, because both the regional
+      # manifold and PromptHead are defined over region embeddings.
+      - variant: global_only
+        replication_role: diagnostic
+        flags: {region: "off", fusion: simple_concat, manifold: global_center,
+                prototype_k: 1, outlier_loss: image_level, prompt: "off"}
+
+  - id: A06
+    family: prototype_k
+    parent: B08
+    question: "Multiple real modes có cần thiết?"
+    reference_variant: k4
+    variants:
+      - variant: k1
+        replication_role: diagnostic
+        flags: {prototype_k: 1}
+      - variant: k2
+        replication_role: diagnostic
+        flags: {prototype_k: 2}
+      - variant: k6
+        replication_role: diagnostic
+        flags: {prototype_k: 6}
+
+  - id: A07
+    family: outlier
+    parent: B08
+    question: "Vùng sạch có được bảo toàn?"
+    reference_variant: mask_aware
+    variants:
+      - variant: image_level
+        replication_role: hypothesis_critical
+        hypotheses: [H3]
+        flags: {outlier_loss: image_level}
+
+  - id: A08
+    family: prompt
+    parent: B08
+    question: "Prompt gain độc lập ra sao?"
+    reference_variant: frozen_prompt
+    variants:
+      - variant: "off"
+        replication_role: diagnostic
+        flags: {prompt: "off"}
+      - variant: adapter
+        replication_role: diagnostic
+        flags: {prompt: adapter}
+
+  - id: A09
+    family: backend
+    parent: B08
+    question: "Infrastructure có làm lệch kết quả?"
+    reference_variant: modal
+    variants:
+      # Same scientific config, same seed, other backend, bounded step budget. The
+      # M6 parity contract, reused verbatim.
+      - variant: pc_bounded_parity
+        replication_role: parity
+        hypotheses: [H6]
+        backend: local
+        protocol: bounded_step_parity
+        parity_steps: 5
+        flags: {}
+      # The full-length dual-backend comparison Table 60 literally asks for.
+      - variant: pc_full_training
+        replication_role: blocked
+        status: BLOCKED
+        backend: local
+        blocked_reason: >-
+          no local CUDA device (torch cpu build); a full-length 35-epoch B08 run on
+          the PC backend exceeds the milestone compute budget. The bounded parity
+          protocol is executed instead and is reported as a parity result, never as
+          a second full training result.
+        flags: {}
+
+  - id: A10
+    family: frame_count
+    parent: B08
+    question: "Sampling density ảnh hưởng thế nào?"
+    reference_variant: f4
+    variants:
+      - variant: f16
+        replication_role: blocked
+        status: BLOCKED
+        flags: {frames_per_video: 16}
+        blocked_reason: &frame_density_blocked >-
+          declared data not available at the frozen frame plan. frames_per_video is
+          frozen at 4 (uniform-v1, m2-v1) for every split. Re-extracting SOURCE at
+          another density would change the source package identity
+          b1cf29b6...9dc6 and break every M8 bank lock and M9 checkpoint identity
+          bound to it; and uniform-4 indices are not a subset of uniform-16, so a
+          denser TARGET package would forfeit the byte-for-byte live reproduction
+          check required by docs/M10_TARGET_DATA_CONTRACT.md section 7.3. A denser
+          target-side v3 package is a separate, deferred decision that will not be
+          taken on the basis of any observed target result.
+      - variant: f32
+        replication_role: blocked
+        status: BLOCKED
+        flags: {frames_per_video: 32}
+        blocked_reason: *frame_density_blocked
+      - variant: f48_64
+        replication_role: blocked
+        status: BLOCKED
+        flags: {frames_per_video: 64}
+        blocked_reason: *frame_density_blocked
+
+# --- the declared comparison family (statistics contract section 4) ---------
+hypotheses:
+  H1: {statement: "Domain-balanced training beats naive concatenation on SiW-Mv2.",
+       treatment: B08, control: "A01-data_balance-naive_concat"}
+  H2: {statement: "Multi-prototype regional real manifold reduces false reject vs one global center.",
+       treatment: B07, control: B06}
+  H3: {statement: "Mask-aware outlier loss beats image-level outlier loss on partial/local attacks.",
+       treatment: B08, control: "A07-outlier-image_level"}
+  H4: {statement: "Structured recipe bank beats random augmentation at equal sample count and detector.",
+       treatment: B08, control: "A02-recipe-random_operators"}
+  H5: {statement: "Quality-weighted synthetic samples beat equal-weight synthetic samples.",
+       treatment: B08, control: "A04-quality_weighting-hard_gate_only"}
+  H6: {statement: "Same package and config on local and Modal agree within expected seed variance.",
+       treatment: "A09-backend-pc_bounded_parity", control: B08, kind: parity_not_superiority}
+
+# --- required stages ---------------------------------------------------------
+stages:
+  # G2 exists only where prototypes exist.
+  base: [G1, G5, G6, G7]
+  with_manifold: [G1, G2, G5, G6, G7]
+  parity: [G1, G5]
+  blocked: []
+
+isolation:
+  allowed_datasets: [casia_fasd, msu_mfsd]
+  forbidden_splits: [target_test]
+  target_paths_in_config: 0
+  target_attack_taxonomy_in_config: 0

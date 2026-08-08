@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M9 complete; M10 not started.** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M9 complete; M10 in progress (framework frozen, no target label opened).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -275,6 +275,67 @@ not establish SiW-Mv2 performance, target APCER/BPCER/ACER, cross-domain general
 superiority or any final research claim. `source_dev` was read only for checkpoint selection and
 source calibration and produced no gradient; `target_test` was never opened. The experiment matrix
 and the controlled blind target evaluation are M10.
+
+## M10 experiment matrix and blind target evaluation (in progress)
+
+```
+target_labels_revealed: false
+```
+
+No SiW-Mv2 label has ever been opened, no target metric exists, no matrix row has been launched and
+no M10 Modal app has ever been created. The framework is implemented, frozen and tested first, on
+purpose: every contract that could be bent by a result is fixed before any result can exist.
+
+Three contracts, all frozen before execution:
+[docs/M10_EXPERIMENT_CONTRACT.md](docs/M10_EXPERIMENT_CONTRACT.md) (Table 59 B00-B08 as
+configuration switches over one shared implementation, the Table 60 ablation deltas, the replication
+policy), [docs/M10_TARGET_EVALUATION_CONTRACT.md](docs/M10_TARGET_EVALUATION_CONTRACT.md) (Table 57
+prediction schema, video aggregation, PREDICTION_LOCK, the G7/G8 permission split, metric
+definitions) and [docs/M10_STATISTICS_CONTRACT.md](docs/M10_STATISTICS_CONTRACT.md) (bootstrap unit,
+seed, resamples, confidence level, comparison statistic, multiple-comparison policy). The target
+data contract is [docs/M10_TARGET_DATA_CONTRACT.md](docs/M10_TARGET_DATA_CONTRACT.md).
+
+```bash
+python -m prism_fas.cli.main m10 matrix plan --dry-run      # plans twice, requires one identity
+python -m prism_fas.cli.main m10 matrix validate
+python -m prism_fas.cli.main m10 registry --action init
+python -m prism_fas.cli.main m10 reliability --dry-run
+python -m prism_fas.cli.main m10 report --dry-run
+python -m prism_fas.cli.main m10 acceptance --dry-run
+```
+
+Every writing command supports `--dry-run`, which writes nothing, launches no Modal job and opens no
+target label.
+
+| matrix | |
+|---|---|
+| `m10_matrix_identity` | `a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5` |
+| logical rows | 42 |
+| executable | 38 = 37 training + 1 bounded backend-parity run |
+| new GPU training runs | 36 (B08 seed 20260806 binds the M9 reference run under an identity check) |
+| blocked | 4, each carrying its reason |
+| seeds | 20260806, 20260807, 20260808 |
+
+**Replication is frozen by declared scientific role.** B00 and B08 carry 3 seeds because the spec
+names them; B06, B07 and the four ablations that test H1/H3/H4/H5 carry 3 seeds because a declared
+hypothesis rides on them; expensive diagnostic rows carry 1 seed and are reported
+`single_seed_descriptive` with no interval and no superiority claim. A comparison whose either side
+is a single-seed row is refused, not silently downgraded.
+
+**The firewall is structural.** `TRAIN` cannot resolve the target feature or label roots; G7 reads
+features and cannot resolve labels; G8 reads labels and cannot write `.pt`, `.pth`, `.ckpt`,
+`.safetensors`, `optimizer`, `calibration/` or `checkpoints/`. Paths are compared after
+`Path.resolve()`, isolation declarations are skipped structurally so the proof of isolation cannot
+read as a leak, and G8's lack of a training capability is proved by an AST audit of its imports.
+
+**Nothing is fabricated.** A metric that cannot be computed reports a status and a specific reason,
+never `0.0` or `null`. A variant without a regional or prompt branch writes `null`, not zero. An
+unscored report contains no target number, and a structural check enforces that.
+
+**No claim yet.** M10 makes no SiW-Mv2, cross-domain, ablation or state-of-the-art claim, because no
+target label has been opened. The next step is the additive 1700-video target evaluation package
+(785 live + 915 spoof across 14 attack families at the frozen 4 frames/video) with its
+evaluation-only label artifact physically and logically separated from the feature package.
 
 ## What is not in this repository
 

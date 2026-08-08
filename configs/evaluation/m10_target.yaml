@@ -1,0 +1,151 @@
+# M10 target evaluation configuration — G7 prediction and G8 scoring.
+#
+# The machine form of docs/M10_TARGET_EVALUATION_CONTRACT.md. Frozen BEFORE any
+# target label is opened. Nothing here may change after a target result is seen.
+#
+# This file DECLARES the label root so the firewall can forbid it to TRAIN and G7.
+# Declaring a forbidden root is how a structural permission check works; it is not
+# a leak, and the taxonomy scanner skips declaration keys for exactly that reason
+# (the M8/M9 lesson: a blanket token scan flags the proof of isolation as a leak).
+evaluation_schema_version: "m10-target-evaluation-v1"
+stage: M10
+
+target_labels_revealed: false
+
+# --- artifact roots and who may resolve them --------------------------------
+roots:
+  source_package_root: "data/processed/prism_data_v1_m3b"
+  # The frozen 785-live feature package usable today. The additive 1700-video
+  # package is built in the next phase and replaces this value under a new id.
+  target_feature_root: "data/processed/prism_data_v1_m3b"
+  target_feature_package_id: prism_data_v1_m3b
+  target_feature_package_identity: "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+  # NOT YET BUILT. Declared so the firewall has a root to forbid.
+  target_label_root: "data/evaluation_only/prism_target_v2_labels"
+  target_label_artifact: "siw_target_labels.parquet"
+  prediction_root: "runs"
+
+permissions:
+  TRAIN: {source_package_root: read, target_feature_root: deny, target_label_root: deny, prediction_root: deny}
+  G7:    {source_package_root: deny, target_feature_root: read, target_label_root: deny, prediction_root: write}
+  G8:    {source_package_root: deny, target_feature_root: deny, target_label_root: read, prediction_root: read}
+
+# G8 may never produce model state. These suffixes and path fragments are refused
+# on write regardless of the destination root.
+g8_forbidden_write_patterns: [".pt", ".pth", ".ckpt", ".safetensors", "optimizer", "calibration/", "checkpoints/"]
+
+# --- prediction schema (Table 57) -------------------------------------------
+prediction:
+  schema_version: "m10-target-prediction-v1"
+  columns: [sample_id, video_id, frame_id, p_global, s_region, p_prompt, s_final,
+            confidence, decision, top_region_ids, region_distances,
+            checkpoint_hash, calibration_hash, inference_config_hash,
+            region_status, prompt_status, variant]
+  nullable_when_not_applicable: [s_region, p_prompt]
+  # A prediction file may never carry any of these.
+  forbidden_columns: [label, true_label, label_live_spoof, true_target, target,
+                      class_target, attack_type, attack_family, taxonomy,
+                      subject_id, session_id, identity_embedding, source_path,
+                      crop_relative_path, official_split, private_label]
+  top_region_count: 2
+  decisions: [live, spoof, reject]
+
+# --- video aggregation, FROZEN (Table 57) -----------------------------------
+aggregation:
+  video_score: trimmed_mean
+  trim_fraction: 0.10
+  video_confidence: median
+  group_by: video_id
+  frame_order: sample_id
+  video_decision: threshold_and_reject
+  # Frozen at 4 frames/video, floor(4 * 0.10) = 0, so the trimmed mean reduces to
+  # the plain mean of 4 values. Stated, not hidden.
+  trim_count_at_four_frames: 0
+
+# --- thresholds -------------------------------------------------------------
+thresholds:
+  source: source_dev_frozen_calibration
+  live_spoof_threshold: null        # filled per experiment from its frozen calibration
+  # Spec 16.2 requires the unknown/reject threshold to come from source-dev
+  # corruption/synthetic exposure and forbids a target quantile. That fit (G6b) has
+  # not been performed, so no row is rejected and every reject-dependent metric is
+  # reported not_applicable with this reason.
+  unknown_threshold: null
+  reject_policy: not_fitted
+  reject_policy_reason: "the source-side unknown/reject exposure fit (G6b) has not been performed; a target quantile is never used to invent one"
+
+# --- metrics ----------------------------------------------------------------
+metrics:
+  label_mapping: {live: 0, spoof: 1}
+  positive_class: spoof
+  decision_rule: "p_spoof >= threshold"
+  levels: [frame, video]
+  core: [apcer, bpcer, acer, hter, roc_auc, eer]
+  calibration: [ece, brier, nll]
+  ece_bins: 15
+  # ACER is taken at the frozen source-dev operating threshold; HTER at the target
+  # EER threshold. Same functional, different declared threshold source.
+  acer_threshold_source: source_dev_frozen
+  hter_threshold_source: target_eer
+  risk_coverage:
+    enabled: true
+    coverage_grid: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    ranking: confidence_descending
+  open_set:
+    status: not_applicable
+    reason: "SiW-Mv2 provides no unknown-class label on this protocol; deriving one from the attack families would fabricate a label"
+  attack_wise:
+    enabled: true
+    computed: post_hoc_only
+    used_in_tuning: false
+
+# --- statistics (docs/M10_STATISTICS_CONTRACT.md) ---------------------------
+statistics:
+  bootstrap_unit: video
+  bootstrap_resamples: 10000
+  bootstrap_seed: 20260810
+  confidence_level: 0.95
+  interval: percentile
+  paired: true
+  comparison_statistic: video_acer_difference
+  p_value: two_sided
+  multiple_comparison_policy: holm_bonferroni
+  family: [H1, H2, H3, H4, H5]
+  family_size: 5
+  alpha: 0.05
+  seed_summary: {form: "mean+/-std", ddof: 0, minimum_seeds_for_claim: 3}
+
+# --- reliability / shortcut tests (spec 17.3) -------------------------------
+reliability:
+  synthetic_vs_real_spoof_probe: {status: planned, population: source_only}
+  benign_jpeg_corruption:        {status: planned, population: source_dev_live_only}
+  benign_resize_corruption:      {status: planned, population: source_dev_live_only}
+  benign_color_corruption:       {status: planned, population: source_dev_live_only}
+  residual_scale_zero:           {status: planned, population: source_only}
+  recipe_region_shift:           {status: planned, population: source_only}
+  artifact_map_swap:             {status: planned, population: source_only}
+  crop_padding_interpolation:    {status: planned, population: source_dev_only}
+  cross_route_synthetic:         {status: planned, population: source_only}
+  benign_glasses_makeup_lowlight:
+    status: BLOCKED
+    reason: >-
+      no legitimate benign glasses/makeup/low-light population exists in this
+      project. SiW-Mv2's Makeup_* and Partial_*Glasses videos are labelled SPOOF
+      presentations, so treating them as benign live stress cases would invert
+      their label; and CASIA/MSU carry no such benign attribute metadata. The test
+      is recorded as blocked rather than substituted with an invalid population.
+
+isolation:
+  forbidden_in_training_config: [target_test, siw_mv2, target_label_root]
+  attack_taxonomy_forbidden_outside_g8: [Makeup_Cosmetic, Makeup_Impersonation,
+    Makeup_Obfuscation, Mannequin, Mask_HalfMask, Mask_PaperMask,
+    Mask_TransparentMask, Paper, Partial_Eye, Partial_FunnyeyeGlasses,
+    Partial_Mouth, Partial_PaperGlasses, Replay, Silicone]
+  # Keys whose presence is the EVIDENCE of isolation. A structural check skips
+  # these subtrees; it never pattern-matches the document.
+  isolation_declaration_keys: [target_labels_revealed, target_labels_opened,
+    target_test_opened, selection_uses_target, uses_target, used_target,
+    forbidden_splits, forbidden_columns, forbidden_in_training_config,
+    target_paths_in_config, target_attack_taxonomy_in_config, permissions, roots,
+    attack_taxonomy_forbidden_outside_g8, isolation_declaration_keys,
+    g8_forbidden_write_patterns, reject_policy_reason, reason, blocked_reason]

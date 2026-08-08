@@ -1,5 +1,64 @@
 # Changelog
 
+## M10 Experiment Matrix and Blind Target Evaluation Framework - 2026-08-08
+
+`target_labels_revealed: false`. No SiW-Mv2 label has ever been opened, no target metric exists, no
+matrix row has been launched and no M10 Modal app has ever been created.
+
+- **Froze three contracts before running anything**: `docs/M10_EXPERIMENT_CONTRACT.md` (Table 59
+  B00-B08 as configuration switches over one shared implementation, the Table 60 ablation deltas and
+  the replication policy), `docs/M10_TARGET_EVALUATION_CONTRACT.md` (Table 57 prediction schema,
+  video aggregation, PREDICTION_LOCK, the G7/G8 permission split, metric definitions) and
+  `docs/M10_STATISTICS_CONTRACT.md` (bootstrap unit/seed/resamples/confidence/statistic and the
+  multiple-comparison policy).
+- **Froze the replication policy by declared scientific role** rather than assuming the spec's
+  3 seeds applies to every row. §20.1 names only "main baseline and full method"; every auxiliary
+  count is genuinely `SPEC_UNDERSPECIFIED`. B00 and B08 carry 3 seeds because the spec says so;
+  B06, B07 and the four ablations that test H1/H3/H4/H5 carry 3 seeds because a declared hypothesis
+  rides on them; expensive diagnostic rows carry 1 seed and are reported `single_seed_descriptive`
+  with no interval and no superiority claim. A comparison whose either side is a single-seed row is
+  **refused** by the statistics module, never silently downgraded.
+- Added `src/prism_fas/evaluation/`: the deterministic matrix planner, the experiment registry, the
+  structural target-label firewall, G7 label-free prediction with the versioned nullable Table 57
+  schema, video aggregation, metrics, the deterministic paired video bootstrap, the isolated G8
+  scorer, the reliability framework and the report assembler. **No module under
+  `src/prism_fas/evaluation/` imports modal**, and G8 imports no torch and no trainer.
+- Added `configs/experiments/m10_matrix.yaml`, `configs/evaluation/m10_target.yaml` and
+  `configs/cloud/modal_m10.yaml` (declaration only - the app has never been created), plus the
+  `prism m10` CLI with `--dry-run` on every writing command.
+- **Materialized the matrix twice with an identical identity**
+  `a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5`: 42 logical rows, 38 executable
+  (37 training + 1 bounded parity), 36 needing new GPU work because B08 seed 20260806 binds the
+  existing M9 reference run under an identity check, and 4 blocked rows that stay in the matrix
+  carrying their reasons.
+- **Kept the blocked rows visible instead of deleting them.** The Table 60 frame-count ablation
+  (16/32/48-64) is BLOCKED because the frozen plan is 4 frames/video and re-extracting SOURCE would
+  break every M8/M9 identity, while uniform-4 is not a subset of uniform-16 so a denser TARGET
+  package would forfeit the byte-for-byte live reproduction check. The full-length PC-vs-Modal
+  training comparison is BLOCKED for want of a local CUDA device; the bounded step-parity protocol
+  runs instead and is reported as a parity result, never as a second training result.
+- **Implemented the firewall structurally.** Permissions are checked against resolved paths, so
+  `..`, a symlink or a relative spelling cannot slip past; isolation declarations are skipped by
+  the config scan so the proof of isolation cannot read as a leak (the M8/M9 lesson); and G8's
+  absence of a training capability is proved by an AST audit of its imports and its import closure,
+  not by a comment. G8's report writer refuses `.pt`, `.pth`, `.ckpt`, `.safetensors`, `optimizer`,
+  `calibration/` and `checkpoints/` before it looks at the destination root.
+- **Ran a label-free G7 engineering smoke on real target features**: 256 frames / 228 videos of the
+  frozen `target_test` FEATURE package through the full M9 detector on CPU, verifying feature
+  loading, region priors, the checkpoint identity guard, the forward pass, the Table 57 schema,
+  finite outputs, video aggregation, the prediction lock and the firewall. No target metric was
+  computed and none may be quoted from it.
+- **The smoke found a real defect, and it was fixed rather than reported.** `p_prompt` is a
+  structural zero on target data for B08 as well, because `PromptHead.applicability` is
+  `is_synthetic AND attacked-region AND visible` and a target sample is neither synthetic nor
+  masked. The first run wrote that `0.0` as `computed` - a constant presented as a measurement. G7
+  now reads the model's own `prompt_applicable` mask and writes `null`/`not_applicable`. The fused
+  score is unchanged, so the prediction logical identity is identical before and after, which is
+  itself the proof that only the honesty of the column changed. Two consequences are recorded in the
+  contract: on target data B08's fusion reduces to `1 - (1 - p_global)(1 - s_region)`, and the A08
+  prompt ablation can only differ on target through training, never through inference-time fusion.
+- Tests: **863 passed, 0 failed, 0 skipped** (745 at the M9 checkpoint; 118 focused M10 tests).
+
 ## M9 Regional Detector, PromptHead, Manifolds and the Reference Training Run - 2026-08-07
 
 - Added `src/prism_fas/detector/`: the pinned pretrained registry, `GlobalHead`/`PromptHead` with the
