@@ -59,73 +59,73 @@ def run_preprocessing(context:PreprocessingRunContext,canonical_records,*,detect
                 try:
                     try: frame=reader.read_frame(index)
                     except IndexError:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=None,stage='media_read',error_code='frame_index_unavailable',error_message='requested frame index is unavailable',backend='media_reader',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=None,stage='media_read',error_code='frame_index_unavailable',error_message='requested frame index is unavailable',backend='media_reader',recoverable=True)
                             failed+=1;failure_codes['frame_index_unavailable']=failure_codes.get('frame_index_unavailable',0)+1;continue
                         raise
                     except UnreadableImageError:
                         if context.dataset_role in ('source',) and context.dataset == 'casia_fasd':
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=index,stage='media_read',error_code='unreadable_image',error_message='source image could not be read',backend='image_sequence',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=index,stage='media_read',error_code='unreadable_image',error_message='source image could not be read',backend='image_sequence',recoverable=True)
                             failed+=1;failure_codes['unreadable_image']=failure_codes.get('unreadable_image',0)+1;continue
                         raise
                     except VideoDecodeError:
-                        if context.dataset_role in ('source',) and record.source_path.suffix.lower() in {'.mp4','.avi','.mov'}:
+                        if context.dataset_role in ('source','target') and record.source_path.suffix.lower() in {'.mp4','.avi','.mov'}:
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=None,stage='media_read',error_code='decode_failed',error_message='video frame could not be decoded',backend='video_decoder',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=None,stage='media_read',error_code='decode_failed',error_message='video frame could not be decoded',backend='video_decoder',recoverable=True)
                             failed+=1;failure_codes['decode_failed']=failure_codes.get('decode_failed',0)+1;continue
                         raise
                     frames+=1; calls+=1
                     try: detections=detector.detect(frame.image)
                     except DetectorInferenceError:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='detector',error_code='detector_failed',error_message='face detector inference failed',backend='detector',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='detector',error_code='detector_failed',error_message='face detector inference failed',backend='detector',recoverable=True)
                             failed+=1;failure_codes['detector_failed']=failure_codes.get('detector_failed',0)+1;continue
                         raise
                     try:
                         face=select_largest(detections,context.detector_threshold,16)
-                        if face is None and context.dataset_role == 'source':
+                        if face is None and context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='detector',error_code='no_face',error_message='no valid face detected',backend=frame.backend,recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='detector',error_code='no_face',error_message='no valid face detected',backend=frame.backend,recoverable=True)
                             failed+=1;failure_codes['no_face']=failure_codes.get('no_face',0)+1;continue
                         if face is None:
                             failed+=1;failure_codes['no_face']=failure_codes.get('no_face',0)+1;continue
                         validate_landmarks(face.landmarks)
                         image,box=crop_face(frame.image,face,.25,224)
                     except InvalidBoundingBoxError:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='geometry',error_code='invalid_bbox',error_message='detected face bounding box is invalid',backend='geometry',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='geometry',error_code='invalid_bbox',error_message='detected face bounding box is invalid',backend='geometry',recoverable=True)
                             failed+=1;failure_codes['invalid_bbox']=failure_codes.get('invalid_bbox',0)+1;continue
                         raise
                     except InvalidLandmarksError:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='geometry',error_code='invalid_landmarks',error_message='detected face landmarks are invalid',backend='geometry',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='geometry',error_code='invalid_landmarks',error_message='detected face landmarks are invalid',backend='geometry',recoverable=True)
                             failed+=1;failure_codes['invalid_landmarks']=failure_codes.get('invalid_landmarks',0)+1;continue
                         raise
                     except CropProcessingError:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='crop',error_code='crop_failed',error_message='face crop could not be created',backend='crop_preprocessing',recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='crop',error_code='crop_failed',error_message='face crop could not be created',backend='crop_preprocessing',recoverable=True)
                             failed+=1;failure_codes['crop_failed']=failure_codes.get('crop_failed',0)+1;continue
                         raise
                     try: target=write_crop_image(image,context.crops_root/context.dataset/f'{sid}.jpg')
                     except OutputWriteError as exc:
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='output_write',error_code='output_write_failed',error_message='face crop output could not be written',backend=exc.backend,recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='output_write',error_code='output_write_failed',error_message='face crop output could not be written',backend=exc.backend,recoverable=True)
                             failed+=1;failure_codes['output_write_failed']=failure_codes.get('output_write_failed',0)+1;continue
                         raise
                     hash_boundary_started=True
@@ -133,10 +133,10 @@ def run_preprocessing(context:PreprocessingRunContext,canonical_records,*,detect
                     except HashComputationError as exc:
                         hash_boundary_started=False
                         discard_crop_artifact(target)
-                        if context.dataset_role in ('source',):
+                        if context.dataset_role in ('source','target'):
                             failure_routing_started=True
                             if repo is None: raise RuntimeError('failure routing requires an initialized manifest repository')
-                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='hash',error_code='hash_failed',error_message='face crop hash could not be computed',backend=exc.backend,recoverable=True)
+                            route_preprocessing_failure(repository=repo,context=context,canonical_record=record,source_relative_identifier=context.dataset_role,sample_id=sid,requested_frame_index=index,actual_frame_index=frame.actual_frame_index,stage='hash',error_code='hash_failed',error_message='face crop hash could not be computed',backend=exc.backend,recoverable=True)
                             failed+=1;failure_codes['hash_failed']=failure_codes.get('hash_failed',0)+1;continue
                         raise
                     except Exception:

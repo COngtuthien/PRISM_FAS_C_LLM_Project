@@ -6,6 +6,9 @@
 data/work/
 data/processed/
 data/packages/
+# Evaluator-only target labels. NEVER committed, never uploaded to a training or
+# G7 mount: only G8 may resolve this tree (docs/M10_TARGET_EVALUATION_CONTRACT.md).
+data/evaluation_only/
 # Downloaded M8 transport archives: transport-only, never part of a bank identity.
 data/transport/
 outputs/

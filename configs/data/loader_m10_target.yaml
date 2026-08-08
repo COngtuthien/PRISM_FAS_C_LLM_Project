@@ -1,0 +1,52 @@
+# Canonical loader configuration for the M10 additive TARGET EVALUATION package.
+#
+# Identical to `configs/data/loader_m4.yaml` except for the pinned package id and
+# content identity: the frozen source package must never be openable through this
+# config, and this package must never be openable through the frozen one.
+# `target_test` is still reachable only in inference mode.
+loader_schema_version: "m4-loader-v1"
+
+package:
+  expected_package_id: "prism_target_eval_v2"
+  # Strict pin: the 1700-video target evaluation package and nothing else.
+  expected_content_identity_sha256: "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
+  require_validated_status: true
+  # Integrity policy: manifest/lock checks run once at loader construction,
+  # never per sample access. "per_sample_sha" is opt-in and slow.
+  integrity_verification: "on_open"
+
+image:
+  decoder: opencv          # opencv | pillow
+  color: rgb
+  size: [224, 224]
+  dtype: float32
+  value_range: [0.0, 1.0]  # normalization for a backbone happens downstream
+  channels_first: true
+
+# Explicit committed label vocabulary. Spoof is the positive (attack) class,
+# matching the presentation-attack-detection convention used for APCER/BPCER.
+label_mapping:
+  live: 0
+  spoof: 1
+
+sampler:
+  batch_size: 32
+  # ceil(len(source_train) / batch_size); source_train currently has 1440 rows.
+  steps_per_epoch_policy: "ceil_source_train_over_batch"
+  steps_per_epoch: null
+  seed: 20260805
+  drop_last: true
+  balance: exact_domain_class      # equal quota from every (dataset, label) pool
+  pool_key: [dataset, label_live_spoof]
+  avoid_same_record_in_batch: true
+  minority_policy: reshuffle_cycle  # deterministic reshuffle when a pool is exhausted
+
+backends:
+  default: loose                   # loose | shard
+  shard_shuffle: false
+
+dataloader:
+  num_workers: 0
+  prefetch_factor: null
+  persistent_workers: false
+  pin_memory: false

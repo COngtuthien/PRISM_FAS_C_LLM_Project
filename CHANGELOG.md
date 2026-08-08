@@ -1,5 +1,63 @@
 # Changelog
 
+## M10 Additive SiW-Mv2 Target Evaluation Package - 2026-08-08
+
+`target_labels_revealed: false`, `target_label_artifact_built: true`. The sealed
+evaluation label artifact exists and **has never been opened**; no target metric has
+been computed, no matrix row has been launched and no M10 Modal app has ever been
+created.
+
+- Built the additive, immutable **`prism_target_eval_v2`** target evaluation package:
+  **1700 videos = 785 live + 915 spoof across all 14 attack families**, at the frozen
+  4 frames/video plan. `prism_data_v1_m3b`, `configs/data/siw_mv2.yaml`, the M8 bank
+  and every M9 artifact are untouched, so every identity they bind still holds.
+- **Frame accounting reconciles exactly: planned 6800 = 6776 successful + 24 recorded
+  failures.** The 24 are genuine `no_face` detector outcomes on 24 distinct videos,
+  each recorded with its opaque record id. All 1700 videos survive - 1676 with four
+  frames, 24 with three - and none was dropped.
+- **Fixed a real defect this build would otherwise have hidden.** Every failure
+  handler in `run_preprocessing` routed for `source` and re-raised for `target`, and
+  the target `no_face` branch incremented an in-memory counter without writing a
+  manifest row at all. One undecodable spoof video would have aborted the whole
+  1700-video build, and a no-face frame would have vanished from the accounting.
+  Target failures are now routed; source behaviour is unchanged.
+- **The 785-live byte-for-byte reproduction gate PASSED on the full population:**
+  3140/3140 comparable frozen live frames reproduce their `sample_id` AND their
+  `crop_sha256` exactly, with 0 sample-id mismatches, 0 crop-hash mismatches and 0
+  field mismatches. `adapter_version` stays `"1.0"` precisely so this check remains
+  possible; the layout revision is carried by `layout_rules_version:
+  siw-mv2-layout-v2`, the layout content identity and a new package id.
+- Added an **isolated `target_eval_v2` M2 run profile** whose run context refuses to
+  construct itself if pointed at a frozen namespace, at a dataset other than
+  `siw_mv2`, or at a role other than `target`. The package is additive by
+  construction, not by convention.
+- Added `src/prism_fas/data/target_eval.py` and `prism m10 target-package`
+  (`inventory`, `plan`, `extract`, `package`, `labels`, `reproduce`, `acceptance`),
+  plus `configs/data/package_m10_target.yaml` and `configs/data/loader_m10_target.yaml`.
+  The inventory audit compares the declared globs against **every video on disk** and
+  hard-fails on an undeclared family, an unexpected filename stem, an unmatched video,
+  a duplicate opaque id or any count mismatch - the check the v1 layout never had, and
+  the reason 596 of 915 spoof videos were once dropped in silence.
+- **Sealed the evaluator-only label artifact** (1700 rows, 785 live / 915 spoof, 14
+  families, identity `863b80f0...`) into `data/evaluation_only/`, which is now
+  git-ignored. Building and sealing is **not** revealing: the builder canonicalizes,
+  hashes and seals, and trains nothing, tunes nothing, selects nothing and computes no
+  target metric. The two states are recorded separately.
+- **0 target identity embeddings**, asserted structurally rather than assumed:
+  identity is applicable only to `source_train` live rows, so a target row can never
+  qualify. `identity_not_applicable: 6776`.
+- **0 label leakage on the feature side**: the target feature manifest carries no
+  label, attack family, taxonomy, subject, session or official-split column.
+- Idempotency verified: a completed rerun rebuilt nothing and reproduced the feature
+  content identity `c3a29e69...`, the manifest SHAs and the shard set exactly.
+- Ran a bounded **label-free G7 smoke against the new package** (240 frames / 225
+  videos): strict identity pin, feature loading, schema, finite outputs, video
+  grouping, prediction lock and firewall all verified. No target metric computed.
+- `M3B_PACKAGE_ID` became an input rather than a module constant, so an additive
+  package can no longer silently claim the frozen `prism_data_v1_m3b` identity.
+- Tests: **894 passed, 0 failed, 0 skipped** (863 at the framework checkpoint;
+  31 focused target-package tests added).
+
 ## M10 Experiment Matrix and Blind Target Evaluation Framework - 2026-08-08
 
 `target_labels_revealed: false`. No SiW-Mv2 label has ever been opened, no target metric exists, no

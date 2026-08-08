@@ -39,7 +39,7 @@ def _serialize(base:dict[str,np.ndarray],extra:dict[str,np.ndarray])->bytes:
     np.savez(buffer,**{name:payload[name] for name in sorted(payload)}); return buffer.getvalue()
 def build_m3b_package(input_package:Path,output_package:Path,model_config:Path,*,weight_root:Path,resume:bool=True,
                       limit_samples:int|None=None,split:str|None=None,device:str|None=None,batch_size:int|None=None,
-                      dry_run:bool=False,progress:Callable[[dict],None]|None=None)->dict:
+                      dry_run:bool=False,package_id:str|None=None,progress:Callable[[dict],None]|None=None)->dict:
     """Build the M3B package: model-dependent priors over an immutable M3A package."""
     started=time.time()
     input_package=Path(input_package); output_package=Path(output_package)
@@ -128,7 +128,7 @@ def build_m3b_package(input_package:Path,output_package:Path,model_config:Path,*
             "elapsed_seconds":round(time.time()-started,1),
             "samples_per_second":round(counts["rebuilt"]/max(time.time()-started,1e-6),3)})
     return _finalize(input_package,output_package,config,parent,samples,prior_rows,failures,counts,labels,
-                     resolved_device,started,progress)
+                     resolved_device,started,progress,package_id=package_id or M3B_PACKAGE_ID)
 def _reusable(row:dict,existing:dict,output_package:Path,config:dict)->bool:
     previous=existing.get(row["sample_id"])
     if previous is None: return False
@@ -174,7 +174,9 @@ def _stratified(samples:list[dict],labels:dict,config:dict,limit:int)->list[dict
                 if position<len(bucket): chosen.append(bucket[position]); taken+=1
             position+=1
     return sorted(chosen,key=lambda row:row["sample_id"])
-def _finalize(input_package,output_package,config,parent,samples,prior_rows,failures,counts,labels,device,started,progress)->dict:
+# `package_id` is an input rather than a constant so an ADDITIVE package (the M10
+# target evaluation package) cannot silently claim the frozen M3B identity.
+def _finalize(input_package,output_package,config,parent,samples,prior_rows,failures,counts,labels,device,started,progress,*,package_id:str=M3B_PACKAGE_ID)->dict:
     priors={row["sample_id"]:row for row in prior_rows}
     metadata={"package_schema_version":M3B_PACKAGE_SCHEMA_VERSION,"prior_schema_version":config["prior_schema_version"],
               "parent_package_id":parent["package_id"]}
@@ -231,7 +233,7 @@ def _finalize(input_package,output_package,config,parent,samples,prior_rows,fail
             shard_rows.append({**summary,"split":split_name,"package_schema_version":M3B_PACKAGE_SCHEMA_VERSION})
             if progress: progress({"stage":"shards","done":len(shard_rows),"total":0})
     hashes["shards_index"]=write_manifest(output_package/"manifests"/"shards_index.parquet",shard_rows,MANIFEST_SCHEMAS["shards_index"],metadata,sort_key="shard_filename")
-    lock={"package_id":M3B_PACKAGE_ID,"package_schema_version":M3B_PACKAGE_SCHEMA_VERSION,"status":"building",
+    lock={"package_id":package_id,"package_schema_version":M3B_PACKAGE_SCHEMA_VERSION,"status":"building",
         "parent_package_id":parent["package_id"],"parent_content_identity_sha256":parent["content_identity_sha256"],
         "parent_manifest_sha256":parent.get("manifest_sha256"),
         "preprocessing_version":parent.get("preprocessing_version"),"preprocessing_config_hash":parent.get("preprocessing_config_hash"),

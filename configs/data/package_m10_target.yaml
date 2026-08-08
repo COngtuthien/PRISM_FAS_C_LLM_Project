@@ -1,0 +1,36 @@
+# M10 additive target evaluation package configuration.
+#
+# Identical to `configs/data/package_m3a.yaml` in every processing rule — the same
+# quality metrics, the same preserved M2 JPEG bytes, the same shard limits — and
+# different in exactly one field: the package id prefix. An additive package must
+# never be able to claim the frozen `prism_data_v1_m3a` / `prism_data_v1_m3b`
+# identity that every M8 bank lock and M9 checkpoint guard binds.
+#
+# NOTE ON THE IMAGE FORMAT. The frozen M2 contract writes JPEG q95 and M3A
+# preserves those exact bytes so the M2 SHA-256 identity survives packaging
+# (DECISIONS.md). Re-encoding target crops to PNG would apply a second image
+# transform and make the byte-for-byte live reproduction gate — the primary
+# acceptance test for this package — impossible to pass. The format therefore
+# stays `jpeg`, unchanged.
+package_schema_version: "m3a-v1"
+prior_schema_version: "m3a-priors-v1"
+quality_schema_version: "m3a-quality-v1"
+package_id_prefix: "prism_target_eval_v2_m3a"
+
+shard_max_samples: 1000
+shard_max_bytes: 1610612736   # ~1.5 GiB
+
+quality_metrics:
+  - blur_laplacian_variance
+  - brightness_mean
+  - brightness_std
+  - contrast_michelson
+  - saturation_mean
+  - face_size_ratio
+
+image_policy: preserve_m2_bytes
+image_format: jpeg
+image_extension: ".jpg"
+
+target_isolation_policy: "feature_only_no_labels"
+resume_policy: "skip_valid_priors"

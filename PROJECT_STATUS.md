@@ -1,9 +1,10 @@
 # Project status
 
 - Current milestone: **M10 IN PROGRESS** — the experiment matrix, the blind target evaluation
-  framework and the statistics contract are implemented, frozen and tested. **No SiW-Mv2 label has
-  ever been opened**, no target metric exists, no matrix row has been launched and no M10 Modal app
-  has ever been created.
+  framework and the statistics contract are implemented, frozen and tested, and the additive
+  1700-video SiW-Mv2 target evaluation package is built, validated and frozen. **No SiW-Mv2 label
+  has ever been opened**, no target metric exists, no matrix row has been launched and no M10 Modal
+  app has ever been created.
 - M0–M9: COMPLETED; M10: **IN PROGRESS**.
 
 ```
@@ -12,6 +13,74 @@ target_labels_revealed: false
 
 This flag is one-way. It becomes `true` only after the first authorized G8 pass that follows a
 frozen `reports/m10/TARGET_PREDICTION_LOCKSET.json`, and it is never reset.
+
+## M10 target evaluation package (built, validated, frozen)
+
+```
+target_labels_revealed:      false      (one-way; still false)
+target_label_artifact_built: true       (sealed, never opened)
+```
+
+| | |
+|---|---|
+| feature package | `prism_target_eval_v2` |
+| feature content identity | `c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8` |
+| target package identity | `a69c8e6a22ff85da0848d06e765601ccd9197253b3e873c6a14838832e58e23a` |
+| label artifact identity | `863b80f09c67cc20f8c06edfeab8668a4f89e2b4da0d07c83765773738659e98` |
+| inventory | **1700 videos = 785 live + 915 spoof, 14/14 families**, all declared counts exact |
+| frames | planned 6800 = **6776 successful + 24 recorded failures** |
+| frames per video | 4 x 1676 videos, 3 x 24 videos; **all 1700 videos present** |
+| priors | parsing 6776, pose 6776, visibility 6776, **identity 0** |
+| shards | 7 |
+| package validation | passed, 56 checks, 0 errors |
+
+The frozen `prism_data_v1_m3b` `target_test` split held **785 videos, all live, zero
+spoof**, on which APCER, ACER, HTER, ROC-AUC and EER are undefined. This package is
+**additive**: `prism_data_v1_m3b`, `configs/data/siw_mv2.yaml`, the M8 bank and every
+M9 artifact are unmodified, so every identity bound to them still holds.
+
+### The primary acceptance gate PASSED
+
+```
+frozen live videos compared        785
+comparable frames compared        3140
+sample_id mismatches                 0
+crop_sha256 mismatches               0
+field mismatches                     0
+```
+
+Every comparable frozen live frame reproduces its `sample_id` and its `crop_sha256`
+byte-for-byte under unchanged preprocessing. `adapter_version` stays `"1.0"` exactly
+so this check remains possible; the layout revision is carried by
+`layout_rules_version: siw-mv2-layout-v2`, the layout identity and a new package id.
+
+### Feature / label separation
+
+```
+data/processed/prism_target_eval_v2/            FEATURES - label-free, G7 only
+data/evaluation_only/prism_target_v2_labels/    LABELS   - sealed, G8 only, git-ignored
+```
+
+The feature manifest carries no label, attack family, taxonomy, subject, session or
+official-split column (0 leakage, asserted). The label artifact is keyed only by the
+opaque `siw_<16 hex>` video id and covers 1700/1700 feature videos. Building and
+sealing it is **not** revealing it: the builder canonicalizes, hashes and seals, and
+trains nothing, tunes nothing, selects no checkpoint and computes no target metric.
+
+### The 24 recorded failures are real, not rounding
+
+All 24 are genuine `no_face` detector outcomes at the detector stage, on 24 distinct
+videos, all marked recoverable, each carrying its opaque record id and a sanitized
+message with no path, family or label. Before this build, a target `no_face` was
+silently dropped and any other target failure aborted the run; both are fixed.
+
+Idempotency verified: a completed rerun rebuilt nothing and reproduced the content
+identity, the manifest SHAs and the shard set exactly.
+
+Tests: **894 passed, 0 failed, 0 skipped**.
+
+- Blockers: none. Next: upload the validated FEATURE package only, then execute the
+  36-run source-side matrix. **Not started - awaiting review of this package.**
 
 ## M10 framework (implemented, frozen, not yet executed)
 
@@ -88,8 +157,7 @@ through training, never through inference-time fusion.
 
 Tests: **863 passed, 0 failed, 0 skipped** (745 at the M9 checkpoint; 118 focused M10 tests added).
 
-- Blockers: none. Next: build the additive 1700-video target evaluation package (785 live + 915 spoof,
-  14 families, 4 frames/video) with its evaluation-only label artifact physically separated.
+- The framework below was frozen and tested BEFORE this package was built, on purpose.
 
 ## M9 reference detector (m9_reference_seed20260806)
 

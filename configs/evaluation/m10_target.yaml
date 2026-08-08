@@ -15,12 +15,15 @@ target_labels_revealed: false
 # --- artifact roots and who may resolve them --------------------------------
 roots:
   source_package_root: "data/processed/prism_data_v1_m3b"
-  # The frozen 785-live feature package usable today. The additive 1700-video
-  # package is built in the next phase and replaces this value under a new id.
-  target_feature_root: "data/processed/prism_data_v1_m3b"
-  target_feature_package_id: prism_data_v1_m3b
-  target_feature_package_identity: "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
-  # NOT YET BUILT. Declared so the firewall has a root to forbid.
+  # The additive 1700-video target evaluation package (785 live + 915 spoof, 14
+  # attack families, 4 frames/video). It replaces the frozen 785-live-only
+  # `prism_data_v1_m3b` target split, which held zero spoof videos and on which
+  # APCER/ACER/HTER/ROC-AUC/EER are undefined. `prism_data_v1_m3b` itself is NOT
+  # modified: this is a separate, additive, separately locked package.
+  target_feature_root: "data/processed/prism_target_eval_v2"
+  target_feature_package_id: prism_target_eval_v2
+  target_feature_package_identity: "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
+  # BUILT AND SEALED, never opened. Declared so the firewall has a root to forbid.
   target_label_root: "data/evaluation_only/prism_target_v2_labels"
   target_label_artifact: "siw_target_labels.parquet"
   prediction_root: "runs"

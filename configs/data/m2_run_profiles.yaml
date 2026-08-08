@@ -9,6 +9,21 @@ small_acceptance:
   expected_datasets: [casia_fasd, msu_mfsd, siw_mv2]
   description: Existing immutable small acceptance namespace.
   profile_version: m2f0-v1
+# M10 target evaluation namespace. ADDITIVE: it writes only under its own
+# `target_eval_v2` namespace and can never touch `m2a` or `full_preprocessing`,
+# so the frozen M2/M3 artifacts every M8/M9 identity binds are untouchable from
+# this profile.
+target_eval_v2:
+  name: target_eval_v2
+  output_namespace: target_eval_v2
+  record_selection_mode: all_records
+  default_record_limit: null
+  require_explicit_confirmation: true
+  validation_profile: target_eval_v2
+  preserve_existing_outputs: true
+  expected_datasets: [siw_mv2]
+  description: M10 additive SiW-Mv2 target evaluation namespace (785 live + 915 spoof).
+  profile_version: m10-target-v2
 full_preprocessing:
   name: full_preprocessing
   output_namespace: full_preprocessing

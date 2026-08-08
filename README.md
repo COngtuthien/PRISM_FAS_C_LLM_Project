@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M9 complete; M10 in progress (framework frozen, no target label opened).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M9 complete; M10 in progress (framework frozen, 1700-video target evaluation package built, no target label opened).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -315,6 +315,29 @@ target label.
 | new GPU training runs | 36 (B08 seed 20260806 binds the M9 reference run under an identity check) |
 | blocked | 4, each carrying its reason |
 | seeds | 20260806, 20260807, 20260808 |
+
+### The target evaluation package
+
+```
+prism_target_eval_v2   1700 videos = 785 live + 915 spoof, 14/14 attack families
+                       6776 frames = 6800 planned - 24 recorded no-face failures
+                       identity c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+```
+
+Additive and immutable: `prism_data_v1_m3b` (whose `target_test` split holds 785 live and **zero**
+spoof videos, making APCER/ACER/HTER/ROC-AUC/EER undefined) is not modified, so every M8 and M9
+identity bound to it still holds. Features and labels live in separate trees; the sealed
+evaluator-only label artifact is git-ignored and has never been opened.
+
+The primary acceptance gate passed on the full population: **3140/3140** comparable frozen live
+frames reproduce their `sample_id` and `crop_sha256` byte-for-byte, 0 mismatches.
+
+```bash
+python -m prism_fas.cli.main m10 target-package inventory
+python -m prism_fas.cli.main m10 target-package plan          # dry-run, writes nothing
+python -m prism_fas.cli.main m10 target-package reproduce     # the byte-reproduction gate
+python -m prism_fas.cli.main m10 target-package acceptance
+```
 
 **Replication is frozen by declared scientific role.** B00 and B08 carry 3 seeds because the spec
 names them; B06, B07 and the four ablations that test H1/H3/H4/H5 carry 3 seeds because a declared

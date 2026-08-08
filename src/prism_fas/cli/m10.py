@@ -20,6 +20,8 @@ matrix_app = typer.Typer(help="Deterministic Table 59/60 experiment matrix")
 prediction_app = typer.Typer(help="G7 label-free target prediction and its lock")
 app.add_typer(matrix_app, name="matrix")
 app.add_typer(prediction_app, name="prediction")
+from prism_fas.cli.m10_target import app as target_package_app
+app.add_typer(target_package_app, name="target-package")
 
 DEFAULT_MATRIX = Path("configs/experiments/m10_matrix.yaml")
 DEFAULT_EVALUATION = Path("configs/evaluation/m10_target.yaml")

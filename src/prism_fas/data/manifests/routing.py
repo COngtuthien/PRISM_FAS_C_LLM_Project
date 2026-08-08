@@ -41,8 +41,11 @@ def route_target_success(*,repository,context,canonical_record,sample_id,request
  if crop.crop_relative_path!=Path(crop_relative_path).as_posix() or crop.crop_sha256!=crop_sha256:raise TargetRoutingConsistencyError('target crop artifact reference mismatch')
  before=repository.counts();repository.upsert_target_success(frame.model_dump(mode='json'),crop.model_dump(mode='json'));after=repository.counts()
  return TargetRoutingResult(sample_id,frame,crop,after['target_frames'],after['target_crops'],after['target_frames']==before['target_frames'],True)
-def route_preprocessing_failure(*,repository,context,canonical_record,sample_id,requested_frame_index,actual_frame_index,stage,error_code,error_message,backend,recoverable,warning_codes:Sequence[str]=()):
- failure=build_preprocessing_failure_record(context,canonical_record,sample_id=sample_id,requested_frame_index=requested_frame_index,actual_frame_index=actual_frame_index,stage=stage,error_code=error_code,message=error_message,backend=backend,recoverable=recoverable,warning_codes=list(warning_codes))
+def route_preprocessing_failure(*,repository,context,canonical_record,sample_id,requested_frame_index,actual_frame_index,stage,error_code,error_message,backend,recoverable,warning_codes:Sequence[str]=(),source_relative_identifier:str='source'):
+ # `source_relative_identifier` is a role literal ('source'/'target'), never a
+ # raw path: a target failure row carries the opaque record id and nothing that
+ # could name the file, its family or its label.
+ failure=build_preprocessing_failure_record(context,canonical_record,sample_id=sample_id,requested_frame_index=requested_frame_index,actual_frame_index=actual_frame_index,stage=stage,error_code=error_code,message=error_message,backend=backend,recoverable=recoverable,warning_codes=list(warning_codes),source_relative_identifier=source_relative_identifier)
  if failure.sample_id!=sample_id:raise FailureRoutingConsistencyError('failure sample_id mismatch')
  if failure.dataset!=canonical_record.dataset:raise FailureRoutingConsistencyError('failure dataset mismatch')
  if failure.source_record_id!=canonical_record.video_id:raise FailureRoutingConsistencyError('failure source_record_id mismatch')

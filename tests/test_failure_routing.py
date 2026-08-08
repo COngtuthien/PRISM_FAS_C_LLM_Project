@@ -54,7 +54,10 @@ def test_failure_converter_is_called_before_upsert_with_all_routing_inputs(tmp_p
     def converter(actual_context, actual_record, **kwargs):
         events.append("converter")
         assert actual_context is context and actual_record is record
-        assert kwargs == {"sample_id": "failure-sample-1", "requested_frame_index": 0, "actual_frame_index": 17, "stage": "detector", "error_code": "no_face", "message": "synthetic no face", "backend": "synthetic-reader", "recoverable": True, "warning_codes": ["synthetic"]}
+        # `source_relative_identifier` defaults to the 'source' role literal; M10
+        # target routing passes 'target' so a target failure row carries a role,
+        # never a raw path.
+        assert kwargs == {"sample_id": "failure-sample-1", "requested_frame_index": 0, "actual_frame_index": 17, "stage": "detector", "error_code": "no_face", "message": "synthetic no face", "backend": "synthetic-reader", "recoverable": True, "warning_codes": ["synthetic"], "source_relative_identifier": "source"}
         return failure
 
     monkeypatch.setattr(routing, "build_preprocessing_failure_record", converter)

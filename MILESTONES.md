@@ -12,7 +12,7 @@
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | **completed** |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | detector modules; 83 focused tests | toy tests + source-dev training stable | **completed** |
-| M10 | Experiment matrix and report | `evaluation` modules; 118 focused tests | reproducible report | **in progress** |
+| M10 | Experiment matrix and report | `evaluation` + `target_eval` modules; 149 focused tests | reproducible report | **in progress** |
 
 Each milestone requires: objective, implementation tasks, expected files, unit/integration tests, a command, and an acceptance report. Detailed task expansion occurs only when that milestone is assigned.
 
@@ -219,8 +219,8 @@ Next milestone: M10 — experiment matrix, ablations and the controlled blind ta
 | Reliability/shortcut test framework (10 declared, 1 BLOCKED with reason) | COMPLETED |
 | Report assembler (16 sections, no fabricated target value) | COMPLETED |
 | M10 CLI with `--dry-run` on every writing command | COMPLETED |
-| Focused M10 tests (118) and full suite (863) | COMPLETED |
+| Focused M10 tests (149) and full suite (894) | COMPLETED |
 | Label-free G7 engineering smoke on real target features | COMPLETED |
-| Additive 1700-video target evaluation package | NOT STARTED |
-| Evaluation-only label artifact | NOT STARTED |
+| Additive 1700-video target evaluation package `prism_target_eval_v2` | **COMPLETED** |
+| Evaluation-only label artifact (sealed, never opened) | **COMPLETED** |
 | Matrix execution, G7 predictions, G8 scoring | NOT STARTED |
