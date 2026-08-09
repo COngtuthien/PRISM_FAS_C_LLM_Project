@@ -92,6 +92,12 @@
     "branch": "c0-spec-reconciliation",
     "origin": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
     "origin_points_at_version_b": false,
+    "c0_commit": "ee7975a66527d5b12dff370757195401068cfbca",
+    "c0_commit_message_subject": "chore(c0): initialize PRISM-FAS-C specification baseline",
+    "pushed_to": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
+    "pushed_ref": "refs/heads/c0-spec-reconciliation",
+    "push_method": "normal (no force, no history rewrite)",
+    "version_b_pushed_to": null,
     "informational_remote": {
       "name": "version-b-readonly",
       "fetch_url": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_B_Project",
@@ -288,7 +294,12 @@
     "no_fake_scientific_result_files_created": true,
     "c0_tests_pass": true,
     "test_limitations_explicitly_documented": true,
-    "no_pass_count_invented": true
+    "no_pass_count_invented": true,
+    "c0_artifacts_committed_to_version_c_only": true,
+    "version_c_branch_pushed_to_new_remote": true,
+    "no_force_push_used": true,
+    "version_b_history_not_rewritten": true,
+    "version_c_scientific_tag_not_created_yet": true
   },
 
   "not_claimed": [
