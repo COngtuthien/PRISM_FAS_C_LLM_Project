@@ -12,7 +12,7 @@
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | **completed** |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | detector modules; 83 focused tests | toy tests + source-dev training stable | **completed** |
-| M10 | Experiment matrix, blind target evaluation and report | `evaluation` modules; 1081 tests | reproducible report; acceptance 32/32 | **completed** |
+| M10 | Experiment matrix, blind target evaluation and report | `evaluation` modules; 1081 tests | reproducible report; acceptance 35/35 | **completed** |
 
 Each milestone requires: objective, implementation tasks, expected files, unit/integration tests, a command, and an acceptance report. Detailed task expansion occurs only when that milestone is assigned.
 
@@ -196,7 +196,7 @@ sample or target label was read, so no SiW-Mv2, cross-domain, ablation or state-
 made.
 
 M10 is COMPLETE. The blind evaluation ran end to end and `reports/m10/M10_ACCEPTANCE.json`
-passes all 32 checks.
+passes all 35 checks.
 
 ## M10 components
 
@@ -232,4 +232,4 @@ pre-reveal audit passed 15/15.
 | Isolated G8 over all 37 rows; frame, video, attack-wise, calibration, risk-coverage | **COMPLETED** |
 | Statistics: paired video bootstrap x10000, Holm-Bonferroni over H1-H5 | **COMPLETED** |
 | Reliability suite executed: 6 PASSED, 2 FAILED (reported), 2 BLOCKED (with reasons) | **COMPLETED** |
-| `report.html`, `summary.json`, `M10_ACCEPTANCE.json` (32/32) | **COMPLETED** |
+| `report.html`, `summary.json`, `M10_ACCEPTANCE.json` (35/35) | **COMPLETED** |

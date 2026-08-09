@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M10 complete.** The blind SiW-Mv2 evaluation ran end to end on 1700 videos; `M10_ACCEPTANCE.json` passes 32/32. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M10 complete.** The blind SiW-Mv2 evaluation ran end to end on 1700 videos; `M10_ACCEPTANCE.json` passes 35/35. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -330,7 +330,9 @@ prism_target_eval_v2   1700 videos = 785 live + 915 spoof, 14/14 attack families
 Additive and immutable: `prism_data_v1_m3b` (whose `target_test` split holds 785 live and **zero**
 spoof videos, making APCER/ACER/HTER/ROC-AUC/EER undefined) is not modified, so every M8 and M9
 identity bound to it still holds. Features and labels live in separate trees; the sealed
-evaluator-only label artifact is git-ignored and has never been opened.
+evaluator-only label artifact is git-ignored and was opened exactly once, by the authorized M10
+reveal, after every prediction was frozen (`reports/m10/TARGET_LABEL_REVEAL.json`). It was never
+readable from training or from G7.
 
 The primary acceptance gate passed on the full population: **3140/3140** comparable frozen live
 frames reproduce their `sample_id` and `crop_sha256` byte-for-byte, 0 mismatches.

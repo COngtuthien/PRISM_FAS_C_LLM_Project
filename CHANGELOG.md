@@ -105,7 +105,7 @@ online G7 inference cost are reported separately.
 
 ### Artifacts and tests
 
-`report.html`, `summary.json`, `M10_ACCEPTANCE.json` (**32/32**), `TARGET_PREDICTION_LOCKSET.json`,
+`report.html`, `summary.json`, `M10_ACCEPTANCE.json` (**35/35**), `TARGET_PREDICTION_LOCKSET.json`,
 `TARGET_LABEL_REVEAL.json`, `PRE_REVEAL_AUDIT.json`, `G7_PREDICTION_VALIDATION.json`,
 `SOURCE_MATRIX_REVERIFICATION.json`, `DECISION_SCORE_DIAGNOSTIC.json`, `RELIABILITY.json`,
 `M10_COMPUTE_RAW.json`, `TEST_SUITE.json`.

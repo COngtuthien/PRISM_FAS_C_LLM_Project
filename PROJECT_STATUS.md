@@ -3,7 +3,7 @@
 - Current milestone: **M10 COMPLETED**. The blind evaluation ran to the end: 37 frozen G7
   predictions, a frozen `TARGET_PREDICTION_LOCKSET`, the one-way label reveal, an isolated G8 pass
   over all 37 rows, the five predeclared comparisons under Holm-Bonferroni, the reliability suite
-  and the full report. `M10_ACCEPTANCE.json` passes all 32 checks.
+  and the full report. `M10_ACCEPTANCE.json` passes **all 35 checks**.
 - M0–M10: **COMPLETED**.
 
 ```
@@ -13,6 +13,14 @@ target_labels_revealed: true      <- one-way; flipped once, by the authorized re
 The flag was `false` until `reports/m10/TARGET_LABEL_REVEAL.json` was written, and it is never
 reset. `load_evaluation_config` refuses a `true` flag that has no reveal record beside it, so the
 transition cannot be performed by editing a YAML file.
+
+> **How to read this document.** Everything above the first `HISTORICAL` marker is the CURRENT
+> project state. Everything below is a chronological record of earlier milestone checkpoints, kept
+> as it was written so the sequence of decisions stays auditable. A historical section states what
+> was true **at that checkpoint** — including `target_labels_revealed: false` and "not started"
+> footers — and is never the current state. Where a historical claim could be mistaken for a
+> current one it carries an explicit `HISTORICAL` label; the frozen contracts under `docs/` are
+> likewise written in the pre-reveal tense on purpose and are not status reports.
 
 ## M10 blind target evaluation — measured results
 
@@ -48,25 +56,97 @@ structured recipe bank **did not** beat their controls on this target set — th
 significantly worse. No claim of state of the art, of a first method, or of any comparison outside
 these five is made.
 
-**Two reliability tests FAILED and are reported as negative results**: a linear probe on the
-detector's own evidence separates synthetic from real spoof at 0.9375 balanced accuracy (ceiling
-0.75), and scaling the GPAT/physics residual to zero moves the decision score by only 0.022
-(minimum 0.10) even though the regional distance does fall. Six passed; two are BLOCKED with
-specific reasons.
+### Reliability — 6 PASSED, 2 FAILED, 2 BLOCKED
 
-**A defect was found and fixed before any label was opened.** G7 decided `spoof` on the fused
-`s_final`, but the frozen temperature and threshold are fitted by `run_g6` on `global_logit`
-alone. On `source_dev` that combination is a degenerate all-spoof classifier (BPCER 1.0, ACER
-0.5) because mean `s_region` on bona-fide samples is 0.964. The prediction schema was versioned
-v1→v2 with a `decision_score` column, all 37 predictions were regenerated from the **same** frozen
-checkpoints and calibrations, and the superseded v1 set is retained under
-`reports/m10/g7_v1_superseded/`. See `docs/M10_TARGET_EVALUATION_CONTRACT.md` §2b.
+Every acceptance rule was given its number in `modal_m10_reliability.py` **before** the tests ran.
+The two failures are reported as negative results; they were not re-tuned, re-run or downgraded to
+warnings.
 
-## M10 target evaluation package (built, validated, frozen)
+| test | status | measured |
+|---|---|---|
+| `synthetic_vs_real_spoof_probe` | **FAILED** | balanced accuracy **0.9375** against a declared ceiling of 0.75 |
+| `residual_scale_zero` | **FAILED** | decision score moves **0.022** against a declared minimum of 0.10 (the mean regional distance does fall, 0.772 → 0.622) |
+| 3 benign corruptions, `recipe_region_shift`, `artifact_map_swap`, `cross_route_synthetic` | PASSED | — |
+| `benign_glasses_makeup_lowlight`, `crop_padding_interpolation` | BLOCKED | each with a specific, checkable reason |
+
+One caveat belongs with the probe result: synthetic spoofs are edits of CASIA/MSU **live** captures
+while real spoofs are separate captures, so content and capture differences are confounded with any
+generator fingerprint. The number bounds the concern rather than isolating it.
+
+### Known defects and disclosures
+
+**1. G7 decided on the wrong quantity (found and fixed BEFORE any label was opened).** G7 decided
+`spoof` on the fused `s_final`, but the frozen temperature and threshold are fitted by `run_g6` on
+`global_logit` alone. On `source_dev` that combination is a degenerate all-spoof classifier
+(BPCER 1.0, ACER 0.5) because mean `s_region` on bona-fide samples is 0.9644. The prediction schema
+was versioned v1→v2 with a `decision_score` column, and all 37 predictions were regenerated from the
+**same** frozen checkpoints, the **same** frozen source calibrations and the **same** frozen target
+feature package. Nothing was retrained, reselected or recalibrated. The superseded v1 predictions
+are retained as historical evidence under `reports/m10/g7_v1_superseded/`. See
+`docs/M10_TARGET_EVALUATION_CONTRACT.md` §2b and `reports/m10/DECISION_SCORE_DIAGNOSTIC.json`.
+
+**2. G8 was not actually torch-free, though it claimed to be.** `isolation_report()` reported
+`g8_imports_torch: false` and that was **false**: `import_closure_audit` resolved a relative import
+(`from .metrics import …`) to the bare name `metrics`, silently dropping whole subtrees, and
+`evaluation.metrics` imports `prism_fas.train.metrics`, which resolves the `prism_fas.train` package
+first, whose `__init__` imported `.models` and with it torch. The audit now resolves relative
+imports and walks the transitive first-party import graph (16 modules), and
+`prism_fas/train/__init__.py` re-exports lazily. A test asserts it in a **fresh interpreter**. The
+final G8 state is genuinely isolated and the claim is now checked rather than asserted.
+
+**3. `m10 reveal --dry-run` opened the sealed label artifact once, before the reveal record was
+written.** This is disclosed rather than hidden, inside `reports/m10/TARGET_LABEL_REVEAL.json`
+itself. Precisely: it occurred **after** all 37 scientific predictions were already frozen and
+immutable and after the pre-reveal audit had passed on that exact lockset; it did **not** retrain
+anything, did **not** recalibrate, did **not** reselect a checkpoint, did **not** modify any
+prediction, and did **not** change any hypothesis or frozen statistic. The counts it printed
+(1700 / 785 / 915) were already public in the frozen target package inventory. The implementation
+was fixed so the dry-run path returns before the read. The distinction that matters:
+the **authorized scientific scoring reveal** is the one recorded in `TARGET_LABEL_REVEAL.json`;
+this was a **pre-record dry-run implementation defect**, and the artifact is therefore not claimed
+to have been literally never opened before that record.
+
+**4. A02 uses out-of-training-distribution generator conditioning, and its pool is smaller.** A02
+applies the **same frozen GPAT generator weights** to the M10 random-operator conditioning bank
+through the explicit compatibility-control path. That is
+out-of-training-conditioning-distribution conditioning, not ordinary in-distribution GPAT
+inference. The frozen quality gate was unchanged, so degenerate outputs were rejected rather than
+accepted. Accepted pools: **838 random vs 871 structured — a 3.8% difference**, from an identical
+1120-candidate budget. Training exposure was equal by construction: **8 synthetic per batch over
+the same 1350 G5 steps**, so both arms saw the same number of synthetic samples; only the pool they
+were drawn from differs in size.
+
+**5. A09 bounded backend parity is reported as measured, not as a pass.** The frozen artifact
+`reports/m10/A09_BACKEND_PARITY.json` records **10 checks with 9 passing**. `global_logits` passes
+on the max tolerance (9.263e-04 against 1.0e-03) and exceeds the **mean** tolerance
+(2.2721e-04 against 2.0e-04) by **13.6%**, on CPU-fp32 versus CUDA-fp32 kernels. **The frozen
+tolerance was not widened**, H6 is `parity_not_superiority` and takes no part in the
+Holm-Bonferroni family, and this is not called perfect parity. *(An earlier prose summary in the
+M10 handoff said "8/9"; the artifact records ten checks and is authoritative — the substantive
+finding is identical, exactly one check failed and it is `global_logits`.)* The earlier
+bf16-vs-fp32 measurement is retained separately as
+`reports/m10/A09_BACKEND_PARITY_amp_vs_fp32.json`, an engineering observation about AMP, and never
+substitutes for the declared fp32 result.
+
+**6. The `synthetic_total` cosmetic defect.** `run.json`'s `dataset.synthetic_total` reports 871
+for rows that declare `synthetic: none`. Training was never affected — each row's own audited batch
+contract draws 0 synthetic samples and every synthetic loss term is structurally inactive — and no
+identity binds the pools, so no checkpoint or hash moved. The report **derives** the true figure
+(0) from that frozen evidence for the 12 affected rows instead of rewriting a historical run
+artifact.
+
+## HISTORICAL — M10 target-package checkpoint (pre-execution, 2026-08-08)
+
+> **This section records the state at the moment the target package was built, validated and
+> frozen — before the matrix was executed, before G7 ran and before any label was opened. It is
+> NOT the current project state.** The authoritative current state is the M10 completion section
+> above: `target_labels_revealed: true`, the reveal performed once and recorded in
+> `reports/m10/TARGET_LABEL_REVEAL.json`. The `false` below is kept because it was true then;
+> changing it would falsify the chronology that makes the blind evaluation auditable.
 
 ```
-target_labels_revealed:      false      (one-way; still false)
-target_label_artifact_built: true       (sealed, never opened)
+target_labels_revealed:      false      (one-way; still false AT THIS CHECKPOINT)
+target_label_artifact_built: true       (sealed; not yet opened AT THIS CHECKPOINT)
 ```
 
 | | |
@@ -128,9 +208,15 @@ identity, the manifest SHAs and the shard set exactly.
 Tests: **894 passed, 0 failed, 0 skipped**.
 
 - Blockers: none. Next: upload the validated FEATURE package only, then execute the
-  36-run source-side matrix. **Not started - awaiting review of this package.**
+  36-run source-side matrix. **Not started at this checkpoint - awaiting review of this package.**
+  *(Both steps have since been completed: the FEATURE package was uploaded and remotely verified,
+  and all 38 executable rows are terminal. See the M10 completion section at the top.)*
 
-## M10 framework (implemented, frozen, not yet executed)
+## HISTORICAL — M10 framework checkpoint (frozen and tested before execution)
+
+> **This section records the framework as it stood BEFORE the matrix was executed.** It has since
+> been executed in full; the heading's "not yet executed" was true at that checkpoint only. The
+> current state is the M10 completion section at the top of this document.
 
 Three contracts were frozen **before** anything was run: `docs/M10_EXPERIMENT_CONTRACT.md`
 (B00–B08 as configuration switches over one shared implementation, plus the replication policy),
@@ -194,7 +280,9 @@ checkpoint writer, proved by an AST import audit of the module and its import cl
 256 frames / 228 videos of the frozen `target_test` FEATURE package through the full M9 detector on
 CPU: feature loading, region priors, checkpoint identity guard, forward pass, Table 57 schema, finite
 outputs, video aggregation, prediction lock and firewall all verified.
-**No target metric was computed and none may be quoted.** Details: `reports/m10/G7_ENGINEERING_SMOKE.md`.
+**No target metric was computed from this smoke and none may ever be quoted from it** — it is an
+engineering verification, not a result, and the scientific G7/G8 pass reported at the top of this
+document is the only source of a target metric. Details: `reports/m10/G7_ENGINEERING_SMOKE.md`.
 
 The smoke found one real defect and it was fixed: `p_prompt` is a **structural zero** on target data
 because `PromptHead.applicability` requires a synthetic sample with an attack-region mask. G7 now
