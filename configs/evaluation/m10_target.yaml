@@ -10,7 +10,7 @@
 evaluation_schema_version: "m10-target-evaluation-v1"
 stage: M10
 
-target_labels_revealed: false
+target_labels_revealed: true
 
 # --- artifact roots and who may resolve them --------------------------------
 roots:

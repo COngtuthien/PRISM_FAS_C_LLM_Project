@@ -130,6 +130,50 @@ def declared_tests() -> list[ReliabilityTest]:
     return [test.validate() for test in DECLARED_TESTS]
 
 
+# A declared test whose data does not exist in the frozen artifacts. Recorded with
+# the specific, checkable reason rather than substituted with a population that
+# would answer a different question.
+DATA_BLOCKED: dict[str, str] = {
+    "crop_padding_interpolation":
+        "re-cropping needs the original frame and the detected bounding box, and the frozen "
+        "package `prism_data_v1_m3b` retains neither: `manifests/samples.parquet` stores the "
+        "224x224 CROP and its hash, with no bbox column and no path back to the source frame. "
+        "Re-opening the raw video tree is outside what M10 may touch, and re-deriving a crop from "
+        "the stored crop would measure resampling (which `benign_resize_corruption` already "
+        "measures) rather than crop padding. Recorded as blocked rather than answered with the "
+        "wrong test.",
+}
+
+
+def apply_execution(tests: Sequence[ReliabilityTest], execution: dict[str, Any]) -> list[ReliabilityTest]:
+    """Fold an executed run into the declared tests.
+
+    A test the run did not cover keeps its declared status; a test the run BLOCKED
+    keeps its reason; a test that ran becomes PASSED or FAILED and carries its
+    measurement together with the acceptance rule that was declared before it ran.
+    A FAILED test stays FAILED — this function has no path that turns one into a pass.
+    """
+    from dataclasses import replace
+    results = (execution or {}).get("tests") or {}
+    out: list[ReliabilityTest] = []
+    for test in tests:
+        if test.status == "BLOCKED": out.append(test.validate()); continue
+        if test.test_id in DATA_BLOCKED:
+            out.append(replace(test, status="BLOCKED",
+                               blocked_reason=DATA_BLOCKED[test.test_id]).validate())
+            continue
+        block = results.get(test.test_id)
+        if not block: out.append(test.validate()); continue
+        if block.get("status") == "BLOCKED":
+            out.append(replace(test, status="BLOCKED",
+                               blocked_reason=str(block.get("blocked_reason"))).validate())
+            continue
+        out.append(evaluate(test, result={"acceptance": block.get("acceptance"),
+                                          **(block.get("result") or {})},
+                            passed=bool(block.get("passed"))))
+    return out
+
+
 def score_shift(before: Sequence[float], after: Sequence[float]) -> dict[str, Any]:
     """The measurement every benign-corruption test shares.
 

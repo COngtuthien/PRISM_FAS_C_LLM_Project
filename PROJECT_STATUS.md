@@ -1,18 +1,66 @@
 # Project status
 
-- Current milestone: **M10 IN PROGRESS** — the experiment matrix, the blind target evaluation
-  framework and the statistics contract are implemented, frozen and tested, and the additive
-  1700-video SiW-Mv2 target evaluation package is built, validated and frozen. **No SiW-Mv2 label
-  has ever been opened**, no target metric exists, no matrix row has been launched and no M10 Modal
-  app has ever been created.
-- M0–M9: COMPLETED; M10: **IN PROGRESS**.
+- Current milestone: **M10 COMPLETED**. The blind evaluation ran to the end: 37 frozen G7
+  predictions, a frozen `TARGET_PREDICTION_LOCKSET`, the one-way label reveal, an isolated G8 pass
+  over all 37 rows, the five predeclared comparisons under Holm-Bonferroni, the reliability suite
+  and the full report. `M10_ACCEPTANCE.json` passes all 32 checks.
+- M0–M10: **COMPLETED**.
 
 ```
-target_labels_revealed: false
+target_labels_revealed: true      <- one-way; flipped once, by the authorized reveal
 ```
 
-This flag is one-way. It becomes `true` only after the first authorized G8 pass that follows a
-frozen `reports/m10/TARGET_PREDICTION_LOCKSET.json`, and it is never reset.
+The flag was `false` until `reports/m10/TARGET_LABEL_REVEAL.json` was written, and it is never
+reset. `load_evaluation_config` refuses a `true` flag that has no reveal record beside it, so the
+transition cannot be performed by editing a YAML file.
+
+## M10 blind target evaluation — measured results
+
+Population: **1700 videos (785 live / 915 spoof), 6776 frames (3140 / 3636)**, every video and
+every successful frame scored. Decision at each row's own frozen `source_dev` threshold.
+
+| row | seeds | video ACER (mean ± std) | video ROC-AUC |
+|---|---|---|---|
+| B01 | 1 | 0.21798 | 0.87436 |
+| B06 | 3 | 0.31190 ± 0.01040 | 0.78822 |
+| B05 | 1 | 0.35087 | 0.79681 |
+| B07 | 3 | 0.35962 ± 0.02598 | 0.72050 |
+| **B08 (full method)** | 3 | **0.36088 ± 0.04730** | 0.69327 |
+| B00 | 3 | 0.42307 ± 0.10879 | 0.78588 |
+| A01 naive_concat | 3 | 0.51560 ± 0.00409 | 0.32330 |
+
+**Hypotheses — 2 of 5 supported.** All five reached significance after Holm-Bonferroni, but three
+were significant in the *opposite* direction to the prediction, which is a negative result and is
+reported as one.
+
+| H | comparison | ΔACER | 95% CI | p (Holm) | outcome |
+|---|---|---|---|---|---|
+| H1 | B08 vs A01 naive_concat | −0.15593 | [−0.17932, −0.13239] | 0.0000 | **supported** |
+| H2 | B07 vs B06 | +0.05214 | [+0.03967, +0.06531] | 0.0000 | **not_supported** |
+| H3 | B08 vs A07 image_level | +0.01293 | [+0.00752, +0.01889] | 0.0000 | **not_supported** |
+| H4 | B08 vs A02 random_operators | +0.00974 | [+0.00393, +0.01590] | 0.0004 | **not_supported** |
+| H5 | B08 vs A04 hard_gate_only | −0.01540 | [−0.02535, −0.00550] | 0.0018 | **supported** |
+| H6 | bounded backend parity | — | — | — | parity, reported as measured |
+
+Read plainly: the domain/class-balanced sampler is worth a great deal (H1); the quality weighting
+helps (H5); and the multi-prototype regional manifold, the mask-aware outlier loss and the
+structured recipe bank **did not** beat their controls on this target set — the manifold was
+significantly worse. No claim of state of the art, of a first method, or of any comparison outside
+these five is made.
+
+**Two reliability tests FAILED and are reported as negative results**: a linear probe on the
+detector's own evidence separates synthetic from real spoof at 0.9375 balanced accuracy (ceiling
+0.75), and scaling the GPAT/physics residual to zero moves the decision score by only 0.022
+(minimum 0.10) even though the regional distance does fall. Six passed; two are BLOCKED with
+specific reasons.
+
+**A defect was found and fixed before any label was opened.** G7 decided `spoof` on the fused
+`s_final`, but the frozen temperature and threshold are fitted by `run_g6` on `global_logit`
+alone. On `source_dev` that combination is a degenerate all-spoof classifier (BPCER 1.0, ACER
+0.5) because mean `s_region` on bona-fide samples is 0.964. The prediction schema was versioned
+v1→v2 with a `decision_score` column, all 37 predictions were regenerated from the **same** frozen
+checkpoints and calibrations, and the superseded v1 set is retained under
+`reports/m10/g7_v1_superseded/`. See `docs/M10_TARGET_EVALUATION_CONTRACT.md` §2b.
 
 ## M10 target evaluation package (built, validated, frozen)
 

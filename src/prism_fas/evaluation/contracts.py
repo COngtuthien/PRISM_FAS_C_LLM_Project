@@ -14,7 +14,11 @@ from typing import Any
 
 M10_MATRIX_SCHEMA_VERSION = "m10-matrix-v1"
 M10_REGISTRY_SCHEMA_VERSION = "m10-registry-v1"
-M10_PREDICTION_SCHEMA_VERSION = "m10-target-prediction-v1"
+# v2 adds `decision_score`: the quantity the FROZEN source-dev calibration was
+# actually fitted on. See `docs/M10_TARGET_EVALUATION_CONTRACT.md` section 2b — the
+# revision was made before any target label was opened, from source_dev evidence
+# alone, and the superseded v1 predictions are retained.
+M10_PREDICTION_SCHEMA_VERSION = "m10-target-prediction-v2"
 M10_PREDICTION_LOCK_SCHEMA_VERSION = "m10-prediction-lock-v1"
 M10_SCORING_SCHEMA_VERSION = "m10-scoring-v1"
 M10_BOOTSTRAP_SCHEMA_VERSION = "m10-bootstrap-v1"
@@ -37,6 +41,14 @@ CLAIM_BEARING_ROLES = frozenset({"spec_mandated", "hypothesis_critical"})
 
 LIVE, SPOOF = 0, 1
 DECISIONS = ("live", "spoof", "reject")
+
+# The M9 region order, MIRRORED here rather than imported. `prism_fas.detector.contracts`
+# imports torch, and G8 must stay free of any training runtime — importing it to name
+# a region would defeat the static import audit that proves G8 cannot train.
+# `tests/test_m10_target_evaluation.py` asserts this tuple equals the detector's, so a
+# drift is a failing test rather than a silent relabelling of every region histogram.
+REGION_ORDER = ("left_eye", "right_eye", "nose", "mouth", "forehead",
+                "left_cheek", "right_cheek", "face_boundary", "context")
 
 
 class M10ContractError(ValueError):

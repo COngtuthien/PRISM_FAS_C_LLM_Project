@@ -12,7 +12,7 @@
 | M7 | Recipe compiler and physics engine | recipe modules/tests | deterministic recipes | **completed** |
 | M8 | GPAT and synthetic bank | synthetic modules/tests | versioned bank | **completed** |
 | M9 | Regional CNN–ViT fusion/manifolds/losses | detector modules; 83 focused tests | toy tests + source-dev training stable | **completed** |
-| M10 | Experiment matrix and report | `evaluation` + `target_eval` modules; 149 focused tests | reproducible report | **in progress** |
+| M10 | Experiment matrix, blind target evaluation and report | `evaluation` modules; 1081 tests | reproducible report; acceptance 32/32 | **completed** |
 
 Each milestone requires: objective, implementation tasks, expected files, unit/integration tests, a command, and an acceptance report. Detailed task expansion occurs only when that milestone is assigned.
 
@@ -195,12 +195,14 @@ M9 delivers **a verified reference detector and training pipeline**, not a targe
 sample or target label was read, so no SiW-Mv2, cross-domain, ablation or state-of-the-art claim is
 made.
 
-Next milestone: M10 — experiment matrix, ablations and the controlled blind target evaluation
-(IN PROGRESS).
+M10 is COMPLETE. The blind evaluation ran end to end and `reports/m10/M10_ACCEPTANCE.json`
+passes all 32 checks.
 
 ## M10 components
 
-`target_labels_revealed: false`. No SiW-Mv2 label has ever been opened and no target metric exists.
+`target_labels_revealed: true` — one-way, flipped once by the authorized reveal recorded in
+`reports/m10/TARGET_LABEL_REVEAL.json`, after the prediction lockset was frozen and the
+pre-reveal audit passed 15/15.
 
 | Component | Status |
 |---|---|
@@ -219,8 +221,15 @@ Next milestone: M10 — experiment matrix, ablations and the controlled blind ta
 | Reliability/shortcut test framework (10 declared, 1 BLOCKED with reason) | COMPLETED |
 | Report assembler (16 sections, no fabricated target value) | COMPLETED |
 | M10 CLI with `--dry-run` on every writing command | COMPLETED |
-| Focused M10 tests (149) and full suite (894) | COMPLETED |
+| Focused M10 tests and full suite (**1081 passed, 0 failed, 0 skipped**) | COMPLETED |
 | Label-free G7 engineering smoke on real target features | COMPLETED |
 | Additive 1700-video target evaluation package `prism_target_eval_v2` | **COMPLETED** |
 | Evaluation-only label artifact (sealed, never opened) | **COMPLETED** |
-| Matrix execution, G7 predictions, G8 scoring | NOT STARTED |
+| Source matrix execution (38 executable rows terminal, 0 failed) | **COMPLETED** |
+| Scientific G7: 37 rows x 6776 frames x 1700 videos, every prediction locked | **COMPLETED** |
+| `TARGET_PREDICTION_LOCKSET.json` (37 entries, 250712 frame rows, validated twice) | **COMPLETED** |
+| Pre-reveal audit (15/15) and the one-way label reveal | **COMPLETED** |
+| Isolated G8 over all 37 rows; frame, video, attack-wise, calibration, risk-coverage | **COMPLETED** |
+| Statistics: paired video bootstrap x10000, Holm-Bonferroni over H1-H5 | **COMPLETED** |
+| Reliability suite executed: 6 PASSED, 2 FAILED (reported), 2 BLOCKED (with reasons) | **COMPLETED** |
+| `report.html`, `summary.json`, `M10_ACCEPTANCE.json` (32/32) | **COMPLETED** |

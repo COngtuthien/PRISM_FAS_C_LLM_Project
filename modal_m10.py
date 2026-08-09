@@ -48,6 +48,11 @@ REMOTE_WEIGHT_ROOT = f"{MODELS_MOUNT}/pretrained/m9"
 REMOTE_RUNS_ROOT = f"{RUNS_MOUNT}/runs"
 REMOTE_CACHE_ROOT = f"{RUNS_MOUNT}/m9_cache"
 REMOTE_M10_CACHE = f"{RUNS_MOUNT}/m10_cache"
+# The region-prior cache is keyed by split and package identity, NOT by the row set,
+# so a cache built for a 100-video smoke would be loaded and then correctly refused
+# by G7's alignment check. The scientific pass therefore uses its own cache root and
+# builds the full 6776-row cache once, rather than deleting the smoke's artifact.
+REMOTE_M10_CACHE_SCIENTIFIC = f"{RUNS_MOUNT}/m10_cache/scientific"
 
 EXPECTED_SOURCE_PACKAGE_IDENTITY = "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
 EXPECTED_TARGET_FEATURE_IDENTITY = "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
@@ -59,6 +64,12 @@ EXPECTED_SIGLIP2_IDENTITY = "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9b
 EXPECTED_TEXT_CACHE_IDENTITY = "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
 EXPECTED_ARCHITECTURE_IDENTITY = "d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0"
 EXPECTED_MATRIX_IDENTITY = "a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5"
+# The frozen source-side decision. A scientific G7 row binds ITS entry and refuses to
+# run against anything else, so a prediction can never be produced from a checkpoint
+# or a calibration the locked matrix did not select.
+EXPECTED_SOURCE_MATRIX_LOCK_IDENTITY = ("c06944344eab25820b4bf6327b9dd391a308a3ffd935ab2"
+                                        "ed91264e5898517aa")
+SOURCE_MATRIX_LOCK_IN_IMAGE = "/root/project/reports/m10/SOURCE_MATRIX_LOCK.json"
 # The frozen A02 control bank. `SyntheticBankReader.open` is fail-closed on both,
 # so an A02 row can never silently fall back to the structured M8 v3 bank.
 EXPECTED_RANDOM_BANK_ID = "prism_synthetic_bank_m10_random_f7f1e6ac2034"
@@ -90,6 +101,10 @@ image = (
     .add_local_dir("src", "/root/project/src")
     .add_local_dir("configs", "/root/project/configs")
     .add_local_dir("assets", "/root/project/assets")
+    # The frozen source-side decision travels with the image, so a scientific G7 row
+    # re-derives its checkpoint and calibration from the LOCK inside the container
+    # instead of trusting what a launcher passed over the wire.
+    .add_local_file("reports/m10/SOURCE_MATRIX_LOCK.json", SOURCE_MATRIX_LOCK_IN_IMAGE)
 )
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME)
@@ -202,6 +217,43 @@ def m10_verify_target_features() -> dict:
             "target_labels_opened": False}
 
 
+# --- the frozen source-side decision ---------------------------------------------
+
+def frozen_source_row(experiment_id: str) -> dict:
+    """One `SOURCE_MATRIX_LOCK` entry, read INSIDE the container and verified.
+
+    The lock is authoritative after M10's source side closed. A scientific
+    prediction may only be produced from the checkpoint and the calibration this
+    entry names, so the entry — not the launcher — decides what G7 opens.
+    """
+    lock = json.loads(Path(SOURCE_MATRIX_LOCK_IN_IMAGE).read_text(encoding="utf-8"))
+    identity = lock.get("source_matrix_lock_identity")
+    if identity != EXPECTED_SOURCE_MATRIX_LOCK_IDENTITY:
+        raise RuntimeError(f"SOURCE_MATRIX_LOCK identity {identity} != the frozen pin")
+    if lock.get("m10_matrix_identity") != EXPECTED_MATRIX_IDENTITY:
+        raise RuntimeError("the lock does not bind the frozen matrix identity")
+    if lock.get("target_labels_opened") is not False:
+        raise RuntimeError("the lock records an opened target label")
+    matched = [entry for entry in lock["entries"] if entry["experiment_id"] == experiment_id]
+    if not matched: raise RuntimeError(f"{experiment_id!r} is not a row of SOURCE_MATRIX_LOCK")
+    entry = matched[0]
+    if entry.get("status") != "COMPLETED":
+        raise RuntimeError(f"{experiment_id} is {entry.get('status')}, not COMPLETED")
+    if not entry.get("target_prediction_required"):
+        raise RuntimeError(f"{experiment_id} declares no target prediction; refusing to invent one")
+    for field in ("best_checkpoint_path", "best_checkpoint_sha256", "source_calibration_sha256",
+                  "calibration_hash", "scientific_config_hash"):
+        if not entry.get(field): raise RuntimeError(f"{experiment_id} names no {field}")
+    return {"entry": entry, "source_matrix_lock_identity": identity}
+
+
+def scientific_prediction_rows() -> list[str]:
+    """Every prediction-eligible COMPLETED row, in the lock's own order."""
+    lock = json.loads(Path("reports/m10/SOURCE_MATRIX_LOCK.json").read_text(encoding="utf-8"))
+    return sorted(entry["experiment_id"] for entry in lock["entries"]
+                  if entry.get("status") == "COMPLETED" and entry.get("target_prediction_required"))
+
+
 # --- label-free G7 prediction ---------------------------------------------------
 
 @app.function(image=image, gpu=DEFAULT_GPU, volumes=TARGET_VOLUMES, timeout=10800)
@@ -210,11 +262,18 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
                    temperature: float | None = None, calibration_hash: str = "",
                    calibration_sha256: str = "", limit: int | None = None,
                    batch_size: int = 32, engineering_smoke: bool = True,
-                   cover_short_videos: int = 0, cover_full_videos: int = 0) -> dict:
+                   cover_short_videos: int = 0, cover_full_videos: int = 0,
+                   code_commit: str = "") -> dict:
     """G7 on the remote target FEATURE package. No label is reachable from here.
 
     The source package is not mounted for this stage's purposes and is never opened;
     the only data root this function touches is the target feature package.
+
+    A SCIENTIFIC row (`engineering_smoke=False`) binds its `SOURCE_MATRIX_LOCK`
+    entry: the checkpoint path, the checkpoint SHA, the calibration SHA and the
+    calibration hash all come from the frozen lock and are verified against what was
+    actually opened, and the population is the whole package — no `limit`, no video
+    selection. An engineering smoke keeps the old freedom and is labelled as one.
     """
     import torch
     from prism_fas.data.loader.config import load_loader_config
@@ -230,18 +289,45 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
                                    project_root=project)
     evidence = firewall.assert_cannot_resolve_labels("G7")
 
+    # The frozen source-side decision, for a scientific row. Everything the launcher
+    # could have got wrong is replaced by what the lock says.
+    frozen: dict = {}
+    source_matrix_lock_identity = ""
+    scientific_config_hash = ""
+    if not engineering_smoke:
+        if limit is not None or cover_short_videos or cover_full_videos:
+            raise RuntimeError("a scientific G7 row predicts the whole frozen target package; "
+                               "a limit or a video selection is an engineering smoke")
+        bound = frozen_source_row(experiment_id)
+        frozen, source_matrix_lock_identity = bound["entry"], bound["source_matrix_lock_identity"]
+        checkpoint_relative = str(frozen["best_checkpoint_path"])
+        seed = int(frozen["seed"])
+        scientific_config_hash = str(frozen["scientific_config_hash"])
+        # The logical row name — the experiment id without its seed suffix. It is
+        # what the frozen hypothesis family names, so a prediction joins to H1-H5
+        # without a second mapping.
+        variant = experiment_id.rsplit("-s", 1)[0]
+
     # The variant the checkpoint was trained under, re-derived from the frozen
     # matrix. G7 must understand the simpler baselines: a row without a regional
     # branch or a PromptHead writes `null` for the components it does not have, and
     # B00-B07 are never forced through the B08 fusion.
     from prism_fas.detector.variant import ResolvedExperimentVariant
     try:
-        resolved = resolve_matrix_row(experiment_id)["variant"]
+        matrix_row = resolve_matrix_row(experiment_id)
     except RuntimeError:
         # An engineering smoke uses an id that is not a matrix row; it is the
         # reference configuration by construction and is labelled as a smoke below.
         if not engineering_smoke: raise
-        resolved = ResolvedExperimentVariant.reference()
+        matrix_row = None
+    resolved = (matrix_row["variant"] if matrix_row is not None
+                else ResolvedExperimentVariant.reference())
+    # The planner and the lock must agree on WHICH science this row is, or the
+    # prediction would be produced under a configuration the lock never selected.
+    if scientific_config_hash and matrix_row["row"]["scientific_config_hash"] != scientific_config_hash:
+        raise RuntimeError(f"{experiment_id}: the frozen matrix says scientific config "
+                           f"{matrix_row['row']['scientific_config_hash']} and SOURCE_MATRIX_LOCK "
+                           f"says {scientific_config_hash}")
 
     model_payload = load_yaml(project / "configs/models/m9_detector.yaml")
     detector_config = detector_config_from(model_payload, resolved)
@@ -260,6 +346,11 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
     if opened["identity"].get("architecture_identity") != expected_architecture:
         raise RuntimeError(f"checkpoint architecture identity {opened['identity'].get('architecture_identity')} "
                            f"does not match this variant's {expected_architecture}")
+    # The bytes actually opened must be the bytes the lock selected. This is the
+    # check that makes "the frozen checkpoint" a fact rather than a path convention.
+    if frozen and opened["checkpoint_sha256"] != frozen["best_checkpoint_sha256"]:
+        raise RuntimeError(f"{experiment_id}: opened checkpoint {opened['checkpoint_sha256']} != "
+                           f"the locked {frozen['best_checkpoint_sha256']}")
 
     # Bind the FROZEN source calibration from the run that produced the checkpoint.
     # It is source-side only: fitted on `source_dev`, never on target.
@@ -270,6 +361,16 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
         calibration_sha256 = calibration_sha256 or _sha256(calibration_path)
         if temperature is None: temperature = float(calibration["temperature"])
         if threshold == 0.5: threshold = float(calibration["selected_threshold"])
+    elif frozen:
+        raise RuntimeError(f"{experiment_id}: the locked source calibration is missing at "
+                           f"{calibration_path}")
+    if frozen:
+        if calibration_sha256 != frozen["source_calibration_sha256"]:
+            raise RuntimeError(f"{experiment_id}: opened calibration {calibration_sha256} != "
+                               f"the locked {frozen['source_calibration_sha256']}")
+        if calibration_hash != frozen["calibration_hash"]:
+            raise RuntimeError(f"{experiment_id}: calibration hash {calibration_hash} != "
+                               f"the locked {frozen['calibration_hash']}")
 
     lock = json.loads((Path(REMOTE_TARGET_FEATURES) / "PACKAGE_LOCK.json").read_text(encoding="utf-8"))
     if lock.get("content_identity_sha256") != EXPECTED_TARGET_FEATURE_IDENTITY:
@@ -288,9 +389,12 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
         short = sorted(video for video, count in per_video.items() if count < 4)[:cover_short_videos]
         full = sorted(video for video, count in per_video.items() if count == 4)[:cover_full_videos]
         selected = short + full
+    cache_root = Path(REMOTE_M10_CACHE_SCIENTIFIC if not engineering_smoke else REMOTE_M10_CACHE)
     batches = g7.target_batches(Path(REMOTE_TARGET_FEATURES), loader_config,
-                                cache_root=Path(REMOTE_M10_CACHE), limit=limit,
-                                batch_size=batch_size, firewall=None, video_ids=selected)
+                                cache_root=cache_root, limit=limit,
+                                batch_size=batch_size, firewall=None, video_ids=selected,
+                                progress=lambda item: print(json.dumps(
+                                    {"experiment_id": experiment_id, "g7_progress": item}), flush=True))
     inference_hash = g7.inference_config_hash(
         variant=variant, flags=resolved.flags(), threshold=threshold,
         unknown_threshold=None, temperature=temperature,
@@ -308,7 +412,16 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
         calibration_hash=calibration_hash, inference_config_hash=inference_hash,
         target_feature_package_identity=EXPECTED_TARGET_FEATURE_IDENTITY,
         target_package_id=EXPECTED_TARGET_PACKAGE_ID, threshold=threshold, unknown_threshold=None,
+        scientific_config_hash=scientific_config_hash,
+        source_matrix_lock_identity=source_matrix_lock_identity, code_commit=code_commit,
         engineering_smoke=engineering_smoke)
+    # A scientific prediction must cover the whole frozen package. Anything else is a
+    # partial result that would silently change every metric it feeds.
+    if not engineering_smoke and (prediction_lock["row_count"] != EXPECTED_TARGET_ROWS
+                                  or prediction_lock["video_count"] != EXPECTED_TARGET_VIDEOS):
+        raise RuntimeError(f"{experiment_id}: predicted {prediction_lock['row_count']} rows over "
+                           f"{prediction_lock['video_count']} videos; the frozen package is "
+                           f"{EXPECTED_TARGET_ROWS} over {EXPECTED_TARGET_VIDEOS}")
     destination = Path(REMOTE_RUNS_ROOT) / "m10_predictions" / experiment_id
     g7.write_predictions(destination / g7.PREDICTION_FILE, rows, variant=variant)
     g7.write_prediction_lock(destination / g7.PREDICTION_LOCK_FILE, prediction_lock)
@@ -322,6 +435,11 @@ def m10_g7_predict(experiment_id: str, checkpoint_relative: str, variant: str = 
             "rows": len(rows), "videos": len(per_video),
             "frames_per_video_distribution": {str(k): v for k, v in sorted(grouping.items())},
             "checkpoint": opened, "inference_config_hash": inference_hash,
+            "variant": variant, "seed": seed, "checkpoint_relative": checkpoint_relative,
+            "threshold": threshold, "temperature": temperature,
+            "calibration_hash": calibration_hash, "source_calibration_sha256": calibration_sha256,
+            "scientific_config_hash": scientific_config_hash,
+            "source_matrix_lock_identity": source_matrix_lock_identity,
             "prediction_lock_identity": prediction_lock["prediction_lock_identity"],
             "prediction_logical_identity": prediction_lock["prediction_logical_identity"],
             "engineering_smoke": prediction_lock["engineering_smoke"],
@@ -648,6 +766,13 @@ def m10_collect_runs(experiment_ids: list[str]) -> dict:
     return {"collected": collected, "count": len(collected), "target_labels_opened": False}
 
 
+def _git_commit() -> str:
+    """Which code launched this pass. Read from git on the LAUNCHING host."""
+    import subprocess
+    return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+                          timeout=15, check=False).stdout.strip()
+
+
 @app.local_entrypoint()
 def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
          checkpoint_relative: str = "", limit: int | None = 320, seed: int = 20260806,
@@ -673,6 +798,40 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
         # `--amp` opts INTO mixed precision; the declared protocol is fp32.
         print(json.dumps(m10_parity_probe.remote(experiment_id, 5, engineering_smoke),
                          indent=1, default=str))
+    elif action == "g7-matrix":
+        # The SCIENTIFIC target-prediction pass. Rows come from SOURCE_MATRIX_LOCK,
+        # not from the caller, so the set cannot drift; each row re-derives its own
+        # checkpoint and calibration from that lock inside the container.
+        #
+        # The first row runs ALONE on purpose. The region-prior cache is shared
+        # state on the runs volume, and building it concurrently from N containers
+        # would race; one row builds the full 6776-sample cache, the rest reuse it.
+        ids = ([value.strip() for value in experiment_id.split(",") if value.strip()]
+               if experiment_id and experiment_id != "all" else scientific_prediction_rows())
+        commit = _git_commit()
+        print(json.dumps({"scientific_g7_rows": len(ids), "code_commit": commit,
+                          "source_matrix_lock_identity": EXPECTED_SOURCE_MATRIX_LOCK_IDENTITY}))
+        results: list = []
+        pending = list(ids)
+        if pending:
+            first = pending.pop(0)
+            print(json.dumps({"warming_region_prior_cache_with": first}))
+            results.append(m10_g7_predict.remote(first, "", engineering_smoke=False,
+                                                 code_commit=commit))
+            print(json.dumps({"finished": first, "rows": results[-1]["rows"],
+                              "videos": results[-1]["videos"]}))
+        width = max(1, int(concurrency))
+        for start in range(0, len(pending), width):
+            chunk = pending[start:start + width]
+            print(json.dumps({"launching": chunk, "done": start, "total": len(pending)}))
+            results += list(m10_g7_predict.starmap(
+                [(name, "") for name in chunk],
+                kwargs={"engineering_smoke": False, "code_commit": commit}))
+            for entry in results[-len(chunk):]:
+                print(json.dumps({"finished": entry["experiment_id"], "rows": entry["rows"],
+                                  "videos": entry["videos"],
+                                  "lock": entry["prediction_lock_identity"]}))
+        print(json.dumps({"g7_matrix": results}, indent=1, default=str))
     elif action == "collect":
         ids = [value.strip() for value in experiment_id.split(",") if value.strip()]
         print(json.dumps(m10_collect_runs.remote(ids), indent=1, default=str))
@@ -709,4 +868,5 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
             results += list(m10_smoke_row.map(chunk, kwargs={"steps": 2}))
         print(json.dumps({"smokes": results}, indent=1, default=str))
     else:
-        raise SystemExit(f"unknown action {action!r}; use verify | g7 | train | smoke")
+        raise SystemExit(f"unknown action {action!r}; use verify | g7 | g7-matrix | train | "
+                         f"matrix | smoke | parity-probe | collect")

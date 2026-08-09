@@ -84,6 +84,24 @@ interval. Running the same comparison twice must reproduce the plan identity and
 every reported value **exactly**; the statistics module runs the plan builder twice
 and compares before reporting.
 
+### 3.1b Each side is scored at its OWN frozen threshold
+
+Clarified in the implementation **before any target label was opened**, because the
+prose above admitted a reading that is not what it says. "ACER at the frozen
+source-dev threshold" names a threshold that is FITTED PER EXPERIMENT on
+`source_dev`; two experiments never share one. `paired_bootstrap` therefore scores
+the treatment at the treatment's frozen threshold and the control at the control's,
+and records both beside the interval. Forcing a single threshold on both would
+report neither model at the operating point it would actually deploy.
+
+The resample plan is unaffected: it is derived from the video id set, so the same
+comparison draws the same videos whatever the thresholds are.
+
+For a 3-seed row the video score is the mean over seeds (section 3.3), so the
+operating threshold that accompanies it is the **mean of those seeds' own frozen
+source-dev thresholds**. That mean is derived, not frozen, and is recorded as such
+beside every comparison together with the three thresholds it came from.
+
 ### 3.2 What "paired" means here
 
 One resample of video ids is drawn once and **both** models are evaluated on that

@@ -43,20 +43,31 @@ FORBIDDEN_IMPORTS = ("torch", "prism_fas.detector.trainer", "prism_fas.train.tra
                      "prism_fas.train.b00_pipeline", "torch.optim")
 
 
-def static_import_audit(module_path: Path) -> dict[str, Any]:
+def static_import_audit(module_path: Path, *, dotted: str = "") -> dict[str, Any]:
     """Parse a module and list what it imports, structurally.
 
     This is an AST walk of the import graph, not a search for a word in a file —
     the M8/M9 lesson applies here too, and a docstring that names `torch` must not
     be able to fail this check.
+
+    A RELATIVE import is resolved against `dotted` when it is given. Leaving
+    `from .metrics import ...` as the bare name `metrics` would make it look like a
+    third-party module and quietly drop that whole subtree from the closure walk.
     """
     tree = ast.parse(Path(module_path).read_text(encoding="utf-8"))
+    package = dotted.rsplit(".", 1)[0] if dotted else ""
+
+    def absolute(module: str, level: int) -> str:
+        if not level: return module
+        parts = package.split(".") if package else []
+        base = ".".join(parts[:len(parts) - (level - 1)] if level > 1 else parts)
+        return f"{base}.{module}" if module else base
 
     def names(node: ast.AST) -> set[str]:
         if isinstance(node, ast.Import): return {alias.name for alias in node.names}
         if isinstance(node, ast.ImportFrom):
-            base = node.module or ""
-            return {base} | {f"{base}.{alias.name}" for alias in node.names if base}
+            base = absolute(node.module or "", int(node.level or 0))
+            return ({base} | {f"{base}.{alias.name}" for alias in node.names}) if base else set()
         return set()
 
     # Only MODULE-LEVEL imports are pulled in when the module is imported. A
@@ -75,22 +86,54 @@ def static_import_audit(module_path: Path) -> dict[str, Any]:
             "passed": not violations}
 
 
-def import_closure_audit() -> dict[str, Any]:
-    """Audit this module AND the first-party modules it imports at module level.
+def _module_file(name: str) -> Path | None:
+    """Where a first-party dotted name lives on disk, without importing it.
 
-    Auditing `scoring.py` alone would be satisfied by a module that imports a
-    module that imports torch. The evaluation package's own modules keep every
-    torch import function-local, so importing G8 pulls in no training runtime, and
-    this walk is what proves it.
+    Importing it to find out would be self-defeating: the import is exactly what
+    this audit exists to forbid.
     """
-    here = Path(__file__).parent
-    modules = [Path(__file__)] + [here / f"{name}.py" for name in
-                                  ("contracts", "firewall", "metrics", "target_prediction",
-                                   "video_aggregation")]
-    audits = [static_import_audit(path) for path in modules if path.is_file()]
+    root = Path(__file__).resolve().parents[1]          # .../prism_fas
+    if name == "prism_fas" or not name.startswith("prism_fas"): return None
+    relative = Path(*name.split(".")[1:])
+    for candidate in (root / relative.with_suffix(".py"), root / relative / "__init__.py"):
+        if candidate.is_file(): return candidate
+    return None
+
+
+def import_closure_audit() -> dict[str, Any]:
+    """Audit this module and the TRANSITIVE first-party modules it imports.
+
+    Auditing `scoring.py` alone would be satisfied by a module that imports a module
+    that imports torch — and that is not hypothetical: `evaluation.metrics` imports
+    `prism_fas.train.metrics` for M5's numpy primitives, which resolves the
+    `prism_fas.train` package first. The walk therefore follows every first-party
+    module-level import, including a package `__init__`, to its own file. A
+    function-local import is recorded but not followed: it is not a capability of
+    importing G8.
+    """
+    start = Path(__file__)
+    seen: dict[str, Path] = {"prism_fas.evaluation.scoring": start}
+    audits: list[dict[str, Any]] = []
+    pending = [("prism_fas.evaluation.scoring", start)]
+    while pending:
+        dotted, path = pending.pop()
+        audit = static_import_audit(path, dotted=dotted)
+        audits.append({**audit, "dotted": dotted})
+        for name in audit["module_level_imports"]:
+            target = _module_file(name)
+            if target is None or name in seen: continue
+            # A package `__init__` is reached whenever a submodule of it is imported.
+            package = name.rsplit(".", 1)[0]
+            if package.startswith("prism_fas.") and package not in seen:
+                init = _module_file(package)
+                if init is not None:
+                    seen[package] = init
+                    pending.append((package, init))
+            seen[name] = target
+            pending.append((name, target))
     failed = [audit for audit in audits if not audit["passed"]]
-    return {"modules_audited": [audit["module"] for audit in audits], "passed": not failed,
-            "failures": failed}
+    return {"modules_audited": sorted(audit["dotted"] for audit in audits),
+            "module_count": len(audits), "passed": not failed, "failures": failed}
 
 
 def assert_no_training_capability() -> dict[str, Any]:
@@ -190,17 +233,35 @@ def score(*, predictions: Sequence[dict[str, Any]], lock: dict[str, Any], labels
 
     frame_videos = [str(row["video_id"]) for row in predictions]
     frame_labels, frame_families = _join(frame_videos, labels)
-    frame_scores = [float(row["s_final"]) for row in predictions]
+    # The DECISION quantity — what the frozen source-dev threshold belongs to.
+    frame_scores = [float(row["decision_score"]) for row in predictions]
+    frame_fused = [float(row["s_final"]) for row in predictions]
     frame_confidence = [float(row["confidence"]) for row in predictions]
 
     aggregates = aggregate_frames(predictions, threshold=threshold, unknown_threshold=unknown_threshold)
     video_ids = [row["video_id"] for row in aggregates]
     video_labels, video_families = _join(video_ids, labels)
     video_scores = [float(row["video_score"]) for row in aggregates]
+    video_fused = [float(row["video_fused_score"]) for row in aggregates]
     video_confidence = [float(row["video_confidence"]) for row in aggregates]
 
     frame_core = core_metrics(frame_scores, frame_labels, threshold=threshold)
     video_core = core_metrics(video_scores, video_labels, threshold=threshold)
+    # The declared fusion, reported on the metrics that need no calibrated scale.
+    # It is NOT given an ACER at the frozen threshold, because that threshold does
+    # not belong to it (contract section 2b) and printing one would be the very
+    # category error the revision exists to remove.
+    fused_evidence = {
+        "score": "s_final = 1 - (1 - p_global)(1 - s_region), the declared Table 34 fusion",
+        "threshold_free_only": True,
+        "reason": "the frozen source-dev threshold was fitted on the calibrated p_global; an ACER "
+                  "for the fused score at that threshold would not be a measurement",
+        "frame": {key: value for key, value in core_metrics(frame_fused, frame_labels,
+                                                            threshold=threshold).items()
+                  if key in ("roc_auc", "eer", "eer_threshold", "population")},
+        "video": {key: value for key, value in core_metrics(video_fused, video_labels,
+                                                            threshold=threshold).items()
+                  if key in ("roc_auc", "eer", "eer_threshold", "population")}}
     scorable = not is_not_applicable(video_core["acer"])
     body = {
         "scoring_schema_version": M10_SCORING_SCHEMA_VERSION,
@@ -228,7 +289,12 @@ def score(*, predictions: Sequence[dict[str, Any]], lock: dict[str, Any], labels
                             if scorable else not_applicable(
                                 "a threshold table needs both bona-fide and attack presentations",
                                 population=population(video_scores, video_labels))),
+        "fused_evidence": fused_evidence,
+        "decision_score_definition": (
+            "calibrated p_global = sigmoid(global_logit / T), the quantity run_g6 fitted the frozen "
+            "temperature and threshold on and the quantity the checkpoint was selected on"),
         "video_scores": [{"video_id": row["video_id"], "video_score": row["video_score"],
+                          "video_fused_score": row["video_fused_score"],
                           "video_confidence": row["video_confidence"], "decision": row["decision"],
                           "label": label} for row, label in zip(aggregates, video_labels)],
         "target_labels_opened": True,

@@ -86,6 +86,7 @@ def _video_acer(scores: np.ndarray, labels: np.ndarray, threshold: float) -> flo
 
 def paired_bootstrap(*, video_ids: Sequence[str], scores_a: Sequence[float], scores_b: Sequence[float],
                      labels: Sequence[int], threshold: float,
+                     threshold_a: float | None = None, threshold_b: float | None = None,
                      settings: BootstrapSettings | None = None,
                      statistic: Callable[[np.ndarray, np.ndarray, float], float] | None = None
                      ) -> dict[str, Any]:
@@ -94,9 +95,18 @@ def paired_bootstrap(*, video_ids: Sequence[str], scores_a: Sequence[float], sco
     Drawing two independent resamples would inflate the interval and is not what
     Table 58 asks for: the between-video variance the two models share is exactly
     what pairing removes.
+
+    **Each side is scored at its OWN frozen source-dev threshold.** The statistics
+    contract's statistic is "ACER at the frozen source-dev threshold", and that
+    threshold is fitted per experiment on `source_dev`; two experiments do not share
+    one. Forcing a single threshold on both would report neither model at the
+    operating point it would actually deploy. `threshold` remains the default for
+    both sides so a genuinely shared-threshold comparison is still expressible.
     """
     settings = (settings or BootstrapSettings()).validate()
     metric = statistic or _video_acer
+    left_threshold = float(threshold if threshold_a is None else threshold_a)
+    right_threshold = float(threshold if threshold_b is None else threshold_b)
     ids = [str(value) for value in video_ids]
     left = np.asarray(scores_a, dtype=np.float64)
     right = np.asarray(scores_b, dtype=np.float64)
@@ -104,16 +114,19 @@ def paired_bootstrap(*, video_ids: Sequence[str], scores_a: Sequence[float], sco
     if not (len(ids) == left.size == right.size == truth.size):
         raise M10ContractError("video ids, both score vectors and labels must align")
     plan = build_plan(ids, settings)
-    observed = metric(left, truth, threshold) - metric(right, truth, threshold)
+    observed = metric(left, truth, left_threshold) - metric(right, truth, right_threshold)
     deltas = np.empty(int(settings.resamples), dtype=np.float64)
     for position, row in enumerate(plan["indices"]):
-        deltas[position] = metric(left[row], truth[row], threshold) - metric(right[row], truth[row], threshold)
+        deltas[position] = (metric(left[row], truth[row], left_threshold)
+                            - metric(right[row], truth[row], right_threshold))
     alpha = 1.0 - float(settings.confidence_level)
     low, high = np.percentile(deltas, [100.0 * alpha / 2.0, 100.0 * (1.0 - alpha / 2.0)])
     p_value = float(min(1.0, 2.0 * min(float((deltas <= 0).mean()), float((deltas >= 0).mean()))))
     return {"schema_version": M10_BOOTSTRAP_SCHEMA_VERSION, "settings": settings.payload(),
             "n_units": plan["n_units"], "bootstrap_plan_identity": plan["bootstrap_plan_identity"],
             "seed_material_sha256": plan["seed_material_sha256"],
+            "threshold_treatment": left_threshold, "threshold_control": right_threshold,
+            "threshold_source": "frozen source_dev calibration of each side",
             "observed_delta": float(observed), "ci_low": float(low), "ci_high": float(high),
             "confidence_level": float(settings.confidence_level), "interval": "percentile",
             "p_value": p_value, "paired": True,
@@ -196,10 +209,15 @@ def run_declared_family(*, hypotheses: dict[str, Any], scored: dict[str, dict[st
                                  "reason": "the two models were not scored on the same video set, "
                                            "so the comparison cannot be paired"}
             continue
+        # Each side at its own frozen source-dev threshold; `threshold` is the
+        # fallback only for a scored block that does not carry one.
         result = paired_bootstrap(video_ids=left["video_ids"], scores_a=left["scores"],
                                   scores_b=right["scores"], labels=left["labels"],
-                                  threshold=threshold, settings=settings)
+                                  threshold=threshold,
+                                  threshold_a=left.get("threshold"), threshold_b=right.get("threshold"),
+                                  settings=settings)
         comparisons[name] = {"status": "computed", "treatment": treatment, "control": control,
+                             "treatment_seeds": left.get("n_seeds"), "control_seeds": right.get("n_seeds"),
                              **result}
         p_values[name] = float(result["p_value"])
     correction = holm_bonferroni(p_values, alpha=alpha) if p_values else {

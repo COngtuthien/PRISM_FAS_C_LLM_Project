@@ -395,16 +395,73 @@ def prediction_validate(predictions: Path = typer.Option(..., "--predictions", e
     _echo(payload)
 
 
+@prediction_app.command("validate-matrix")
+def prediction_validate_matrix(
+        root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--root", exists=True, file_okay=False),
+        source_lock: Path = typer.Option(DEFAULT_REPORTS / "SOURCE_MATRIX_LOCK.json", "--source-lock",
+                                         exists=True, dir_okay=False),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        expected_rows: int = typer.Option(6776, "--expected-rows"),
+        expected_videos: int = typer.Option(1700, "--expected-videos"),
+        output: Path = typer.Option(DEFAULT_REPORTS / "G7_PREDICTION_VALIDATION.json", "--output"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """Validate EVERY eligible row's prediction against the frozen source decision.
+
+    Section 9 of the milestone instruction, per row: the counts, the ids, the
+    finiteness, the applicability of every nullable term, and that the checkpoint,
+    calibration, scientific config and target package the lock names are the ones
+    `SOURCE_MATRIX_LOCK` froze. No score is computed and no label is touched.
+    """
+    from prism_fas.evaluation import closure
+    lock = json.loads(Path(source_lock).read_text(encoding="utf-8"))
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    package_identity = evaluation["roots"]["target_feature_package_identity"]
+    rows, missing = [], []
+    for entry in closure.eligible_rows(lock):
+        name = str(entry["experiment_id"])
+        row_root = Path(root) / name
+        if not (row_root / g7.PREDICTION_FILE).is_file() or \
+           not (row_root / g7.PREDICTION_LOCK_FILE).is_file():
+            missing.append(name); continue
+        rows.append(closure.validate_row_prediction(
+            entry=entry, prediction_path=row_root / g7.PREDICTION_FILE,
+            lock=json.loads((row_root / g7.PREDICTION_LOCK_FILE).read_text(encoding="utf-8")),
+            package_identity=package_identity,
+            source_matrix_lock_identity=lock["source_matrix_lock_identity"],
+            expected_rows=expected_rows, expected_videos=expected_videos))
+    payload = {"schema_version": "m10-g7-prediction-validation-v1",
+               "source_matrix_lock_identity": lock["source_matrix_lock_identity"],
+               "target_feature_package_identity": package_identity,
+               "eligible_rows": len(closure.eligible_rows(lock)), "validated_rows": len(rows),
+               "missing_rows": sorted(missing), "per_row": rows,
+               "passed": bool(rows) and not missing and all(row["passed"] for row in rows),
+               "target_labels_opened": False}
+    if not dry_run: atomic_json_write(Path(output), payload)
+    _echo({"passed": payload["passed"], "validated_rows": len(rows),
+           "missing_rows": payload["missing_rows"],
+           "failed_rows": [row["experiment_id"] for row in rows if not row["passed"]],
+           "written": [] if dry_run else [str(output)]})
+    if not payload["passed"]: raise typer.Exit(1)
+
+
 @prediction_app.command("lockset")
 def prediction_lockset(root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--root", exists=True,
                                                  file_okay=False),
                        plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
                                                  exists=True, dir_okay=False),
                        registry_root: Path = typer.Option(DEFAULT_REPORTS, "--registry-root"),
+                       source_lock: Path = typer.Option(DEFAULT_REPORTS / "SOURCE_MATRIX_LOCK.json",
+                                                        "--source-lock", exists=True, dir_okay=False),
+                       evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                                              exists=True, dir_okay=False),
                        output: Path = typer.Option(DEFAULT_REPORTS / "TARGET_PREDICTION_LOCKSET.json",
                                                    "--output"),
+                       repeat: int = typer.Option(2, "--repeat",
+                                                  help="the contract requires two agreeing passes"),
                        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
     """Freeze the complete lockset. The label reveal waits behind this file."""
+    from prism_fas.evaluation import closure
     locks = [json.loads(path.read_text(encoding="utf-8"))
              for path in sorted(Path(root).glob(f"*/{g7.PREDICTION_LOCK_FILE}"))]
     if not locks: raise typer.BadParameter(f"no {g7.PREDICTION_LOCK_FILE} under {root}")
@@ -414,13 +471,210 @@ def prediction_lockset(root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--root
                "engineering_smoke": smoke, "written": []})
         raise typer.Exit(1)
     payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    source = json.loads(Path(source_lock).read_text(encoding="utf-8"))
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
     registry = ExperimentRegistry.load(Path(registry_root))
-    lockset = g7.build_lockset(locks, matrix_identity=payload["m10_matrix_identity"],
-                               registry_identity=registry.identity())
+    eligible = {str(entry["experiment_id"]) for entry in closure.eligible_rows(source)}
+    present = {str(lock["experiment_id"]) for lock in locks}
+    if present != eligible:
+        _echo({"passed": False, "reason": "the locks on disk are not exactly the eligible rows",
+               "missing": sorted(eligible - present), "unexpected": sorted(present - eligible),
+               "written": []})
+        raise typer.Exit(1)
+    build = lambda: g7.build_lockset(
+        locks, matrix_identity=payload["m10_matrix_identity"], registry_identity=registry.identity(),
+        source_matrix_lock_identity=source["source_matrix_lock_identity"],
+        target_feature_package_identity=evaluation["roots"]["target_feature_package_identity"],
+        row_statuses={str(entry["experiment_id"]): str(entry["status"])
+                      for entry in source["entries"]},
+        blocked_rows=[entry for entry in source["entries"] if entry.get("status") == "BLOCKED"],
+        rows_without_prediction=closure.rows_without_prediction(source),
+        code_lineage=_code_lineage())
+    built = [build() for _ in range(max(1, repeat))]
+    agreed = all(item["lockset_identity"] == built[0]["lockset_identity"] for item in built)
+    if not agreed:
+        _echo({"passed": False, "reason": "the lockset did not reproduce its identity", "written": []})
+        raise typer.Exit(1)
+    lockset = built[0]
     if not dry_run: atomic_json_write(Path(output), lockset)
-    _echo({"passed": True, "entries": lockset["entry_count"],
+    _echo({"passed": True, "entries": lockset["entry_count"], "validated_twice_agree": agreed,
+           "frame_rows_total": lockset["frame_rows_total"],
+           "blocked_rows": len(lockset["blocked_rows"]),
+           "rows_without_prediction": len(lockset["rows_without_prediction"]),
            "lockset_identity": lockset["lockset_identity"],
            "written": [] if dry_run else [str(output)]})
+
+
+@app.command("pre-reveal-audit")
+def pre_reveal_audit_command(
+        root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+        prediction_root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--prediction-root"),
+        config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=True, dir_okay=False),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        expected_rows: int = typer.Option(6776, "--expected-rows"),
+        expected_videos: int = typer.Option(1700, "--expected-videos"),
+        output: Path = typer.Option(DEFAULT_REPORTS / "PRE_REVEAL_AUDIT.json", "--output"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """The hard stop before the one-way reveal. A failure here means STOP."""
+    from prism_fas.evaluation import closure
+    lockset = json.loads(Path(root, closure.LOCKSET_FILE).read_text(encoding="utf-8"))
+    source = json.loads(Path(root, "SOURCE_MATRIX_LOCK.json").read_text(encoding="utf-8"))
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    audit = closure.pre_reveal_audit(
+        lockset=lockset, source_matrix_lock=source,
+        matrix_plan=experiment_matrix.build_plan(Path(config)),
+        prediction_root=Path(prediction_root), reports_root=Path(root),
+        package_identity=evaluation["roots"]["target_feature_package_identity"],
+        expected_rows=expected_rows, expected_videos=expected_videos,
+        evaluation_config=evaluation)
+    if not dry_run: atomic_json_write(Path(output), audit)
+    _echo({"passed": audit["passed"], "checks": audit["checks"],
+           "eligible_rows": audit["eligible_rows"], "locked_rows": audit["locked_rows"],
+           "failed_rows": [row["experiment_id"] for row in audit["per_row"] if not row["passed"]],
+           "written": [] if dry_run else [str(output)]})
+    if not audit["passed"]: raise typer.Exit(1)
+
+
+@app.command("reveal")
+def reveal_command(
+        root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+        labels: Path = typer.Option(Path("data/evaluation_only/prism_target_v2_labels"), "--labels"),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        authorized_by: str = typer.Option(..., "--authorized-by"),
+        output: Path = typer.Option(DEFAULT_REPORTS / "TARGET_LABEL_REVEAL.json", "--output"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """The ONE-WAY target-label reveal. It refuses unless the pre-reveal audit passed.
+
+    After this, `target_labels_revealed` is true forever. There is no command that
+    sets it back, because there is no way to un-open a label.
+    """
+    from prism_fas.evaluation import closure
+    lockset = json.loads(Path(root, closure.LOCKSET_FILE).read_text(encoding="utf-8"))
+    source = json.loads(Path(root, "SOURCE_MATRIX_LOCK.json").read_text(encoding="utf-8"))
+    audit_path = Path(root, "PRE_REVEAL_AUDIT.json")
+    if not audit_path.is_file():
+        _echo({"passed": False, "reason": "no PRE_REVEAL_AUDIT.json exists; run the audit first"})
+        raise typer.Exit(1)
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if not audit.get("passed") or audit.get("lockset_identity") != lockset["lockset_identity"]:
+        _echo({"passed": False, "reason": "the pre-reveal audit did not pass for THIS lockset"})
+        raise typer.Exit(1)
+    if Path(output).exists():
+        _echo({"passed": False, "reason": "the reveal already happened; it is one-way and is never "
+                                          "performed twice", "existing": str(output)})
+        raise typer.Exit(1)
+    firewall = _firewall(evaluation_config)
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    reveal = scoring.target_label_reveal(lockset=lockset, authorized_by=authorized_by)
+    label_path = Path(labels) / evaluation["roots"]["target_label_artifact"]
+    if dry_run:
+        # A dry run must NOT open the artifact. Reporting what a real reveal would do
+        # is the whole point of a dry run; reading the labels to do it would perform
+        # the very act it is checking.
+        _echo({"status": "dry_run", "would_open": label_path.name,
+               "label_artifact_exists": label_path.is_file(),
+               "labels_opened": False, "target_labels_revealed": False,
+               "lockset_identity": lockset["lockset_identity"],
+               "pre_reveal_audit_passed": True, "written": []})
+        return
+    # The FIRST authorized read. Everything above had to pass for this line to run.
+    opened = scoring.load_evaluation_labels(label_path, firewall=firewall, stage="G8")
+    import hashlib
+    digest = hashlib.sha256(label_path.read_bytes()).hexdigest()
+    payload = {**reveal, "revealed_at": _timestamp(),
+               "label_artifact": label_path.name, "label_artifact_sha256": digest,
+               "label_counts": opened.counts(),
+               "source_matrix_lock_identity": source["source_matrix_lock_identity"],
+               "m10_matrix_identity": source["m10_matrix_identity"],
+               "target_feature_package_identity":
+                   evaluation["roots"]["target_feature_package_identity"],
+               "target_prediction_lockset_identity": lockset["lockset_identity"],
+               "pre_reveal_audit_identity": audit["pre_reveal_audit_identity"],
+               "evaluation_config": str(evaluation_config),
+               "prior_unrecorded_read": {
+                   "occurred": True,
+                   "what": "an earlier `m10 reveal --dry-run` in this session called "
+                           "load_evaluation_labels and printed the artifact's video/live/spoof "
+                           "counts before this record was written",
+                   "why_it_changed_nothing": "the pre-reveal audit had already passed on this exact "
+                                             "lockset, every prediction was already frozen and "
+                                             "immutable, and the counts it printed (1700 / 785 / 915) "
+                                             "were already public in TARGET_PACKAGE_ACCEPTANCE.json "
+                                             "and M10_HANDOFF.md as part of the frozen target "
+                                             "package inventory. No per-video label was inspected "
+                                             "and no artifact was altered.",
+                   "fixed": "the --dry-run path now returns before opening the artifact"},
+               "code_lineage": _code_lineage()}
+    if not dry_run:
+        atomic_json_write(Path(output), payload)
+        # The instant of the transition. The record is written FIRST, because the
+        # config's `true` is only legitimate once that record exists — the loader
+        # refuses the flag otherwise, so the flag cannot be flipped by hand. The
+        # edit is textual so the frozen file keeps its comments.
+        text = Path(evaluation_config).read_text(encoding="utf-8")
+        flipped = text.replace("target_labels_revealed: false",
+                               "target_labels_revealed: true", 1)
+        if flipped == text:
+            raise typer.BadParameter("the evaluation config no longer declares "
+                                     "target_labels_revealed: false; refusing to guess its state")
+        Path(evaluation_config).write_text(flipped, encoding="utf-8")
+    _echo({"target_labels_revealed": True, "one_way": True,
+           "evaluation_config_updated": str(evaluation_config),
+           "label_counts": payload["label_counts"],
+           "label_artifact_sha256": digest,
+           "reveal_identity": payload["reveal_identity"],
+           "written": [] if dry_run else [str(output)]})
+
+
+def _timestamp() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@app.command("score-matrix")
+def score_matrix_command(
+        root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+        prediction_root: Path = typer.Option(DEFAULT_REPORTS / "g7", "--prediction-root"),
+        output_root: Path = typer.Option(DEFAULT_REPORTS / "g8", "--output-root"),
+        labels: Path = typer.Option(Path("data/evaluation_only/prism_target_v2_labels"), "--labels"),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                  exists=True, dir_okay=False),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """G8 over the whole matrix, locally and isolated. Refuses before the reveal."""
+    from prism_fas.evaluation import closure
+    if not Path(root, closure.REVEAL_FILE).is_file():
+        _echo({"passed": False, "reason": "no authorized reveal exists; G8 may not open a label"})
+        raise typer.Exit(1)
+    lockset = json.loads(Path(root, closure.LOCKSET_FILE).read_text(encoding="utf-8"))
+    source = json.loads(Path(root, "SOURCE_MATRIX_LOCK.json").read_text(encoding="utf-8"))
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    firewall = _firewall(evaluation_config)
+    label_path = Path(labels) / evaluation["roots"]["target_label_artifact"]
+    evaluation_labels = scoring.load_evaluation_labels(label_path, firewall=firewall, stage="G8")
+    scorings = closure.score_matrix(
+        source_matrix_lock=source, lockset=lockset, prediction_root=Path(prediction_root),
+        output_root=Path(output_root), labels=evaluation_labels, firewall=firewall,
+        package_identity=evaluation["roots"]["target_feature_package_identity"],
+        unknown_threshold=evaluation["thresholds"]["unknown_threshold"])
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    roles = {row["experiment_id"].rsplit("-s", 1)[0]: row["replication_role"] for row in payload["rows"]}
+    seeds = closure.seed_summary(scorings, roles=roles)
+    thresholds = {name: float(result["threshold"]) for name, result in scorings.items()}
+    statistics_block = closure.statistics_input(scorings, thresholds=thresholds)
+    if not dry_run:
+        closure.write_json(Path(root, "G8_SEED_SUMMARY.json"),
+                           {"schema_version": closure.CLOSURE_SCHEMA_VERSION, "by_row": seeds},
+                           firewall=firewall)
+        closure.write_json(Path(root, "G8_STATISTICS_INPUT.json"), statistics_block, firewall=firewall)
+    _echo({"scored_rows": len(scorings), "logical_rows": len(seeds),
+           "isolation": {key: value for key, value in scoring.isolation_report().items()
+                         if key != "static_import_audit"},
+           "written": [] if dry_run else [str(Path(output_root)), str(Path(root, "G8_SEED_SUMMARY.json")),
+                                          str(Path(root, "G8_STATISTICS_INPUT.json"))]})
 
 
 # --- G8 ----------------------------------------------------------------------
@@ -481,9 +735,16 @@ def statistics_command(scored: Path = typer.Option(..., "--scored", exists=True,
 
 @app.command("reliability")
 def reliability_command(output: Path = typer.Option(DEFAULT_REPORTS / "RELIABILITY.json", "--output"),
+                        execution: Path | None = typer.Option(
+                            None, "--execution",
+                            help="the modal_m10_reliability payload, if the tests have been run"),
                         dry_run: bool = typer.Option(False, "--dry-run")) -> None:
     """Materialize the declared reliability tests and their statuses."""
-    payload = reliability.build_report(reliability.declared_tests())
+    tests = reliability.declared_tests()
+    if execution is not None and Path(execution).is_file():
+        tests = reliability.apply_execution(
+            tests, json.loads(Path(execution).read_text(encoding="utf-8")))
+    payload = reliability.build_report(tests)
     reliability.write_report(Path(output), payload, dry_run=dry_run)
     _echo({"tests": payload["count"], "by_status": payload["by_status"],
            "blocked": [item["test_id"] for item in payload["blocked"]],
@@ -495,27 +756,87 @@ def reliability_command(output: Path = typer.Option(DEFAULT_REPORTS / "RELIABILI
 def report_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
                                              exists=True, dir_okay=False),
                    registry_root: Path = typer.Option(DEFAULT_REPORTS, "--registry-root"),
+                   root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
                    reliability_json: Path | None = typer.Option(None, "--reliability"),
                    statistics_json: Path | None = typer.Option(None, "--statistics"),
+                   scores_root: Path | None = typer.Option(None, "--scores-root",
+                                                           help="reports/m10/g8 once G8 has run"),
+                   summary_json: Path | None = typer.Option(None, "--summary"),
                    output: Path = typer.Option(DEFAULT_REPORTS / "M10_REPORT.json", "--output"),
+                   html: Path = typer.Option(DEFAULT_REPORTS / "report.html", "--html"),
                    dry_run: bool = typer.Option(False, "--dry-run")) -> None:
     """Assemble the report from frozen artifacts. Nothing is recomputed."""
+    from prism_fas.evaluation import closure, disclosures as disclosure_module
     payload = json.loads(Path(plan).read_text(encoding="utf-8"))
     registry = ExperimentRegistry.load(Path(registry_root))
+    read = lambda path: json.loads(Path(path).read_text(encoding="utf-8")) if path else None
+    scores: dict = {}
+    if scores_root is not None:
+        for path in sorted(Path(scores_root).glob("*/scoring.json")):
+            block = json.loads(path.read_text(encoding="utf-8"))
+            scores[str(block["experiment_id"])] = block
+    revealed = Path(root, closure.REVEAL_FILE).is_file()
+    summary = read(summary_json) if summary_json and Path(summary_json).is_file() else None
+    parity_path = Path(root, "A09_BACKEND_PARITY.json")
     assembled = report.assemble(
-        plan=payload, registry=registry,
-        reliability=(json.loads(Path(reliability_json).read_text(encoding="utf-8"))
-                     if reliability_json else None),
-        statistics=(json.loads(Path(statistics_json).read_text(encoding="utf-8"))
-                    if statistics_json else None),
-        target_labels_revealed=False)
-    audit = report.audit_no_fabricated_target_values(assembled)
+        plan=payload, registry=registry, scores=scores or None,
+        reliability=read(reliability_json) if reliability_json else None,
+        statistics=read(statistics_json) if statistics_json else None,
+        target_package=disclosure_module.target_package_record(Path(root)),
+        backend_parity=(disclosure_module.backend_parity_record(parity_path)
+                        if parity_path.is_file() else None),
+        hypotheses=(summary or {}).get("hypotheses"),
+        disclosures=disclosure_module.build(Path(root), registry),
+        seed_summaries=(read(Path(root, "G8_SEED_SUMMARY.json"))
+                        or {}).get("by_row") if Path(root, "G8_SEED_SUMMARY.json").is_file() else None,
+        target_labels_revealed=revealed)
+    audit = (report.audit_no_fabricated_target_values(assembled) if not revealed
+             else {"checked": False, "reason": "labels are revealed; target values are expected"})
     report.write_report(Path(output), assembled, dry_run=dry_run)
     if not dry_run:
         Path(output).with_suffix(".md").write_text(report.render_markdown(assembled), encoding="utf-8")
+        Path(html).write_text(report.render_html(assembled, summary), encoding="utf-8")
     _echo({"report_identity": assembled["report_identity"], "sections": len(assembled["sections"]),
-           "no_fabricated_target_values": audit, "target_labels_revealed": False,
-           "written": [] if dry_run else [str(output), str(Path(output).with_suffix(".md"))]})
+           "scored_rows": len(scores), "no_fabricated_target_values": audit,
+           "target_labels_revealed": revealed,
+           "written": [] if dry_run else [str(output), str(Path(output).with_suffix(".md")), str(html)]})
+
+
+@app.command("summary")
+def summary_command(
+        root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+        plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",
+                                  exists=True, dir_okay=False),
+        scores_root: Path = typer.Option(DEFAULT_REPORTS / "g8", "--scores-root"),
+        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
+                                               exists=True, dir_okay=False),
+        output: Path = typer.Option(DEFAULT_REPORTS / "summary.json", "--output"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """`summary.json` — every headline number with its provenance, machine-readable."""
+    from prism_fas.evaluation import closure, disclosures as disclosure_module
+    read = lambda name: (json.loads(Path(root, name).read_text(encoding="utf-8"))
+                         if Path(root, name).is_file() else {})
+    scorings = {}
+    for path in sorted(Path(scores_root).glob("*/scoring.json")):
+        block = json.loads(path.read_text(encoding="utf-8"))
+        scorings[str(block["experiment_id"])] = block
+    payload = json.loads(Path(plan).read_text(encoding="utf-8"))
+    roles = {row["experiment_id"].rsplit("-s", 1)[0]: row["replication_role"] for row in payload["rows"]}
+    registry = ExperimentRegistry.load(Path(root))
+    summary = closure.build_summary(
+        plan=payload, source_matrix_lock=read("SOURCE_MATRIX_LOCK.json"),
+        lockset=read(closure.LOCKSET_FILE), scorings=scorings,
+        seeds=closure.seed_summary(scorings, roles=roles) if scorings else {},
+        statistics=read("statistics.json"), reliability=read("RELIABILITY.json"),
+        reveal=read(closure.REVEAL_FILE),
+        parity=disclosure_module.backend_parity_record(Path(root, "A09_BACKEND_PARITY.json"))
+        if Path(root, "A09_BACKEND_PARITY.json").is_file() else None,
+        compute=disclosure_module.compute_record(registry),
+        disclosures=disclosure_module.build(Path(root), registry))
+    if not dry_run: atomic_json_write(Path(output), summary)
+    _echo({"summary_identity": summary["summary_identity"], "rows": summary["rows"],
+           "hypotheses": {name: block["outcome"] for name, block in summary["hypotheses"].items()},
+           "written": [] if dry_run else [str(output)]})
 
 
 @app.command("acceptance")
@@ -523,30 +844,28 @@ def acceptance_command(config: Path = typer.Option(DEFAULT_MATRIX, "--config", e
                        evaluation_config: Path = typer.Option(DEFAULT_EVALUATION, "--evaluation-config",
                                                               exists=True, dir_okay=False),
                        root: Path = typer.Option(DEFAULT_REPORTS, "--root"),
+                       test_suite: Path | None = typer.Option(None, "--test-suite",
+                                                             help="the pytest result summary JSON"),
+                       expected_rows: int = typer.Option(6776, "--expected-rows"),
+                       expected_videos: int = typer.Option(1700, "--expected-videos"),
                        output: Path = typer.Option(DEFAULT_REPORTS / "M10_ACCEPTANCE.json", "--output"),
                        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
     """What is and is not yet true about M10, checked rather than asserted."""
+    from prism_fas.evaluation import closure
     firewall = _firewall(evaluation_config)
     first = experiment_matrix.build_plan(Path(config))
     second = experiment_matrix.build_plan(Path(config))
     agreement = experiment_matrix.plans_agree(first, second)
-    checks = {
-        "matrix_deterministic": agreement["identical"],
-        "blocked_rows_carry_reasons": all(row.get("blocked_reason") for row in first["rows"]
-                                          if row["status"] == "BLOCKED"),
-        "unique_experiment_ids": len({row["experiment_id"] for row in first["rows"]}) == len(first["rows"]),
-        "train_cannot_read_target_labels": firewall.permission("TRAIN", "target_label_root") == "deny",
-        "g7_cannot_read_target_labels": firewall.permission("G7", "target_label_root") == "deny",
-        "g8_reads_target_labels": firewall.permission("G8", "target_label_root") == "read",
-        "g8_has_no_training_capability": scoring.isolation_report()["static_import_audit"]["passed"],
-        "target_labels_revealed_is_false": not Path(root, "TARGET_LABEL_REVEAL.json").exists()}
-    payload = {"m10_acceptance_schema_version": "m10-acceptance-v1",
-               "m10_matrix_identity": first["m10_matrix_identity"], "checks": checks,
-               "passed": all(checks.values()), "summary": first["summary"],
-               "target_labels_revealed": False,
-               "not_claimed": ["SiW-Mv2 performance", "cross-domain superiority",
-                               "ablation superiority", "state-of-the-art comparison"]}
+    evaluation = g7.load_evaluation_config(Path(evaluation_config))
+    payload = closure.acceptance_checks(
+        reports_root=Path(root), matrix_plan=first, matrix_deterministic=agreement["identical"],
+        firewall=firewall, package_identity=evaluation["roots"]["target_feature_package_identity"],
+        expected_rows=expected_rows, expected_videos=expected_videos,
+        test_suite=(json.loads(Path(test_suite).read_text(encoding="utf-8"))
+                    if test_suite and Path(test_suite).is_file() else None))
     if not dry_run: atomic_json_write(Path(output), payload)
-    _echo({**{key: payload[key] for key in ("passed", "checks", "m10_matrix_identity")},
+    _echo({"passed": payload["passed"], "failed_checks": payload["failed_checks"],
+           "m10_matrix_identity": payload["m10_matrix_identity"],
+           "acceptance_identity": payload["acceptance_identity"],
            "written": [] if dry_run else [str(output)]})
     if not payload["passed"]: raise typer.Exit(1)

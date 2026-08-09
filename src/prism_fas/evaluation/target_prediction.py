@@ -33,7 +33,8 @@ PREDICTION_LOCK_FILE = "PREDICTION_LOCK.json"
 PREDICTION_SCHEMA = pa.schema([
     ("sample_id", pa.string()), ("video_id", pa.string()), ("frame_id", pa.int64()),
     ("p_global", pa.float64()), ("s_region", pa.float64()), ("p_prompt", pa.float64()),
-    ("s_final", pa.float64()), ("confidence", pa.float64()), ("decision", pa.string()),
+    ("s_final", pa.float64()), ("decision_score", pa.float64()),
+    ("confidence", pa.float64()), ("decision", pa.string()),
     ("top_region_ids", pa.list_(pa.int64())), ("region_distances", pa.list_(pa.float64())),
     ("checkpoint_hash", pa.string()), ("calibration_hash", pa.string()),
     ("inference_config_hash", pa.string()), ("region_status", pa.string()),
@@ -99,13 +100,28 @@ class VariantCapabilities:
         return cls.from_variant(ResolvedExperimentVariant.resolve(dict(flags)))
 
 
-def load_evaluation_config(path: Path) -> dict[str, Any]:
+def load_evaluation_config(path: Path,
+                           reveal_path: Path = Path("reports/m10/TARGET_LABEL_REVEAL.json")
+                           ) -> dict[str, Any]:
+    """Load the frozen evaluation config and enforce the one-way reveal flag.
+
+    `target_labels_revealed` may be `true` ONLY once the authorized reveal record
+    exists, so the flag cannot be flipped by editing a YAML file: the artifact that
+    records the first authorized read is what permits it. It is one-way — nothing
+    here or anywhere else sets it back, because a label cannot be un-opened.
+    """
     payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict): raise M10ContractError(f"{Path(path).name} is not a mapping")
     if payload.get("evaluation_schema_version") != "m10-target-evaluation-v1":
         raise M10ContractError(f"evaluation schema {payload.get('evaluation_schema_version')!r} "
                                f"!= 'm10-target-evaluation-v1'")
-    if payload.get("target_labels_revealed") is not False:
+    revealed = payload.get("target_labels_revealed")
+    if revealed is True:
+        if not Path(reveal_path).is_file():
+            raise M10ContractError("the evaluation config declares target_labels_revealed: true but "
+                                   f"{Path(reveal_path).name} does not exist; the flag is one-way and "
+                                   "is set by the authorized reveal, never by hand")
+    elif revealed is not False:
         raise M10ContractError("the evaluation config must declare target_labels_revealed: false "
                                "until the authorized reveal")
     return payload
@@ -123,6 +139,16 @@ def build_prediction_row(*, sample_id: str, video_id: str, frame_id: int, p_glob
     `1 - (1 - p_global)` collapses to `p_global` when the regional and prompt
     evidence terms do not exist. That is the same formula with fewer factors, not a
     second formula, and it is why an absent term is `null` rather than `0.0`.
+
+    **`decision_score` is `p_global`, not `s_final`** (contract section 2b). The
+    frozen temperature and the frozen threshold were both fitted by `run_g6` on
+    `output.global_logit` alone, and the checkpoint was selected on
+    `sigmoid(global_logit)`, so `p_global` is the only quantity the frozen operating
+    point belongs to. `s_final >= threshold` is a category error: `s_final` is
+    pointwise >= `p_global`, and on `source_dev` it puts every bona-fide sample above
+    the threshold (BPCER 1.0, ACER 0.5). For a variant with no regional or prompt
+    branch the two are equal by construction, so this changes nothing for B00-B05.
+    `s_final` is still recorded and is still reported for the threshold-free metrics.
     """
     factors = [float(p_global)]
     if s_region is not None: factors.append(float(s_region))
@@ -130,16 +156,18 @@ def build_prediction_row(*, sample_id: str, video_id: str, frame_id: int, p_glob
     s_final = 1.0
     for value in factors: s_final *= (1.0 - value)
     s_final = 1.0 - s_final
-    # One definition of confidence, derived from the fused score, so a caller can
-    # never hand in a confidence that disagrees with the score it belongs to.
-    if confidence is None: confidence = max(s_final, 1.0 - s_final)
+    decision_score = float(p_global)
+    # One definition of confidence, derived from the DECISION score, so a caller can
+    # never hand in a confidence that disagrees with the decision it belongs to.
+    if confidence is None: confidence = max(decision_score, 1.0 - decision_score)
     decision = ("reject" if unknown_threshold is not None and float(confidence) < float(unknown_threshold)
-                else ("spoof" if s_final >= float(threshold) else "live"))
+                else ("spoof" if decision_score >= float(threshold) else "live"))
     return {"sample_id": str(sample_id), "video_id": str(video_id), "frame_id": int(frame_id),
             "p_global": float(p_global),
             "s_region": (None if s_region is None else float(s_region)),
             "p_prompt": (None if p_prompt is None else float(p_prompt)),
-            "s_final": float(s_final), "confidence": float(confidence), "decision": decision,
+            "s_final": float(s_final), "decision_score": decision_score,
+            "confidence": float(confidence), "decision": decision,
             "top_region_ids": [int(value) for value in top_region_ids],
             "region_distances": [float(value) for value in region_distances],
             "checkpoint_hash": str(checkpoint_hash), "calibration_hash": str(calibration_hash),
@@ -163,7 +191,7 @@ def validate_predictions(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
         if extra: raise M10ContractError(f"prediction row carries undeclared columns {extra}")
         if row["sample_id"] in seen_ids: raise M10ContractError(f"duplicate sample_id {row['sample_id']!r}")
         seen_ids.add(str(row["sample_id"]))
-        for name in ("p_global", "s_final", "confidence"):
+        for name in ("p_global", "s_final", "decision_score", "confidence"):
             value = float(row[name])
             if not np.isfinite(value): raise M10ContractError(f"{name} is not finite")
             if value < -1e-9 or value > 1.0 + 1e-9: raise M10ContractError(f"{name}={value} outside [0,1]")
@@ -192,8 +220,8 @@ def prediction_logical_identity(rows: Sequence[dict[str, Any]]) -> str:
     change identity because of the writer's version.
     """
     body = [[str(row["sample_id"]), str(row["video_id"]), int(row["frame_id"]),
-             round(float(row["s_final"]), 12), round(float(row["confidence"]), 12),
-             str(row["decision"])] for row in rows]
+             round(float(row["s_final"]), 12), round(float(row["decision_score"]), 12),
+             round(float(row["confidence"]), 12), str(row["decision"])] for row in rows]
     return stable_identity({"schema_version": M10_PREDICTION_SCHEMA_VERSION,
                             "rows": sorted(body, key=lambda item: item[0])})
 
@@ -227,10 +255,24 @@ def build_prediction_lock(*, experiment_id: str, variant: str, seed: int | None,
                           inference_config_hash: str, target_feature_package_identity: str,
                           target_package_id: str, threshold: float,
                           unknown_threshold: float | None,
+                          scientific_config_hash: str = "",
+                          source_matrix_lock_identity: str = "",
+                          code_commit: str = "",
                           engineering_smoke: bool = False) -> dict[str, Any]:
+    """Freeze one prediction.
+
+    `scientific_config_hash`, `source_matrix_lock_identity` and `code_commit` bind
+    the prediction to the frozen source-side decision that produced it, so a lock
+    can be traced back to a matrix row and the code that ran it without consulting
+    anything outside the file. They are empty only for an engineering smoke, which
+    has no matrix row to bind.
+    """
     aggregates = aggregate_frames(rows, threshold=threshold, unknown_threshold=unknown_threshold)
     body = {"prediction_lock_schema_version": M10_PREDICTION_LOCK_SCHEMA_VERSION,
             "experiment_id": str(experiment_id), "variant": str(variant), "seed": seed,
+            "scientific_config_hash": str(scientific_config_hash),
+            "source_matrix_lock_identity": str(source_matrix_lock_identity),
+            "code_commit": str(code_commit),
             "checkpoint_sha256": str(checkpoint_sha256),
             "source_calibration_sha256": str(source_calibration_sha256),
             "calibration_hash": str(calibration_hash),
@@ -261,7 +303,10 @@ def validate_prediction_lock(lock: dict[str, Any], rows: Sequence[dict[str, Any]
                              expected_calibration_sha256: str | None = None,
                              expected_calibration_hash: str | None = None,
                              expected_inference_config_hash: str | None = None,
-                             expected_package_identity: str | None = None) -> dict[str, Any]:
+                             expected_package_identity: str | None = None,
+                             expected_scientific_config_hash: str | None = None,
+                             expected_source_matrix_lock_identity: str | None = None
+                             ) -> dict[str, Any]:
     """Every refusal condition of the target evaluation contract section 5.
 
     A refusal raises. It is never a warning and never a fallback path.
@@ -282,7 +327,11 @@ def validate_prediction_lock(lock: dict[str, Any], rows: Sequence[dict[str, Any]
         "calibration_hash": (expected_calibration_hash, lock.get("calibration_hash")),
         "inference_config_hash": (expected_inference_config_hash, lock.get("inference_config_hash")),
         "target_feature_package_identity": (expected_package_identity,
-                                            lock.get("target_feature_package_identity"))}
+                                            lock.get("target_feature_package_identity")),
+        "scientific_config_hash": (expected_scientific_config_hash,
+                                   lock.get("scientific_config_hash")),
+        "source_matrix_lock_identity": (expected_source_matrix_lock_identity,
+                                        lock.get("source_matrix_lock_identity"))}
     mismatched = {name: {"expected": expected, "lock": actual}
                   for name, (expected, actual) in checks.items()
                   if expected is not None and expected != actual}
@@ -302,21 +351,60 @@ def validate_prediction_lock(lock: dict[str, Any], rows: Sequence[dict[str, Any]
 
 
 def build_lockset(locks: Sequence[dict[str, Any]], *, matrix_identity: str,
-                  registry_identity: str) -> dict[str, Any]:
-    """`TARGET_PREDICTION_LOCKSET.json` — the gate the label reveal waits behind."""
+                  registry_identity: str, source_matrix_lock_identity: str = "",
+                  target_feature_package_identity: str = "",
+                  row_statuses: dict[str, str] | None = None,
+                  blocked_rows: Sequence[dict[str, Any]] = (),
+                  rows_without_prediction: Sequence[dict[str, Any]] = (),
+                  code_lineage: dict[str, Any] | None = None) -> dict[str, Any]:
+    """`TARGET_PREDICTION_LOCKSET.json` — the gate the label reveal waits behind.
+
+    It binds the whole source-side decision, not just the predictions: the frozen
+    `SOURCE_MATRIX_LOCK` identity, the matrix identity, the target FEATURE identity,
+    every row's terminal status, the BLOCKED rows with their reasons, and the rows
+    that legitimately produce no prediction with the reason they do not. A reader
+    can therefore tell a missing prediction from an absent one.
+    """
     if not locks: raise M10ContractError("a lockset cannot be empty")
     identifiers = [str(lock["experiment_id"]) for lock in locks]
     duplicates = sorted({name for name in identifiers if identifiers.count(name) > 1})
     if duplicates: raise M10ContractError(f"duplicate experiment ids in the lockset: {duplicates}")
+    bound = {str(lock.get("source_matrix_lock_identity") or "") for lock in locks}
+    if source_matrix_lock_identity and bound != {str(source_matrix_lock_identity)}:
+        raise M10ContractError("every prediction lock must bind the same SOURCE_MATRIX_LOCK identity; "
+                               f"found {sorted(bound)}")
+    if any(lock.get("engineering_smoke") for lock in locks):
+        raise M10ContractError("an engineering-smoke prediction may never enter the lockset")
     body = {"lockset_schema_version": "m10-prediction-lockset-v1",
             "m10_matrix_identity": str(matrix_identity), "registry_identity": str(registry_identity),
+            "source_matrix_lock_identity": str(source_matrix_lock_identity),
+            "target_feature_package_identity": str(target_feature_package_identity),
             "entries": sorted(({"experiment_id": str(lock["experiment_id"]),
+                                "variant": str(lock.get("variant", "")),
+                                "seed": lock.get("seed"),
+                                "scientific_config_hash": str(lock.get("scientific_config_hash", "")),
+                                "checkpoint_sha256": str(lock.get("checkpoint_sha256", "")),
+                                "source_calibration_sha256":
+                                    str(lock.get("source_calibration_sha256", "")),
+                                "inference_config_hash": str(lock.get("inference_config_hash", "")),
                                 "prediction_lock_identity": str(lock["prediction_lock_identity"]),
                                 "prediction_logical_identity": str(lock["prediction_logical_identity"]),
                                 "row_count": int(lock["row_count"]),
                                 "video_count": int(lock["video_count"])} for lock in locks),
                               key=lambda entry: entry["experiment_id"]),
-            "entry_count": len(locks), "target_labels_opened": False, "status": "FROZEN"}
+            "entry_count": len(locks),
+            "row_statuses": dict(sorted((row_statuses or {}).items())),
+            "blocked_rows": sorted(({"experiment_id": str(row["experiment_id"]),
+                                     "reason": str(row.get("reason") or row.get("blocked_reason") or "")}
+                                    for row in blocked_rows),
+                                   key=lambda entry: entry["experiment_id"]),
+            "rows_without_prediction": sorted(({"experiment_id": str(row["experiment_id"]),
+                                                "reason": str(row.get("reason", ""))}
+                                               for row in rows_without_prediction),
+                                              key=lambda entry: entry["experiment_id"]),
+            "frame_rows_total": sum(int(lock["row_count"]) for lock in locks),
+            "code_lineage": dict(code_lineage or {}),
+            "target_labels_opened": False, "status": "FROZEN"}
     return {**body, "lockset_identity": stable_identity(body)}
 
 

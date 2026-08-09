@@ -1,5 +1,120 @@
 # Changelog
 
+## M10 COMPLETED - blind SiW-Mv2 target evaluation - 2026-08-09
+
+`target_labels_revealed: false -> true`. The transition is one-way, happened exactly once, and is
+recorded in `reports/m10/TARGET_LABEL_REVEAL.json` with the lockset identity, the pre-reveal audit
+identity and the sealed artifact's own SHA-256. It happened only after all 37 prediction-eligible
+rows were frozen.
+
+### The order the milestone was executed in, and what gated each step
+
+- `SOURCE_MATRIX_LOCK` (`c06944344eab...`) validated a **third** time, this time REMOTELY inside a
+  Modal container against the bytes on the runs volume: for all 37 eligible rows the checkpoint
+  exists with the locked SHA, the calibration exists with the locked SHA and hash, the run is
+  COMPLETED and `target_test_opened` is false (`reports/m10/SOURCE_MATRIX_REVERIFICATION.json`).
+- The label firewall re-verified in-container: 7 shards / 6776 rows / 1700 videos, every shard and
+  manifest hash matching, `feature_label_leakage: 0`, **`label_artifact_resolvable: false`** across
+  all three mounted volumes.
+- **Scientific G7 over 37 rows**, each 6776 frames across 1700 videos (1676 videos x 4 frames,
+  24 x 3). A scientific row now reads `SOURCE_MATRIX_LOCK` INSIDE the container and refuses unless
+  the opened checkpoint SHA, the calibration SHA and the calibration hash are the ones the lock
+  froze, and unless the prediction covers the whole package. `p_prompt` is `not_applicable` on
+  every target row, as the contract predicted.
+- `TARGET_PREDICTION_LOCKSET.json`: 37 entries, 250712 frame rows, built twice with an identical
+  identity, binding the source lock, the matrix, the target FEATURE identity, every row status, the
+  4 BLOCKED rows and the 5 rows that legitimately produce no prediction.
+- Pre-reveal audit **15/15**, then the reveal, then an isolated G8 over all 37 rows.
+
+### Measured results - two of five hypotheses supported
+
+1700 videos (785 live / 915 spoof), 6776 frames. Each row decided at its OWN frozen source-dev
+threshold.
+
+```
+B01  ACER 0.21798            AUC 0.87436      (1 seed, diagnostic)
+B06  ACER 0.31190 +/- 0.01040 AUC 0.78822     (3 seeds)
+B07  ACER 0.35962 +/- 0.02598 AUC 0.72050     (3 seeds)
+B08  ACER 0.36088 +/- 0.04730 AUC 0.69327     (3 seeds, the full method)
+B00  ACER 0.42307 +/- 0.10879 AUC 0.78588     (3 seeds)
+A01  ACER 0.51560 +/- 0.00409 AUC 0.32330     (3 seeds, naive_concat)
+```
+
+| H | comparison | dACER | 95% CI | p (Holm) | outcome |
+|---|---|---|---|---|---|
+| H1 | B08 vs A01 naive_concat | -0.15593 | [-0.17932, -0.13239] | 0.0000 | **supported** |
+| H2 | B07 vs B06 | +0.05214 | [+0.03967, +0.06531] | 0.0000 | **not_supported** |
+| H3 | B08 vs A07 image_level | +0.01293 | [+0.00752, +0.01889] | 0.0000 | **not_supported** |
+| H4 | B08 vs A02 random_operators | +0.00974 | [+0.00393, +0.01590] | 0.0004 | **not_supported** |
+| H5 | B08 vs A04 hard_gate_only | -0.01540 | [-0.02535, -0.00550] | 0.0018 | **supported** |
+
+All five cleared Holm-Bonferroni, but **three cleared it in the direction opposite to the
+prediction**. Those are negative results and are reported as such, in full, rather than dropped,
+re-tested under another metric or re-run with another seed.
+
+### Two real defects, both found and fixed BEFORE any label was opened
+
+- **G7 decided on the wrong quantity.** It compared the fused `s_final` against "the frozen
+  source-dev threshold", but `run_g6` fits both the temperature and that threshold on
+  `output.global_logit` alone, and the checkpoint is selected on `sigmoid(global_logit)`. Measured
+  on `source_dev`: calibrated `p_global` at the frozen threshold gives ACER 0.1382 (reproducing the
+  frozen G6 record's 0.13695), while `s_final` at the same threshold gives APCER 0.0 / BPCER 1.0 /
+  **ACER 0.5** - a degenerate all-spoof classifier, because mean `s_region` on bona-fide samples is
+  **0.9644**. The prediction schema was versioned **v1 -> v2** with a `decision_score` column, and
+  all 37 predictions were regenerated from the SAME frozen checkpoints and calibrations. Nothing
+  was retrained, refitted or reselected; the superseded v1 predictions are retained under
+  `reports/m10/g7_v1_superseded/`. `docs/M10_TARGET_EVALUATION_CONTRACT.md` section 2b.
+- **G8 was not actually torch-free.** `isolation_report()` reported `g8_imports_torch: false`, and
+  that was **false**: `import_closure_audit` resolved a relative import (`from .metrics import ...`)
+  to the bare name `metrics`, silently dropping whole subtrees, and `evaluation.metrics` imports
+  `prism_fas.train.metrics`, which resolves the `prism_fas.train` package first, whose `__init__`
+  imported `.models` and with it torch. The audit now resolves relative imports and walks the
+  transitive first-party graph (16 modules), and `prism_fas/train/__init__.py` re-exports lazily.
+  A test asserts it in a FRESH interpreter, because asserting it inside the test session would
+  prove nothing.
+
+### Also corrected
+
+- The paired bootstrap scored both sides at ONE threshold. Two experiments never share a
+  `source_dev` threshold, so `paired_bootstrap` now takes `threshold_a`/`threshold_b` and each side
+  is scored at its own frozen operating point.
+- `m10 reveal --dry-run` opened the sealed artifact to report its counts. It now returns before the
+  read; the one occurrence is disclosed inside `TARGET_LABEL_REVEAL.json` itself, with why it
+  changed nothing (the audit had passed, every prediction was already immutable, and the counts it
+  printed were already public in the frozen package inventory).
+
+### Reliability - 6 PASSED, 2 FAILED, 2 BLOCKED
+
+Every acceptance rule was given its number in `modal_m10_reliability.py` BEFORE the tests ran.
+
+- FAILED `synthetic_vs_real_spoof_probe`: a linear probe on the detector's own evidence separates
+  synthetic from real spoof at **0.9375** balanced accuracy against a declared ceiling of 0.75.
+- FAILED `residual_scale_zero`: scaling the residual to zero moves the decision score by only
+  **0.022** against a declared minimum of 0.10, although the mean regional distance does fall
+  (0.772 -> 0.622). The regional evidence responds to the artefact; the decision largely does not.
+- PASSED: the three benign corruptions, `recipe_region_shift`, `artifact_map_swap`,
+  `cross_route_synthetic`.
+- BLOCKED: `benign_glasses_makeup_lowlight` (unchanged) and `crop_padding_interpolation`, because
+  the frozen package stores only the 224x224 crop - no bbox, no path back to a source frame.
+
+### Compute, measured
+
+**12.56 GPU-hours** of training across the 37 rows, read from each run's own
+`stages/<G>/output_hashes.json` rather than estimated. Offline synthetic/preprocessing cost and
+online G7 inference cost are reported separately.
+
+### Artifacts and tests
+
+`report.html`, `summary.json`, `M10_ACCEPTANCE.json` (**32/32**), `TARGET_PREDICTION_LOCKSET.json`,
+`TARGET_LABEL_REVEAL.json`, `PRE_REVEAL_AUDIT.json`, `G7_PREDICTION_VALIDATION.json`,
+`SOURCE_MATRIX_REVERIFICATION.json`, `DECISION_SCORE_DIAGNOSTIC.json`, `RELIABILITY.json`,
+`M10_COMPUTE_RAW.json`, `TEST_SUITE.json`.
+
+Full suite: **1081 passed, 0 failed, 0 skipped** (1057 before this closure; 24 added).
+
+**No state-of-the-art claim, no first-method claim, and no comparison outside the five predeclared
+hypotheses.**
+
 ## M10 Additive SiW-Mv2 Target Evaluation Package - 2026-08-08
 
 `target_labels_revealed: false`, `target_label_artifact_built: true`. The sealed

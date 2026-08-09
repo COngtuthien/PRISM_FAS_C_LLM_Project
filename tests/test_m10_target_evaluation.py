@@ -72,7 +72,14 @@ def test_a_relative_or_dotdot_path_cannot_slip_past_the_firewall(firewall, tmp_p
 def test_isolation_declarations_do_not_false_positive(firewall):
     """The M8/M9 lesson: the proof of isolation must not read as a leak."""
     payload = yaml.safe_load(EVALUATION_CONFIG.read_text(encoding="utf-8"))
-    assert payload["target_labels_revealed"] is False
+    # `target_labels_revealed` is ONE-WAY. It was false until the authorized reveal
+    # and is true afterwards, forever; asserting a fixed value would make this test
+    # fail the moment M10 legitimately completed. The invariant that holds for good
+    # is that `true` requires the reveal record to exist — see
+    # `test_the_revealed_flag_cannot_be_set_without_the_reveal_record`.
+    assert payload["target_labels_revealed"] in (False, True)
+    if payload["target_labels_revealed"] is True:
+        assert Path("reports/m10/TARGET_LABEL_REVEAL.json").is_file()
     assert "Replay" in payload["isolation"]["attack_taxonomy_forbidden_outside_g8"]
     assert firewall.assert_no_attack_taxonomy(payload, where="m10_target.yaml")["violations"] == 0
     assert firewall.assert_no_target_paths(payload, where="m10_target.yaml")["violations"] == 0
@@ -323,15 +330,29 @@ def test_trimmed_mean_drops_ten_percent_from_each_end_at_twenty_frames():
 
 
 def test_video_confidence_is_the_median_and_grouping_is_deterministic():
-    rows = [{"video_id": "v1", "sample_id": f"s{index}", "s_final": score, "confidence": confidence}
+    rows = [{"video_id": "v1", "sample_id": f"s{index}", "decision_score": score,
+             "s_final": score, "confidence": confidence}
             for index, (score, confidence) in enumerate([(0.9, 0.9), (0.1, 0.55), (0.5, 0.6)])]
-    rows += [{"video_id": "v0", "sample_id": "s9", "s_final": 0.2, "confidence": 0.8}]
+    rows += [{"video_id": "v0", "sample_id": "s9", "decision_score": 0.2, "s_final": 0.2,
+              "confidence": 0.8}]
     aggregates = agg.aggregate_frames(rows, threshold=0.5)
     assert [row["video_id"] for row in aggregates] == ["v0", "v1"]
     assert aggregates[1]["video_confidence"] == pytest.approx(0.6)
     assert aggregates[1]["video_score"] == pytest.approx(0.5)
     assert aggregates[1]["decision"] == "spoof" and aggregates[0]["decision"] == "live"
     assert agg.aggregate_frames(list(reversed(rows)), threshold=0.5) == aggregates
+
+
+def test_the_video_score_aggregates_the_decision_quantity_not_the_fusion():
+    """Contract 2b: the frozen threshold belongs to the calibrated p_global, so the
+    video score must aggregate that, with the fusion carried alongside."""
+    rows = [{"video_id": "v1", "sample_id": f"s{index}", "decision_score": 0.30,
+             "s_final": 0.97, "confidence": 0.7} for index in range(4)]
+    aggregates = agg.aggregate_frames(rows, threshold=0.8374)
+    assert aggregates[0]["video_score"] == pytest.approx(0.30)
+    assert aggregates[0]["video_fused_score"] == pytest.approx(0.97)
+    # The fused score is far above the threshold; the decision must not follow it.
+    assert aggregates[0]["decision"] == "live"
 
 
 def test_nothing_is_rejected_while_the_unknown_threshold_is_unfitted():

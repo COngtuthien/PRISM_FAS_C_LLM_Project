@@ -4,7 +4,7 @@ Local, reproducible data factory for face anti-spoofing research: read-only data
 explicit-rule canonical adapters, and deterministic M2 preprocessing that turns raw source and
 target media into face crops with strict Parquet manifests.
 
-**Status: M2–M9 complete; M10 in progress (framework frozen, 1700-video target evaluation package built, no target label opened).** See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+**Status: M2–M10 complete.** The blind SiW-Mv2 evaluation ran end to end on 1700 videos; `M10_ACCEPTANCE.json` passes 32/32. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Install and test
 
@@ -276,15 +276,18 @@ superiority or any final research claim. `source_dev` was read only for checkpoi
 source calibration and produced no gradient; `target_test` was never opened. The experiment matrix
 and the controlled blind target evaluation are M10.
 
-## M10 experiment matrix and blind target evaluation (in progress)
+## M10 experiment matrix and blind target evaluation (completed)
 
 ```
-target_labels_revealed: false
+target_labels_revealed: true
 ```
 
-No SiW-Mv2 label has ever been opened, no target metric exists, no matrix row has been launched and
-no M10 Modal app has ever been created. The framework is implemented, frozen and tested first, on
-purpose: every contract that could be bent by a result is fixed before any result can exist.
+One-way, and flipped exactly once: the labels were sealed and unread until every one of the 37
+prediction-eligible rows had a frozen, self-reproducing prediction, `TARGET_PREDICTION_LOCKSET.json`
+was validated twice, and the pre-reveal audit passed 15/15. The framework was implemented, frozen
+and tested BEFORE execution on purpose: every contract that could be bent by a result was fixed
+before any result could exist. `reports/m10/TARGET_LABEL_REVEAL.json` records the instant, and
+`load_evaluation_config` refuses a `true` flag with no reveal record beside it.
 
 Three contracts, all frozen before execution:
 [docs/M10_EXPERIMENT_CONTRACT.md](docs/M10_EXPERIMENT_CONTRACT.md) (Table 59 B00-B08 as
@@ -355,10 +358,14 @@ read as a leak, and G8's lack of a training capability is proved by an AST audit
 never `0.0` or `null`. A variant without a regional or prompt branch writes `null`, not zero. An
 unscored report contains no target number, and a structural check enforces that.
 
-**No claim yet.** M10 makes no SiW-Mv2, cross-domain, ablation or state-of-the-art claim, because no
-target label has been opened. The next step is the additive 1700-video target evaluation package
-(785 live + 915 spoof across 14 attack families at the frozen 4 frames/video) with its
-evaluation-only label artifact physically and logically separated from the feature package.
+**What M10 measured, and what it does not claim.** On 1700 SiW-Mv2 videos (785 live / 915 spoof,
+14 attack families), B08 scored video ACER 0.36088 +/- 0.04730 at its own frozen source-dev
+threshold. Of the five predeclared comparisons, **two are supported (H1, H5) and three are not
+(H2, H3, H4)** — the latter three significant in the direction opposite to the prediction, which is
+reported as a negative result rather than dropped. Two of ten reliability tests FAILED and are
+reported. M10 makes **no state-of-the-art claim, no first-method claim and no comparison outside
+the five predeclared hypotheses**; n = 3 seeds is the spec minimum and it is small, and a result on
+this evaluation set says nothing about other datasets or about deployment.
 
 ## What is not in this repository
 
