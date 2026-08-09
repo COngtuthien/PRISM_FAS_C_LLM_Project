@@ -21,8 +21,37 @@ Dataset/
 dataset/
 model_cache/
 
-# Generated reports, run logs and validation evidence
-reports/
+# Generated reports, run logs and validation evidence.
+# Inherited Version-B report trees (reports/m2 .. reports/m10, reports/paper, ...) stay
+# ignored: they are the frozen Version-B evidence and are referenced by identity, never
+# re-committed here. Version-C milestone report roots are re-included so the small,
+# hand-auditable acceptance artifacts (C0_ACCEPTANCE.json and friends) can be committed.
+# A directory cannot be re-included once its parent is excluded, so `reports/*` excludes
+# the CONTENTS of reports/ rather than reports/ itself.
+reports/*
+!reports/c0/
+!reports/c1/
+!reports/c2/
+!reports/c3/
+!reports/c4/
+!reports/c5/
+!reports/c6/
+!reports/c7/
+!reports/c8/
+!reports/c9/
+!reports/c10/
+!reports/c11/
+!reports/c12/
+!reports/c13/
+!reports/final/
+# Inside a Version-C report root, large or generated artifacts stay out. Raw LLM
+# response archives, prediction tables, checkpoints and logs are provenance held on
+# disk and referenced by hash, not Git payload.
+reports/c*/**/raw_responses/
+reports/c*/**/*.parquet
+reports/c*/**/*.tar
+reports/c*/**/*.npz
+reports/c*/**/*.png
 
 # ---------------------------------------------------------------------------
 # Local configuration and secrets
@@ -86,3 +115,27 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# ---------------------------------------------------------------------------
+# PRISM-FAS-C (Version C) additions
+# ---------------------------------------------------------------------------
+# Generated Version-C banks. The frozen RND/DET/LLM recipe banks and the matched
+# synthetic banks are large generated scientific data: they live on disk and in the
+# artifact locks, and are referenced by identity. Their small BANK_LOCK.json files may
+# be committed explicitly with `git add -f` once C3/C6 freeze them.
+data/recipe_banks/
+data/synthetic_banks/
+data/llm_raw_responses/
+
+# LLM provider secrets. A real key must never reach Git, a log, a JSON provenance
+# record, a report or a screenshot; only the variable NAME lives in .env.example.
+.env.local
+*.api_key
+gemini_api_key*
+**/service_account*.json
+
+# SSH material for the ssh_lab compute backend.
+id_rsa*
+id_ed25519*
+*.ppk
+known_hosts

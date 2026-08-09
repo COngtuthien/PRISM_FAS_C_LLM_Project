@@ -1,0 +1,137 @@
+{
+  "schema_version": "c0-test-suite-v1",
+  "milestone": "C0",
+  "command": "python -m pytest -q",
+  "working_directory": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project",
+  "branch": "c0-spec-reconciliation",
+
+  "measured": {
+    "passed": 1005,
+    "failed": 7,
+    "skipped": 101,
+    "errors": 0,
+    "warnings": 1,
+    "duration_seconds": 394.8,
+    "raw": "7 failed, 1005 passed, 101 skipped, 1 warning in 394.80s (0:06:34)"
+  },
+
+  "c0_tests_added": {
+    "file": "tests/c0/test_c0_frozen_design.py",
+    "passed": 32,
+    "failed": 0,
+    "skipped": 0,
+    "raw": "32 passed in 0.25s",
+    "note": "these are the new Version-C C0 guards; they run standalone and need no dataset, no artifact tree, no network and no provider"
+  },
+
+  "version_b_baseline_for_comparison": {
+    "source": "the frozen Version-B repository, reports/m10/TEST_SUITE.json, at closure",
+    "passed": 1081,
+    "failed": 0,
+    "skipped": 0,
+    "git_commit": "e3ae796da08727cc4599010d0db5b5212b40d5f6",
+    "note": "Version B ran with its complete local artifact and data trees present on disk. Those trees are git-ignored and therefore do not exist in a fresh Version-C clone."
+  },
+
+  "verdict": "LIMITATIONS DOCUMENTED — no failure is attributable to a Version-C change",
+
+  "analysis": {
+    "claim": "All 7 failures and all 101 skips are caused by the absence of git-ignored Version-B local artifact trees in a fresh clone. None is a regression introduced by the C0 repository initialization, documentation, configuration or .gitignore changes.",
+    "supporting_reasoning": [
+      "The Version-C repository was created by cloning Version B at the frozen tag. A git clone carries tracked files only; data/work/, data/processed/, reports/ and runs/ are git-ignored in Version B and are therefore absent here by design.",
+      "Every failure resolves to a missing file under one of those ignored trees, or to a default empty container returned in place of a manifest that does not exist.",
+      "The same tests are recorded as passing in Version B, where those trees exist on disk.",
+      "The 32 new C0 tests pass, and 1005 inherited tests pass, so the inherited codebase imports, parses and behaves correctly after the C0 changes."
+    ],
+    "root_cause_category": "absent git-ignored local artifact tree in a fresh checkout",
+    "code_regressions_found": 0
+  },
+
+  "failures": [
+    {
+      "test": "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+      "reads": "paths.work_root/m2/<preprocessing_version>/<config_hash>/manifests/*.parquet",
+      "missing_tree": "data/work/",
+      "error": "AttributeError: 'list' object has no attribute 'to_pylist' at src/prism_fas/data/m2_validation.py:95",
+      "explanation": "the manifest tables are absent, so tables.get(role+'_frames', []) returns the empty-list default and the .to_pylist() call fails. The test asserts against the real M2 small-acceptance output, which is a Version-B build product.",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m2_validation.py::test_status_reports_expected_counts",
+      "reads": "the same M2 work tree; asserts completed_samples == 36",
+      "missing_tree": "data/work/",
+      "error": "AttributeError: 'list' object has no attribute 'to_pylist' at src/prism_fas/data/m2_validation.py:95",
+      "explanation": "same root cause as above",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed",
+      "reads": "reports/m8/pairs/PAIR_PLAN_LOCK.json",
+      "missing_tree": "reports/m8/",
+      "error": "FileNotFoundError: reports/m8/pairs/PAIR_PLAN_LOCK.json",
+      "explanation": "asserts the identities and seed recorded in the frozen Version-B M8 pair-plan lock, which is Version-B evidence",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+      "reads": "reports/m8/pairs/PAIR_PLAN_LOCK.json",
+      "missing_tree": "reports/m8/",
+      "error": "FileNotFoundError: reports/m8/pairs/PAIR_PLAN_LOCK.json",
+      "explanation": "same artifact as above",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+      "reads": "the frozen Version-B M10 closure evidence under reports/m10/",
+      "missing_tree": "reports/m10/",
+      "explanation": "asserts a property of the Version-B M10 experiment record",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+      "reads": "reports/m10/A09_BACKEND_PARITY.json",
+      "missing_tree": "reports/m10/",
+      "explanation": "asserts how the Version-B backend-parity row was reported",
+      "attributable_to_c0_change": false
+    },
+    {
+      "test": "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+      "reads": "the frozen Version-B isolation-declaration evidence under reports/",
+      "missing_tree": "reports/m9/, reports/m10/",
+      "explanation": "asserts a property of the Version-B target-isolation record",
+      "attributable_to_c0_change": false
+    }
+  ],
+
+  "skips": {
+    "total": 101,
+    "all_carry_an_explicit_reason": true,
+    "silent_skips": 0,
+    "unexplained_skips": 0,
+    "classification": "EXPECTED for a fresh clone. The inherited suite guards artifact-dependent tests with explicit skip reasons rather than failing them, so a checkout without the built trees skips them by design.",
+    "reason_groups": [
+      {"count": 13, "reason": "M3B package not built"},
+      {"count": 3, "reason": "M3B smoke package not built"},
+      {"count": 2, "reason": "M3B package not present on this machine"},
+      {"count": 40, "reason": "<artifact>.json missing; run: python scripts/m8_local_smoke.py"},
+      {"count": 2, "reason": "<artifact>.json missing; run: python scripts/m7_physics_audit.py"},
+      {"count": 41, "reason": "other named Version-B evidence artifacts not present in this checkout (parity/smoke/portability reports, candidate plan, pair plan, frozen M8 v3 bank, binding evidence, B00 smoke run)"}
+    ],
+    "note": "Counts inside reason_groups are grouped by cause; the individual reasons were captured with `pytest -rs` and every one names the exact missing artifact and, where applicable, the command that would rebuild it."
+  },
+
+  "limitation_statement": "The full inherited suite cannot reach the Version-B pass count in a fresh Version-C clone, because 7 tests assert directly against frozen Version-B evidence files and 101 more are guarded on built artifact trees. Those trees are git-ignored by design and are not copied into Version C: Version C references Version-B artifacts by identity, not by possession. Reproducing them here would mean either mirroring 222 MB of Version-B reports plus 2.6 GB of processed data into the Version-C working tree, or rebuilding them - and Version C will build its own packages and banks from C1 onward regardless. The decision on how to resolve this is recorded as an open item rather than taken unilaterally.",
+
+  "options_for_the_user": [
+    "A. Mirror the Version-B reports/ and data/ trees into the Version-C working tree read-only (untracked, git-ignored). Restores the inherited evidence tests. Costs ~2.8 GB and puts Version-B evidence inside the Version-C tree.",
+    "B. Gate the 7 evidence tests on the presence of their artifact, matching the skip discipline the other 101 already use. Keeps the suite green and honest, but edits inherited test files.",
+    "C. Leave as is and let the Version-C suite carry these 7 as known, documented, environment-caused failures until Version C builds its own equivalents in C3-C6.",
+    "Recommended: B, because it makes the inherited suite self-describing on any checkout and matches the convention the suite already uses everywhere else. It changes no scientific behaviour. It should not be done without your approval, since it edits inherited Version-B test files."
+  ],
+
+  "not_claimed": [
+    "that the Version-C suite reproduces the Version-B pass count of 1081",
+    "that the 7 failures were investigated as code defects and cleared - they were traced to missing files, and no code fix was attempted",
+    "any invented or estimated pass count"
+  ]
+}

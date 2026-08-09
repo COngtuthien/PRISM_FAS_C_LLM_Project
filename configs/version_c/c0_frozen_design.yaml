@@ -1,0 +1,268 @@
+# PRISM-FAS-C-LLM v1.1 — C0 frozen scientific design constants.
+#
+# Authority: docs/spec/PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx
+#            SHA256 d9edbfefa6829f29bb075e2f3d12073bb6517be57c0debcf93c92c4346d2e2df
+#
+# FROZEN at C0. Every value here is transcribed from the authoritative spec, not
+# invented. Changing any value is a scientific change and requires a decision record
+# before any target run (spec §0). `tests/c0/test_c0_frozen_design.py` asserts these
+# values against the documents so a silent edit fails the suite.
+#
+# C0 declares. C0 does not execute: no Gemini call, no training, no GPU job, no
+# synthesis, no SiW access.
+
+schema_version: "c0-frozen-design-v1"
+project: "PRISM-FAS-C-LLM"
+spec_version: "v1.1 FINAL"
+spec_date: "2026-08-09"
+status: "FROZEN"
+
+lineage:
+  version_b_repo: "PRISM_FAS_B_Project"
+  version_b_checkpoint: "7799f7decd35db6987ce4578824e5bd8d9eab4ae"
+  version_b_tag: "m10-blind-evaluation-checkpoint"
+  version_b_role: "historical baseline / discovery study; immutable, never rewritten"
+
+# --- §5 Datasets ------------------------------------------------------------
+datasets:
+  # Exactly three. No fourth dataset in v1.1; adding one requires a new protocol
+  # version, not an in-place edit.
+  allowed: [casia_fasd, msu_mfsd, siw_mv2]
+  count: 3
+  roles:
+    casia_fasd: source
+    msu_mfsd: source
+    siw_mv2: p3_fixed_held_out_target
+  siw_mv2_disclosure: >-
+    SiW-Mv2 is a FIXED HELD-OUT cross-domain target for Version C and is HISTORICALLY
+    KNOWN from Version B, where its labels were revealed. Version C MUST NOT describe it
+    as a never-before-seen blind target. Isolation in Version C is PROCEDURAL: the
+    prediction process cannot resolve target labels, which is auditable, but it is not
+    equivalent to never-seen blindness.
+
+# --- §5.3 / §5.5 Protocols --------------------------------------------------
+protocols:
+  p1:
+    name: "CASIA -> MSU"
+    train: [casia_fasd]
+    select_calibrate: "casia_fasd source_dev"
+    cross_domain_test: "msu_mfsd frozen cross-test manifest"
+    track_g_seeds: 3
+    role: "cross-source evidence"
+  p2:
+    name: "MSU -> CASIA"
+    train: [msu_mfsd]
+    select_calibrate: "msu_mfsd source_dev"
+    cross_domain_test: "casia_fasd frozen cross-test manifest"
+    track_g_seeds: 3
+    role: "cross-source evidence"
+  p3:
+    name: "CASIA + MSU -> SiW-Mv2"
+    train: [casia_fasd, msu_mfsd]
+    select_calibrate: "combined domain-balanced source_dev"
+    cross_domain_test: "siw_mv2 v2"
+    track_g_seeds: 5
+    role: "MAIN fixed held-out target"
+    target_population: {videos: 1700, live: 785, spoof: 915}
+
+# --- §8 Generator arms ------------------------------------------------------
+generator_arms:
+  arms: [RND, DET, LLM]
+  definitions:
+    RND: "rule-valid random operators sampled from the same ontology and ranges"
+    DET: "deterministic structured generator inherited/adapted from Version B"
+    LLM: "frozen Gemini structured recipe planner (the proposed treatment)"
+  final_recipe_count_per_arm: 256
+  # §8.2 — what must be identical across arms.
+  matched:
+    - same_source_package_identity
+    - same_final_recipe_bank_cardinality
+    - same_ontology_schema_and_operator_ranges
+    - same_source_live_base_sample_list
+    - same_route_budget
+    - same_shared_frozen_gpat_checkpoint
+    - same_quality_gate_thresholds_and_model_identities
+    - same_matched_synthetic_bank_cardinality_and_exposure
+    - same_detector_architecture_optimizer_batch_steps_seeds_within_a_comparison
+
+# --- §7.2 / §23.1 LLM provider contract (declared at C0, called from C1) -----
+llm:
+  provider: "google_gemini_developer_api"
+  model_id: "gemini-3.6-flash"
+  model_status: "stable"
+  api_surface: "generate_content_or_interactions_frozen_at_C1"
+  sdk_version: "FROZEN_AT_C1"          # exact version recorded at C1, not guessed here
+  generation:
+    thinking_level: "medium"
+    response_mime_type: "application/json"
+    json_schema_identity: "FROZEN_AT_C1"
+    modality: "TEXT_ONLY"
+    # Deprecated for Gemini 3.x: these MUST NOT be sent.
+    forbidden_sampling_controls: [temperature, top_p, top_k]
+  disabled_capabilities:
+    tools: false
+    google_search_grounding: false
+    url_context: false
+    code_execution: false
+    file_search: false
+    image_input: false
+    audio_input: false
+    video_input: false
+  retry:
+    semantic_max_retries: 2
+    transport_backoff: "exponential"
+    quota_exhausted_action: "checkpoint_and_stop"
+  bank:
+    pilot_candidates: 32
+    scientific_candidate_slots: 384
+    request_schedule: "12x32"
+    minimum_valid_unique_pool_before_selection: 320
+    final_recipe_count: 256
+  leakage:
+    allow_source_images_to_llm: false
+    allow_target_images_to_llm: false
+    allow_siw_taxonomy: false
+    allow_siw_metrics: false
+    allow_target_failure_feedback: false
+  billing:
+    start_tier: "free"
+    auto_enable_paid: false
+  secret:
+    env_var_name: "GEMINI_API_KEY"
+    source: "environment_or_secret_store"
+    never_in: [git, logs, json_provenance, reports, screenshots]
+  c0_live_requests_made: 0
+
+# --- §7.4 Ontology minimum coverage ----------------------------------------
+ontology:
+  inherits_from: "Version-B recipe schema v1.1 (configs/recipes/ontology_m7.yaml)"
+  schema_version: "1.1"
+  medium: [paper-like, display-like, plastic-like, fabric-like, reflective-film-like]
+  geometry: [flat, curved, partial-curved, flexible, rigid, boundary-only]
+  regions: [left_eye, right_eye, nose, mouth, forehead, left_cheek, right_cheek,
+            face_boundary, context]
+  artifacts: [halftone, pixel_grid, moire, specular_reflection, texture_smoothing,
+              color_shift, boundary_inconsistency, blur]
+  capture_axes: [illumination_direction, yaw, scale, compression, motion, defocus]
+  severity: "continuous normalized strength with operator-specific safe ranges"
+  max_artifacts_per_recipe: 3
+  min_artifacts_per_recipe: 1
+  max_regions_per_recipe: 3
+  min_regions_per_recipe: 1
+  coverage_requirement: >-
+    every ontology artifact and all 9 region classes MUST appear in each final bank;
+    all medium and geometry categories MUST meet a predeclared minimum count.
+
+# --- §8.3 Generator-neutral GPAT-C -----------------------------------------
+gpat_c:
+  requirement: "generator-neutral"
+  support_bank: >-
+    built deterministically from the ontology and the safe parameter manifold,
+    INDEPENDENT of the final RND/DET/LLM treatment recipe banks
+  trained_once: true
+  frozen_and_shared_by_all_arms: true
+  version_b_confound_removed: "A02 OOD-conditioning caveat (GPAT trained on a structured recipe identity)"
+  normative: >-
+    No treatment arm may receive a GPAT checkpoint trained specifically on its own
+    recipe bank in the primary C-H1/C-H2/C-H3 comparisons.
+
+# --- §10.4 / §11.3 Synthesis and matched banks -----------------------------
+synthesis:
+  source_split_allowed: "source_train only"
+  renders_per_recipe: 8
+  physics_renders_per_recipe: 4
+  gpat_renders_per_recipe: 4
+  candidate_renders_per_arm: 2048       # 256 recipes x 8
+  candidate_renders_all_arms: 6144      # 3 arms
+  accepted_per_arm: 1024
+  accepted_physics_per_arm: 512
+  accepted_gpat_per_arm: 512
+  gate_failure_policy: >-
+    If one arm cannot reach 1024 accepted samples under the COMMON gate, C6 FAILS.
+    The gate is never relaxed for a single arm.
+  q_semantics: >-
+    q is a sample-quality weight, never a class label. q multiplies ONLY the synthetic
+    loss bracket; it must not weight real samples or the whole loss.
+
+# --- §13 Detector tracks ----------------------------------------------------
+tracks:
+  track_g:
+    role: "PRIMARY generator-effect detector"
+    image_encoder: "frozen SigLIP2 Base P16-224 (Version-B model identity/revision)"
+    trainable: "lightweight binary / fusion head only"
+    regions: off
+    prompt_head: off
+    manifold: off
+    sampler: domain_class_balanced
+    purpose: "isolate the recipe-generator effect with minimum architectural confound"
+  track_r:
+    role: "SECONDARY confirmatory spec-faithful regional PRISM"
+    local_branch: "ConvNeXt V2 Atto (inherited pretrained weight identity; NOT Tiny in v1.1)"
+    global_branch: "frozen SigLIP2 image tower"
+    regions: 9
+    region_fusion: "cross-attention over local feature map + global patch tokens"
+    prompt_head: on
+    manifold: off            # primary Track-R variant; K=4 only as an explicit secondary row
+    manifold_secondary_k: 4
+    outlier_supervision: "mask-aware synthetic losses; clean regions retain consistency"
+
+# --- §18.3 Replication ------------------------------------------------------
+replication:
+  seed_family_5: [20260806, 20260807, 20260808, 20260809, 20260810]
+  seed_family_3: [20260806, 20260807, 20260808]
+  p3_track_g_primary_seeds: 5      # C-H1, C-H2
+  p1_p2_track_g_seeds: 3
+  track_r_and_prompt_head_seeds: 3 # C-H3, C-H5
+  single_seed_rows: "diagnostic only; may never support a superiority claim"
+  best_seed_reporting: forbidden
+  reporting: "per-seed values plus mean +/- std for every replicated row"
+
+# --- §20.3 Statistics -------------------------------------------------------
+statistics:
+  primary_endpoint: "video ACER"
+  bootstrap_unit: "VIDEO"
+  bootstrap: "paired video bootstrap"
+  resamples: 10000
+  confidence_interval: "95% percentile"
+  bootstrap_seed: 20260810
+  multiple_comparison_correction: "Holm-Bonferroni"
+  target_hypothesis_family: [C-H1, C-H2, C-H3, C-H5]
+  reported_separately: [C-H4]        # source-only mechanism/reliability hypothesis
+  delta_definition: "delta_ACER = treatment - control; negative favours LLM"
+  video_aggregation: "trimmed mean, trim=0.10, for the decision score; median confidence"
+
+# --- §23.3 Compute backends -------------------------------------------------
+compute:
+  backend_ids: [modal_l4, ssh_lab]
+  backend_is_scientific_factor: false   # operational metadata only
+  modal_l4:
+    role: "temporary engineering / preflight backend"
+    precision: "BF16 AMP"
+    caveat: "access may expire; do not assume future availability"
+  ssh_lab:
+    role: "future lab-GPU backend reached over SSH"
+    mandatory_before: "C8"
+    precision_preferred: "BF16 AMP"
+    precision_fallback: "FP16 AMP, frozen as a separate compute profile before C8"
+    gpu_model: "UNKNOWN — resolved by the C8 capability probe, not assumed here"
+  precision_rule: >-
+    Never silently change precision inside a scientific block. BF16 and FP16 seeds are
+    never pooled as identical without a preregistered backend factor.
+  homogeneity: "hypothesis-critical rows SHOULD run on one homogeneous final compute profile"
+
+# --- §21.1 Identity chain ---------------------------------------------------
+identity_chain:
+  - source_package
+  - ontology_and_schema
+  - llm_prompt_model_raw_response_identities
+  - recipe_bank_lock
+  - neutral_gpat_support_and_checkpoint
+  - synthetic_bank_lock
+  - detector_config_and_checkpoint
+  - calibration
+  - SOURCE_MATRIX_LOCK_C
+  - predictions_and_PREDICTION_LOCK
+  - TARGET_PREDICTION_LOCKSET_C
+  - reveal_record
+  - scoring_and_statistics
+  - C_ACCEPTANCE

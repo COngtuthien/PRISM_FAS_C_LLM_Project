@@ -1,0 +1,424 @@
+{
+  "schema_version": "c0-version-b-integrity-v1",
+  "purpose": "Read-only fingerprint of the frozen PRISM-FAS-B scientific state, captured by PRISM-FAS-C C0. Version B was opened for reading only.",
+  "version_b_repo_path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+  "git": {
+    "status_short": "",
+    "status_clean": true,
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "main": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "origin_main": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag_m10_blind_evaluation_checkpoint_peeled": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "remotes": "origin\thttps://github.com/COngtuthien/PRISM_FAS_B_Project.git (fetch)\norigin\thttps://github.com/COngtuthien/PRISM_FAS_B_Project.git (push)",
+    "log_1": "7799f7d (HEAD -> main, tag: m10-blind-evaluation-checkpoint, origin/main, origin/m10-experiment-matrix, origin/HEAD, m10-experiment-matrix) docs: reconcile final M10 project state",
+    "tags": [
+      "m10-blind-evaluation-checkpoint",
+      "m2-full-preprocessing-v2",
+      "m3-prism-data-v1-m3b",
+      "m4-canonical-loader-sampler",
+      "m5-b00-local-baseline",
+      "m6-modal-parity-checkpoint",
+      "m7-recipe-physics-checkpoint",
+      "m8-gpat-synthetic-bank-checkpoint",
+      "m9-regional-detector-checkpoint"
+    ],
+    "expected_checkpoint": "7799f7decd35db6987ce4578824e5bd8d9eab4ae"
+  },
+  "frozen_source_package": {
+    "package_id": "prism_data_v1_m3b",
+    "package_identity": "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6",
+    "package_lock_file": {
+      "path": "data/processed/prism_data_v1_m3b/PACKAGE_LOCK.json",
+      "status": "present",
+      "size_bytes": 5781,
+      "sha256": "67316bb85f0e66ee280861a9659055386c3779b190be3922f755d8d3a7fe30eb"
+    },
+    "package_lock_status": "validated"
+  },
+  "m7_recipe_bank": {
+    "bank_id": "prism_recipe_bank_m7_v1",
+    "bank_content_identity_sha256": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+    "recipe_count": 128,
+    "status": "frozen",
+    "ontology_version": "m7-ontology-v1",
+    "ontology_sha256": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "prompt_sha256": "6181410db246d35c35c1a8726154a196b5c46fe98f8ea4dbc75905217cf7af02",
+    "compiler_version": "m7-compiler-v1",
+    "conditioning": {
+      "dimension": 41,
+      "feature_names_sha256": "636b3c66d12bd969b12ed7517706b58b24dd3e019caa9c614b95869dde0c7071",
+      "version": "recipe_conditioning_v1"
+    },
+    "bank_seed": 20260806,
+    "generator": {
+      "external_llm_invoked": false,
+      "model_id": "deterministic-source-only-recipe-generator",
+      "provider": "deterministic_local",
+      "revision": "m7-v1"
+    },
+    "bank_lock_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/BANK_LOCK.json",
+      "status": "present",
+      "size_bytes": 23348,
+      "sha256": "58e2406d1cc173f1034222b7866c310a18599dbb35399089fe2f8e9bda9d88c4"
+    },
+    "recipes_jsonl_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/recipes.jsonl",
+      "status": "present",
+      "size_bytes": 73499,
+      "sha256": "8011162f8e4d9889ac25a67741b924dc16b83474781bcaab123d75104f9a7a26"
+    },
+    "generator_json_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/generator.json",
+      "status": "present",
+      "size_bytes": 729,
+      "sha256": "8b8a7480a647cd846ca6892c76f5bdaaac8d060ab2531b788a05a7d1b8565334"
+    },
+    "prompt_txt_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/prompt.txt",
+      "status": "present",
+      "size_bytes": 4882,
+      "sha256": "6181410db246d35c35c1a8726154a196b5c46fe98f8ea4dbc75905217cf7af02"
+    },
+    "ontology_yaml_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/ontology.yaml",
+      "status": "present",
+      "size_bytes": 7621,
+      "sha256": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd"
+    }
+  },
+  "m8_synthetic_bank": {
+    "bank_id_from_source_matrix_lock": "prism_synthetic_bank_m8_v3_e84c78cd2a9b",
+    "bank_identity_from_source_matrix_lock": "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542",
+    "bank_lock_keys": [
+      "accepted_count",
+      "accepted_coverage",
+      "accepted_domain_relations",
+      "accepted_live_target_datasets",
+      "accepted_route_counts",
+      "bank_content_identity_sha256",
+      "bank_id",
+      "bank_lock_schema_version",
+      "candidate_count",
+      "candidate_plan_identity",
+      "created_at",
+      "discrete_convention",
+      "failed_count",
+      "fingerprint_reference_sha256",
+      "generation_config_sha256",
+      "generation_summary_sha256",
+      "generator_version",
+      "gpat_architecture_hash",
+      "gpat_checkpoint_sha256",
+      "gpat_pair_plan_identity",
+      "identity_excluded_fields",
+      "manifest_digests",
+      "operational_minimums",
+      "operational_minimums_passed",
+      "package_identity",
+      "physics_engine_version",
+      "quality_calibration_sha256",
+      "quality_models",
+      "quality_summary_sha256",
+      "recipe_bank_identity",
+      "rejected_count",
+      "route_counts",
+      "seed",
+      "shard_count",
+      "shards",
+      "shards_index_sha256",
+      "status",
+      "synthetic_bank_schema_version",
+      "threshold_sha256"
+    ],
+    "bank_lock_file": {
+      "path": "data/processed/prism_synthetic_bank_m8_v3_e84c78cd2a9b/BANK_LOCK.json",
+      "status": "present",
+      "size_bytes": 7598,
+      "sha256": "e86b560c9834c173a89370d5427a4852e35f76ed3f3ed6b140ee466afdc98423"
+    },
+    "a02_random_operator_recipe_bank_identity": "9351d08ac824cc67021445d1bb59bd9dc14ef7eb3dfa606414500d8fac49603f",
+    "a02_random_operator_synthetic_bank_identity": "f7f1e6ac20341d32d75dddd19cbf3231ea4eb7554eb49290aee32cf59ec17387",
+    "a02_conditioning_control_identity": "28b96d0122f6e2493cc1daa6534d7d7e60fdb63a9071d7422f262ee41a1a8140"
+  },
+  "m9_reference": {
+    "milestone": "M9",
+    "target_test_opened": false,
+    "identities": {
+      "attack_mask_cache": "35094dd10076eb1a869dfdcbc8c85e41f7b6f40feb5b3f6c5d4e3c43afc29208",
+      "batch_contract": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+      "config_hash": "34a971b8b8c94fc3b9665b46c284933747302b877c94d18143bfaf6b7d71e1d0",
+      "convnext_weight": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+      "dataset_contract": "655fd0977e90aa79a21755ab9eaf90ab0abacdf1f3534bf3066b3268d9626448",
+      "detector_architecture": "d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0",
+      "loss_contract": "c9d30e936ca4064284ea1f090f043d4089b9db66f84c2b3cf3a849a990e798ce",
+      "m7_recipe_bank": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "m8_bank": "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542",
+      "m8_bank_id": "prism_synthetic_bank_m8_v3_e84c78cd2a9b",
+      "prototype": "f74969c31f474957efb075b1d5a1c12297ed082d1ac9b744b745428e97b1813f",
+      "recipe_text_cache": "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141",
+      "recipe_text_cache_file_sha256": "bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa",
+      "recipe_text_cache_rebuilt_at_runtime": false,
+      "region_prior_cache": "0a89859fe4491a1d98e18401027d2800ebc17dc3c54004f94cbac2ced16f0200",
+      "resolved_config_hash": "485e3ad3e86573b393f63ad502ec48ed6eb1360f68fd062b81458d7349329edb",
+      "siglip2": "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822",
+      "siglip2_model_id": "google/siglip2-base-patch16-224",
+      "siglip2_revision": "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2",
+      "source_package": "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6",
+      "stage_lineage": "c1b7ea01a6daaf02e193ecccf02530416be05232a5c9ba848c638ad158d4ac48"
+    },
+    "prompt_head_cache_identity": "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141",
+    "acceptance_file": {
+      "path": "reports/m9/M9_ACCEPTANCE.json",
+      "status": "present",
+      "size_bytes": 31139,
+      "sha256": "7404b8a25e69301d6b3990714beefe9fc7614f4af57e613941480ce6e60cb2c2"
+    },
+    "reference_run_file": {
+      "path": "reports/m9/reference_run.json",
+      "status": "present",
+      "size_bytes": 22472,
+      "sha256": "7359bbf092adc875da0e6370e6203b82350b53196ccf8b55f52712468ba81846"
+    },
+    "m9_reference_binding_accepted": true
+  },
+  "m10_experiment_matrix": {
+    "m10_matrix_identity": "a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5",
+    "registry_identity": "cfc08d8d19fd4f3d9fd36ceb0f679cfb3d6afb017922f3eaee275cc0331666c6",
+    "logical_rows": 42,
+    "executable_rows": 38,
+    "blocked_rows": 4,
+    "failed_rows": [],
+    "rows_by_status": {
+      "BLOCKED": 4,
+      "COMPLETED": 38
+    },
+    "acceptance_passed": true,
+    "acceptance_identity": "4f17a23046e456f37dc96397f2250a8ab4628fee225ba9a7785859586e33d6d2",
+    "acceptance_failed_checks": [],
+    "registry_file": {
+      "path": "reports/m10/M10_REGISTRY.json",
+      "status": "present",
+      "size_bytes": 119563,
+      "sha256": "bb7665ce47bdb1cdc6105b79db4c3548b92061523055245f161f1dd8de0e530b"
+    },
+    "matrix_plan_file": {
+      "path": "reports/m10/M10_MATRIX_PLAN.json",
+      "status": "present",
+      "size_bytes": 100714,
+      "sha256": "6d56b4763b59d0138c7311ccf50dbec0f7ba9219c1cf95c21df421ad469ef9d7"
+    },
+    "acceptance_file": {
+      "path": "reports/m10/M10_ACCEPTANCE.json",
+      "status": "present",
+      "size_bytes": 6963,
+      "sha256": "cf411b244fa1f79869b3438fe0f9c902b1428c524a8070e2f4a006a0075b0425"
+    },
+    "statistics_file": {
+      "path": "reports/m10/statistics.json",
+      "status": "present",
+      "size_bytes": 6764,
+      "sha256": "b3de3437f29e10b6ee3881f64538803f205bbc7b18220bf94c7914d725fda907"
+    },
+    "summary_file": {
+      "path": "reports/m10/summary.json",
+      "status": "present",
+      "size_bytes": 161228,
+      "sha256": "f569fd34b182ed214f1832a8e4f10eb297ab881df396be40b98c9bb54e700d47"
+    },
+    "reliability_file": {
+      "path": "reports/m10/RELIABILITY.json",
+      "status": "present",
+      "size_bytes": 14382,
+      "sha256": "ca0f079c55569281799a542a228acbac0f54236dfdd354d15446e130492b584f"
+    },
+    "report_html_file": {
+      "path": "reports/m10/report.html",
+      "status": "present",
+      "size_bytes": 70870,
+      "sha256": "e05aedda82c5850d1b3f5a5c1e582d13249b5728a2af9a46dac162ade92c81c8"
+    }
+  },
+  "source_matrix_lock": {
+    "source_matrix_lock_identity": "c06944344eab25820b4bf6327b9dd391a308a3ffd935ab2ed91264e5898517aa",
+    "schema_version": "m10-source-matrix-lock-v2",
+    "selection_rule": {
+      "calibration_metric": "source_dev/nll",
+      "selection_metric": "source_dev/acer",
+      "temperature_fit_split": "source_dev",
+      "threshold_criterion": "min_acer_on_calibrated_source_dev",
+      "tie_break_metric": "source_dev/bpcer",
+      "uses_target": false
+    },
+    "selection_used_target": false,
+    "target_labels_opened_at_lock_time": false,
+    "frozen_inputs": {
+      "convnext_weight_sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+      "m7_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "m8_bank_id": "prism_synthetic_bank_m8_v3_e84c78cd2a9b",
+      "m8_bank_identity": "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542",
+      "recipe_text_cache_identity": "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141",
+      "siglip2_identity": "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822",
+      "source_package_id": "prism_data_v1_m3b",
+      "source_package_identity": "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6"
+    },
+    "code_lineage": {
+      "branch": "m10-experiment-matrix",
+      "describe": "m9-regional-detector-checkpoint-13-ge8c2542-dirty",
+      "head": "e8c2542af34394cb946fdbb49b82450647b3e303",
+      "recent": "e8c2542 feat: the A02 conditioning-bank compatibility control, narrowly authorized\n61a97c2 fix: a synthetic:none row declares an empty synthetic pool\nd230955 feat: SOURCE_MATRIX_LOCK covers every logical row, and validates twice\n5451ec6 feat: add the A02 random-operator control artifact, source-only\nf03e1d0 feat: add m10_collect_runs for registry reconciliation\n7adc5bf feat: validate the B08 / M9 reference binding from recorded evidence\ndd5af60 fix: honour a variant's own stage flow and manifold-free checkpoints\n92f82bb feat: implement M10 baseline and ablation variants"
+    },
+    "file": {
+      "path": "reports/m10/SOURCE_MATRIX_LOCK.json",
+      "status": "present",
+      "size_bytes": 139526,
+      "sha256": "5ffc36c32d273c45a6af15f1139f5b8138585c065fba2ff659093d3c5dc9ce6f"
+    },
+    "reverification_file": {
+      "path": "reports/m10/SOURCE_MATRIX_REVERIFICATION.json",
+      "status": "present",
+      "size_bytes": 33279,
+      "sha256": "885192e02f4d8664b1aebe38f24b1133556236e3ce7cf79fa6f4a34e08c12f60"
+    }
+  },
+  "target_package_identity": {
+    "target_feature_package_identity_from_lockset": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+    "target_package_lock_file": {
+      "path": "data/processed/prism_target_eval_v2/PACKAGE_LOCK.json",
+      "status": "present",
+      "size_bytes": 5284,
+      "sha256": "0a7a0b841b19eda099ec5fdaafeec240f585446a4f7993d5a409e41016bc566c"
+    },
+    "target_package_lock_status": "validated",
+    "target_label_lock_file": {
+      "path": "data/evaluation_only/prism_target_v2_labels/TARGET_LABEL_LOCK.json",
+      "status": "present",
+      "size_bytes": 1374,
+      "sha256": "ab56f79133e33adbf0b6d224e395a0499572dc3996fe63189c5366f5ef582210"
+    },
+    "target_label_lock": {
+      "adapter_version": "1.0",
+      "by_attack_family": {
+        "Makeup_Cosmetic": 52,
+        "Makeup_Impersonation": 61,
+        "Makeup_Obfuscation": 22,
+        "Mannequin": 40,
+        "Mask_HalfMask": 72,
+        "Mask_PaperMask": 17,
+        "Mask_TransparentMask": 60,
+        "Paper": 135,
+        "Partial_Eye": 57,
+        "Partial_FunnyeyeGlasses": 179,
+        "Partial_Mouth": 29,
+        "Partial_PaperGlasses": 76,
+        "Replay": 98,
+        "Silicone": 17
+      },
+      "counts": {
+        "live": 785,
+        "spoof": 915,
+        "videos": 1700
+      },
+      "feature_package_id": "prism_target_eval_v2",
+      "inventory_identity_sha256": "b858564d19580ab37c637c9bae7cbc6a0f5cb650c0e12d399e2e13af179e6628",
+      "join_key": "video_id (opaque siw_<16 hex>)",
+      "label_artifact_identity_sha256": "863b80f09c67cc20f8c06edfeab8668a4f89e2b4da0d07c83765773738659e98",
+      "label_file_sha256": "f1f44e64459b42431d1ea2b8ccd1aab4bd61f6c40d4aa853d56dd3d93c35be1a",
+      "label_schema_version": "m10-target-labels-v1",
+      "layout_identity_sha256": "ad1c2d8ea6f35d1b81fe65a7161cbd665db1ef74ff004e99b7c931bbd1188d27",
+      "layout_rules_version": "siw-mv2-layout-v2",
+      "readable_by": [
+        "G8"
+      ],
+      "readable_by_training_or_g7": false,
+      "source_metadata_provenance": "SiW-Mv2 official directory organization, read once at ingestion by the evaluator-only path",
+      "status": "SEALED",
+      "target_label_artifact_built": true,
+      "target_labels_revealed": false
+    },
+    "target_prediction_lockset_identity": "34a28858457933df2e400aea8a3f75dd3e9883c7a15d53ffe2f8d31104cd6b8a",
+    "target_prediction_lockset_status": "FROZEN",
+    "target_prediction_lockset_entry_count": 37,
+    "target_prediction_lockset_file": {
+      "path": "reports/m10/TARGET_PREDICTION_LOCKSET.json",
+      "status": "present",
+      "size_bytes": 37448,
+      "sha256": "d6e67e2b291740d3614c5b52007d5208fb72157a6467d2236c5d185be1671edd"
+    },
+    "target_label_reveal_identity": "436fda25254f77d63878edb9ff26d942b92959f8395942fe64b4f0b049fb935f",
+    "target_label_reveal_file": {
+      "path": "reports/m10/TARGET_LABEL_REVEAL.json",
+      "status": "present",
+      "size_bytes": 2861,
+      "sha256": "052b6672a21bdd13d33abe2867032057e2cce85e2081aa124db90ac97deca3d9"
+    },
+    "pre_reveal_audit_file": {
+      "path": "reports/m10/PRE_REVEAL_AUDIT.json",
+      "status": "present",
+      "size_bytes": 32906,
+      "sha256": "0d5513986c2e716c973c6b0e696f6024a311859a4dbf4dfca5cb4d123cf5c75a"
+    }
+  },
+  "final_scientific_checkpoint": {
+    "commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag": "m10-blind-evaluation-checkpoint",
+    "tag_peeled": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag_object": "b78e3e076bdd4078db98b348c07a322dc0912e7e"
+  },
+  "version_b_test_baseline": {
+    "command": "python -m pytest -q",
+    "passed": 1081,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "raw": "1081 passed, 1 warning in 385.04s (0:06:25)",
+    "file": {
+      "path": "reports/m10/TEST_SUITE.json",
+      "status": "present",
+      "size_bytes": 576,
+      "sha256": "4bebd05d5bd747f6db8786bb09b8e6b05d7baae97e91e81f6fe1bca9a244a76b"
+    }
+  },
+  "llm_gap_evidence": {
+    "m7_generator_provider": "deterministic_local",
+    "m7_generator_model_id": "deterministic-source-only-recipe-generator",
+    "m7_generator_revision": "m7-v1",
+    "m7_generator_external_llm_invoked": false,
+    "generator_json_file": {
+      "path": "assets/recipe_banks/prism_recipe_bank_m7_v1/generator.json",
+      "status": "present",
+      "size_bytes": 729,
+      "sha256": "8b8a7480a647cd846ca6892c76f5bdaaac8d060ab2531b788a05a7d1b8565334"
+    },
+    "generate_py_file": {
+      "path": "src/prism_fas/recipes/generate.py",
+      "status": "present",
+      "size_bytes": 14182,
+      "sha256": "d735c8688fdc38b644b9497c8dca8ca2696f8e44c8428d99f18ef935aced5448"
+    },
+    "bank_py_file": {
+      "path": "src/prism_fas/recipes/bank.py",
+      "status": "present",
+      "size_bytes": 15291,
+      "sha256": "99e4aeb1e708b4ee05a657113c2ba499bf2139c1ffa5969051629af7180d499f"
+    },
+    "bank_m7_yaml_file": {
+      "path": "configs/recipes/bank_m7.yaml",
+      "status": "present",
+      "size_bytes": 1109,
+      "sha256": "eaba26fc666bd0f37618b12d1ea67bc8dc1c6e01dd0cc12d8227ccd063bfa29b"
+    },
+    "random_operator_bank_py_file": {
+      "path": "src/prism_fas/synthesis/random_operator_bank.py",
+      "status": "present",
+      "size_bytes": 30016,
+      "sha256": "fb828ec28f3a61fc0c6a9167c32b6a2658023a52dabee00f685b743cdb0fd6b3"
+    }
+  },
+  "narrative": {
+    "path": "reports/paper/PRISM_FAS_B_FULL_PROJECT_NARRATIVE.html",
+    "status": "present",
+    "size_bytes": 371969,
+    "sha256": "8b6adebaa947090e0162f0ca0f88cfc2c9163a09dd63fc1b8d252d418f51128b"
+  }
+}

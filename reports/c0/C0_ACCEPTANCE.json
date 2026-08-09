@@ -1,0 +1,303 @@
+{
+  "schema_version": "c0-acceptance-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.1 FINAL",
+  "milestone": "C0",
+  "objective": "Spec reconciliation + isolated Version-C repository",
+  "result": "PASS",
+  "claim": "C0 establishes the Version-C repository, its lineage from the frozen Version-B scientific checkpoint, the three-way spec reconciliation, and the frozen Version-C design. C0 executes no science: no LLM call, no training, no synthesis, no target access, and therefore claims no scientific result.",
+
+  "specs": {
+    "version_c_authority": {
+      "role": "PRIMARY authority for Version C",
+      "path": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx",
+      "repository_copy": "docs/spec/PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx",
+      "sha256": "d9edbfefa6829f29bb075e2f3d12073bb6517be57c0debcf93c92c4346d2e2df",
+      "size_bytes": 455241,
+      "read_completely": true
+    },
+    "version_b_original_design": {
+      "role": "original Version-B design intent (v1.0); names the LLM recipe engine",
+      "path": "D:/AI on IOT/Anti_spoofing/References/Spec_PRISM_FAS_Version_B_Detailed_2026.docx",
+      "repository_copy": "docs/spec/Spec_PRISM_FAS_Version_B_Detailed_2026.docx",
+      "sha256": "74c7557f14712b7c5fcc347a86b5f9abc03c6225155bdca275aea38798ff3292",
+      "size_bytes": 830417,
+      "document_title": "ĐẶC TẢ PHƯƠNG PHÁP NGHIÊN CỨU — PHIÊN BẢN B — V1.0 / PRISM-FAS-B",
+      "read_completely": true
+    },
+    "version_b_implementation_contract": {
+      "role": "Version-B v1.1 implementation contract; the spec Version B was built against",
+      "path": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_B_v1_1_CASIA_MSU_SiWMv2_LocalPreprocess_DualBackend_Codex_Spec.docx",
+      "repository_copy": "docs/spec/PRISM_FAS_B_v1_1_CASIA_MSU_SiWMv2_LocalPreprocess_DualBackend_Codex_Spec.docx",
+      "sha256": "44634d7cdcddc0bd0ed54e78407d62be60de275f45461024573dd3f94d0cfeac",
+      "size_bytes": 417956,
+      "document_title": "PRISM-FAS-B v1.1 — Local Data Factory & Dual-Backend Training",
+      "corroboration": "matches the SHA256 recorded independently in the Version-B repository at docs/SPEC_SOURCE.json",
+      "read_completely": true
+    },
+    "ambiguity": {
+      "found": true,
+      "resolved": true,
+      "description": "Two documents match the expected 'original Version-B spec' family, and they are complementary layers rather than rivals: Spec_PRISM_FAS_Version_B_Detailed_2026.docx is the v1.0 design intent (it specifies the LLM recipe engine), and PRISM_FAS_B_v1_1_..._Codex_Spec.docx is the v1.1 implementation contract. The Version-C spec cites both. Where they disagree, v1.1 governs what Version B was obliged to build, and the disagreement is itself recorded as a reconciliation row.",
+      "superseded_document_excluded": {
+        "path": "D:/AI on IOT/Anti_spoofing/References/Spec_PRISM_FAS_Version_C_Detailed_2026.docx",
+        "sha256": "14f5ee351b0612201061b68d455aa204ee1196a8f4c64dc6383185f0e063963d",
+        "reason": "an earlier Version-C draft, superseded by the v1_1_FINAL document; deliberately not copied into docs/spec/ and not used as an authority"
+      }
+    }
+  },
+
+  "version_b_integrity": {
+    "repository_path": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_B_Project",
+    "working_tree": "clean",
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "main": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "origin_main": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag": "m10-blind-evaluation-checkpoint",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "expected_checkpoint": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "checkpoint_matches_expected": true,
+    "origin": "https://github.com/COngtuthien/PRISM_FAS_B_Project.git",
+    "scientific_artifacts_fingerprinted": true,
+    "artifacts_not_found": 0,
+    "scientific_artifacts_modified": 0,
+    "re_verified_after_version_c_creation": true,
+    "snapshot": "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json",
+    "key_identities": {
+      "source_package_id": "prism_data_v1_m3b",
+      "source_package_identity": "b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6",
+      "m7_recipe_bank_id": "prism_recipe_bank_m7_v1",
+      "m7_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "m8_bank_id": "prism_synthetic_bank_m8_v3_e84c78cd2a9b",
+      "m8_bank_identity": "e84c78cd2a9b548244e243de0380998d04bc6770b91caf32ac7be96f489bb542",
+      "recipe_text_cache_identity": "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141",
+      "siglip2_identity": "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822",
+      "convnext_weight_sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+      "m10_matrix_identity": "a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5",
+      "source_matrix_lock_identity": "c06944344eab25820b4bf6327b9dd391a308a3ffd935ab2ed91264e5898517aa",
+      "target_feature_package_identity": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+      "target_prediction_lockset_identity": "34a28858457933df2e400aea8a3f75dd3e9883c7a15d53ffe2f8d31104cd6b8a",
+      "m10_acceptance_identity": "4f17a23046e456f37dc96397f2250a8ab4628fee225ba9a7785859586e33d6d2"
+    }
+  },
+
+  "version_c_repository": {
+    "path": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project",
+    "created_from": "git clone --no-hardlinks of the Version-B repository, checked out at the peeled tag",
+    "lineage_base_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "lineage_base_tag": "m10-blind-evaluation-checkpoint",
+    "history_preserved": true,
+    "history_rewritten": false,
+    "force_push_used": false,
+    "branch": "c0-spec-reconciliation",
+    "origin": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
+    "origin_points_at_version_b": false,
+    "informational_remote": {
+      "name": "version-b-readonly",
+      "fetch_url": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_B_Project",
+      "push_url": "DISABLED_NO_PUSH_TO_VERSION_B",
+      "rationale": "keeps the lineage traceable while making an accidental push to Version B fail rather than succeed; --no-hardlinks means the two object stores share no files on disk"
+    }
+  },
+
+  "spec_reconciliation": {
+    "document": "docs/c0/C0_SPEC_RECONCILIATION.md",
+    "comparison": "ORIGINAL VERSION-B SPEC vs FROZEN VERSION-B REALITY vs VERSION-C v1.1 REQUIREMENT",
+    "requirements_audited": 37,
+    "status_counts": {
+      "EXACT": 20,
+      "PARTIAL": 8,
+      "DEVIATED": 4,
+      "OMITTED": 2,
+      "SUPERSEDED_WITH_JUSTIFICATION": 2,
+      "NOT_ESTABLISHED": 1
+    },
+    "every_row_has_a_version_c_action": true
+  },
+
+  "llm_gap": {
+    "document": "docs/c0/C0_LLM_GAP_ANALYSIS.md",
+    "established_from_repository_evidence": true,
+    "version_b_generator_provider": "deterministic_local",
+    "version_b_generator_model_id": "deterministic-source-only-recipe-generator",
+    "version_b_generator_revision": "m7-v1",
+    "version_b_external_llm_invoked": false,
+    "version_b_recipe_count": 128,
+    "evidence": [
+      "assets/recipe_banks/prism_recipe_bank_m7_v1/BANK_LOCK.json -> generator.external_llm_invoked = false",
+      "assets/recipe_banks/prism_recipe_bank_m7_v1/generator.json",
+      "src/prism_fas/recipes/generate.py -> GENERATOR_EXTERNAL_LLM_INVOKED = False, no HTTP client, no SDK, no credential path",
+      "configs/recipes/bank_m7.yaml -> external_llm_invoked: false, network_access: false, external_text_model: false",
+      "src/prism_fas/recipes/bank.py -> validator rejects a lock claiming an external LLM was invoked",
+      "tests/test_m7_recipe_physics.py -> asserts the generator identity and the false flag",
+      "PROJECT_STATUS.md and README.md -> 'no external LLM, no network, no credential'",
+      "reports/paper/PRISM_FAS_B_FULL_PROJECT_NARRATIVE.html"
+    ],
+    "version_c_change": "an offline Gemini structured recipe planner feeding a strict JSON/ontology validator, then the SAME inherited compiler boundary, then Physics and a generator-neutral GPAT-C",
+    "llm_is_not": [
+      "the FAS classifier",
+      "an image generator",
+      "a target-image interpreter",
+      "part of inference",
+      "part of the training loop"
+    ],
+    "llm_is": "an offline semantic recipe planner, invoked once before training, whose output is frozen"
+  },
+
+  "frozen_design": {
+    "document": "docs/c0/C0_FROZEN_DESIGN_DECISIONS.md",
+    "config": "configs/version_c/c0_frozen_design.yaml",
+    "datasets": ["casia_fasd", "msu_mfsd", "siw_mv2"],
+    "dataset_count": 3,
+    "fourth_dataset_allowed": false,
+    "protocols": {
+      "p1": "CASIA -> MSU",
+      "p2": "MSU -> CASIA",
+      "p3": "CASIA + MSU -> SiW-Mv2 (MAIN)"
+    },
+    "siw_mv2_status": "fixed held-out cross-domain target, historically known from Version B, procedurally label-isolated in Version C; never described as a never-before-seen blind target",
+    "generator_arms": ["RND", "DET", "LLM"],
+    "final_recipe_count_per_arm": 256,
+    "llm_candidate_slots": 384,
+    "llm_pilot_candidates": 32,
+    "minimum_valid_unique_pool": 320,
+    "gpat_c": "generator-neutral, trained once on an ontology-derived support bank independent of the treatment banks, frozen and shared by all arms",
+    "candidate_renders_per_arm": 2048,
+    "accepted_per_arm": 1024,
+    "accepted_split": "512 Physics + 512 GPAT",
+    "track_g": "frozen SigLIP2 Base P16-224 + lightweight head; regions OFF, PromptHead OFF, manifold OFF; PRIMARY",
+    "track_r": "ConvNeXt V2 Atto + frozen SigLIP2 + 9 semantic regions + PromptHead; manifold OFF in the primary variant; SECONDARY",
+    "seeds_p3_track_g_primary": 5,
+    "seeds_p1_p2_and_track_r": 3,
+    "seed_family": [20260806, 20260807, 20260808, 20260809, 20260810],
+    "statistics": "paired video bootstrap, 10000 resamples, 95% percentile CI, bootstrap seed 20260810, Holm-Bonferroni over C-H1/C-H2/C-H3/C-H5; C-H4 reported separately"
+  },
+
+  "compute": {
+    "document": "docs/c0/C0_COMPUTE_BACKEND_PLAN.md",
+    "backend_ids": ["modal_l4", "ssh_lab"],
+    "backend_neutral": true,
+    "ssh_lab_mandatory_before": "C8",
+    "lab_gpu_capabilities": "UNKNOWN — to be resolved by the capability probe before C8; not assumed",
+    "portability_contract_documented": true,
+    "executed_in_c0": false
+  },
+
+  "protocol_plan": {
+    "document": "docs/c0/C0_PROTOCOL_PLAN.md",
+    "inherited_adapters_inspected": true,
+    "subject_and_video_metadata_sufficient_for_disjoint_manifests": true,
+    "casia_subject_id_available": true,
+    "msu_subject_id_available": true,
+    "siw_target_records_are_opaque_and_label_free": true,
+    "manifests_materialized_in_c0": false,
+    "manifests_materialized_note": "protocol manifests are metadata-level views over the frozen package and are written in C1 under the Version-C namespace; leakage = 0 must be proven before any scientific training, and no training occurs in C0 or C1",
+    "expensive_preprocessing_run": false,
+    "siw_labels_opened": false
+  },
+
+  "milestone_plan": {
+    "document": "docs/c0/C0_MILESTONE_EXECUTION_PLAN.md",
+    "milestones_planned": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C13"],
+    "each_records": ["inputs", "actions", "outputs", "tests", "hard_acceptance", "gpu_api_requirements", "stop_conditions"],
+    "executed": []
+  },
+
+  "no_execution_proof": {
+    "gemini_api_calls": 0,
+    "llm_recipes_generated": 0,
+    "gpu_training_jobs": 0,
+    "modal_jobs": 0,
+    "ssh_lab_jobs": 0,
+    "gpat_training_runs": 0,
+    "detector_training_runs": 0,
+    "synthetic_renders": 0,
+    "siw_label_reads": 0,
+    "siw_scoring_runs": 0,
+    "target_metrics_computed": 0,
+    "version_b_artifacts_modified": 0,
+    "version_b_commits": 0,
+    "version_b_pushes": 0,
+    "raw_datasets_copied": 0,
+    "api_keys_stored_or_logged": 0
+  },
+
+  "tests": {
+    "command": "python -m pytest -q",
+    "detail": "reports/c0/C0_TEST_SUITE.json",
+    "version_b_baseline": {"passed": 1081, "failed": 0, "skipped": 0},
+    "version_c_measured": {"passed": 1005, "failed": 7, "skipped": 101, "errors": 0},
+    "c0_tests_added": {"file": "tests/c0/test_c0_frozen_design.py", "passed": 32, "failed": 0, "skipped": 0},
+    "code_regressions_from_c0_changes": 0,
+    "limitation": "All 7 failures and all 101 skips are caused by the absence of git-ignored Version-B local artifact trees (data/work/, data/processed/, reports/m7-m10/) in a fresh clone. Those trees are not carried by git clone and are deliberately not copied into Version C, which references Version-B artifacts by identity rather than by possession. Every skip carries an explicit reason naming its missing artifact; there are 0 silent or unexplained skips. No failure is attributable to a C0 change, and no pass count has been invented.",
+    "unresolved": "how to resolve the 7 inherited evidence-test failures is recorded as an open item for the user, not decided unilaterally; options are listed in reports/c0/C0_TEST_SUITE.json"
+  },
+
+  "artifacts": {
+    "documents": [
+      "docs/c0/C0_SPEC_RECONCILIATION.md",
+      "docs/c0/C0_VERSION_B_INTEGRITY.md",
+      "docs/c0/C0_LLM_GAP_ANALYSIS.md",
+      "docs/c0/C0_FROZEN_DESIGN_DECISIONS.md",
+      "docs/c0/C0_COMPUTE_BACKEND_PLAN.md",
+      "docs/c0/C0_PROTOCOL_PLAN.md",
+      "docs/c0/C0_MILESTONE_EXECUTION_PLAN.md",
+      "reports/c0/C0_ACCEPTANCE.json",
+      "reports/c0/C0_TEST_SUITE.json",
+      "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json",
+      "configs/version_c/c0_frozen_design.yaml",
+      "scripts/c0_fingerprint_version_b.py",
+      "tests/c0/test_c0_frozen_design.py",
+      ".env.example",
+      "README.md",
+      "docs/spec/PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx",
+      "docs/spec/Spec_PRISM_FAS_Version_B_Detailed_2026.docx",
+      "docs/spec/PRISM_FAS_B_v1_1_CASIA_MSU_SiWMv2_LocalPreprocess_DualBackend_Codex_Spec.docx"
+    ]
+  },
+
+  "checks": {
+    "version_b_repository_unchanged": true,
+    "version_b_tag_resolves_to_expected_checkpoint": true,
+    "version_c_local_repository_exists_separately": true,
+    "version_c_origin_points_only_to_version_c_remote": true,
+    "git_lineage_from_version_b_preserved": true,
+    "authoritative_version_c_spec_fingerprint_recorded": true,
+    "original_version_b_spec_located_and_ambiguity_documented": true,
+    "three_way_reconciliation_completed": true,
+    "external_llm_gap_established_from_repository_evidence": true,
+    "protocols_p1_p2_p3_frozen": true,
+    "only_casia_msu_siw_configured": true,
+    "rnd_det_llm_design_frozen": true,
+    "llm_384_to_256_recipe_policy_frozen": true,
+    "generator_neutral_gpat_plan_frozen": true,
+    "synthesis_budget_2048_candidates_1024_accepted_frozen": true,
+    "track_g_and_track_r_plan_frozen": true,
+    "replication_policy_frozen": true,
+    "statistical_protocol_frozen": true,
+    "backend_neutral_compute_plan_documented": true,
+    "no_gemini_api_call_made": true,
+    "no_gpu_training_performed": true,
+    "no_target_metric_used": true,
+    "no_siw_tuning_performed": true,
+    "no_version_b_scientific_artifact_modified": true,
+    "secret_design_prepared_without_a_real_key": true,
+    "api_quota_policy_recorded": true,
+    "version_c_repository_structure_created": true,
+    "readme_updated_for_version_c": true,
+    "no_fake_scientific_result_files_created": true,
+    "c0_tests_pass": true,
+    "test_limitations_explicitly_documented": true,
+    "no_pass_count_invented": true
+  },
+
+  "not_claimed": [
+    "any Version-C scientific result",
+    "any LLM benefit",
+    "any target performance",
+    "that SiW-Mv2 is a never-before-seen blind target",
+    "state of the art",
+    "first LLM-based FAS method",
+    "training-trajectory equivalence between compute backends"
+  ]
+}
