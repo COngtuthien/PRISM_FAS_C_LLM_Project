@@ -107,6 +107,86 @@ def matrix_audit(config: Path = typer.Option(DEFAULT_MATRIX, "--config", exists=
     if not report["all_executable_rows_implementable"]: raise typer.Exit(1)
 
 
+@app.command("parity")
+def parity_command(
+        experiment_id: str = typer.Option("A09-backend-pc_bounded_parity-s20260806", "--experiment-id"),
+        against: str = typer.Option("B08-s20260806", "--against"),
+        remote: Path = typer.Option(..., "--remote", exists=True, dir_okay=False,
+                                    help="the m10_parity_probe payload from Modal"),
+        package_root: Path = typer.Option(..., "--package-root", exists=True, file_okay=False),
+        bank_root: Path = typer.Option(..., "--bank-root", exists=True, file_okay=False),
+        weight_root: Path = typer.Option(..., "--weight-root", exists=True, file_okay=False),
+        steps: int = typer.Option(5, "--steps"),
+        shared_checkpoint: Path = typer.Option(..., "--shared-checkpoint", exists=True,
+                                               dir_okay=False,
+                                               help="the frozen checkpoint BOTH backends start from"),
+        output: Path = typer.Option(DEFAULT_REPORTS / "A09_BACKEND_PARITY.json", "--output"),
+        dry_run: bool = typer.Option(False, "--dry-run")) -> None:
+    """A09 — the LOCAL half of the bounded step-parity protocol, and the comparison.
+
+    Runs the declared number of optimizer steps on this host at the B08 configuration
+    and seed, then compares against the Modal probe under the M6 tolerances. It is
+    parity evidence: it trains nothing to completion, selects no checkpoint and
+    makes no superiority claim.
+    """
+    import torch
+    from dataclasses import replace
+    from prism_fas.detector.config import load_m9_configs
+    from prism_fas.detector.trainer import M9Trainer
+    from prism_fas.detector.variant import variant_from_row
+    from prism_fas.evaluation.backend_parity import compare_backends, probe_payload, write_parity
+
+    project = Path(__file__).resolve().parents[3]
+    plan = experiment_matrix.build_plan(DEFAULT_MATRIX)
+    rows = {str(row["experiment_id"]): row for row in plan["rows"]}
+    parity_row, reference_row = rows[experiment_id], rows[against]
+    # The parity row and its reference must be the SAME science, or this compares
+    # two experiments rather than two backends.
+    if parity_row["scientific_config_hash"] != reference_row["scientific_config_hash"]:
+        _echo({"passed": False, "reason": "the parity row and its reference are not the same "
+                                          "scientific configuration"})
+        raise typer.Exit(1)
+    variant = variant_from_row(parity_row)
+    configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
+                              project / "configs/train/m9_reference.yaml", variant)
+    # `configs/cloud/modal_m6.yaml` declares `parity: precision: fp32`, so BOTH halves
+    # set amp=False. It also keeps the two config hashes equal: `amp` is a config
+    # field, so overriding it on one side only would report a scientific-identity
+    # mismatch that is really just the probe disagreeing with itself.
+    training_config = replace(configs["training_config"], run_id=f"m10_parity_local/{experiment_id}",
+                              seed=int(reference_row["seed"]), amp=False)
+    import tempfile
+    with tempfile.TemporaryDirectory() as scratch:
+        trainer = M9Trainer(
+            config=training_config, detector_config=configs["detector_config"],
+            package_root=Path(package_root), bank_root=Path(bank_root),
+            recipe_bank_root=project / "assets/recipe_banks/prism_recipe_bank_m7_v1",
+            run_root=Path(scratch) / "run", cache_root=Path(scratch) / "cache",
+            weight_root=Path(weight_root),
+            loader_config_path=project / "configs/data/loader_m4.yaml",
+            device="cuda" if torch.cuda.is_available() else "cpu")
+            # `text_cache_path` is deliberately not forced: the resolver searches the
+            # local cache layout AND the Modal volume layout, and it verifies the
+            # frozen cache's identity either way. Forcing one spelling would make the
+            # local half fail on a layout difference rather than a scientific one.
+        local = probe_payload(trainer, backend="local", steps=int(steps),
+                              shared_checkpoint=Path(shared_checkpoint),
+                              device_report={"torch": torch.__version__,
+                                             "cuda_available": torch.cuda.is_available()})
+    remote_payload = json.loads(Path(remote).read_text(encoding="utf-8"))
+    result = compare_backends(local, remote_payload)
+    result.update({"experiment_id": experiment_id, "compared_against": against,
+                   "scientific_config_hash": parity_row["scientific_config_hash"],
+                   "m10_matrix_identity": plan["m10_matrix_identity"]})
+    if not dry_run: write_parity(Path(output), result)
+    _echo({"passed": result["passed"], "kind": result["kind"],
+           "checks": {name: check.get("passed") for name, check in result["checks"].items()},
+           "parity_identity": result["parity_identity"],
+           "local_device": result["local_backend"]["device"],
+           "remote_device": result["remote_backend"]["device"],
+           "written": [] if dry_run else [str(output)]})
+
+
 # --- registry ----------------------------------------------------------------
 @app.command("registry")
 def registry_command(plan: Path = typer.Option(DEFAULT_REPORTS / "M10_MATRIX_PLAN.json", "--plan",

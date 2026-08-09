@@ -1191,6 +1191,16 @@ def _bank_lock(generator: SyntheticBankGenerator, *, records: list[dict[str, Any
         "threshold_sha256": identity["threshold_sha256"],
         "generation_config_sha256": identity["generation_config_sha256"],
         "generator_version": GENERATOR_VERSION, "discrete_convention": DISCRETE_CONVENTION,
+        # Present ONLY when a bank was built under a declared conditioning-bank
+        # control, and absent otherwise — so the frozen M8 banks are byte-unchanged,
+        # while an A02-style artifact binds the policy, the bank the generator was
+        # TRAINED on and the out-of-distribution caveat into its own content
+        # identity. Without this the policy would live only in the per-candidate
+        # records, which is a weaker and much harder thing to audit.
+        **({"conditioning_control_identity": identity["conditioning_control_identity"],
+            "gpat_trained_on_recipe_bank_identity": identity["gpat_trained_on_recipe_bank_identity"],
+            "conditioning_control": getattr(generator, "conditioning_control").policy_payload()}
+           if getattr(generator, "conditioning_control", None) is not None else {}),
         "candidate_count": len(records),
         "accepted_count": len(accepted), "rejected_count": len(rejected), "failed_count": len(failures),
         "route_counts": generation["route_counts"],

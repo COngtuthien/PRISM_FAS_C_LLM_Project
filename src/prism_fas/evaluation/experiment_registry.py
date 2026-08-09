@@ -61,6 +61,12 @@ class ExperimentRecord:
     blocked_reason: str | None = None
     reference_run_id: str | None = None
     reuses_m9_reference: bool = False
+    # A09 only: the identity of the bounded parity report, and its measured outcome.
+    # `parity_passed` is recorded as measured and never as a gate — H6 is declared
+    # `parity_not_superiority`.
+    parity_identity: str | None = None
+    parity_passed: bool | None = None
+    parity_checks: dict[str, Any] = field(default_factory=dict)
     compute: dict[str, Any] = field(default_factory=dict)
     updated_at: str | None = None
 
@@ -74,7 +80,17 @@ class ExperimentRecord:
             raise M10ContractError(f"{self.experiment_id}: a FAILED row must carry its failure record")
         if self.status == "BLOCKED" and not self.blocked_reason:
             raise M10ContractError(f"{self.experiment_id}: a BLOCKED row must carry its reason")
-        if self.status == "COMPLETED" and not self.best_checkpoint_sha256 and not self.reuses_m9_reference:
+        # A `parity` row runs the bounded step-parity protocol against a frozen
+        # checkpoint; it trains nothing to completion and selects nothing, so it has
+        # no checkpoint OF ITS OWN. It must instead name the parity evidence it
+        # produced. Recording a borrowed checkpoint as if it were selected would make
+        # a parity row look like a second training result, which is exactly what the
+        # experiment contract forbids.
+        if self.status == "COMPLETED" and self.replication_role == "parity":
+            if not self.parity_identity:
+                raise M10ContractError(f"{self.experiment_id}: a COMPLETED parity row must name its "
+                                       f"parity evidence")
+        elif self.status == "COMPLETED" and not self.best_checkpoint_sha256 and not self.reuses_m9_reference:
             raise M10ContractError(f"{self.experiment_id}: a COMPLETED row must name its selected checkpoint")
         return self
 
@@ -314,7 +330,16 @@ def source_matrix_lock(registry: ExperimentRegistry, plan: dict[str, Any], *,
             "hypotheses": list(row.get("hypotheses") or []),
             "target_prediction_required": bool(row.get("target_prediction_required")),
         }
-        if record.status == "COMPLETED":
+        if record.status == "COMPLETED" and record.replication_role == "parity":
+            # Parity evidence, not a training result. It names the report it produced
+            # and the outcome it MEASURED; it selects no checkpoint and fits no
+            # calibration, so it is locked as what it is.
+            entry.update({"run_id": record.run_id, "parity_identity": record.parity_identity,
+                          "parity_passed": record.parity_passed,
+                          "parity_checks": dict(sorted((record.parity_checks or {}).items())),
+                          "kind": "parity_not_superiority",
+                          "git_commit": record.git_commit})
+        elif record.status == "COMPLETED":
             if not record.reuses_m9_reference and not (record.best_checkpoint_sha256
                                                        and record.source_calibration_sha256):
                 raise M10ContractError(f"{record.experiment_id} is COMPLETED but has no frozen "
@@ -393,10 +418,15 @@ def validate_source_matrix_lock(lock: dict[str, Any], plan: dict[str, Any]) -> d
             all(entry.get("failure") for entry in lock["entries"] if entry["status"] == "FAILED"),
         "every_completed_row_names_its_checkpoint":
             all(entry.get("best_checkpoint_sha256") or entry.get("reuses_m9_reference")
-                for entry in lock["entries"] if entry["status"] == "COMPLETED"),
+                for entry in lock["entries"]
+                if entry["status"] == "COMPLETED" and entry["replication_role"] != "parity"),
         "every_completed_row_names_its_calibration":
             all(entry.get("source_calibration_sha256") or entry.get("reuses_m9_reference")
-                for entry in lock["entries"] if entry["status"] == "COMPLETED"),
+                for entry in lock["entries"]
+                if entry["status"] == "COMPLETED" and entry["replication_role"] != "parity"),
+        "every_completed_parity_row_names_its_evidence":
+            all(entry.get("parity_identity") for entry in lock["entries"]
+                if entry["status"] == "COMPLETED" and entry["replication_role"] == "parity"),
         "target_never_opened": lock.get("target_labels_opened") is False
                                and lock.get("selection_used_target") is False,
         "code_lineage_recorded": bool(lock.get("code_lineage")),

@@ -284,6 +284,12 @@ def test_source_matrix_lock_keeps_every_logical_row_including_failures(tmp_path,
         registry.claim(record.experiment_id, run_id=record.experiment_id, backend=record.backend)
         if record.experiment_id == "B01-s20260806":
             registry.fail(record.experiment_id, stage="G5", error="deliberate test failure")
+        elif record.replication_role == "parity":
+            # A parity row trains nothing to completion and selects no checkpoint, so
+            # it is COMPLETED by naming the parity evidence it produced.
+            registry.update(record.experiment_id, status="COMPLETED",
+                            parity_identity="p" * 64, parity_passed=True,
+                            parity_checks={"batch_identity_exact": True})
         else:
             registry.update(record.experiment_id, status="COMPLETED",
                             best_checkpoint_sha256="a" * 64, source_calibration_sha256="b" * 64,
@@ -295,6 +301,10 @@ def test_source_matrix_lock_keeps_every_logical_row_including_failures(tmp_path,
     assert lock["failed_rows"] == ["B01-s20260806"]
     failed = next(e for e in lock["entries"] if e["experiment_id"] == "B01-s20260806")
     assert failed["failure"]["stage"] == "G5" and failed["failure"]["error"]
+    # A parity row is locked as parity evidence, never as a second training result.
+    parity = next(e for e in lock["entries"] if e["replication_role"] == "parity")
+    assert parity["kind"] == "parity_not_superiority" and parity["parity_identity"]
+    assert "best_checkpoint_sha256" not in parity
     assert all(e.get("blocked_reason") for e in lock["entries"] if e["status"] == "BLOCKED")
     # And it validates, twice, reproducing its own identity both times.
     first = validate_source_matrix_lock(lock, plan)

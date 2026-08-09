@@ -36,9 +36,13 @@ DATA_MOUNT, MODELS_MOUNT, RUNS_MOUNT = "/vol/data", "/vol/models", "/vol/runs"
 
 REMOTE_PACKAGE = f"{DATA_MOUNT}/packages/prism_data_v1_m3b"
 REMOTE_BANK = f"{DATA_MOUNT}/synthetic_banks/prism_synthetic_bank_m8_v3_e84c78cd2a9b"
-# The A02 control artifact: source-only, equal budget, same routes, same frozen
-# quality thresholds, random operator composition instead of the structured recipe.
-REMOTE_RANDOM_BANK = f"{DATA_MOUNT}/synthetic_banks/prism_synthetic_bank_m10_random_v1"
+# The A02 control artifact: source-only, same candidate budget, same routes, same
+# frozen quality thresholds and the same frozen generator weights — random operator
+# composition instead of the structured recipe. Built by `modal_m10_a02.py`, and it
+# lives on the runs volume where it was assembled; the training mount already
+# includes that volume, so it is read in place rather than copied.
+REMOTE_RANDOM_BANK = (f"{RUNS_MOUNT}/synthetic_banks/m10_a02_work/generation/"
+                      f"prism_synthetic_bank_m10_random_f7f1e6ac2034")
 REMOTE_TARGET_FEATURES = f"{DATA_MOUNT}/target_eval/prism_target_eval_v2"
 REMOTE_WEIGHT_ROOT = f"{MODELS_MOUNT}/pretrained/m9"
 REMOTE_RUNS_ROOT = f"{RUNS_MOUNT}/runs"
@@ -55,10 +59,10 @@ EXPECTED_SIGLIP2_IDENTITY = "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9b
 EXPECTED_TEXT_CACHE_IDENTITY = "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141"
 EXPECTED_ARCHITECTURE_IDENTITY = "d9507e42abf8c1930f835f50635ce2a7b74d90504d659ba6cc9356ea83f26aa0"
 EXPECTED_MATRIX_IDENTITY = "a4972b0dc23946c4ad169f2c856fc9b5e0387baca45b2c9a4895f8180d9c2dd5"
-# Filled in when the A02 random-operator bank is built and frozen; until then the
-# A02 rows fail closed rather than falling back to the structured M8 v3 bank.
-EXPECTED_RANDOM_BANK_ID = "prism_synthetic_bank_m10_random_v1"
-EXPECTED_RANDOM_BANK_IDENTITY = ""
+# The frozen A02 control bank. `SyntheticBankReader.open` is fail-closed on both,
+# so an A02 row can never silently fall back to the structured M8 v3 bank.
+EXPECTED_RANDOM_BANK_ID = "prism_synthetic_bank_m10_random_f7f1e6ac2034"
+EXPECTED_RANDOM_BANK_IDENTITY = "f7f1e6ac20341d32d75dddd19cbf3231ea4eb7554eb49290aee32cf59ec17387"
 
 # A target feature row may never carry any of these, remotely or locally.
 FORBIDDEN_FEATURE_FIELDS = (
@@ -405,9 +409,14 @@ def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = Tru
     configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
                               project / "configs/train/m9_reference.yaml", variant)
     from dataclasses import replace
-    training_config = replace(configs["training_config"], run_id=run_id, seed=int(seed))
-    if max_epochs is not None: training_config = replace(training_config, mixed_epochs=int(max_epochs))
     bank_root, bank_identity, bank_id = bank_root_for(variant)
+    training_config = replace(configs["training_config"], run_id=run_id, seed=int(seed),
+                              # Binds the A02 control artifact into the TRAINING config
+                              # identity. Empty for every structured row, so B08's config
+                              # hash is unchanged; set for A02, so its checkpoint can
+                              # never be resumed against the structured bank.
+                              synthetic_bank_identity=bank_identity or "")
+    if max_epochs is not None: training_config = replace(training_config, mixed_epochs=int(max_epochs))
     trainer = M9Trainer(
         config=training_config, detector_config=configs["detector_config"],
         package_root=Path(REMOTE_PACKAGE), bank_root=Path(bank_root),
@@ -435,6 +444,8 @@ def m10_train_row(experiment_id: str, seed: int, run_id: str, resume: bool = Tru
             "variant_identity": variant.identity(), "flags": variant.flags(),
             "declared_stages": list(trainer.stages), "closure": closure,
             "synthetic_bank_root": bank_root,
+            "synthetic_bank_identity": bank_identity or EXPECTED_BANK_IDENTITY,
+            "synthetic_bank_id": bank_id or "prism_synthetic_bank_m8_v3_e84c78cd2a9b",
             "elapsed_seconds": round(time.time() - started, 1),
             "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
             "peak_vram_bytes": int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else None,
@@ -529,6 +540,60 @@ def m10_smoke_row(experiment_id: str, steps: int = 2, validation_limit: int = 96
             "target_features_opened": False, "target_labels_opened": False}
 
 
+@app.function(image=image, gpu=DEFAULT_GPU, volumes=TRAIN_VOLUMES, timeout=3600)
+def m10_parity_probe(experiment_id: str = "B08-s20260806", steps: int = 5,
+                     amp: bool = False,
+                     shared_checkpoint: str = "m9_reference_seed20260806/checkpoints/best.pt") -> dict:
+    """The Modal half of the A09 bounded step-parity protocol.
+
+    A handful of optimizer steps at the row's own configuration and seed, recording
+    the batch, the loss trajectory and the forward outputs. It trains nothing to
+    completion, selects no checkpoint and writes no calibration — it exists only to
+    be compared against the local half.
+    """
+    import torch
+    from prism_fas.detector.config import load_m9_configs
+    from prism_fas.detector.trainer import M9Trainer
+    from prism_fas.evaluation.backend_parity import probe_payload
+
+    project = Path("/root/project")
+    resolved = resolve_matrix_row(experiment_id)
+    variant = resolved["variant"].require_executable()
+    configs = load_m9_configs(project / "configs/models/m9_detector.yaml",
+                              project / "configs/train/m9_reference.yaml", variant)
+    from dataclasses import replace
+    # `configs/cloud/modal_m6.yaml` declares `parity: precision: fp32`, and the
+    # tolerances beside it were fitted for fp32-vs-fp32. Leaving AMP on here would
+    # compare an L4 running bf16 against a CPU running fp32, which exceeds those
+    # tolerances by three orders of magnitude for reasons that have nothing to do
+    # with the backend question the row asks. AMP therefore defaults OFF for the
+    # probe; it is a parameter so the AMP-vs-fp32 gap can still be measured and
+    # reported separately, rather than silently conflated with backend parity.
+    training_config = replace(configs["training_config"],
+                              run_id=f"m10_parity/{experiment_id}", seed=int(resolved["row"]["seed"]),
+                              amp=bool(amp))
+    bank_root, bank_identity, bank_id = bank_root_for(variant)
+    trainer = M9Trainer(
+        config=training_config, detector_config=configs["detector_config"],
+        package_root=Path(REMOTE_PACKAGE), bank_root=Path(bank_root),
+        bank_identity=bank_identity, bank_id=bank_id,
+        recipe_bank_root=project / "assets/recipe_banks/prism_recipe_bank_m7_v1",
+        run_root=Path(REMOTE_RUNS_ROOT) / "m10_parity" / experiment_id,
+        cache_root=Path(REMOTE_CACHE_ROOT), weight_root=Path(REMOTE_WEIGHT_ROOT),
+        loader_config_path=project / "configs/data/loader_m4.yaml",
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        text_cache_path=Path(REMOTE_WEIGHT_ROOT) / "recipe_text_cache.npz")
+    device_report = {}
+    if torch.cuda.is_available():
+        properties = torch.cuda.get_device_properties(torch.cuda.current_device())
+        device_report = {"gpu_name": properties.name, "torch": torch.__version__,
+                         "cuda_runtime": torch.version.cuda}
+    payload = probe_payload(trainer, backend="modal", steps=int(steps), device_report=device_report,
+                            shared_checkpoint=(Path(REMOTE_RUNS_ROOT) / shared_checkpoint
+                                               if shared_checkpoint else None))
+    return {"experiment_id": experiment_id, **payload}
+
+
 @app.function(image=image, volumes=TRAIN_VOLUMES, timeout=3600, cpu=2.0, memory=8192)
 def m10_collect_runs(experiment_ids: list[str]) -> dict:
     """Read each row's run artifacts from the runs volume and return the evidence
@@ -603,6 +668,10 @@ def main(action: str = "verify", experiment_id: str = "g7_new_package_smoke",
                                               max_epochs=max_epochs,
                                               scientific_config_hash=scientific_config_hash,
                                               engineering_smoke=engineering_smoke),
+                         indent=1, default=str))
+    elif action == "parity-probe":
+        # `--amp` opts INTO mixed precision; the declared protocol is fp32.
+        print(json.dumps(m10_parity_probe.remote(experiment_id, 5, engineering_smoke),
                          indent=1, default=str))
     elif action == "collect":
         ids = [value.strip() for value in experiment_id.split(",") if value.strip()]
