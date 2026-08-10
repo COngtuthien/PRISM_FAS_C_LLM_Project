@@ -107,10 +107,13 @@ class GenerationRequest:
     ontology_identity: str = ""
     prompt_template_identity: str = ""
     provider_config_identity: str = ""
+    #: The frozen scientific route contract (C2C onwards). Empty for a request
+    #: made before the contract existed.
+    route_policy_identity: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def identity_material(self) -> dict[str, Any]:
-        return {
+        material = {
             "slot_id": self.slot_id,
             "system_instruction_sha256": text_sha256(self.system_instruction),
             "input_text_sha256": text_sha256(self.input_text),
@@ -124,6 +127,15 @@ class GenerationRequest:
             "prompt_template_identity": self.prompt_template_identity,
             "provider_config_identity": self.provider_config_identity,
         }
+        # Included only when set. C1, C2 and C2B ran before the route contract
+        # existed, and their archived responses are keyed to the identities they
+        # were produced under: adding an always-present key would change every
+        # historical request identity and make those archives unreplayable.
+        # A request that DOES carry the policy gets a different identity from one
+        # that does not, which is exactly the invalidation the contract needs.
+        if self.route_policy_identity:
+            material["route_policy_identity"] = self.route_policy_identity
+        return material
 
     @property
     def request_sha256(self) -> str:

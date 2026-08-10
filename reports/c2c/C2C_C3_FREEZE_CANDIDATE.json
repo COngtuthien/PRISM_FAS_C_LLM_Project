@@ -1,0 +1,51 @@
+{
+  "schema_version": "c2c-c3-freeze-candidate-v1",
+  "milestone": "C2C",
+  "generated_at_utc": "2026-08-10T14:04:23.001362Z",
+  "status": "CANDIDATE - NOT FROZEN, NOT EXECUTED",
+  "frozen_by_this_session": false,
+  "requires_explicit_user_approval": true,
+  "c2c_outcome": "PASS",
+  "components": {
+    "provider": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "thinking_level": "medium",
+    "response_mime_type": "application/json",
+    "max_output_tokens": 32768,
+    "system_prompt_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+    "batch_generation_template_identity": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+    "coverage_quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+    "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+    "batch_envelope_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "allow_ontology_aliases": false,
+    "provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "request_schedule": {
+      "requests": 12,
+      "objects_per_request": 32,
+      "raw_slots": 384,
+      "minimum_unique_pool": 320,
+      "final_bank": 256
+    },
+    "retry_policy": {
+      "semantic_max_retries": 2,
+      "transport_max_attempts": 4,
+      "backoff_initial_seconds": 1.0,
+      "backoff_multiplier": 2.0,
+      "backoff_max_seconds": 60.0
+    }
+  },
+  "canonical_text": "{\"allow_ontology_aliases\":false,\"api_surface\":\"interactions\",\"batch_envelope_schema_identity\":\"f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113\",\"batch_generation_template_identity\":\"e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20\",\"coverage_quota_identity\":\"89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5\",\"max_output_tokens\":32768,\"model_id\":\"gemini-3.6-flash\",\"ontology_identity\":\"90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd\",\"provider\":\"gemini\",\"provider_config_identity\":\"3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da\",\"request_schedule\":{\"final_bank\":256,\"minimum_unique_pool\":320,\"objects_per_request\":32,\"raw_slots\":384,\"requests\":12},\"response_mime_type\":\"application/json\",\"retry_policy\":{\"backoff_initial_seconds\":1.0,\"backoff_max_seconds\":60.0,\"backoff_multiplier\":2.0,\"semantic_max_retries\":2,\"transport_max_attempts\":4},\"route_policy_identity\":\"209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7\",\"sdk_package\":\"google-genai\",\"single_recipe_schema_identity\":\"1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579\",\"system_prompt_identity\":\"e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737\",\"thinking_level\":\"medium\"}",
+  "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "invalidation_rule": "changing ANY component above changes c3_generation_contract_identity, and therefore invalidates any C3 generation carried out under the previous value.",
+  "c3_requests_executed": 0,
+  "evidence": {
+    "one_logical_batch": true,
+    "returned_objects": 32,
+    "accepted_objects": 32,
+    "compiler_failures_among_accepted": 0
+  }
+}

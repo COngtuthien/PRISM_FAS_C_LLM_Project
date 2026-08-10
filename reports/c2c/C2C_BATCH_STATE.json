@@ -1,0 +1,1142 @@
+{
+  "schema_version": "c2c-batch-state-v1",
+  "milestone": "C2C",
+  "generated_at_utc": "2026-08-10T13:56:54.011836Z",
+  "generator_code_commit": "969639cc1a72690ae276afdb6e42487721b04c04",
+  "logical_batch_id": "C2C_BATCH_000",
+  "logical_batches_executed": 1,
+  "second_batch_issued": false,
+  "status": "COMPLETE",
+  "semantic_response_received": true,
+  "requested_objects": 32,
+  "returned_objects": 32,
+  "accepted_objects": 32,
+  "route_policy_rejections": 0,
+  "compiled_objects": 32,
+  "compiler_failures": 0,
+  "provider_attempts": 1,
+  "transport_retries": 0,
+  "rate_limit_events": [],
+  "response_issues": [],
+  "batch_contract": {
+    "provider": "Google Gemini Developer API",
+    "provider_name": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "thinking_level": "medium",
+    "response_mime_type": "application/json",
+    "max_output_tokens": 32768,
+    "system_prompt_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+    "system_prompt_sha256": "a76da24194d4d0ce165298fffd8985f7e94290da5955a830816c62264997ff06",
+    "system_prompt_identity_before_c2c": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "batch_generation_template_identity": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+    "coverage_quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+    "coverage_quotas_changed_in_c2c": false,
+    "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+    "single_recipe_schema_changed_in_c2c": false,
+    "batch_envelope_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "batch_envelope_array_bounds_sent": false,
+    "exact_batch_size_enforced_locally": 32,
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "route_policy_version": "prism_c_route_policy_v1",
+    "required_generator_route": [
+      "physics",
+      "gpat"
+    ],
+    "provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "allow_ontology_aliases": false,
+    "retry_policy": {
+      "semantic_max_retries": 2,
+      "transport_max_attempts": 4,
+      "backoff_initial_seconds": 1.0,
+      "backoff_multiplier": 2.0,
+      "backoff_max_seconds": 60.0
+    },
+    "request_schedule_for_c3": "12 requests x 32 recipes = 384 raw slots; minimum unique pool 320; final bank 256",
+    "sampling_controls_sent": [],
+    "tools_sent": false,
+    "grounding": false,
+    "url_context": false,
+    "file_search": false,
+    "code_execution": false,
+    "media_inputs": false,
+    "input_type": "str (text only)",
+    "store_interaction": false
+  },
+  "route_policy": {
+    "version": "prism_c_route_policy_v1",
+    "allowed_scientific_generator_route": [
+      "physics",
+      "gpat"
+    ],
+    "require_exact_order": true,
+    "allow_subset": false,
+    "allow_gpat_only_class": false,
+    "silent_repair_permitted": false,
+    "rationale": "Physics is mandatory and every scientific recipe receives 4 physics + 4 GPAT candidate renders, so the RND/DET/LLM arms must share identical route exposure. A recipe that only one route can render would confound that comparison.",
+    "canonical_text": "{\"allow_gpat_only_class\":false,\"allow_subset\":false,\"allowed_scientific_generator_route\":[\"physics\",\"gpat\"],\"require_exact_order\":true,\"silent_repair_permitted\":false,\"version\":\"prism_c_route_policy_v1\"}",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+  },
+  "coverage_quotas": {
+    "schema_version": "c2b-coverage-quota-v1",
+    "batch_size": 32,
+    "label": "c2b-development-batch",
+    "axes": [
+      {
+        "axis": "artifacts",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 4,
+        "max_per_category": 16,
+        "note": ""
+      },
+      {
+        "axis": "geometry",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "illumination",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "media",
+        "require_all": true,
+        "min_per_category": 4,
+        "preferred_min_per_category": null,
+        "max_per_category": 10,
+        "note": ""
+      },
+      {
+        "axis": "regions",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 3,
+        "max_per_category": 16,
+        "note": ""
+      }
+    ],
+    "diversity_rules": [
+      "do not repeat the same medium + geometry + illumination combination unnecessarily",
+      "do not repeat the same artifact set unnecessarily",
+      "do not repeat the same region set unnecessarily",
+      "do not repeat the same artifact-region pattern unnecessarily",
+      "no two recipes in the batch may be identical"
+    ],
+    "quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5"
+  },
+  "prompt_diff": {
+    "reason": "C2B_VALIDATOR_COMPILER_ROUTE_CONTRACT_REPAIR",
+    "classification": "source-independent engineering / spec reconciliation, NOT target tuning. No dataset, metric, attack family or target result was consulted; the amendment states an execution contract the frozen Version-C synthesis design already required.",
+    "old_prompt_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "new_prompt_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+    "old_system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+    "new_system_prompt_sha256": "a76da24194d4d0ce165298fffd8985f7e94290da5955a830816c62264997ff06",
+    "generation_template_changed": false,
+    "coverage_quotas_changed": false,
+    "chars_before": 4876,
+    "chars_after": 5286,
+    "chars_added": 410,
+    "lines_added": 8,
+    "lines_removed": 0,
+    "added_lines": [
+      "\n",
+      "MANDATORY ROUTE DECLARATION\n",
+      "12. \"generator_route\" is a fixed execution contract, NOT a diversity axis. Every\n",
+      "    recipe must declare exactly:\n",
+      "      \"generator_route\": [\"physics\", \"gpat\"]\n",
+      "    Do not emit a physics-only route, a gpat-only route, a different order or any\n",
+      "    other route set. Every recipe must be executable through both routes. A\n",
+      "    recipe declaring anything else is invalid and is discarded.\n"
+    ],
+    "removed_lines": [],
+    "unified_diff": "--- system_instruction (C1/C2/C2B)\n+++ system_instruction (C2C)\n@@ -35,4 +35,12 @@\n 11. Never make one artifact a universal shortcut. If a recipe declares a\n     forbidden shortcut, that recipe must not consist solely of that artifact.\n+\n+MANDATORY ROUTE DECLARATION\n+12. \"generator_route\" is a fixed execution contract, NOT a diversity axis. Every\n+    recipe must declare exactly:\n+      \"generator_route\": [\"physics\", \"gpat\"]\n+    Do not emit a physics-only route, a gpat-only route, a different order or any\n+    other route set. Every recipe must be executable through both routes. A\n+    recipe declaring anything else is invalid and is discarded.\n \n SCOPE RULE\n"
+  },
+  "identity_chain": {
+    "chain_order": [
+      "ontology_identity",
+      "llm_schema_identity",
+      "llm_prompt_template_identity",
+      "llm_provider_config_identity",
+      "generation_request_identity",
+      "raw_response_identity",
+      "canonical_recipe_identity"
+    ],
+    "links": {
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "llm_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+      "llm_prompt_template_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+      "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "generation_request_identity": "e2c225b01f27c7b8715a5802772a05d77ef7209d2cb23ff51cae3a0eaec921cd",
+      "raw_response_identity": "f63568124983553e7f12b1d07824aa7e6c8fe63033f084f521dc8d85b9625b2c",
+      "canonical_recipe_identity": null
+    },
+    "resolved_links": 6,
+    "chain_identity": "39e9b318c34331f0e8a74f3b4fbd0c2d1e2ee304454f6e32f5b7e001ab8d19b1"
+  },
+  "recipes": [
+    {
+      "batch_index": 0,
+      "status": "accepted",
+      "recipe_id": "R-000000",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "8d3e49fac257000031605a147d1fa26f8549e792f2bb122600efb94130fbeb62",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.2},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":85,\"defocus\":0.1,\"illumination\":\"front\",\"motion\":0.05,\"scale\":1.0,\"yaw\":-10.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.9,\"shape\":\"flat\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.8,\"transparency\":0.05},\"recipe_id\":\"R-000000\",\"regions\":[\"left_eye\",\"right_eye\",\"nose\"],\"schema_version\":\"1.1\",\"seed\":101}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "3288fabe69fdbd830634a8b6472fc8b34a664ea6b6574a37e179d11eff8abbf8",
+      "operator_names": [
+        "texture_smoothing",
+        "halftone"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "nose"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.85,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 1,
+      "status": "accepted",
+      "recipe_id": "R-000001",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "64cd38fc4f7199f8c37e23362bd159ab59b6d883589c7813db89f4a2dfc46c24",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.25},{\"name\":\"moire\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":90,\"defocus\":0.05,\"illumination\":\"left\",\"motion\":0.0,\"scale\":1.05,\"yaw\":5.0},\"forbidden_shortcuts\":[\"always_moire\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.9,\"rigidity\":0.95,\"shape\":\"rigid\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.1,\"transparency\":0.1},\"recipe_id\":\"R-000001\",\"regions\":[\"nose\",\"mouth\",\"forehead\"],\"schema_version\":\"1.1\",\"seed\":202}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "7d3fb7d6ee920e6c9eb98d0abf0a4605ea2234a46df17c0bef86c6158a3a1be7",
+      "operator_names": [
+        "pixel_grid",
+        "moire"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "nose",
+          "mouth",
+          "forehead"
+        ],
+        "geometry_shape": "rigid",
+        "requested_coverage": 0.9,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 2,
+      "status": "accepted",
+      "recipe_id": "R-000002",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "5f185f355bec014db900d18b134a5ebf5ccda7e2f093353c21cd0e0388b5f518",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.3},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":75,\"defocus\":0.2,\"illumination\":\"right\",\"motion\":0.1,\"scale\":0.95,\"yaw\":15.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.75,\"rigidity\":0.8,\"shape\":\"curved\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.2,\"transparency\":0.3},\"recipe_id\":\"R-000002\",\"regions\":[\"forehead\",\"left_cheek\",\"right_cheek\"],\"schema_version\":\"1.1\",\"seed\":303}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "d24b68bf6767c10b1984cd89198fdd9cc2e665776f5bc7745437ff0510e03776",
+      "operator_names": [
+        "specular_reflection",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "forehead",
+          "left_cheek",
+          "right_cheek"
+        ],
+        "geometry_shape": "curved",
+        "requested_coverage": 0.75,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 3,
+      "status": "accepted",
+      "recipe_id": "R-000003",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "a5a80af0ebd934029bbe1a6e662f55c7192fbcb59c0d36066e3e55904638cfbc",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.25},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":70,\"defocus\":0.15,\"illumination\":\"top\",\"motion\":0.15,\"scale\":1.1,\"yaw\":-20.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.8,\"rigidity\":0.2,\"shape\":\"flexible\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.85,\"transparency\":0.0},\"recipe_id\":\"R-000003\",\"regions\":[\"left_cheek\",\"right_cheek\",\"face_boundary\"],\"schema_version\":\"1.1\",\"seed\":404}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "d9b782d222fc6554df65ccb0c559245151bd12acc2e97f95b3b2e30483f16b54",
+      "operator_names": [
+        "texture_smoothing",
+        "color_shift"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_cheek",
+          "right_cheek",
+          "face_boundary"
+        ],
+        "geometry_shape": "flexible",
+        "requested_coverage": 0.8,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 4,
+      "status": "accepted",
+      "recipe_id": "R-000004",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "0865acd9d9254ca62b15d09a539d535305ee19bb33d3bcc13182baf4897a79ac",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.35},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":80,\"defocus\":0.0,\"illumination\":\"bottom\",\"motion\":0.0,\"scale\":0.85,\"yaw\":0.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.6,\"rigidity\":0.6,\"shape\":\"partial-curved\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.05,\"transparency\":0.4},\"recipe_id\":\"R-000004\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":505}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "197c12751e55664ab63148d253c23efe488a797f2ffebf46a235299c2ad1b31c",
+      "operator_names": [
+        "specular_reflection",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "partial-curved",
+        "requested_coverage": 0.6,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 5,
+      "status": "accepted",
+      "recipe_id": "R-000005",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "69b66c0d98dd48e2e5f6697b9694828922f20a222e1fec4c61c451536c3e793c",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.3},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":95,\"defocus\":0.05,\"illumination\":\"mixed\",\"motion\":0.05,\"scale\":1.0,\"yaw\":-5.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.3,\"rigidity\":0.7,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.75,\"transparency\":0.0},\"recipe_id\":\"R-000005\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":606}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "17d0fbd66933e9e99b2547abb2dcc3c6ab8ccab27c6638c9c0cb869676497162",
+      "operator_names": [
+        "color_shift",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.3,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 6,
+      "status": "accepted",
+      "recipe_id": "R-000006",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "4674f21ce979fdea93a4a9d7278a55559c6b05e0478a3f0b118cbffb3677cefa",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.2},{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.3}],\"capture\":{\"compression_q\":80,\"defocus\":0.1,\"illumination\":\"front\",\"motion\":0.0,\"scale\":1.15,\"yaw\":25.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.95,\"rigidity\":0.9,\"shape\":\"rigid\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.15,\"transparency\":0.05},\"recipe_id\":\"R-000006\",\"regions\":[\"left_eye\",\"right_eye\",\"forehead\"],\"schema_version\":\"1.1\",\"seed\":707}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "0f606109bb1dda7a8b89aa12211979f1b13591331a742083fc1a7f4e161e08eb",
+      "operator_names": [
+        "pixel_grid",
+        "specular_reflection"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "forehead"
+        ],
+        "geometry_shape": "rigid",
+        "requested_coverage": 0.95,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 7,
+      "status": "accepted",
+      "recipe_id": "R-000007",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "57a40345d089324a36f2a521dacb48b49e6c66f7c4d96a387abea21a8e65e834",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.2},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":60,\"defocus\":0.25,\"illumination\":\"left\",\"motion\":0.2,\"scale\":0.9,\"yaw\":-15.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.7,\"rigidity\":0.3,\"shape\":\"flexible\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.3,\"transparency\":0.2},\"recipe_id\":\"R-000007\",\"regions\":[\"nose\",\"mouth\"],\"schema_version\":\"1.1\",\"seed\":808}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "3347907e457d735e176b5a0f9b73599c1dc6e1ec6d72394a5b6d0de83c8fae0b",
+      "operator_names": [
+        "color_shift",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "nose",
+          "mouth"
+        ],
+        "geometry_shape": "flexible",
+        "requested_coverage": 0.7,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 8,
+      "status": "accepted",
+      "recipe_id": "R-000008",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "e8cb22e3eaa0a47e2a21c90bf8f49fe2127e39a0770ed5c4fa2c4b9b4b439d7c",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.25},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":85,\"defocus\":0.1,\"illumination\":\"right\",\"motion\":0.1,\"scale\":1.0,\"yaw\":10.0},\"forbidden_shortcuts\":[\"always_halftone\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.4,\"shape\":\"curved\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.9,\"transparency\":0.1},\"recipe_id\":\"R-000008\",\"regions\":[\"left_eye\",\"right_eye\",\"mouth\"],\"schema_version\":\"1.1\",\"seed\":909}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "f93745b23447770ff841e3d43709f434272cdb1cf66e476c289cdaab4358576e",
+      "operator_names": [
+        "texture_smoothing",
+        "halftone"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "mouth"
+        ],
+        "geometry_shape": "curved",
+        "requested_coverage": 0.85,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 9,
+      "status": "accepted",
+      "recipe_id": "R-000009",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "1372250f3bc2351a48fcdeefad3a964c8c73957727967909abd6691a06e21814",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"moire\",\"parameters\":{},\"strength\":0.25},{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.3}],\"capture\":{\"compression_q\":90,\"defocus\":0.05,\"illumination\":\"top\",\"motion\":0.0,\"scale\":1.2,\"yaw\":-30.0},\"forbidden_shortcuts\":[\"always_moire\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.9,\"rigidity\":0.85,\"shape\":\"flat\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.1,\"transparency\":0.5},\"recipe_id\":\"R-000009\",\"regions\":[\"forehead\",\"context\"],\"schema_version\":\"1.1\",\"seed\":1010}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "125b594838792321ad5694e11b1235e542b4a4611604c06bc71d73dfbf81647b",
+      "operator_names": [
+        "moire",
+        "specular_reflection"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "forehead",
+          "context"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.9,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 10,
+      "status": "accepted",
+      "recipe_id": "R-000010",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "6188146da990b7065511369ac1c6b4f08d0a5bef03297ed5c9ca9dc00234b80c",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"blur\",\"parameters\":{},\"strength\":0.2},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":65,\"defocus\":0.3,\"illumination\":\"bottom\",\"motion\":0.15,\"scale\":0.8,\"yaw\":0.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.65,\"rigidity\":0.5,\"shape\":\"partial-curved\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.7,\"transparency\":0.1},\"recipe_id\":\"R-000010\",\"regions\":[\"left_cheek\",\"right_cheek\"],\"schema_version\":\"1.1\",\"seed\":1111}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "985d873849d69e58320f2adc9ae054b32ffb377301c491f7183fcb493c5fe436",
+      "operator_names": [
+        "texture_smoothing",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_cheek",
+          "right_cheek"
+        ],
+        "geometry_shape": "partial-curved",
+        "requested_coverage": 0.65,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 11,
+      "status": "accepted",
+      "recipe_id": "R-000011",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "eef4614099fc8c460d5ab8052b6c7fefbdf318f996388d3319a3174d3a173ff5",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"moire\",\"parameters\":{},\"strength\":0.3},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":100,\"defocus\":0.0,\"illumination\":\"mixed\",\"motion\":0.05,\"scale\":1.0,\"yaw\":35.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.8,\"rigidity\":0.95,\"shape\":\"curved\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.05,\"transparency\":0.0},\"recipe_id\":\"R-000011\",\"regions\":[\"left_eye\",\"nose\",\"face_boundary\"],\"schema_version\":\"1.1\",\"seed\":1212}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "88041a9e2d352893285e9745d126a65cdf92884193e83883964e50a8fba850e4",
+      "operator_names": [
+        "moire",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "nose",
+          "face_boundary"
+        ],
+        "geometry_shape": "curved",
+        "requested_coverage": 0.8,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 12,
+      "status": "accepted",
+      "recipe_id": "R-000012",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "d8e82a371f5e7a1ed0f91588ae6af33c7669b8d94ce4bef233d8360330fb5f1c",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.25},{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":75,\"defocus\":0.1,\"illumination\":\"front\",\"motion\":0.0,\"scale\":1.05,\"yaw\":-10.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.25,\"rigidity\":0.8,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.25,\"transparency\":0.15},\"recipe_id\":\"R-000012\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":1313}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "b467df5675a764001943d09056bc4977d4fba62135a0f2b097c454d0229036ad",
+      "operator_names": [
+        "specular_reflection",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.25,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 13,
+      "status": "accepted",
+      "recipe_id": "R-000013",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "85477345bbdb27db04fede682314b8b367f16f6db08096397a9922f19674a73b",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.2},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.15},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":80,\"defocus\":0.15,\"illumination\":\"left\",\"motion\":0.1,\"scale\":0.95,\"yaw\":20.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.7,\"rigidity\":0.7,\"shape\":\"rigid\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.8,\"transparency\":0.05},\"recipe_id\":\"R-000013\",\"regions\":[\"right_eye\",\"nose\",\"right_cheek\"],\"schema_version\":\"1.1\",\"seed\":1414}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "86d5129d409db3c14b5e3f51c98d9750ba45380b483a24b0f9bf453f5e857fe6",
+      "operator_names": [
+        "texture_smoothing",
+        "color_shift",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "right_eye",
+          "nose",
+          "right_cheek"
+        ],
+        "geometry_shape": "rigid",
+        "requested_coverage": 0.7,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 14,
+      "status": "accepted",
+      "recipe_id": "R-000014",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "8f15774ad00c51a5fb07d58acce1cb0a4b0a32913927050e61d1a5ab1c5b7da0",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"moire\",\"parameters\":{},\"strength\":0.2},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":85,\"defocus\":0.05,\"illumination\":\"right\",\"motion\":0.2,\"scale\":1.0,\"yaw\":-5.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.75,\"rigidity\":0.15,\"shape\":\"flexible\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.15,\"transparency\":0.3},\"recipe_id\":\"R-000014\",\"regions\":[\"nose\",\"mouth\",\"left_cheek\"],\"schema_version\":\"1.1\",\"seed\":1515}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "8c4092f85d522f0d3141c9b2602521d055ca08db0f7f22010ce28f8b70da4d49",
+      "operator_names": [
+        "moire",
+        "color_shift"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "nose",
+          "mouth",
+          "left_cheek"
+        ],
+        "geometry_shape": "flexible",
+        "requested_coverage": 0.75,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 15,
+      "status": "accepted",
+      "recipe_id": "R-000015",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "ff0c5b39132c1a69595809deb768b092ff307583f83ebf3f75fc6f4ee5cbcb9c",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.3},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":90,\"defocus\":0.1,\"illumination\":\"top\",\"motion\":0.0,\"scale\":1.1,\"yaw\":0.0},\"forbidden_shortcuts\":[\"always_halftone\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.85,\"shape\":\"rigid\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.65,\"transparency\":0.0},\"recipe_id\":\"R-000015\",\"regions\":[\"forehead\",\"left_cheek\",\"face_boundary\"],\"schema_version\":\"1.1\",\"seed\":1616}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "9d4b44d42a60e0319203f5094808379d4b954722402a91a0926cc223d98baece",
+      "operator_names": [
+        "halftone",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "forehead",
+          "left_cheek",
+          "face_boundary"
+        ],
+        "geometry_shape": "rigid",
+        "requested_coverage": 0.85,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 16,
+      "status": "accepted",
+      "recipe_id": "R-000016",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "ed1f37fca4d62ebe17f8aa3b417ce58b044b9c704ba8ed42c4e2e34fb5ff853f",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.35},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":70,\"defocus\":0.2,\"illumination\":\"bottom\",\"motion\":0.05,\"scale\":0.85,\"yaw\":-25.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.75,\"shape\":\"partial-curved\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.1,\"transparency\":0.0},\"recipe_id\":\"R-000016\",\"regions\":[\"right_eye\",\"mouth\",\"right_cheek\"],\"schema_version\":\"1.1\",\"seed\":1717}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "0372694a291ee749b71e8fc3964913dc92dc6986b0471d6a3e9d54ebefbf9bba",
+      "operator_names": [
+        "pixel_grid",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "right_eye",
+          "mouth",
+          "right_cheek"
+        ],
+        "geometry_shape": "partial-curved",
+        "requested_coverage": 0.85,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 17,
+      "status": "accepted",
+      "recipe_id": "R-000017",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "6d122317a35208f57b3b4384013070a5ff50f51db69a7204cb492e9eb844fa09",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.4},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":95,\"defocus\":0.05,\"illumination\":\"mixed\",\"motion\":0.0,\"scale\":1.0,\"yaw\":10.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.9,\"rigidity\":0.9,\"shape\":\"flat\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.1,\"transparency\":0.4},\"recipe_id\":\"R-000017\",\"regions\":[\"left_eye\",\"right_eye\",\"context\"],\"schema_version\":\"1.1\",\"seed\":1818}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "ce5383ea0451cf286fc61ba0d9cc27a1430bcf73224c71a4684fc1b702ea13df",
+      "operator_names": [
+        "color_shift",
+        "specular_reflection"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "context"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.9,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 18,
+      "status": "accepted",
+      "recipe_id": "R-000018",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "ac2ed49eb31622930ad8775c2e871a7a6fb4eb93f941967f07f2dc92f066d693",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.2},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.25}],\"capture\":{\"compression_q\":80,\"defocus\":0.1,\"illumination\":\"front\",\"motion\":0.1,\"scale\":1.0,\"yaw\":15.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.35,\"rigidity\":0.3,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.95,\"transparency\":0.0},\"recipe_id\":\"R-000018\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":1919}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "1881f37a6d822df098f4bf2426b23e25b2161818e402df1d4ed8ae5f8896e87d",
+      "operator_names": [
+        "halftone",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.35,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 19,
+      "status": "accepted",
+      "recipe_id": "R-000019",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "dd8c0af26f03e6e751a0128208347675276af71f6f0c8cd8e2a354a7ee987b95",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.25},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":85,\"defocus\":0.15,\"illumination\":\"left\",\"motion\":0.0,\"scale\":1.15,\"yaw\":-40.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.8,\"rigidity\":0.8,\"shape\":\"curved\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.05,\"transparency\":0.2},\"recipe_id\":\"R-000019\",\"regions\":[\"left_eye\",\"nose\",\"mouth\"],\"schema_version\":\"1.1\",\"seed\":2020}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "62c0c33efc1c336707f31ce283df4e85c9b7f8894f9e8ac4adb462ec0cd96d19",
+      "operator_names": [
+        "texture_smoothing",
+        "specular_reflection"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "nose",
+          "mouth"
+        ],
+        "geometry_shape": "curved",
+        "requested_coverage": 0.8,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 20,
+      "status": "accepted",
+      "recipe_id": "R-000020",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "26277090a88c97d93e36cb95f8416a76bef818735df993a9abf9a26f5f18f027",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.15},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.2},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":50,\"defocus\":0.2,\"illumination\":\"right\",\"motion\":0.25,\"scale\":0.9,\"yaw\":5.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.9,\"rigidity\":0.1,\"shape\":\"flexible\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.85,\"transparency\":0.05},\"recipe_id\":\"R-000020\",\"regions\":[\"right_eye\",\"forehead\",\"right_cheek\"],\"schema_version\":\"1.1\",\"seed\":2121}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "f35d2f743d83e8487f90a9e19b36d1893a15cc475eee2725afe2d002f04801eb",
+      "operator_names": [
+        "halftone",
+        "color_shift",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "right_eye",
+          "forehead",
+          "right_cheek"
+        ],
+        "geometry_shape": "flexible",
+        "requested_coverage": 0.9,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 21,
+      "status": "accepted",
+      "recipe_id": "R-000021",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "5ef1458e13d52a38ed2c99a02051531a7a89c3f0d9ab65177243c4827d91a69f",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.3},{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":90,\"defocus\":0.0,\"illumination\":\"top\",\"motion\":0.0,\"scale\":1.0,\"yaw\":-15.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.4,\"rigidity\":0.85,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.2,\"transparency\":0.0},\"recipe_id\":\"R-000021\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":2222}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "25bbf1ff2138c09d0424325846c9f7709fa427eaa410977dcb7944bc757f224d",
+      "operator_names": [
+        "pixel_grid",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.4,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 22,
+      "status": "accepted",
+      "recipe_id": "R-000022",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "8f11b79af1a55cb1a6cf231fb0fe798f25fa95f66773b5132fc34251f8a9d092",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.3},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":75,\"defocus\":0.1,\"illumination\":\"bottom\",\"motion\":0.1,\"scale\":1.05,\"yaw\":30.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.7,\"rigidity\":0.65,\"shape\":\"partial-curved\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.35,\"transparency\":0.25},\"recipe_id\":\"R-000022\",\"regions\":[\"left_cheek\",\"right_cheek\",\"face_boundary\"],\"schema_version\":\"1.1\",\"seed\":2323}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "bdbf9684df4c1ab612981329225ff316a9ded88fbf1f6c9cf465ee50dec79757",
+      "operator_names": [
+        "texture_smoothing",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_cheek",
+          "right_cheek",
+          "face_boundary"
+        ],
+        "geometry_shape": "partial-curved",
+        "requested_coverage": 0.7,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 23,
+      "status": "accepted",
+      "recipe_id": "R-000023",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "2173d0993a51c7226ffb83591f4767cbd3baf13efa4724ab9d92b9264d6c320e",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"blur\",\"parameters\":{},\"strength\":0.25},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":85,\"defocus\":0.15,\"illumination\":\"mixed\",\"motion\":0.05,\"scale\":1.0,\"yaw\":0.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.8,\"rigidity\":0.6,\"shape\":\"flat\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.75,\"transparency\":0.15},\"recipe_id\":\"R-000023\",\"regions\":[\"left_eye\",\"right_eye\",\"nose\"],\"schema_version\":\"1.1\",\"seed\":2424}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "34774c24110793cadd2d1ae96e923fe2b185bb553633858e482dbcb7c910da2f",
+      "operator_names": [
+        "texture_smoothing",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "nose"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.8,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 24,
+      "status": "accepted",
+      "recipe_id": "R-000024",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "ce429a43c99091a3870dbffb06e0c4a5dd08e07037a6e298b3b4ecbcb4a60780",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.45},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":100,\"defocus\":0.05,\"illumination\":\"front\",\"motion\":0.0,\"scale\":1.25,\"yaw\":-20.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.95,\"rigidity\":0.9,\"shape\":\"rigid\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.0,\"transparency\":0.6},\"recipe_id\":\"R-000024\",\"regions\":[\"forehead\",\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":2525}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "6d4109b0c8741e6c0d3a3498c5fab92579a25643765fdf1d06212ae482170c2e",
+      "operator_names": [
+        "specular_reflection",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "forehead",
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "rigid",
+        "requested_coverage": 0.95,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 25,
+      "status": "accepted",
+      "recipe_id": "R-000025",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "1c3aab5f325babe385a775d3e98849c726fa09436d8f5e6a5d1d6cb348a307b2",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.2},{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.25}],\"capture\":{\"compression_q\":80,\"defocus\":0.1,\"illumination\":\"left\",\"motion\":0.05,\"scale\":0.8,\"yaw\":10.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.75,\"rigidity\":0.7,\"shape\":\"curved\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.8,\"transparency\":0.0},\"recipe_id\":\"R-000025\",\"regions\":[\"nose\",\"mouth\",\"context\"],\"schema_version\":\"1.1\",\"seed\":2626}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "57a462c04ef1ed31d7362a6389bb077c4f0fc4bd0ddb2bc36f142247106839aa",
+      "operator_names": [
+        "texture_smoothing",
+        "halftone"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "nose",
+          "mouth",
+          "context"
+        ],
+        "geometry_shape": "curved",
+        "requested_coverage": 0.75,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 26,
+      "status": "accepted",
+      "recipe_id": "R-000026",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "86642714b83a5cfc085eb29a266cf82bf308be481110ee75159ff1a7fcf9adb8",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.25},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":95,\"defocus\":0.0,\"illumination\":\"right\",\"motion\":0.0,\"scale\":1.0,\"yaw\":-5.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.9,\"rigidity\":0.9,\"shape\":\"flat\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.05,\"transparency\":0.0},\"recipe_id\":\"R-000026\",\"regions\":[\"left_eye\",\"mouth\",\"forehead\"],\"schema_version\":\"1.1\",\"seed\":2727}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "1b265a97ff5d1f7533d29140dbfae548c05b19aa628e36b47c39da072097fedc",
+      "operator_names": [
+        "pixel_grid",
+        "color_shift"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "mouth",
+          "forehead"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.9,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 27,
+      "status": "accepted",
+      "recipe_id": "R-000027",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "4d1cc267813537efd99556d2a6f50eb129b2e49de6168290cffa863f2b655416",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.35},{\"name\":\"color_shift\",\"parameters\":{},\"strength\":0.1}],\"capture\":{\"compression_q\":70,\"defocus\":0.2,\"illumination\":\"top\",\"motion\":0.1,\"scale\":1.1,\"yaw\":20.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.2,\"rigidity\":0.95,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"plastic-like\",\"roughness\":0.15,\"transparency\":0.1},\"recipe_id\":\"R-000027\",\"regions\":[\"face_boundary\"],\"schema_version\":\"1.1\",\"seed\":2828}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "9d3e22a6616f419d3748ca967f264aa55899dbce99ffe5f182b05bd6cb3b388f",
+      "operator_names": [
+        "color_shift",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.2,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 28,
+      "status": "accepted",
+      "recipe_id": "R-000028",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "28e13f10ff11aa0cc666c3597e45908fb44c42a4de9ab29d388614625e115b9b",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"texture_smoothing\",\"parameters\":{},\"strength\":0.3},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":60,\"defocus\":0.25,\"illumination\":\"bottom\",\"motion\":0.2,\"scale\":0.95,\"yaw\":-35.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.65,\"rigidity\":0.4,\"shape\":\"partial-curved\"},\"medium\":{\"family\":\"fabric-like\",\"roughness\":0.9,\"transparency\":0.0},\"recipe_id\":\"R-000028\",\"regions\":[\"left_cheek\",\"right_cheek\",\"context\"],\"schema_version\":\"1.1\",\"seed\":2929}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "3977d29b3dcaae28078966f887bab8b33b76ea52a68af1e1bd59af6712d69ebc",
+      "operator_names": [
+        "texture_smoothing",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_cheek",
+          "right_cheek",
+          "context"
+        ],
+        "geometry_shape": "partial-curved",
+        "requested_coverage": 0.65,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 29,
+      "status": "accepted",
+      "recipe_id": "R-000029",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "e086fc645002ab794e6b9767ee267ca71213a9cf6ebbfea26be3a445d065f659",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.3},{\"name\":\"boundary_inconsistency\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":85,\"defocus\":0.05,\"illumination\":\"mixed\",\"motion\":0.0,\"scale\":1.0,\"yaw\":0.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.3,\"rigidity\":0.75,\"shape\":\"boundary-only\"},\"medium\":{\"family\":\"reflective-film-like\",\"roughness\":0.1,\"transparency\":0.35},\"recipe_id\":\"R-000029\",\"regions\":[\"face_boundary\",\"context\"],\"schema_version\":\"1.1\",\"seed\":3030}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "150ca4fee3f4db8bbe3bcdb3edf5051353a01d90a0a3e271f3d5c079be3999e1",
+      "operator_names": [
+        "specular_reflection",
+        "boundary_inconsistency"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "face_boundary",
+          "context"
+        ],
+        "geometry_shape": "boundary-only",
+        "requested_coverage": 0.3,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 30,
+      "status": "accepted",
+      "recipe_id": "R-000030",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "33dca0cb73b012876c15edef23aec32a83d9e6069e1dee5bbb16972d393fa12f",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"halftone\",\"parameters\":{},\"strength\":0.25},{\"name\":\"blur\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":90,\"defocus\":0.1,\"illumination\":\"front\",\"motion\":0.05,\"scale\":1.05,\"yaw\":15.0},\"forbidden_shortcuts\":[],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.8,\"shape\":\"flat\"},\"medium\":{\"family\":\"paper-like\",\"roughness\":0.9,\"transparency\":0.0},\"recipe_id\":\"R-000030\",\"regions\":[\"right_eye\",\"nose\",\"forehead\"],\"schema_version\":\"1.1\",\"seed\":3131}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "fa2aa17ef01be2b7c62ab0931d1dabd306f19468f8abc5d3d4738e0461314f63",
+      "operator_names": [
+        "halftone",
+        "blur"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "right_eye",
+          "nose",
+          "forehead"
+        ],
+        "geometry_shape": "flat",
+        "requested_coverage": 0.85,
+        "coverage_tolerance": 0.05
+      }
+    },
+    {
+      "batch_index": 31,
+      "status": "accepted",
+      "recipe_id": "R-000031",
+      "generator_route": [
+        "physics",
+        "gpat"
+      ],
+      "canonical_identity": "04a4e7625cf9fdfddfafcc83d2ea887904086a67b5904817c6b5f76f8a8cb986",
+      "canonical_recipe": "{\"artifacts\":[{\"name\":\"moire\",\"parameters\":{},\"strength\":0.3},{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.2}],\"capture\":{\"compression_q\":85,\"defocus\":0.1,\"illumination\":\"left\",\"motion\":0.1,\"scale\":0.9,\"yaw\":-10.0},\"forbidden_shortcuts\":[\"always_moire\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.75,\"rigidity\":0.2,\"shape\":\"flexible\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.1,\"transparency\":0.0},\"recipe_id\":\"R-000031\",\"regions\":[\"left_eye\",\"right_eye\",\"left_cheek\"],\"schema_version\":\"1.1\",\"seed\":3232}",
+      "validation_failures": [],
+      "compiler_status": "compiled",
+      "graph_hash": "fe4f77e11d93305cc05aae53cc88553b72858a9f88325bb10ba2d8a9e3fc5f5f",
+      "operator_names": [
+        "pixel_grid",
+        "moire"
+      ],
+      "conditioning_dimension": 41,
+      "region_mask_policy": {
+        "policy": "parsing_first_geometry_fallback",
+        "regions": [
+          "left_eye",
+          "right_eye",
+          "left_cheek"
+        ],
+        "geometry_shape": "flexible",
+        "requested_coverage": 0.75,
+        "coverage_tolerance": 0.05
+      }
+    }
+  ],
+  "disposable": true,
+  "enters_c3": false,
+  "enters_final_bank": false
+}

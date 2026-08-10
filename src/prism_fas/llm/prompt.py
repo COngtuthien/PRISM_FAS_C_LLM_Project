@@ -23,6 +23,7 @@ from typing import Any
 from prism_fas.recipes.ontology import Ontology
 
 from .firewall import assert_request_is_target_free
+from .route_policy import RoutePolicy
 
 PROMPT_TEMPLATE_VERSION = "c1-llm-prompt-v1"
 
@@ -45,6 +46,8 @@ class PromptTemplate:
     system_instruction: str
     generation_template: str
     ontology_identity: str
+    #: Empty for a template built before the C2C route contract existed.
+    route_policy_identity: str = ""
 
     @property
     def system_instruction_sha256(self) -> str:
@@ -62,6 +65,7 @@ class PromptTemplate:
                 "system_prompt_sha256": self.system_instruction_sha256,
                 "request_template_sha256": self.generation_template_sha256,
                 "ontology_identity": self.ontology_identity,
+                "route_policy_identity": self.route_policy_identity,
                 "prompt_template_identity": self.identity()}
 
 
@@ -70,11 +74,41 @@ def prompt_template_identity(template: PromptTemplate) -> str:
                 "system_instruction_sha256": template.system_instruction_sha256,
                 "generation_template_sha256": template.generation_template_sha256,
                 "ontology_identity": template.ontology_identity}
+    # Added only when a route policy is bound, so a template built without one
+    # keeps the exact identity C1/C2/C2B recorded. The system-instruction hash
+    # already moves when the route block is present; this makes the dependency
+    # explicit rather than implicit in the text.
+    if template.route_policy_identity:
+        material["route_policy_identity"] = template.route_policy_identity
     text = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def build_system_instruction(ontology: Ontology) -> str:
+def _route_contract_block(route_policy: "RoutePolicy | None") -> str:
+    """The mandatory route declaration, rendered from the policy itself.
+
+    C2C addition. It is generated from `RoutePolicy`, never typed here, so the
+    sentence the model reads and the rule the validator enforces cannot drift
+    apart. When no policy is supplied the block is empty and the system
+    instruction is byte-identical to the C1/C2/C2B text.
+    """
+    if route_policy is None:
+        return ""
+    required = list(route_policy.allowed_scientific_generator_route)
+    rendered = ", ".join(f'"{name}"' for name in required)
+    return f"""
+
+MANDATORY ROUTE DECLARATION
+12. "generator_route" is a fixed execution contract, NOT a diversity axis. Every
+    recipe must declare exactly:
+      "generator_route": [{rendered}]
+    Do not emit a physics-only route, a gpat-only route, a different order or any
+    other route set. Every recipe must be executable through both routes. A
+    recipe declaring anything else is invalid and is discarded."""
+
+
+def build_system_instruction(ontology: Ontology,
+                             route_policy: "RoutePolicy | None" = None) -> str:
     """Role, no-target rule, schema, ontology, compatibility, hard output format,
     maximum artifacts/regions, forbidden shortcuts and an explicit JSON-only
     requirement (spec section 7.5)."""
@@ -124,7 +158,7 @@ HARD RULES
     artifact composition, severity and capture conditions. Do not emit near
     copies of the same recipe.
 11. Never make one artifact a universal shortcut. If a recipe declares a
-    forbidden shortcut, that recipe must not consist solely of that artifact.
+    forbidden shortcut, that recipe must not consist solely of that artifact.{_route_contract_block(route_policy)}
 
 SCOPE RULE
 You are given a generic ontology and nothing else. You have no information about
@@ -195,20 +229,25 @@ def _coverage_block(coverage_quotas: dict[str, Any] | None) -> str:
     return "\n".join(lines)
 
 
-def build_prompt_template(ontology: Ontology) -> PromptTemplate:
+def build_prompt_template(ontology: Ontology,
+                          route_policy: "RoutePolicy | None" = None) -> PromptTemplate:
+    """Build the template. With `route_policy=None` the bytes are identical to
+    the C1/C2/C2B text, so historical prompt identities are preserved."""
     return PromptTemplate(
         version=PROMPT_TEMPLATE_VERSION,
-        system_instruction=build_system_instruction(ontology),
+        system_instruction=build_system_instruction(ontology, route_policy),
         generation_template=build_generation_template(ontology),
         ontology_identity=ontology.sha256,
+        route_policy_identity=route_policy.route_policy_identity if route_policy else "",
     )
 
 
 # `load_prompt_template` is the name the rest of Version C imports, so a future
 # milestone can swap a built template for frozen bytes read from the bank lock
 # without touching callers.
-def load_prompt_template(ontology: Ontology) -> PromptTemplate:
-    return build_prompt_template(ontology)
+def load_prompt_template(ontology: Ontology,
+                         route_policy: "RoutePolicy | None" = None) -> PromptTemplate:
+    return build_prompt_template(ontology, route_policy)
 
 
 def build_generation_prompt(template: PromptTemplate, *, recipes_requested: int,

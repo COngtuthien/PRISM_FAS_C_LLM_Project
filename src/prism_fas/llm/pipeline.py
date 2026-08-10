@@ -39,6 +39,7 @@ from prism_fas.recipes.validate import ValidationIssue, canonicalize_payload, va
 from .config import LLMProviderConfig
 from .contracts import ErrorClass, GenerationRequest, ProviderError, ProviderGenerationResult
 from .providers.base import RecipeProvider
+from .route_policy import RoutePolicy
 
 #: Ordered pipeline stages, recorded in the schema audit.
 PIPELINE_STAGES: tuple[str, ...] = (
@@ -48,6 +49,7 @@ PIPELINE_STAGES: tuple[str, ...] = (
     "ontology_membership",
     "range_checks",
     "compatibility_checks",
+    "scientific_route_policy",
     "canonicalization",
     "recipe_identity",
     "duplicate_detection",
@@ -66,6 +68,7 @@ class CandidateOutcome(str, Enum):
     REJECTED_ENVELOPE = "rejected_envelope"
     REJECTED_SCHEMA = "rejected_schema"
     REJECTED_ONTOLOGY = "rejected_ontology"
+    REJECTED_ROUTE_POLICY = "rejected_route_policy"
     REJECTED_DUPLICATE = "rejected_duplicate"
     REJECTED_SYSTEM_OWNED_FIELD = "rejected_system_owned_field"
 
@@ -174,13 +177,22 @@ class RecipePlanner:
     """
 
     def __init__(self, *, provider: RecipeProvider, config: LLMProviderConfig,
-                 ontology: Ontology, sleep: Callable[[float], None] | None = None) -> None:
+                 ontology: Ontology, sleep: Callable[[float], None] | None = None,
+                 route_policy: "RoutePolicy | None" = None) -> None:
         self._provider = provider
         self._config = config
         self._ontology = ontology
         self._sleep = sleep if sleep is not None else time.sleep
         self._seen_identities: dict[str, str] = {}
+        # `None` keeps the C1/C2/C2B behaviour exactly: those milestones ran
+        # before the route contract existed and their archived responses must
+        # keep replaying to the verdicts they were accepted under.
+        self._route_policy = route_policy
         self.quota = QuotaState(billing_tier=config.quota.billing_tier)
+
+    @property
+    def route_policy(self) -> "RoutePolicy | None":
+        return self._route_policy
 
     # --- duplicate detection ------------------------------------------------
     @property
@@ -261,6 +273,21 @@ class RecipePlanner:
         if issues:
             return RecipeCandidateResult(index, CandidateOutcome.REJECTED_ONTOLOGY, recipe=recipe,
                                          issues=_issue_dicts(issues))
+
+        # SCIENTIFIC_ROUTE_POLICY. The inherited validator evaluates schema,
+        # ontology membership, ranges and compatibility in one pass; the route
+        # contract is applied to the parsed recipe immediately after it, and
+        # before canonicalization, duplicate detection and the compiler. A
+        # route-invalid candidate can therefore never reach an accepted state,
+        # never be registered as seen, and never be handed to `compile_recipe`.
+        #
+        # Nothing is repaired here. A recipe declaring `["gpat"]` is rejected as
+        # the provider wrote it; the missing physics route is not added.
+        if self._route_policy is not None:
+            route_issues = self._route_policy.check(recipe)
+            if route_issues:
+                return RecipeCandidateResult(index, CandidateOutcome.REJECTED_ROUTE_POLICY,
+                                             recipe=recipe, issues=route_issues)
 
         text = canonical_json(recipe)
         identity = recipe_hash(recipe)

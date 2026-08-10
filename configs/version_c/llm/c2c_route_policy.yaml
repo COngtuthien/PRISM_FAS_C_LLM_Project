@@ -1,0 +1,47 @@
+# PRISM-FAS-C-LLM — the frozen scientific route contract.
+#
+# `generator_route` is an EXECUTION CONTRACT, not a semantic degree of freedom
+# the LLM may vary. Every scientific recipe must be executable through BOTH
+# synthesis routes, so the only accepted declaration is exactly:
+#
+#     ["physics", "gpat"]
+#
+# Neither ["physics"] nor ["gpat"] is valid for a Version-C v1.1 scientific bank.
+#
+# Why (frozen Version-C spec):
+#   * the physics route is mandatory;
+#   * each recipe receives exactly 4 physics + 4 GPAT candidate renders;
+#   * the RND / DET / LLM arms must have identical route exposure, so a recipe
+#     only one route can render would confound the comparison;
+#   * the canonical recipe example in the spec uses ["physics", "gpat"].
+#
+# C2B evidence: 32 schema-valid recipes, 10 of them non-compilable purely because
+# they omitted the physics route. See reports/c2b/C2B_LIVE_BATCH_AUDIT.json.
+#
+# Identity-bearing. `route_policy_identity` enters the generation request
+# identity, the recipe-bank provenance and the C3 BANK_LOCK; changing this file
+# after C3 begins invalidates the bank identity.
+
+version: "prism_c_route_policy_v1"
+
+allowed_scientific_generator_route:
+  - "physics"
+  - "gpat"
+
+# The declaration must match exactly, in this order. A subset is not a weaker
+# form of compliance; it is a different execution contract.
+require_exact_order: true
+allow_subset: false
+
+# Version-C v1.1 has NO GPAT-only scientific class. Creating one would
+# reintroduce route-exposure confounding between the arms.
+allow_gpat_only_class: false
+
+# A route-invalid recipe is REJECTED and recorded. It is never given a missing
+# physics route after the fact: the provider must declare the contract itself.
+silent_repair_permitted: false
+
+rationale: >-
+  Physics is mandatory and every scientific recipe receives 4 physics + 4 GPAT
+  candidate renders, so the RND/DET/LLM arms must share identical route exposure.
+  A recipe that only one route can render would confound that comparison.

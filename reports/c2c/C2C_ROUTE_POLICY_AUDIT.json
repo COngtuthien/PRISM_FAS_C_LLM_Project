@@ -1,0 +1,83 @@
+{
+  "schema_version": "c2c-route-policy-audit-v1",
+  "milestone": "C2C",
+  "generated_at_utc": "2026-08-10T14:04:23.001970Z",
+  "generator_code_commit": "969639cc1a72690ae276afdb6e42487721b04c04",
+  "route_policy": {
+    "version": "prism_c_route_policy_v1",
+    "allowed_scientific_generator_route": [
+      "physics",
+      "gpat"
+    ],
+    "require_exact_order": true,
+    "allow_subset": false,
+    "allow_gpat_only_class": false,
+    "silent_repair_permitted": false,
+    "rationale": "Physics is mandatory and every scientific recipe receives 4 physics + 4 GPAT candidate renders, so the RND/DET/LLM arms must share identical route exposure. A recipe that only one route can render would confound that comparison.",
+    "canonical_text": "{\"allow_gpat_only_class\":false,\"allow_subset\":false,\"allowed_scientific_generator_route\":[\"physics\",\"gpat\"],\"require_exact_order\":true,\"silent_repair_permitted\":false,\"version\":\"prism_c_route_policy_v1\"}",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+  },
+  "prompt_amendment": {
+    "reason": "C2B_VALIDATOR_COMPILER_ROUTE_CONTRACT_REPAIR",
+    "classification": "source-independent engineering / spec reconciliation, NOT target tuning. No dataset, metric, attack family or target result was consulted; the amendment states an execution contract the frozen Version-C synthesis design already required.",
+    "old_prompt_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "new_prompt_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+    "old_system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+    "new_system_prompt_sha256": "a76da24194d4d0ce165298fffd8985f7e94290da5955a830816c62264997ff06",
+    "generation_template_changed": false,
+    "coverage_quotas_changed": false,
+    "chars_before": 4876,
+    "chars_after": 5286,
+    "chars_added": 410,
+    "lines_added": 8,
+    "lines_removed": 0,
+    "added_lines": [
+      "\n",
+      "MANDATORY ROUTE DECLARATION\n",
+      "12. \"generator_route\" is a fixed execution contract, NOT a diversity axis. Every\n",
+      "    recipe must declare exactly:\n",
+      "      \"generator_route\": [\"physics\", \"gpat\"]\n",
+      "    Do not emit a physics-only route, a gpat-only route, a different order or any\n",
+      "    other route set. Every recipe must be executable through both routes. A\n",
+      "    recipe declaring anything else is invalid and is discarded.\n"
+    ],
+    "removed_lines": [],
+    "unified_diff": "--- system_instruction (C1/C2/C2B)\n+++ system_instruction (C2C)\n@@ -35,4 +35,12 @@\n 11. Never make one artifact a universal shortcut. If a recipe declares a\n     forbidden shortcut, that recipe must not consist solely of that artifact.\n+\n+MANDATORY ROUTE DECLARATION\n+12. \"generator_route\" is a fixed execution contract, NOT a diversity axis. Every\n+    recipe must declare exactly:\n+      \"generator_route\": [\"physics\", \"gpat\"]\n+    Do not emit a physics-only route, a gpat-only route, a different order or any\n+    other route set. Every recipe must be executable through both routes. A\n+    recipe declaring anything else is invalid and is discarded.\n \n SCOPE RULE\n"
+  },
+  "enforcement_point": "prism_fas.llm.pipeline.RecipePlanner._validate_candidate, after the inherited validator pass and before canonicalization, duplicate detection and the compiler",
+  "pipeline_stages": [
+    "json_parsing",
+    "envelope_schema",
+    "typed_recipe_schema",
+    "ontology_membership",
+    "range_checks",
+    "compatibility_checks",
+    "scientific_route_policy",
+    "canonicalization",
+    "recipe_identity",
+    "duplicate_detection"
+  ],
+  "live_batch_route_audit": {
+    "route_policy_version": "prism_c_route_policy_v1",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "required_route": [
+      "physics",
+      "gpat"
+    ],
+    "recipes_examined": 32,
+    "route_counts": {
+      "physics+gpat": 32
+    },
+    "compliant_count": 32,
+    "violating_count": 0,
+    "violations": [],
+    "all_compliant": true,
+    "silent_repairs_performed": 0,
+    "gpat_only_class_created": false
+  },
+  "route_policy_rejections": [],
+  "silent_repairs_performed": 0,
+  "gpat_only_accepted_class_created": false,
+  "item_schema_identity_unchanged": true,
+  "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579"
+}
