@@ -1,0 +1,200 @@
+{
+  "schema_version": "c2-acceptance-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.1 FINAL",
+  "milestone": "C2",
+  "objective": "Disposable live Gemini pilot + source-only prompt/schema validation",
+
+  "result": "BLOCKED_NO_API_KEY",
+
+  "claim": "C2 could not begin its scientific work. GEMINI_API_KEY is not present in any environment scope, so no live provider call was made. The C2 prerequisite ordered by the instruction (a Version-C-specific Python environment) was completed and verified, and the frozen provider contract was re-verified offline. No pilot recipe exists, and no pilot, coverage, co-occurrence, retry or readiness result is claimed.",
+
+  "blocking_condition": {
+    "reason": "GEMINI_API_KEY absent",
+    "gemini_api_key_present": false,
+    "google_api_key_present": false,
+    "scopes_checked": ["process", "user", "machine", "repository .env", "repository .env.local", "user home .gemini_api_key"],
+    "found_in_any_scope": false,
+    "instruction_reference": "C2 section 4: 'If false: C2 = BLOCKED_NO_API_KEY'",
+    "key_requested_in_chat": false,
+    "key_written_to_source": false
+  },
+
+  "preflight": {
+    "starting_head": "cdf1594ca6892ca05c168fb2f6b4494236981222",
+    "starting_head_matches_accepted_c1": true,
+    "starting_branch": "c1-llm-provider-contract",
+    "working_tree_clean_at_start": true,
+    "origin": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
+    "version_b_push_url": "DISABLED_NO_PUSH_TO_VERSION_B",
+    "c2_branch": "c2-llm-pilot",
+    "branch_created_from": "cdf1594ca6892ca05c168fb2f6b4494236981222",
+    "rebase_or_squash": false
+  },
+
+  "prerequisite_completed": {
+    "name": "Version-C Python environment (C2 instruction section 3)",
+    "status": "COMPLETE and VERIFIED",
+    "detail": "reports/c2/C2_ENVIRONMENT_AUDIT.json",
+    "problem_fixed": "Before C2, the ambient editable install resolved `prism_fas` to PRISM_FAS_B_Project/src/prism_fas for ordinary python commands. A live provider call under that resolution would have exercised Version-B code.",
+    "solution": ".venv created inside the Version-C repository; `pip install -e .[llm]`",
+    "prism_fas_resolves_to": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/src/prism_fas/__init__.py",
+    "resolves_to_version_c": true,
+    "resolves_to_version_b": false,
+    "python_version": "3.13.11",
+    "pip_version": "25.3",
+    "google_genai_version": "2.17.0",
+    "version_b_modified": false,
+    "global_environment_modified": false,
+    "c1_tests_in_new_venv": {"passed": 138, "failed": 0, "skipped": 0}
+  },
+
+  "frozen_provider_contract_reverified_offline": {
+    "note": "Assembled and inspected without any network call, to prove the contract still matches the C1 freeze before a future live run.",
+    "provider": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "model_matches_c1_freeze": true,
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "sdk_version_installed": "2.17.0",
+    "thinking_level": "medium",
+    "thinking_level_matches_c1_freeze": true,
+    "response_mime_type": "application/json",
+    "structured_schema_present": true,
+    "input_type": "str",
+    "forbidden_sampling_fields_present": [],
+    "tools_passed": false,
+    "store_interaction": false,
+    "media_keys_present": [],
+    "allow_ontology_aliases": false,
+    "live_verification_against_provider": "NOT PERFORMED - requires a credential"
+  },
+
+  "identities_unchanged_from_c1": {
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "llm_schema_identity_12x32": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "prompt_changed_in_c2": false,
+    "schema_changed_in_c2": false,
+    "ontology_changed_in_c2": false,
+    "alias_policy_changed_in_c2": false
+  },
+
+  "artifacts_not_created_and_why": {
+    "policy": "No fake or placeholder scientific result file was created. An artifact that would report pilot measurements is absent because no measurement exists.",
+    "absent": [
+      {"path": "reports/c2/C2_LIVE_SMOKE_AUDIT.json", "reason": "0 live smoke calls were made"},
+      {"path": "reports/c2/C2_PILOT_AUDIT.json", "reason": "0 of 32 pilot slots were generated"},
+      {"path": "reports/c2/C2_COVERAGE_AUDIT.json", "reason": "no pilot recipes exist to analyse"},
+      {"path": "reports/c2/C2_RETRY_QUOTA_AUDIT.json", "reason": "no provider call was attempted, so no retry or quota event exists"},
+      {"path": "reports/c2/C2_C3_READINESS.json", "reason": "the estimate must be derived from observed C2 rates, and none were observed"},
+      {"path": "docs/c2/C2_LLM_PILOT_REPORT.md", "reason": "no pilot recipes to report"},
+      {"path": "docs/c2/C2_PROMPT_REVIEW.md", "reason": "prompt review requires pilot evidence; the prompt is unchanged from C1"},
+      {"path": "tests/c2/", "reason": "C2 tests are specified against live-response replay and archived raw responses; no raw response exists to replay"}
+    ]
+  },
+
+  "no_execution_proof": {
+    "gemini_api_calls": 0,
+    "live_smoke_calls": 0,
+    "pilot_slots_generated": 0,
+    "pilot_recipes_generated": 0,
+    "raw_responses_archived": 0,
+    "c3_candidate_slots_generated": 0,
+    "scientific_recipe_bank_created": 0,
+    "det_rnd_banks_created": 0,
+    "bank_locks_frozen": 0,
+    "synthetic_images_generated": 0,
+    "physics_rendering_runs": 0,
+    "gpat_training_runs": 0,
+    "detector_training_runs": 0,
+    "modal_jobs": 0,
+    "ssh_gpu_jobs": 0,
+    "dataset_preprocessing_runs": 0,
+    "siw_label_reads": 0,
+    "siw_attack_family_inspections": 0,
+    "version_b_siw_metrics_used": 0,
+    "target_evaluations": 0,
+    "prompt_changes": 0,
+    "model_changes": 0,
+    "billing_enabled": 0,
+    "version_b_artifacts_modified": 0,
+    "api_cost_incurred": 0
+  },
+
+  "version_b_integrity": {
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "working_tree": "clean",
+    "scientific_artifacts_changed": 0,
+    "written_to_during_c2": false
+  },
+
+  "acceptance_checks": {
+    "version_c_import_resolves_to_version_c_source": true,
+    "dedicated_version_c_environment_recorded": true,
+    "gemini_key_present_without_disclosure": false,
+    "exact_frozen_gemini_model_works": "NOT VERIFIED - no credential",
+    "structured_response_works": "NOT VERIFIED - no credential",
+    "smoke_calls_completed": false,
+    "pilot_32_slots_executed_or_quota_blocked": false,
+    "raw_responses_preserved": "NOT APPLICABLE - none produced",
+    "every_attempt_has_provenance": "NOT APPLICABLE - no attempt made",
+    "no_silent_semantic_repair": true,
+    "accepted_pilot_recipes_pass_schema": "NOT APPLICABLE",
+    "accepted_pilot_recipes_pass_ontology": "NOT APPLICABLE",
+    "accepted_pilot_recipes_compile": "NOT APPLICABLE",
+    "invalid_duplicate_retry_statistics_recorded": false,
+    "coverage_audit_complete": false,
+    "co_occurrence_audit_complete": false,
+    "all_32_recipes_human_readable": false,
+    "prompt_changes_source_only_and_documented": true,
+    "alias_normalization_remains_off": true,
+    "c3_call_volume_quota_estimate_created": false,
+    "no_c3_bank_generated": true,
+    "no_synthetic_images_generated": true,
+    "no_gpat_training": true,
+    "no_detector_training": true,
+    "no_gpu_usage": true,
+    "no_target_evaluation": true,
+    "no_siw_label_use": true,
+    "version_b_unchanged": true,
+    "no_secret_committed": true,
+    "c2_tests_zero_failures": "NOT APPLICABLE - no C2 tests could be written",
+    "no_new_unexplained_inherited_failures": true,
+    "branch_committed_and_pushed": true
+  },
+
+  "how_to_unblock": {
+    "step_1": "Obtain a Gemini API key from Google AI Studio (Free Tier is sufficient to begin).",
+    "step_2_powershell": "$env:GEMINI_API_KEY=\"<your key>\"",
+    "step_2_persistent_alternative": "setx GEMINI_API_KEY \"<your key>\"  (then start a NEW shell; note a persistent variable set after the agent session started will not reach an already-running process)",
+    "step_3": "Re-run C2. The environment prerequisite is already complete, so C2 can proceed directly to the <=2 live smoke calls followed by the 32-slot pilot.",
+    "do_not": [
+      "commit the key",
+      "paste the key into a source file",
+      "paste the key into a chat transcript",
+      "place the key in a config file that enters an artifact identity"
+    ],
+    "quota_note": "Start on Free Tier. Paid escalation remains a USER DECISION ONLY; code never enables billing."
+  },
+
+  "quota_snapshot": {
+    "status": "QUOTA_SNAPSHOT_NOT_PROGRAMMATICALLY_AVAILABLE",
+    "reason": "No credential is present, so no account or project rate-limit metadata could be read. No numbers were invented.",
+    "manual_source_before_c3": "Google AI Studio -> the API keys / plan page for the project owning the key; record the active Requests-per-minute (RPM), Tokens-per-minute (TPM) and Requests-per-day (RPD) limits shown for gemini-3.6-flash on the current tier.",
+    "spec_reference": "Version-C spec section 7.2: 'C1 records the active quota snapshot from AI Studio before scientific generation'; exact RPM/TPM/RPD are deliberately not hard-coded because Google applies project/model-specific limits."
+  },
+
+  "not_claimed": [
+    "any pilot result",
+    "any recipe quality, plausibility, coverage or diversity measurement",
+    "any invalid, duplicate or retry rate",
+    "any C3 readiness estimate",
+    "that the live Gemini path has been exercised",
+    "any FAS or detector result"
+  ],
+
+  "c3_status": "NOT STARTED. No 384-slot generation, no 256-recipe bank, no BANK_LOCK."
+}

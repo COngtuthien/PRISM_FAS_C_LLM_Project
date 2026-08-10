@@ -1,0 +1,104 @@
+{
+  "schema_version": "c2-environment-audit-v1",
+  "milestone": "C2",
+  "purpose": "Prerequisite audit run BEFORE any live provider call. No network request was made and no credential value was read.",
+  "generated_by": "scripts/c2_environment_audit.py",
+  "git": {
+    "branch": "c2-llm-pilot",
+    "head": "cdf1594ca6892ca05c168fb2f6b4494236981222",
+    "accepted_c1_head": "cdf1594ca6892ca05c168fb2f6b4494236981222",
+    "working_tree_clean": false
+  },
+  "interpreter": {
+    "python_version": "3.13.11",
+    "executable": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\.venv\\Scripts\\python.exe",
+    "in_virtual_environment": true,
+    "sys_prefix": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\.venv",
+    "venv_inside_version_c_repository": true,
+    "pip_version": "25.3",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "import_resolution": {
+    "prism_fas_file": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\src\\prism_fas\\__init__.py",
+    "expected_root": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\src\\prism_fas",
+    "resolves_to_version_c": true,
+    "resolves_to_version_b": false,
+    "c1_finding": "Before C2 the ambient editable install resolved `prism_fas` to PRISM_FAS_B_Project/src/prism_fas for ordinary python commands. Running a live provider call under that resolution would have exercised Version-B code.",
+    "resolution": "A dedicated .venv inside the Version-C repository with `pip install -e .[llm]`.",
+    "version_b_modified": false,
+    "global_environment_modified": false
+  },
+  "packages": {
+    "prism-fas": "0.1.0",
+    "google-genai": "2.17.0",
+    "pydantic": "2.13.4",
+    "PyYAML": "6.0.3",
+    "pyarrow": "25.0.0",
+    "typer": "0.27.1",
+    "pytest": "9.1.1",
+    "numpy": "2.5.2"
+  },
+  "credential": {
+    "env_var": "GEMINI_API_KEY",
+    "gemini_api_key_present": false,
+    "google_api_key_present": false,
+    "value_read_into_audit": false,
+    "checked_scopes": [
+      "process",
+      "user",
+      "machine",
+      "repository .env"
+    ]
+  },
+  "frozen_provider_contract_reverified_offline": {
+    "provider": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "model_matches_c1_freeze": true,
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "sdk_version_installed": "2.17.0",
+    "sdk_version_pin": ">=2.3.0,<3",
+    "thinking_level": "medium",
+    "thinking_level_matches_c1_freeze": true,
+    "response_format": {
+      "type": "text",
+      "mime_type": "application/json",
+      "schema_present": true
+    },
+    "structured_json_required": true,
+    "input_type": "str",
+    "call_kwargs_keys": [
+      "generation_config",
+      "input",
+      "model",
+      "response_format",
+      "store",
+      "stream",
+      "system_instruction"
+    ],
+    "generation_config_keys": [
+      "max_output_tokens",
+      "thinking_level"
+    ],
+    "forbidden_sampling_fields": [
+      "temperature",
+      "top_p",
+      "top_k"
+    ],
+    "forbidden_sampling_fields_present": [],
+    "tools_passed": false,
+    "store_interaction": false,
+    "stream": false,
+    "media_keys_present": []
+  },
+  "identities": {
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "llm_schema_identity_12x32": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "generation_request_identity": "e48ec4bbc6d6577595b19de5fb4cf6416669d7b7f9ae2c1bef4a2199c1d47021",
+    "allow_ontology_aliases": false
+  },
+  "live_calls_made": 0,
+  "network_requests_made": 0
+}
