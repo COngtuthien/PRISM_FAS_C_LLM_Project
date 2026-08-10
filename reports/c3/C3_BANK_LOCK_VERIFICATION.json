@@ -1,0 +1,285 @@
+{
+  "schema_version": "c3-bank-lock-verification-v1",
+  "milestone": "C3",
+  "generated_at_utc": "2026-08-10T15:22:09.219327Z",
+  "generator_code_commit": "c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5",
+  "network_calls": 0,
+  "credential_read": false,
+  "lock_path": "reports/c3/C3_BANK_LOCK.json",
+  "approved_composite_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "verified": true,
+  "problems": [],
+  "bank_lock_identity_in_file": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+  "bank_lock_identity_recomputed": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+  "composite_in_file": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "composite_recomputed": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "composite_approved": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "components_vs_approval": [
+    {
+      "component": "provider",
+      "approved": "gemini",
+      "actual": "gemini",
+      "matches": true
+    },
+    {
+      "component": "model_id",
+      "approved": "gemini-3.6-flash",
+      "actual": "gemini-3.6-flash",
+      "matches": true
+    },
+    {
+      "component": "api_surface",
+      "approved": "interactions",
+      "actual": "interactions",
+      "matches": true
+    },
+    {
+      "component": "sdk_package",
+      "approved": "google-genai",
+      "actual": "google-genai",
+      "matches": true
+    },
+    {
+      "component": "thinking_level",
+      "approved": "medium",
+      "actual": "medium",
+      "matches": true
+    },
+    {
+      "component": "response_mime_type",
+      "approved": "application/json",
+      "actual": "application/json",
+      "matches": true
+    },
+    {
+      "component": "max_output_tokens",
+      "approved": 32768,
+      "actual": 32768,
+      "matches": true
+    },
+    {
+      "component": "system_prompt_identity",
+      "approved": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+      "actual": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+      "matches": true
+    },
+    {
+      "component": "batch_generation_template_identity",
+      "approved": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+      "actual": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+      "matches": true
+    },
+    {
+      "component": "coverage_quota_identity",
+      "approved": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+      "actual": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+      "matches": true
+    },
+    {
+      "component": "single_recipe_schema_identity",
+      "approved": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+      "actual": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+      "matches": true
+    },
+    {
+      "component": "batch_envelope_schema_identity",
+      "approved": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+      "actual": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+      "matches": true
+    },
+    {
+      "component": "ontology_identity",
+      "approved": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "actual": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "matches": true
+    },
+    {
+      "component": "route_policy_identity",
+      "approved": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+      "actual": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+      "matches": true
+    },
+    {
+      "component": "allow_ontology_aliases",
+      "approved": false,
+      "actual": false,
+      "matches": true
+    },
+    {
+      "component": "provider_config_identity",
+      "approved": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "actual": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "matches": true
+    },
+    {
+      "component": "request_schedule",
+      "approved": {
+        "requests": 12,
+        "objects_per_request": 32,
+        "raw_slots": 384,
+        "minimum_unique_pool": 320,
+        "final_bank": 256
+      },
+      "actual": {
+        "requests": 12,
+        "objects_per_request": 32,
+        "raw_slots": 384,
+        "minimum_unique_pool": 320,
+        "final_bank": 256
+      },
+      "matches": true
+    },
+    {
+      "component": "retry_policy",
+      "approved": {
+        "semantic_max_retries": 2,
+        "transport_max_attempts": 4,
+        "backoff_initial_seconds": 1.0,
+        "backoff_multiplier": 2.0,
+        "backoff_max_seconds": 60.0
+      },
+      "actual": {
+        "semantic_max_retries": 2,
+        "transport_max_attempts": 4,
+        "backoff_initial_seconds": 1.0,
+        "backoff_multiplier": 2.0,
+        "backoff_max_seconds": 60.0
+      },
+      "matches": true
+    }
+  ],
+  "components_vs_lock": [
+    {
+      "component": "provider",
+      "in_lock": "gemini",
+      "actual": "gemini",
+      "matches": true
+    },
+    {
+      "component": "model_id",
+      "in_lock": "gemini-3.6-flash",
+      "actual": "gemini-3.6-flash",
+      "matches": true
+    },
+    {
+      "component": "api_surface",
+      "in_lock": "interactions",
+      "actual": "interactions",
+      "matches": true
+    },
+    {
+      "component": "sdk_package",
+      "in_lock": "google-genai",
+      "actual": "google-genai",
+      "matches": true
+    },
+    {
+      "component": "thinking_level",
+      "in_lock": "medium",
+      "actual": "medium",
+      "matches": true
+    },
+    {
+      "component": "response_mime_type",
+      "in_lock": "application/json",
+      "actual": "application/json",
+      "matches": true
+    },
+    {
+      "component": "max_output_tokens",
+      "in_lock": 32768,
+      "actual": 32768,
+      "matches": true
+    },
+    {
+      "component": "system_prompt_identity",
+      "in_lock": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+      "actual": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+      "matches": true
+    },
+    {
+      "component": "batch_generation_template_identity",
+      "in_lock": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+      "actual": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+      "matches": true
+    },
+    {
+      "component": "coverage_quota_identity",
+      "in_lock": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+      "actual": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+      "matches": true
+    },
+    {
+      "component": "single_recipe_schema_identity",
+      "in_lock": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+      "actual": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+      "matches": true
+    },
+    {
+      "component": "batch_envelope_schema_identity",
+      "in_lock": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+      "actual": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+      "matches": true
+    },
+    {
+      "component": "ontology_identity",
+      "in_lock": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "actual": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "matches": true
+    },
+    {
+      "component": "route_policy_identity",
+      "in_lock": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+      "actual": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+      "matches": true
+    },
+    {
+      "component": "allow_ontology_aliases",
+      "in_lock": false,
+      "actual": false,
+      "matches": true
+    },
+    {
+      "component": "provider_config_identity",
+      "in_lock": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "actual": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "matches": true
+    },
+    {
+      "component": "request_schedule",
+      "in_lock": {
+        "requests": 12,
+        "objects_per_request": 32,
+        "raw_slots": 384,
+        "minimum_unique_pool": 320,
+        "final_bank": 256
+      },
+      "actual": {
+        "requests": 12,
+        "objects_per_request": 32,
+        "raw_slots": 384,
+        "minimum_unique_pool": 320,
+        "final_bank": 256
+      },
+      "matches": true
+    },
+    {
+      "component": "retry_policy",
+      "in_lock": {
+        "semantic_max_retries": 2,
+        "transport_max_attempts": 4,
+        "backoff_initial_seconds": 1.0,
+        "backoff_multiplier": 2.0,
+        "backoff_max_seconds": 60.0
+      },
+      "actual": {
+        "semantic_max_retries": 2,
+        "transport_max_attempts": 4,
+        "backoff_initial_seconds": 1.0,
+        "backoff_multiplier": 2.0,
+        "backoff_max_seconds": 60.0
+      },
+      "matches": true
+    }
+  ]
+}

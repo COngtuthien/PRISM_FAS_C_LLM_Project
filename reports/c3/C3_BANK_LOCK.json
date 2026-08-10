@@ -1,0 +1,194 @@
+{
+  "bank_lock_schema_version": "c3-generation-bank-lock-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.1 FINAL",
+  "milestone": "C3",
+  "status": "FROZEN",
+  "purpose": "Immutable generation contract for the C3 scientific LLM recipe bank. Frozen BEFORE any C3 scientific request.",
+  "generated_at_utc": "2026-08-10T15:20:37.072499Z",
+  "generator_code_commit": "c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5",
+  "user_approval": {
+    "approved": true,
+    "approval_scope": "the complete C3 generation contract candidate from C2C, including the composite identity",
+    "approved_composite_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+    "approved_free_tier_policy": {
+      "billing_tier": "free",
+      "auto_enable_paid": false,
+      "transient_429": "retry the exact frozen request under the approved bounded backoff",
+      "daily_or_project_quota_exhausted": "checkpoint completed scientific requests and stop cleanly",
+      "quota_never_changes_the_contract": true,
+      "resume_rule": "resume under the exact same frozen contract"
+    }
+  },
+  "components": {
+    "provider": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "thinking_level": "medium",
+    "response_mime_type": "application/json",
+    "max_output_tokens": 32768,
+    "system_prompt_identity": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+    "batch_generation_template_identity": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+    "coverage_quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+    "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+    "batch_envelope_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "allow_ontology_aliases": false,
+    "provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "request_schedule": {
+      "requests": 12,
+      "objects_per_request": 32,
+      "raw_slots": 384,
+      "minimum_unique_pool": 320,
+      "final_bank": 256
+    },
+    "retry_policy": {
+      "semantic_max_retries": 2,
+      "transport_max_attempts": 4,
+      "backoff_initial_seconds": 1.0,
+      "backoff_multiplier": 2.0,
+      "backoff_max_seconds": 60.0
+    }
+  },
+  "composite": {
+    "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+    "component_keys_in_hash_order": [
+      "allow_ontology_aliases",
+      "api_surface",
+      "batch_envelope_schema_identity",
+      "batch_generation_template_identity",
+      "coverage_quota_identity",
+      "max_output_tokens",
+      "model_id",
+      "ontology_identity",
+      "provider",
+      "provider_config_identity",
+      "request_schedule",
+      "response_mime_type",
+      "retry_policy",
+      "route_policy_identity",
+      "sdk_package",
+      "single_recipe_schema_identity",
+      "system_prompt_identity",
+      "thinking_level"
+    ],
+    "canonical_form": "json.dumps(components, sort_keys=True, separators=(',',':'), ensure_ascii=False) then SHA-256 over the UTF-8 bytes",
+    "canonical_text": "{\"allow_ontology_aliases\":false,\"api_surface\":\"interactions\",\"batch_envelope_schema_identity\":\"f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113\",\"batch_generation_template_identity\":\"e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20\",\"coverage_quota_identity\":\"89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5\",\"max_output_tokens\":32768,\"model_id\":\"gemini-3.6-flash\",\"ontology_identity\":\"90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd\",\"provider\":\"gemini\",\"provider_config_identity\":\"3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da\",\"request_schedule\":{\"final_bank\":256,\"minimum_unique_pool\":320,\"objects_per_request\":32,\"raw_slots\":384,\"requests\":12},\"response_mime_type\":\"application/json\",\"retry_policy\":{\"backoff_initial_seconds\":1.0,\"backoff_max_seconds\":60.0,\"backoff_multiplier\":2.0,\"semantic_max_retries\":2,\"transport_max_attempts\":4},\"route_policy_identity\":\"209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7\",\"sdk_package\":\"google-genai\",\"single_recipe_schema_identity\":\"1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579\",\"system_prompt_identity\":\"e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737\",\"thinking_level\":\"medium\"}",
+    "invalidation_rule": "changing ANY component changes this identity and invalidates any C3 generation carried out under the previous value"
+  },
+  "scientific_request_schedule": {
+    "requests": 12,
+    "objects_per_request": 32,
+    "raw_slots": 384,
+    "minimum_unique_pool": 320,
+    "final_bank": 256,
+    "rule": "exactly 12 logical requests of exactly 32 recipe objects; a response whose recipe count is not exactly 32 fails closed",
+    "below_minimum_pool_action": "C3 FAILS; the validator is never weakened after seeing results",
+    "selection": "deterministic and algorithmic; no manual cherry-picking of LLM recipes"
+  },
+  "route_contract": {
+    "required_generator_route": [
+      "physics",
+      "gpat"
+    ],
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "physics_only_accepted": false,
+    "gpat_only_accepted": false,
+    "gpat_only_class_exists": false,
+    "silent_repair_permitted": false
+  },
+  "prohibitions_during_c3": [
+    "no GPU training",
+    "no GPAT training",
+    "no synthetic image generation",
+    "no detector training",
+    "no SiW label access",
+    "no SiW metric use",
+    "no target scoring",
+    "no prompt change",
+    "no schema change",
+    "no ontology change",
+    "no quota change",
+    "no route policy change",
+    "no model or provider change",
+    "no automatic billing"
+  ],
+  "quota_snapshot": {
+    "recorded_at_utc": "2026-08-10T15:20:37.096933Z",
+    "billing_tier": "free",
+    "auto_enable_paid": false,
+    "rpm": "NOT_AVAILABLE",
+    "tpm": "NOT_AVAILABLE",
+    "rpd": "NOT_AVAILABLE",
+    "availability": "NOT_PROGRAMMATICALLY_AVAILABLE",
+    "reason": "The active project's RPM/TPM/RPD limits are shown only in the AI Studio web console, which requires an interactive authenticated session this process does not have. No value was invented.",
+    "manual_step_before_c3": "Open AI Studio for the project owning GEMINI_API_KEY and record the RPM / TPM / RPD shown for gemini-3.6-flash on the current tier.",
+    "measured_free_tier_behaviour_from_earlier_milestones": {
+      "source": "reports/c2/C2_RATE_LIMIT_INCIDENTS.json",
+      "observation": "roughly 20 requests per rolling multi-minute window for this model during the C2 singleton pilot; the C2B and C2C batch requests (1 request each) met no rate limit at all",
+      "c3_request_count": 12,
+      "caveat": "an observation, not a published limit"
+    },
+    "sdk_version_installed": "2.17.0",
+    "python_version": "3.13.11"
+  },
+  "evidence": {
+    "c2c_acceptance": {
+      "result": "PASS",
+      "artifact": "reports/c2c/C2C_ACCEPTANCE.json",
+      "live_batch": {
+        "returned_objects": 32,
+        "accepted_objects": 32,
+        "compiled_objects": 32,
+        "compiler_failures_among_accepted": 0
+      },
+      "coverage_axes": {
+        "artifacts": {
+          "present": 8,
+          "total": 8,
+          "max_share_percent": 15.1515,
+          "missing": []
+        },
+        "geometry": {
+          "present": 6,
+          "total": 6,
+          "max_share_percent": 18.75,
+          "missing": []
+        },
+        "illumination": {
+          "present": 6,
+          "total": 6,
+          "max_share_percent": 18.75,
+          "missing": []
+        },
+        "media": {
+          "present": 5,
+          "total": 5,
+          "max_share_percent": 21.875,
+          "missing": []
+        },
+        "regions": {
+          "present": 9,
+          "total": 9,
+          "max_share_percent": 14.1176,
+          "missing": []
+        }
+      }
+    },
+    "c2b": {
+      "result": "BATCH_SHAPE_FAIL",
+      "artifact": "reports/c2b/C2B_ACCEPTANCE.json",
+      "preserved_unchanged": true,
+      "note": "C2B remains historically BATCH_SHAPE_FAIL and was not rewritten."
+    },
+    "pilot_recipes_entering_c3": 0,
+    "c2_c2b_c2c_recipes_entering_c3": 0
+  },
+  "immutability": {
+    "rewrite_permitted": false,
+    "rule": "this file is written once. A later build that would produce different bytes raises rather than overwriting, so a generation run can always be traced to the contract it ran under."
+  },
+  "bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba"
+}
