@@ -1,0 +1,104 @@
+{
+  "schema_version": "c2b-test-suite-v1",
+  "milestone": "C2B",
+  "generated_at_utc": "2026-08-10T12:20:58.714818Z",
+  "generator_code_commit": "a7f56be7109f149be18bbd4c4907edf4b04b17f8",
+  "interpreter": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\.venv\\Scripts\\python.exe",
+  "environment": "the dedicated Version-C .venv created as the C2 prerequisite",
+  "c0": {
+    "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c0",
+    "raw_summary": "32 passed in 0.11s",
+    "passed": 32,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "error_items": [],
+    "returncode": 0
+  },
+  "c1": {
+    "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c1",
+    "raw_summary": "138 passed in 3.63s",
+    "passed": 138,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "error_items": [],
+    "returncode": 0
+  },
+  "c2": {
+    "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c2",
+    "raw_summary": "43 passed in 5.98s",
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "error_items": [],
+    "returncode": 0
+  },
+  "c2b": {
+    "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c2b",
+    "raw_summary": "41 passed in 2.17s",
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "error_items": [],
+    "returncode": 0
+  },
+  "full_runnable_suite": {
+    "command": "-m pytest -q --no-header -p no:cacheprovider -rf --continue-on-collection-errors",
+    "raw_summary": "7 failed, 1227 passed, 101 skipped, 1 warning in 610.04s (0:10:10)",
+    "passed": 1227,
+    "failed": 7,
+    "skipped": 101,
+    "errors": 0,
+    "failed_tests": [
+      "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+      "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+      "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+      "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+      "tests/test_m2_validation.py::test_status_reports_expected_counts",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed"
+    ],
+    "error_items": [],
+    "returncode": 1
+  },
+  "inherited_failure_analysis": {
+    "c0_documented_failures": [
+      "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+      "tests/test_m2_validation.py::test_status_reports_expected_counts",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+      "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+      "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+      "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive"
+    ],
+    "c0_documented_failure_count": 7,
+    "c0_documented_skip_count": 101,
+    "documented_failures_seen": [
+      "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+      "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+      "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+      "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+      "tests/test_m2_validation.py::test_status_reports_expected_counts",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed"
+    ],
+    "unexplained_failures": [],
+    "unexplained_failure_count": 0,
+    "matches_documented_failure_count": true,
+    "matches_documented_skip_count": true,
+    "collection_errors": 0
+  },
+  "no_new_unexplained_failures": true,
+  "c2b_tests_zero_failures": true,
+  "c2_tests_zero_failures": true,
+  "c1_tests_zero_failures": true,
+  "network_calls_during_tests": 0,
+  "gemini_calls_during_tests": 0
+}

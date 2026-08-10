@@ -1,0 +1,640 @@
+{
+  "schema_version": "c2b-cooccurrence-audit-v1",
+  "milestone": "C2B",
+  "generated_at_utc": "2026-08-10T12:25:49.854398Z",
+  "reference_dataset_used": false,
+  "tables": {
+    "artifacts_x_media": {
+      "row_axis": "artifacts",
+      "column_axis": "media",
+      "rows": [
+        "halftone",
+        "pixel_grid",
+        "moire",
+        "specular_reflection",
+        "texture_smoothing",
+        "color_shift",
+        "boundary_inconsistency",
+        "blur"
+      ],
+      "columns": [
+        "paper-like",
+        "display-like",
+        "plastic-like",
+        "fabric-like",
+        "reflective-film-like"
+      ],
+      "cells": {
+        "halftone": {
+          "paper-like": 3,
+          "display-like": 0,
+          "plastic-like": 0,
+          "fabric-like": 4,
+          "reflective-film-like": 0
+        },
+        "pixel_grid": {
+          "paper-like": 0,
+          "display-like": 4,
+          "plastic-like": 0,
+          "fabric-like": 0,
+          "reflective-film-like": 0
+        },
+        "moire": {
+          "paper-like": 0,
+          "display-like": 3,
+          "plastic-like": 0,
+          "fabric-like": 0,
+          "reflective-film-like": 4
+        },
+        "specular_reflection": {
+          "paper-like": 0,
+          "display-like": 2,
+          "plastic-like": 4,
+          "fabric-like": 0,
+          "reflective-film-like": 5
+        },
+        "texture_smoothing": {
+          "paper-like": 2,
+          "display-like": 2,
+          "plastic-like": 2,
+          "fabric-like": 3,
+          "reflective-film-like": 1
+        },
+        "color_shift": {
+          "paper-like": 2,
+          "display-like": 1,
+          "plastic-like": 2,
+          "fabric-like": 2,
+          "reflective-film-like": 2
+        },
+        "boundary_inconsistency": {
+          "paper-like": 2,
+          "display-like": 1,
+          "plastic-like": 2,
+          "fabric-like": 2,
+          "reflective-film-like": 2
+        },
+        "blur": {
+          "paper-like": 3,
+          "display-like": 1,
+          "plastic-like": 2,
+          "fabric-like": 3,
+          "reflective-film-like": 1
+        }
+      },
+      "row_totals": {
+        "halftone": 7,
+        "pixel_grid": 4,
+        "moire": 7,
+        "specular_reflection": 11,
+        "texture_smoothing": 10,
+        "color_shift": 9,
+        "boundary_inconsistency": 9,
+        "blur": 10
+      },
+      "column_totals": {
+        "paper-like": 12,
+        "display-like": 14,
+        "plastic-like": 12,
+        "fabric-like": 14,
+        "reflective-film-like": 15
+      },
+      "occupied_cells": 28,
+      "total_cells": 40,
+      "incidence_total": 67,
+      "dominant_cell": {
+        "row": "specular_reflection",
+        "column": "reflective-film-like",
+        "count": 5,
+        "share_percent": 7.4627
+      }
+    },
+    "artifacts_x_geometry": {
+      "row_axis": "artifacts",
+      "column_axis": "geometry",
+      "rows": [
+        "halftone",
+        "pixel_grid",
+        "moire",
+        "specular_reflection",
+        "texture_smoothing",
+        "color_shift",
+        "boundary_inconsistency",
+        "blur"
+      ],
+      "columns": [
+        "flat",
+        "curved",
+        "partial-curved",
+        "flexible",
+        "rigid",
+        "boundary-only"
+      ],
+      "cells": {
+        "halftone": {
+          "flat": 2,
+          "curved": 0,
+          "partial-curved": 2,
+          "flexible": 1,
+          "rigid": 2,
+          "boundary-only": 0
+        },
+        "pixel_grid": {
+          "flat": 2,
+          "curved": 1,
+          "partial-curved": 0,
+          "flexible": 1,
+          "rigid": 0,
+          "boundary-only": 0
+        },
+        "moire": {
+          "flat": 3,
+          "curved": 0,
+          "partial-curved": 2,
+          "flexible": 0,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "specular_reflection": {
+          "flat": 1,
+          "curved": 3,
+          "partial-curved": 0,
+          "flexible": 1,
+          "rigid": 2,
+          "boundary-only": 4
+        },
+        "texture_smoothing": {
+          "flat": 2,
+          "curved": 3,
+          "partial-curved": 2,
+          "flexible": 1,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "color_shift": {
+          "flat": 2,
+          "curved": 1,
+          "partial-curved": 2,
+          "flexible": 2,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "boundary_inconsistency": {
+          "flat": 1,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 1,
+          "rigid": 2,
+          "boundary-only": 3
+        },
+        "blur": {
+          "flat": 0,
+          "curved": 1,
+          "partial-curved": 2,
+          "flexible": 3,
+          "rigid": 1,
+          "boundary-only": 3
+        }
+      },
+      "row_totals": {
+        "halftone": 7,
+        "pixel_grid": 4,
+        "moire": 7,
+        "specular_reflection": 11,
+        "texture_smoothing": 10,
+        "color_shift": 9,
+        "boundary_inconsistency": 9,
+        "blur": 10
+      },
+      "column_totals": {
+        "flat": 13,
+        "curved": 10,
+        "partial-curved": 11,
+        "flexible": 10,
+        "rigid": 10,
+        "boundary-only": 13
+      },
+      "occupied_cells": 39,
+      "total_cells": 48,
+      "incidence_total": 67,
+      "dominant_cell": {
+        "row": "specular_reflection",
+        "column": "boundary-only",
+        "count": 4,
+        "share_percent": 5.9701
+      }
+    },
+    "artifacts_x_regions": {
+      "row_axis": "artifacts",
+      "column_axis": "regions",
+      "rows": [
+        "halftone",
+        "pixel_grid",
+        "moire",
+        "specular_reflection",
+        "texture_smoothing",
+        "color_shift",
+        "boundary_inconsistency",
+        "blur"
+      ],
+      "columns": [
+        "left_eye",
+        "right_eye",
+        "nose",
+        "mouth",
+        "forehead",
+        "left_cheek",
+        "right_cheek",
+        "face_boundary",
+        "context"
+      ],
+      "cells": {
+        "halftone": {
+          "left_eye": 2,
+          "right_eye": 2,
+          "nose": 2,
+          "mouth": 1,
+          "forehead": 3,
+          "left_cheek": 2,
+          "right_cheek": 2,
+          "face_boundary": 1,
+          "context": 1
+        },
+        "pixel_grid": {
+          "left_eye": 2,
+          "right_eye": 1,
+          "nose": 1,
+          "mouth": 0,
+          "forehead": 1,
+          "left_cheek": 2,
+          "right_cheek": 2,
+          "face_boundary": 1,
+          "context": 1
+        },
+        "moire": {
+          "left_eye": 3,
+          "right_eye": 2,
+          "nose": 0,
+          "mouth": 2,
+          "forehead": 3,
+          "left_cheek": 1,
+          "right_cheek": 2,
+          "face_boundary": 3,
+          "context": 2
+        },
+        "specular_reflection": {
+          "left_eye": 2,
+          "right_eye": 2,
+          "nose": 5,
+          "mouth": 1,
+          "forehead": 2,
+          "left_cheek": 1,
+          "right_cheek": 4,
+          "face_boundary": 5,
+          "context": 2
+        },
+        "texture_smoothing": {
+          "left_eye": 6,
+          "right_eye": 4,
+          "nose": 3,
+          "mouth": 4,
+          "forehead": 2,
+          "left_cheek": 1,
+          "right_cheek": 1,
+          "face_boundary": 0,
+          "context": 3
+        },
+        "color_shift": {
+          "left_eye": 2,
+          "right_eye": 3,
+          "nose": 2,
+          "mouth": 5,
+          "forehead": 3,
+          "left_cheek": 2,
+          "right_cheek": 0,
+          "face_boundary": 2,
+          "context": 1
+        },
+        "boundary_inconsistency": {
+          "left_eye": 1,
+          "right_eye": 1,
+          "nose": 3,
+          "mouth": 2,
+          "forehead": 3,
+          "left_cheek": 1,
+          "right_cheek": 4,
+          "face_boundary": 4,
+          "context": 3
+        },
+        "blur": {
+          "left_eye": 1,
+          "right_eye": 3,
+          "nose": 2,
+          "mouth": 2,
+          "forehead": 1,
+          "left_cheek": 4,
+          "right_cheek": 1,
+          "face_boundary": 3,
+          "context": 3
+        }
+      },
+      "row_totals": {
+        "halftone": 16,
+        "pixel_grid": 11,
+        "moire": 18,
+        "specular_reflection": 24,
+        "texture_smoothing": 24,
+        "color_shift": 20,
+        "boundary_inconsistency": 22,
+        "blur": 20
+      },
+      "column_totals": {
+        "left_eye": 19,
+        "right_eye": 18,
+        "nose": 18,
+        "mouth": 17,
+        "forehead": 18,
+        "left_cheek": 14,
+        "right_cheek": 16,
+        "face_boundary": 19,
+        "context": 16
+      },
+      "occupied_cells": 68,
+      "total_cells": 72,
+      "incidence_total": 155,
+      "dominant_cell": {
+        "row": "texture_smoothing",
+        "column": "left_eye",
+        "count": 6,
+        "share_percent": 3.871
+      }
+    },
+    "media_x_geometry": {
+      "row_axis": "media",
+      "column_axis": "geometry",
+      "rows": [
+        "paper-like",
+        "display-like",
+        "plastic-like",
+        "fabric-like",
+        "reflective-film-like"
+      ],
+      "columns": [
+        "flat",
+        "curved",
+        "partial-curved",
+        "flexible",
+        "rigid",
+        "boundary-only"
+      ],
+      "cells": {
+        "paper-like": {
+          "flat": 1,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 1,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "display-like": {
+          "flat": 2,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 1,
+          "rigid": 1,
+          "boundary-only": 0
+        },
+        "plastic-like": {
+          "flat": 1,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 1,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "fabric-like": {
+          "flat": 1,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 2,
+          "rigid": 1,
+          "boundary-only": 1
+        },
+        "reflective-film-like": {
+          "flat": 1,
+          "curved": 1,
+          "partial-curved": 1,
+          "flexible": 0,
+          "rigid": 1,
+          "boundary-only": 3
+        }
+      },
+      "row_totals": {
+        "paper-like": 6,
+        "display-like": 6,
+        "plastic-like": 6,
+        "fabric-like": 7,
+        "reflective-film-like": 7
+      },
+      "column_totals": {
+        "flat": 6,
+        "curved": 5,
+        "partial-curved": 5,
+        "flexible": 5,
+        "rigid": 5,
+        "boundary-only": 6
+      },
+      "occupied_cells": 28,
+      "total_cells": 30,
+      "incidence_total": 32,
+      "dominant_cell": {
+        "row": "reflective-film-like",
+        "column": "boundary-only",
+        "count": 3,
+        "share_percent": 9.375
+      }
+    },
+    "media_x_illumination": {
+      "row_axis": "media",
+      "column_axis": "illumination",
+      "rows": [
+        "paper-like",
+        "display-like",
+        "plastic-like",
+        "fabric-like",
+        "reflective-film-like"
+      ],
+      "columns": [
+        "front",
+        "left",
+        "right",
+        "top",
+        "bottom",
+        "mixed"
+      ],
+      "cells": {
+        "paper-like": {
+          "front": 1,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "display-like": {
+          "front": 1,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "plastic-like": {
+          "front": 1,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "fabric-like": {
+          "front": 2,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "reflective-film-like": {
+          "front": 1,
+          "left": 2,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        }
+      },
+      "row_totals": {
+        "paper-like": 6,
+        "display-like": 6,
+        "plastic-like": 6,
+        "fabric-like": 7,
+        "reflective-film-like": 7
+      },
+      "column_totals": {
+        "front": 6,
+        "left": 6,
+        "right": 5,
+        "top": 5,
+        "bottom": 5,
+        "mixed": 5
+      },
+      "occupied_cells": 30,
+      "total_cells": 30,
+      "incidence_total": 32,
+      "dominant_cell": {
+        "row": "reflective-film-like",
+        "column": "left",
+        "count": 2,
+        "share_percent": 6.25
+      }
+    },
+    "geometry_x_illumination": {
+      "row_axis": "geometry",
+      "column_axis": "illumination",
+      "rows": [
+        "flat",
+        "curved",
+        "partial-curved",
+        "flexible",
+        "rigid",
+        "boundary-only"
+      ],
+      "columns": [
+        "front",
+        "left",
+        "right",
+        "top",
+        "bottom",
+        "mixed"
+      ],
+      "cells": {
+        "flat": {
+          "front": 2,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 0
+        },
+        "curved": {
+          "front": 0,
+          "left": 1,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "partial-curved": {
+          "front": 1,
+          "left": 0,
+          "right": 1,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "flexible": {
+          "front": 1,
+          "left": 1,
+          "right": 0,
+          "top": 1,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "rigid": {
+          "front": 1,
+          "left": 1,
+          "right": 1,
+          "top": 0,
+          "bottom": 1,
+          "mixed": 1
+        },
+        "boundary-only": {
+          "front": 1,
+          "left": 2,
+          "right": 1,
+          "top": 1,
+          "bottom": 0,
+          "mixed": 1
+        }
+      },
+      "row_totals": {
+        "flat": 6,
+        "curved": 5,
+        "partial-curved": 5,
+        "flexible": 5,
+        "rigid": 5,
+        "boundary-only": 6
+      },
+      "column_totals": {
+        "front": 6,
+        "left": 6,
+        "right": 5,
+        "top": 5,
+        "bottom": 5,
+        "mixed": 5
+      },
+      "occupied_cells": 30,
+      "total_cells": 36,
+      "incidence_total": 32,
+      "dominant_cell": {
+        "row": "flat",
+        "column": "front",
+        "count": 2,
+        "share_percent": 6.25
+      }
+    }
+  },
+  "repeated_structural_patterns": {},
+  "distinct_structural_patterns": 32
+}

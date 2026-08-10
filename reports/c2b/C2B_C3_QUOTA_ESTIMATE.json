@@ -1,0 +1,70 @@
+{
+  "schema_version": "c2b-c3-quota-estimate-v1",
+  "milestone": "C2B",
+  "generated_at_utc": "2026-08-10T12:25:49.843279Z",
+  "supersedes": "reports/c2/C2_C3_READINESS.json, whose projection treated the 384 slots as 384 singleton calls. C3 is 12 batch requests of 32 objects.",
+  "c3_design": {
+    "requests": 12,
+    "objects_per_request": 32,
+    "raw_candidate_slots": 384
+  },
+  "observed_single_batch": {
+    "provider_attempts": 1,
+    "transport_retries": 0,
+    "latency_seconds": {
+      "n": 1,
+      "mean": 63.218704,
+      "median": 63.218704,
+      "p95": 63.218704,
+      "min": 63.218704,
+      "max": 63.218704,
+      "total": 63.218704
+    },
+    "token_usage": {
+      "total_input_tokens": 1852,
+      "total_output_tokens": 8509,
+      "total_thought_tokens": 7660,
+      "total_cached_tokens": 0,
+      "total_tool_use_tokens": 0,
+      "total_tokens": 18021
+    },
+    "accepted_objects": 32,
+    "objects_per_request": 32,
+    "accepted_yield_rate": 1.0,
+    "sample_size": 1
+  },
+  "projection": {
+    "expected_batch_calls_minimum": 12,
+    "expected_batch_calls_with_observed_retry_rate": 12.0,
+    "expected_transport_retry_burden": 0,
+    "expected_valid_candidates": 384.0,
+    "expected_tokens": {
+      "total_input_tokens": 22224,
+      "total_output_tokens": 102108,
+      "total_thought_tokens": 91920,
+      "total_cached_tokens": 0,
+      "total_tool_use_tokens": 0,
+      "total_tokens": 216252
+    },
+    "serial_model_time_seconds_range": [
+      455.2,
+      1517.2
+    ],
+    "serial_model_time_minutes_range": [
+      7.6,
+      25.3
+    ],
+    "uncertainty": "Derived from ONE observed batch. The range is a planning band, not a prediction, and a single observation supports no confidence interval."
+  },
+  "free_tier_risk": {
+    "requests_needed": "12 (plus retries)",
+    "observed_free_tier_behaviour": "C2 measured roughly 20 requests per rolling multi-minute window for this model; 12 batch requests is far below the per-window request count that blocked the C2 pilot",
+    "request_count_risk": "LOW relative to C2 - 12 requests instead of 384",
+    "token_and_output_risk": "HIGHER PER REQUEST - each batch produces ~32x the output of a singleton call, so a per-minute TOKEN limit, not a request limit, becomes the plausible binding constraint",
+    "quota_snapshot": "QUOTA_SNAPSHOT_NOT_PROGRAMMATICALLY_AVAILABLE - the Free Tier RPM/TPM/RPD limits for this project must be read from AI Studio before C3. No number was invented here.",
+    "billing": "Free Tier only. Code never enables billing; a Paid Tier remains a user decision if C3 becomes genuinely blocked.",
+    "c2b_succeeded_on_free_tier": true,
+    "c2b_success_does_not_guarantee_c3": true
+  },
+  "c3_requests_executed": 0
+}

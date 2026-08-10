@@ -1,0 +1,68 @@
+# PRISM-FAS-C-LLM — C2B batch-level coverage quotas.
+#
+# DISPOSABLE DEVELOPMENT CONTROL. Nothing generated under this file may enter C3,
+# the final 256-recipe LLM bank, a synthetic bank or detector training.
+#
+# These quotas are GENERIC ONTOLOGY-LEVEL EXPERIMENTAL CONTROLS. Every category
+# they name is a value configs/recipes/ontology_m7.yaml already defines, and
+# prism_fas.llm.coverage_quotas.QuotaSpec.validate_against rejects any name that
+# is not. They therefore carry ZERO information derived from:
+#
+#   CASIA frequencies, MSU frequencies, SiW attack families, SiW metrics,
+#   Version-B target errors, or any target prediction.
+#
+# The counts below are the user-approved C2B development values (C2B instruction
+# section 7). They were chosen to exercise the frozen ontology evenly, not to
+# match any corpus.
+#
+# Identity-bearing: changing any bound changes quota_identity, which enters the
+# generation request identity.
+
+schema_version: "c2b-coverage-quota-v1"
+label: "c2b-development-batch"
+batch_size: 32
+
+axes:
+  # Each recipe carries exactly one medium, so these counts partition the batch.
+  # 5 x 4 = 20 <= 32 and 5 x 10 = 50 >= 32, so the quota is satisfiable.
+  - axis: "media"
+    require_all: true
+    min_per_category: 4
+    max_per_category: 10
+
+  # 6 x 3 = 18 <= 32 and 6 x 8 = 48 >= 32.
+  - axis: "geometry"
+    require_all: true
+    min_per_category: 3
+    max_per_category: 8
+
+  - axis: "illumination"
+    require_all: true
+    min_per_category: 3
+    max_per_category: 8
+
+  # Multi-valued: a recipe carries 1-3 artifacts, so a count means "recipes
+  # carrying this artifact". Presence is required; 4 is only preferred, because
+  # the medium/artifact compatibility table can legitimately make some artifacts
+  # hard to place without inventing an implausible medium.
+  - axis: "artifacts"
+    require_all: true
+    min_per_category: 1
+    preferred_min_per_category: 4
+    max_per_category: 16
+
+  # Multi-valued: 1-3 regions per recipe. `boundary-only` geometry can reach only
+  # face_boundary and context, so region placement is compatibility-constrained
+  # in the same way.
+  - axis: "regions"
+    require_all: true
+    min_per_category: 1
+    preferred_min_per_category: 3
+    max_per_category: 16
+
+diversity_rules:
+  - "do not repeat the same medium + geometry + illumination combination unnecessarily"
+  - "do not repeat the same artifact set unnecessarily"
+  - "do not repeat the same region set unnecessarily"
+  - "do not repeat the same artifact-region pattern unnecessarily"
+  - "no two recipes in the batch may be identical"

@@ -185,6 +185,51 @@ def cooccurrence_audit(recipes: Sequence[RecipeV11], ontology: Ontology) -> dict
             "tables": tables}
 
 
+def axis_pair_table(recipes: Sequence[RecipeV11], ontology: Ontology,
+                    row_axis: str, column_axis: str) -> dict[str, Any]:
+    """A generic co-occurrence table between any two coverage axes.
+
+    Cells count (recipe, row-value, column-value) incidences, so a recipe with
+    two artifacts over three regions contributes six incidences to an
+    artifact x region table. Deterministic: rows and columns follow the
+    ontology's own order, never insertion order.
+    """
+    from .coverage_quotas import axis_values, axis_vocabulary
+
+    vocabulary = axis_vocabulary(ontology)
+    if row_axis not in vocabulary or column_axis not in vocabulary:
+        raise ValueError(f"unknown axis pair {row_axis!r} x {column_axis!r}")
+    rows = vocabulary[row_axis]
+    columns = vocabulary[column_axis]
+    grid = {row: {column: 0 for column in columns} for row in rows}
+    for recipe in recipes:
+        values = axis_values(recipe)
+        for row in values[row_axis]:
+            for column in values[column_axis]:
+                grid[row][column] += 1
+
+    occupied = [(row, column) for row in rows for column in columns if grid[row][column] > 0]
+    dominant = max(occupied, key=lambda cell: (grid[cell[0]][cell[1]], cell)) if occupied else None
+    total = sum(grid[row][column] for row in rows for column in columns)
+    return {
+        "row_axis": row_axis,
+        "column_axis": column_axis,
+        "rows": list(rows),
+        "columns": list(columns),
+        "cells": grid,
+        "row_totals": {row: sum(grid[row].values()) for row in rows},
+        "column_totals": {column: sum(grid[row][column] for row in rows) for column in columns},
+        "occupied_cells": len(occupied),
+        "total_cells": len(rows) * len(columns),
+        "incidence_total": total,
+        "dominant_cell": ({"row": dominant[0], "column": dominant[1],
+                           "count": grid[dominant[0]][dominant[1]],
+                           "share_percent": round(100.0 * grid[dominant[0]][dominant[1]] / total, 4)
+                           if total else 0.0}
+                          if dominant else None),
+    }
+
+
 # -------------------------------------------------------------------- duplicates
 def structural_pattern(recipe: RecipeV11) -> str:
     """The categorical shape of a recipe, with all continuous values dropped.

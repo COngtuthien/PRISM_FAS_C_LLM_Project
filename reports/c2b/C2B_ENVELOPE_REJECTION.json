@@ -1,0 +1,51 @@
+{
+  "schema_version": "c2b-envelope-rejection-v1",
+  "milestone": "C2B",
+  "logical_batch_id": "C2B_BATCH_000",
+
+  "finding": "The 32-object response envelope recorded at C1 for the 12x32 C3 schedule cannot be sent to the provider. Gemini rejects it with 400 INVALID_ARGUMENT. C3 as recorded at C1 would have failed on its first request.",
+
+  "rejected_attempt": {
+    "recorded_at_utc": "2026-08-10T11:42:05.884092Z",
+    "attempt": 1,
+    "status_code": 400,
+    "error_class": "unsupported_config",
+    "provider_message_verbatim": "BadRequestError: Error code: 400 - {'error': {'message': 'Request contains an invalid argument.', 'code': 'invalid_request'}}",
+    "raw_text": null,
+    "semantic_response_received": false,
+    "counts_as_a_logical_batch": false,
+    "reason_it_does_not_count": "C2B section 9 limits the experiment to one COMPLETED SEMANTIC batch. This attempt was refused at the wire level before any generation occurred, so it produced no recipes and no coverage evidence that could be cherry-picked.",
+    "provenance_note": "The runner revision that made this call keyed its archive to a single run, so the retry overwrote the record. This artifact preserves it from the run log, and the runner now carries prior attempts forward. It is a reconstruction of a recorded attempt, not a live capture.",
+    "reconstructed_from_run_log": true
+  },
+
+  "diagnosis": {
+    "method": "The failing and the working request were diffed offline before any further live call was made.",
+    "only_difference": "properties.recipes.minItems and properties.recipes.maxItems, 1 -> 32",
+    "schema_size_bytes": {"n_1": 2695, "n_32": 2697},
+    "item_schema_identical": true,
+    "working_evidence": "The byte-identical envelope with the bound at 1 was accepted 42 times during the C2 pilot.",
+    "documentation": [
+      "https://ai.google.dev/gemini-api/docs/structured-output - 'Very large or deeply nested schemas may be rejected.'",
+      "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/control-generated-output - a complex schema can produce InvalidArgument 400; complexity sources listed include long array length limits, enums with many values, and properties with numeric minimum/maximum constraints"
+    ],
+    "why_this_schema_is_complex": "The item schema carries seven enums and twelve numeric fields with explicit minimum/maximum bounds. With maxItems=32 the provider must reason about 32 copies of that constraint set."
+  },
+
+  "resolution": {
+    "change": "The array length bound is omitted from the REQUEST-side envelope only.",
+    "identity_before": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "identity_after": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "single_recipe_item_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+    "single_recipe_item_schema_changed": false,
+    "exactly_32_still_enforced": true,
+    "where_it_is_enforced": "prism_fas.llm.pipeline.RecipePlanner.validate_response rejects any response whose recipe count is not exactly recipes_requested, and the batch request text still states 'exactly 32'.",
+    "scientific_contract_changed": false,
+    "rationale": "The request-side schema was never the authority. prism_fas.llm.json_schema documents it as a request-side constraint that the local validator re-checks; the count requirement therefore moved nowhere, it is enforced where it always was.",
+    "requires_user_approval_before_c3": true,
+    "approval_reason": "The batch-envelope schema identity C1 recorded is not usable, so whichever envelope C3 freezes is a new value and must be approved explicitly."
+  },
+
+  "live_calls_spent_on_this_diagnosis": 1,
+  "recipes_generated_by_the_rejected_attempt": 0
+}

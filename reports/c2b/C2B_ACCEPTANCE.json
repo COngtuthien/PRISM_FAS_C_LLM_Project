@@ -1,0 +1,511 @@
+{
+  "schema_version": "c2b-acceptance-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.1 FINAL",
+  "milestone": "C2B",
+  "objective": "32-recipe batch-shape + ontology-coverage validation",
+  "generated_at_utc": "2026-08-10T12:25:52.842136Z",
+  "generator_code_commit": "a7f56be7109f149be18bbd4c4907edf4b04b17f8",
+  "branch": "c2b-batch-shape-validation",
+  "branched_from_accepted_c2_head": "a7f56be7109f149be18bbd4c4907edf4b04b17f8",
+  "result": "BATCH_SHAPE_FAIL",
+  "failed_acceptance_checks": [
+    "all_accepted_objects_compile"
+  ],
+  "batch_contract": {
+    "provider": "Google Gemini Developer API",
+    "provider_name": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "api_surface": "interactions",
+    "sdk_package": "google-genai",
+    "thinking_level": "medium",
+    "response_mime_type": "application/json",
+    "max_output_tokens": 32768,
+    "system_prompt_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+    "system_prompt_changed_in_c2b": false,
+    "batch_generation_template_identity": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+    "request_template_sha256": "29c1e2621a188056a69199ebfa389cd0ca148e8d013e4483edcb701db45ab97e",
+    "coverage_quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+    "coverage_quota_label": "c2b-development-batch",
+    "coverage_quota_source": "configs/version_c/llm/c2b_coverage_quotas.yaml",
+    "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+    "batch_envelope_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "batch_envelope_array_bounds_sent": false,
+    "bounded_batch_envelope_identity_rejected_by_provider": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "c2_singleton_envelope_schema_identity": "e9f66067c2de2deda5373a99dc6c92689c0ab2d2163b80adcde57af83df9bbd1",
+    "schema_identity_note": "The value recorded at C1 as `llm_schema_identity_12x32` (7afc3abd...) is the 32-OBJECT ENVELOPE identity, not a single-recipe identity. The single-recipe ITEM schema is a separate value (1e3f050e...) and is byte-identical in the 1-object envelope C2 used and the envelope C2B sends, which is the evidence that changing the batch size did not touch recipe semantics.",
+    "array_bounds_finding": "The C1-recorded 32-object envelope carries minItems=maxItems=32 and the provider REJECTS it with 400 INVALID_ARGUMENT. The byte-identical envelope with the bound at 1 was accepted 42 times during C2, and the two schemas differ by nothing else (2695 vs 2697 bytes, identical item schema). Google documents array length limits as a source of schema-complexity rejection. C2B therefore omits the bound from the REQUEST only; `validate_response` still rejects any response whose recipe count is not exactly 32, so the scientific requirement is unchanged and is enforced where it always was.",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "allow_ontology_aliases": false,
+    "request_timeout_seconds": 600.0,
+    "request_timeout_seconds_in_committed_config": 120.0,
+    "request_timeout_override_note": "Operational only. A 32-object response takes far longer to produce than the single-recipe call the committed 120s default was sized for. `request_timeout_seconds` is excluded from `identity_material` by design, so the provider config identity is unchanged (verified above); the committed C1 config file was not edited.",
+    "recipes_per_request": 32,
+    "request_schedule_for_c3": "12 requests x 32 recipes = 384 raw candidate slots",
+    "sampling_controls_sent": [],
+    "tools_sent": false,
+    "grounding": false,
+    "url_context": false,
+    "file_search": false,
+    "code_execution": false,
+    "media_inputs": false,
+    "input_type": "str (text only)",
+    "store_interaction": false
+  },
+  "coverage_quotas": {
+    "schema_version": "c2b-coverage-quota-v1",
+    "batch_size": 32,
+    "label": "c2b-development-batch",
+    "axes": [
+      {
+        "axis": "artifacts",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 4,
+        "max_per_category": 16,
+        "note": ""
+      },
+      {
+        "axis": "geometry",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "illumination",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "media",
+        "require_all": true,
+        "min_per_category": 4,
+        "preferred_min_per_category": null,
+        "max_per_category": 10,
+        "note": ""
+      },
+      {
+        "axis": "regions",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 3,
+        "max_per_category": 16,
+        "note": ""
+      }
+    ],
+    "diversity_rules": [
+      "do not repeat the same medium + geometry + illumination combination unnecessarily",
+      "do not repeat the same artifact set unnecessarily",
+      "do not repeat the same region set unnecessarily",
+      "do not repeat the same artifact-region pattern unnecessarily",
+      "no two recipes in the batch may be identical"
+    ],
+    "quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5"
+  },
+  "live_batch": {
+    "logical_batch_id": "C2B_BATCH_000",
+    "logical_batches_executed": 1,
+    "second_batch_issued": false,
+    "provider_attempts": 1,
+    "transport_retries": 0,
+    "rate_limit_events": 0,
+    "requested_objects": 32,
+    "returned_objects": 32,
+    "accepted_objects": 32,
+    "compiled_objects": 22,
+    "duplicates": 0,
+    "status": "COMPLETE"
+  },
+  "envelope_rejection_finding": {
+    "summary": "The 32-object response envelope recorded at C1 for the 12x32 C3 schedule cannot be sent to the provider. Gemini rejects it with 400 INVALID_ARGUMENT. C3 as recorded at C1 would have failed on its first request.",
+    "c1_recorded_envelope_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "envelope_identity_actually_sent": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+    "single_recipe_item_schema_changed": false,
+    "exactly_32_still_enforced": true,
+    "requires_user_approval_before_c3": true
+  },
+  "generator_route_finding": {
+    "summary": "A recipe declaring only the gpat route is semantically VALID yet cannot be compiled into an operator graph. The validator and the compiler disagree about what an acceptable recipe is.",
+    "accepted_without_physics_route": 10,
+    "accepted_objects": 32,
+    "route_counts": {
+      "gpat": 10,
+      "physics": 16,
+      "physics+gpat": 6
+    },
+    "caused_by_coverage_quotas": false,
+    "c2_singleton_comparison": "Every one of the 32 C2 singleton recipes declared the physics route (25 physics+gpat, 7 physics-only). The batch request is the first context in which the model chose gpat-only.",
+    "requires_user_decision_before_c3": true
+  },
+  "coverage": {
+    "quota_required_pass": true,
+    "quota_preferred_pass": true,
+    "required_failures": [],
+    "preferred_misses": [],
+    "axes": {
+      "artifacts": {
+        "present": 8,
+        "total": 8,
+        "max_share_percent": 16.4179,
+        "missing": []
+      },
+      "geometry": {
+        "present": 6,
+        "total": 6,
+        "max_share_percent": 18.75,
+        "missing": []
+      },
+      "illumination": {
+        "present": 6,
+        "total": 6,
+        "max_share_percent": 18.75,
+        "missing": []
+      },
+      "media": {
+        "present": 5,
+        "total": 5,
+        "max_share_percent": 21.875,
+        "missing": []
+      },
+      "regions": {
+        "present": 9,
+        "total": 9,
+        "max_share_percent": 12.1622,
+        "missing": []
+      }
+    },
+    "compared_against_dataset_attack_families": false,
+    "target_information_used": false
+  },
+  "mode_collapse_comparison": {
+    "comparison_scope": "C2 singleton pilot versus the C2B batch, both source-independent prompt-development evidence. No dataset, target metric or attack taxonomy was consulted.",
+    "axes": [
+      {
+        "axis": "artifacts",
+        "total_categories": 8,
+        "c2_singleton_present": 6,
+        "c2b_batch_present": 8,
+        "presence_delta": 2,
+        "c2_singleton_max_share_percent": 30.2326,
+        "c2b_batch_max_share_percent": 16.4179,
+        "share_delta": -13.8147,
+        "c2_singleton_missing": [
+          "boundary_inconsistency",
+          "blur"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "regions",
+        "total_categories": 9,
+        "c2_singleton_present": 8,
+        "c2b_batch_present": 9,
+        "presence_delta": 1,
+        "c2_singleton_max_share_percent": 32.6316,
+        "c2b_batch_max_share_percent": 12.1622,
+        "share_delta": -20.4694,
+        "c2_singleton_missing": [
+          "context"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "media",
+        "total_categories": 5,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 5,
+        "presence_delta": 3,
+        "c2_singleton_max_share_percent": 81.25,
+        "c2b_batch_max_share_percent": 21.875,
+        "share_delta": -59.375,
+        "c2_singleton_missing": [
+          "plastic-like",
+          "fabric-like",
+          "reflective-film-like"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "geometry",
+        "total_categories": 6,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 6,
+        "presence_delta": 4,
+        "c2_singleton_max_share_percent": 84.375,
+        "c2b_batch_max_share_percent": 18.75,
+        "share_delta": -65.625,
+        "c2_singleton_missing": [
+          "partial-curved",
+          "flexible",
+          "rigid",
+          "boundary-only"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "illumination",
+        "total_categories": 6,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 6,
+        "presence_delta": 4,
+        "c2_singleton_max_share_percent": 81.25,
+        "c2b_batch_max_share_percent": 18.75,
+        "share_delta": -62.5,
+        "c2_singleton_missing": [
+          "left",
+          "right",
+          "top",
+          "bottom"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      }
+    ],
+    "axes_fully_covered": 5,
+    "axes_collapse_resolved": 5,
+    "axes_total": 5,
+    "verdict": "resolved on every axis"
+  },
+  "c3_quota_estimate": {
+    "expected_batch_calls_minimum": 12,
+    "expected_batch_calls_with_observed_retry_rate": 12.0,
+    "expected_transport_retry_burden": 0,
+    "expected_valid_candidates": 384.0,
+    "expected_tokens": {
+      "total_input_tokens": 22224,
+      "total_output_tokens": 102108,
+      "total_thought_tokens": 91920,
+      "total_cached_tokens": 0,
+      "total_tool_use_tokens": 0,
+      "total_tokens": 216252
+    },
+    "serial_model_time_seconds_range": [
+      455.2,
+      1517.2
+    ],
+    "serial_model_time_minutes_range": [
+      7.6,
+      25.3
+    ],
+    "uncertainty": "Derived from ONE observed batch. The range is a planning band, not a prediction, and a single observation supports no confidence interval."
+  },
+  "free_tier_risk": {
+    "requests_needed": "12 (plus retries)",
+    "observed_free_tier_behaviour": "C2 measured roughly 20 requests per rolling multi-minute window for this model; 12 batch requests is far below the per-window request count that blocked the C2 pilot",
+    "request_count_risk": "LOW relative to C2 - 12 requests instead of 384",
+    "token_and_output_risk": "HIGHER PER REQUEST - each batch produces ~32x the output of a singleton call, so a per-minute TOKEN limit, not a request limit, becomes the plausible binding constraint",
+    "quota_snapshot": "QUOTA_SNAPSHOT_NOT_PROGRAMMATICALLY_AVAILABLE - the Free Tier RPM/TPM/RPD limits for this project must be read from AI Studio before C3. No number was invented here.",
+    "billing": "Free Tier only. Code never enables billing; a Paid Tier remains a user decision if C3 becomes genuinely blocked.",
+    "c2b_succeeded_on_free_tier": true,
+    "c2b_success_does_not_guarantee_c3": true
+  },
+  "tests": {
+    "schema_version": "c2b-test-suite-v1",
+    "milestone": "C2B",
+    "generated_at_utc": "2026-08-10T12:20:58.714818Z",
+    "generator_code_commit": "a7f56be7109f149be18bbd4c4907edf4b04b17f8",
+    "interpreter": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\.venv\\Scripts\\python.exe",
+    "environment": "the dedicated Version-C .venv created as the C2 prerequisite",
+    "c0": {
+      "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c0",
+      "raw_summary": "32 passed in 0.11s",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "failed_tests": [],
+      "error_items": [],
+      "returncode": 0
+    },
+    "c1": {
+      "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c1",
+      "raw_summary": "138 passed in 3.63s",
+      "passed": 138,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "failed_tests": [],
+      "error_items": [],
+      "returncode": 0
+    },
+    "c2": {
+      "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c2",
+      "raw_summary": "43 passed in 5.98s",
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "failed_tests": [],
+      "error_items": [],
+      "returncode": 0
+    },
+    "c2b": {
+      "command": "-m pytest -q --no-header -p no:cacheprovider -rf tests/c2b",
+      "raw_summary": "41 passed in 2.17s",
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "failed_tests": [],
+      "error_items": [],
+      "returncode": 0
+    },
+    "full_runnable_suite": {
+      "command": "-m pytest -q --no-header -p no:cacheprovider -rf --continue-on-collection-errors",
+      "raw_summary": "7 failed, 1227 passed, 101 skipped, 1 warning in 610.04s (0:10:10)",
+      "passed": 1227,
+      "failed": 7,
+      "skipped": 101,
+      "errors": 0,
+      "failed_tests": [
+        "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+        "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+        "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+        "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+        "tests/test_m2_validation.py::test_status_reports_expected_counts",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed"
+      ],
+      "error_items": [],
+      "returncode": 1
+    },
+    "inherited_failure_analysis": {
+      "c0_documented_failures": [
+        "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+        "tests/test_m2_validation.py::test_status_reports_expected_counts",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+        "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+        "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+        "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive"
+      ],
+      "c0_documented_failure_count": 7,
+      "c0_documented_skip_count": 101,
+      "documented_failures_seen": [
+        "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+        "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+        "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+        "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+        "tests/test_m2_validation.py::test_status_reports_expected_counts",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+        "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed"
+      ],
+      "unexplained_failures": [],
+      "unexplained_failure_count": 0,
+      "matches_documented_failure_count": true,
+      "matches_documented_skip_count": true,
+      "collection_errors": 0
+    },
+    "no_new_unexplained_failures": true,
+    "c2b_tests_zero_failures": true,
+    "c2_tests_zero_failures": true,
+    "c1_tests_zero_failures": true,
+    "network_calls_during_tests": 0,
+    "gemini_calls_during_tests": 0
+  },
+  "version_b_integrity": {
+    "repo_path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+    "opened_for": "reading only",
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "head_matches_expected": true,
+    "tag": "m10-blind-evaluation-checkpoint",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag_matches_expected": true,
+    "working_tree": "clean",
+    "working_tree_clean": true,
+    "scientific_artifacts_changed": 0,
+    "written_to_during_c2b": false
+  },
+  "no_execution_proof": {
+    "c3_requests_executed": 0,
+    "c3_candidate_slots_generated": 0,
+    "final_256_bank_created": 0,
+    "rnd_det_banks_created": 0,
+    "bank_locks_frozen": 0,
+    "gpat_training_runs": 0,
+    "synthetic_images_generated": 0,
+    "physics_render_runs": 0,
+    "track_g_training_runs": 0,
+    "track_r_training_runs": 0,
+    "modal_jobs": 0,
+    "ssh_gpu_jobs": 0,
+    "dataset_preprocessing_runs": 0,
+    "siw_label_reads": 0,
+    "siw_metric_uses": 0,
+    "target_scoring_runs": 0,
+    "model_changes": 0,
+    "ontology_changes": 0,
+    "alias_policy_changes": 0,
+    "system_prompt_changes": 0,
+    "billing_enabled": 0,
+    "version_b_artifacts_modified": 0,
+    "semantic_batches_regenerated_after_seeing_coverage": 0
+  },
+  "acceptance_checks": {
+    "exactly_one_logical_batch": true,
+    "no_second_batch_issued": true,
+    "returned_exactly_32_objects": true,
+    "no_response_level_structural_issues": true,
+    "all_returned_objects_valid": true,
+    "no_duplicates": true,
+    "replay_reproduces_the_live_batch": true,
+    "every_attempt_has_provenance": true,
+    "raw_response_preserved": true,
+    "no_silent_repair": true,
+    "all_media_represented": true,
+    "all_geometry_represented": true,
+    "all_illumination_represented": true,
+    "all_artifacts_represented": true,
+    "all_regions_represented": true,
+    "quota_required_bounds_satisfied": true,
+    "no_severe_mode_collapse": true,
+    "quotas_did_not_force_incompatibility": true,
+    "all_accepted_objects_compile": false,
+    "coverage_audit_complete": true,
+    "co_occurrence_audit_complete": true,
+    "all_32_objects_documented": true,
+    "c3_estimate_corrected_for_batch_shape": true,
+    "system_prompt_unchanged": true,
+    "single_recipe_schema_unchanged": true,
+    "ontology_unchanged": true,
+    "alias_policy_unchanged": true,
+    "model_unchanged": true,
+    "provider_config_identity_unchanged": true,
+    "c1_tests_zero_failures": true,
+    "c2_tests_zero_failures": true,
+    "c2b_tests_zero_failures": true,
+    "no_new_unexplained_failures": true,
+    "required_artifacts_present": true,
+    "no_gpu_use": true,
+    "no_modal_or_ssh_jobs": true,
+    "no_synthetic_image_generation": true,
+    "no_gpat_training": true,
+    "no_detector_training": true,
+    "no_siw_label_access": true,
+    "no_siw_metric_use": true,
+    "no_dataset_preprocessing": true,
+    "c3_not_started": true,
+    "no_bank_lock_created": true,
+    "billing_never_enabled": true,
+    "version_b_unchanged": true,
+    "no_secret_committed": true
+  },
+  "missing_artifacts": [],
+  "c3_status": "NOT STARTED. Nothing was frozen. The candidate identities await explicit user approval; see docs/c2b/C2B_C3_FREEZE_RECOMMENDATION.md."
+}

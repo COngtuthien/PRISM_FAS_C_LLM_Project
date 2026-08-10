@@ -116,22 +116,34 @@ def candidate_object_schema(ontology: Ontology) -> dict[str, Any]:
     }
 
 
-def candidate_json_schema(ontology: Ontology, *, recipes_requested: int) -> dict[str, Any]:
-    """The batch envelope: exactly `recipes_requested` candidate objects."""
+def candidate_json_schema(ontology: Ontology, *, recipes_requested: int,
+                          array_bounds: bool = True) -> dict[str, Any]:
+    """The batch envelope: exactly `recipes_requested` candidate objects.
+
+    `array_bounds=False` omits `minItems`/`maxItems`. C2B finding, observed live
+    on 2026-08-10: the provider answers `400 INVALID_ARGUMENT` for this envelope
+    once the bound reaches 32, while the byte-identical schema with the bound at
+    1 is accepted. Google documents array length limits as a source of schema
+    complexity rejection, and the two envelopes differ by nothing else - 2695 vs
+    2697 bytes, identical item schema.
+
+    Dropping the bound costs nothing scientifically. The request-side schema was
+    never the authority: `RecipePlanner.validate_response` rejects a response
+    whose recipe count is not exactly `recipes_requested`, so "exactly 32" is
+    still enforced locally, on the response, where it always was.
+    """
     if not isinstance(recipes_requested, int) or isinstance(recipes_requested, bool) or recipes_requested < 1:
         raise ValueError("recipes_requested must be a positive integer")
+    recipes: dict[str, Any] = {"type": "array"}
+    if array_bounds:
+        recipes["minItems"] = recipes_requested
+        recipes["maxItems"] = recipes_requested
+    recipes["items"] = candidate_object_schema(ontology)
     return {
         "type": "object",
         "additionalProperties": False,
         "required": ["recipes"],
-        "properties": {
-            "recipes": {
-                "type": "array",
-                "minItems": recipes_requested,
-                "maxItems": recipes_requested,
-                "items": candidate_object_schema(ontology),
-            },
-        },
+        "properties": {"recipes": recipes},
     }
 
 

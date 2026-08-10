@@ -1,0 +1,945 @@
+{
+  "schema_version": "c2b-coverage-audit-v1",
+  "milestone": "C2B",
+  "generated_at_utc": "2026-08-10T12:25:49.853268Z",
+  "scope": "batch-level coverage over the frozen ontology only",
+  "compared_against_dataset_attack_families": false,
+  "target_information_used": false,
+  "coverage_quotas": {
+    "schema_version": "c2b-coverage-quota-v1",
+    "batch_size": 32,
+    "label": "c2b-development-batch",
+    "axes": [
+      {
+        "axis": "artifacts",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 4,
+        "max_per_category": 16,
+        "note": ""
+      },
+      {
+        "axis": "geometry",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "illumination",
+        "require_all": true,
+        "min_per_category": 3,
+        "preferred_min_per_category": null,
+        "max_per_category": 8,
+        "note": ""
+      },
+      {
+        "axis": "media",
+        "require_all": true,
+        "min_per_category": 4,
+        "preferred_min_per_category": null,
+        "max_per_category": 10,
+        "note": ""
+      },
+      {
+        "axis": "regions",
+        "require_all": true,
+        "min_per_category": 1,
+        "preferred_min_per_category": 3,
+        "max_per_category": 16,
+        "note": ""
+      }
+    ],
+    "diversity_rules": [
+      "do not repeat the same medium + geometry + illumination combination unnecessarily",
+      "do not repeat the same artifact set unnecessarily",
+      "do not repeat the same region set unnecessarily",
+      "do not repeat the same artifact-region pattern unnecessarily",
+      "no two recipes in the batch may be identical"
+    ],
+    "quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5"
+  },
+  "quota_compliance": {
+    "schema_version": "c2b-coverage-quota-v1",
+    "quota_identity": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+    "batch_size_expected": 32,
+    "recipes_evaluated": 32,
+    "axes": {
+      "artifacts": {
+        "quota": {
+          "axis": "artifacts",
+          "require_all": true,
+          "min_per_category": 1,
+          "preferred_min_per_category": 4,
+          "max_per_category": 16,
+          "note": ""
+        },
+        "category_count": 8,
+        "categories_present": 8,
+        "categories_missing": [],
+        "coverage_fraction": 1.0,
+        "assignment_total": 67,
+        "max_share_percent": 16.4179,
+        "max_share_category": "specular_reflection",
+        "required_pass": true,
+        "preferred_pass": true,
+        "categories": {
+          "halftone": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 10.4478,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "pixel_grid": {
+            "count": 4,
+            "percent_of_recipes": 12.5,
+            "percent_of_axis": 5.9701,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "moire": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 10.4478,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "specular_reflection": {
+            "count": 11,
+            "percent_of_recipes": 34.375,
+            "percent_of_axis": 16.4179,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "texture_smoothing": {
+            "count": 10,
+            "percent_of_recipes": 31.25,
+            "percent_of_axis": 14.9254,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "color_shift": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 13.4328,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "boundary_inconsistency": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 13.4328,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "blur": {
+            "count": 10,
+            "percent_of_recipes": 31.25,
+            "percent_of_axis": 14.9254,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 4,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          }
+        }
+      },
+      "geometry": {
+        "quota": {
+          "axis": "geometry",
+          "require_all": true,
+          "min_per_category": 3,
+          "preferred_min_per_category": null,
+          "max_per_category": 8,
+          "note": ""
+        },
+        "category_count": 6,
+        "categories_present": 6,
+        "categories_missing": [],
+        "coverage_fraction": 1.0,
+        "assignment_total": 32,
+        "max_share_percent": 18.75,
+        "max_share_category": "flat",
+        "required_pass": true,
+        "preferred_pass": true,
+        "categories": {
+          "flat": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "curved": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "partial-curved": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "flexible": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "rigid": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "boundary-only": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          }
+        }
+      },
+      "illumination": {
+        "quota": {
+          "axis": "illumination",
+          "require_all": true,
+          "min_per_category": 3,
+          "preferred_min_per_category": null,
+          "max_per_category": 8,
+          "note": ""
+        },
+        "category_count": 6,
+        "categories_present": 6,
+        "categories_missing": [],
+        "coverage_fraction": 1.0,
+        "assignment_total": 32,
+        "max_share_percent": 18.75,
+        "max_share_category": "front",
+        "required_pass": true,
+        "preferred_pass": true,
+        "categories": {
+          "front": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "left": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "right": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "top": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "bottom": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "mixed": {
+            "count": 5,
+            "percent_of_recipes": 15.625,
+            "percent_of_axis": 15.625,
+            "quota_minimum": 3,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 8,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          }
+        }
+      },
+      "media": {
+        "quota": {
+          "axis": "media",
+          "require_all": true,
+          "min_per_category": 4,
+          "preferred_min_per_category": null,
+          "max_per_category": 10,
+          "note": ""
+        },
+        "category_count": 5,
+        "categories_present": 5,
+        "categories_missing": [],
+        "coverage_fraction": 1.0,
+        "assignment_total": 32,
+        "max_share_percent": 21.875,
+        "max_share_category": "fabric-like",
+        "required_pass": true,
+        "preferred_pass": true,
+        "categories": {
+          "paper-like": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 4,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 10,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "display-like": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 4,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 10,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "plastic-like": {
+            "count": 6,
+            "percent_of_recipes": 18.75,
+            "percent_of_axis": 18.75,
+            "quota_minimum": 4,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 10,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "fabric-like": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 21.875,
+            "quota_minimum": 4,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 10,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "reflective-film-like": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 21.875,
+            "quota_minimum": 4,
+            "quota_preferred_minimum": null,
+            "quota_maximum": 10,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          }
+        }
+      },
+      "regions": {
+        "quota": {
+          "axis": "regions",
+          "require_all": true,
+          "min_per_category": 1,
+          "preferred_min_per_category": 3,
+          "max_per_category": 16,
+          "note": ""
+        },
+        "category_count": 9,
+        "categories_present": 9,
+        "categories_missing": [],
+        "coverage_fraction": 1.0,
+        "assignment_total": 74,
+        "max_share_percent": 12.1622,
+        "max_share_category": "left_eye",
+        "required_pass": true,
+        "preferred_pass": true,
+        "categories": {
+          "left_eye": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 12.1622,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "right_eye": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 12.1622,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "nose": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 12.1622,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "mouth": {
+            "count": 8,
+            "percent_of_recipes": 25.0,
+            "percent_of_axis": 10.8108,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "forehead": {
+            "count": 8,
+            "percent_of_recipes": 25.0,
+            "percent_of_axis": 10.8108,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "left_cheek": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 9.4595,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "right_cheek": {
+            "count": 8,
+            "percent_of_recipes": 25.0,
+            "percent_of_axis": 10.8108,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "face_boundary": {
+            "count": 9,
+            "percent_of_recipes": 28.125,
+            "percent_of_axis": 12.1622,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          },
+          "context": {
+            "count": 7,
+            "percent_of_recipes": 21.875,
+            "percent_of_axis": 9.4595,
+            "quota_minimum": 1,
+            "quota_preferred_minimum": 3,
+            "quota_maximum": 16,
+            "required_pass": true,
+            "preferred_pass": true,
+            "failures": [],
+            "preferred_misses": []
+          }
+        }
+      }
+    },
+    "required_pass": true,
+    "preferred_pass": true,
+    "required_failures": [],
+    "preferred_misses": [],
+    "policy": "compatibility outranks quota; a preferred miss is reported, never repaired, and no recipe was moved between categories after generation"
+  },
+  "coverage": {
+    "audit_schema_version": "c2-pilot-audit-v1",
+    "recipe_count": 32,
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "axes": {
+      "artifacts": {
+        "multi_valued": true,
+        "category_count": 8,
+        "categories_present": 8,
+        "categories_missing": 0,
+        "coverage_fraction": 1.0,
+        "missing_categories": [],
+        "counts": {
+          "halftone": 7,
+          "pixel_grid": 4,
+          "moire": 7,
+          "specular_reflection": 11,
+          "texture_smoothing": 10,
+          "color_shift": 9,
+          "boundary_inconsistency": 9,
+          "blur": 10
+        },
+        "assignment_counts": {
+          "halftone": 7,
+          "pixel_grid": 4,
+          "moire": 7,
+          "specular_reflection": 11,
+          "texture_smoothing": 10,
+          "color_shift": 9,
+          "boundary_inconsistency": 9,
+          "blur": 10
+        },
+        "recipe_percent": {
+          "halftone": 21.875,
+          "pixel_grid": 12.5,
+          "moire": 21.875,
+          "specular_reflection": 34.375,
+          "texture_smoothing": 31.25,
+          "color_shift": 28.125,
+          "boundary_inconsistency": 28.125,
+          "blur": 31.25
+        },
+        "assignment_percent": {
+          "halftone": 10.4478,
+          "pixel_grid": 5.9701,
+          "moire": 10.4478,
+          "specular_reflection": 16.4179,
+          "texture_smoothing": 14.9254,
+          "color_shift": 13.4328,
+          "boundary_inconsistency": 13.4328,
+          "blur": 14.9254
+        },
+        "assignment_total": 67
+      },
+      "regions": {
+        "multi_valued": true,
+        "category_count": 9,
+        "categories_present": 9,
+        "categories_missing": 0,
+        "coverage_fraction": 1.0,
+        "missing_categories": [],
+        "counts": {
+          "left_eye": 9,
+          "right_eye": 9,
+          "nose": 9,
+          "mouth": 8,
+          "forehead": 8,
+          "left_cheek": 7,
+          "right_cheek": 8,
+          "face_boundary": 9,
+          "context": 7
+        },
+        "assignment_counts": {
+          "left_eye": 9,
+          "right_eye": 9,
+          "nose": 9,
+          "mouth": 8,
+          "forehead": 8,
+          "left_cheek": 7,
+          "right_cheek": 8,
+          "face_boundary": 9,
+          "context": 7
+        },
+        "recipe_percent": {
+          "left_eye": 28.125,
+          "right_eye": 28.125,
+          "nose": 28.125,
+          "mouth": 25.0,
+          "forehead": 25.0,
+          "left_cheek": 21.875,
+          "right_cheek": 25.0,
+          "face_boundary": 28.125,
+          "context": 21.875
+        },
+        "assignment_percent": {
+          "left_eye": 12.1622,
+          "right_eye": 12.1622,
+          "nose": 12.1622,
+          "mouth": 10.8108,
+          "forehead": 10.8108,
+          "left_cheek": 9.4595,
+          "right_cheek": 10.8108,
+          "face_boundary": 12.1622,
+          "context": 9.4595
+        },
+        "assignment_total": 74
+      },
+      "media": {
+        "multi_valued": false,
+        "category_count": 5,
+        "categories_present": 5,
+        "categories_missing": 0,
+        "coverage_fraction": 1.0,
+        "missing_categories": [],
+        "counts": {
+          "paper-like": 6,
+          "display-like": 6,
+          "plastic-like": 6,
+          "fabric-like": 7,
+          "reflective-film-like": 7
+        },
+        "assignment_counts": {
+          "paper-like": 6,
+          "display-like": 6,
+          "plastic-like": 6,
+          "fabric-like": 7,
+          "reflective-film-like": 7
+        },
+        "recipe_percent": {
+          "paper-like": 18.75,
+          "display-like": 18.75,
+          "plastic-like": 18.75,
+          "fabric-like": 21.875,
+          "reflective-film-like": 21.875
+        },
+        "assignment_percent": {
+          "paper-like": 18.75,
+          "display-like": 18.75,
+          "plastic-like": 18.75,
+          "fabric-like": 21.875,
+          "reflective-film-like": 21.875
+        },
+        "assignment_total": 32
+      },
+      "geometry": {
+        "multi_valued": false,
+        "category_count": 6,
+        "categories_present": 6,
+        "categories_missing": 0,
+        "coverage_fraction": 1.0,
+        "missing_categories": [],
+        "counts": {
+          "flat": 6,
+          "curved": 5,
+          "partial-curved": 5,
+          "flexible": 5,
+          "rigid": 5,
+          "boundary-only": 6
+        },
+        "assignment_counts": {
+          "flat": 6,
+          "curved": 5,
+          "partial-curved": 5,
+          "flexible": 5,
+          "rigid": 5,
+          "boundary-only": 6
+        },
+        "recipe_percent": {
+          "flat": 18.75,
+          "curved": 15.625,
+          "partial-curved": 15.625,
+          "flexible": 15.625,
+          "rigid": 15.625,
+          "boundary-only": 18.75
+        },
+        "assignment_percent": {
+          "flat": 18.75,
+          "curved": 15.625,
+          "partial-curved": 15.625,
+          "flexible": 15.625,
+          "rigid": 15.625,
+          "boundary-only": 18.75
+        },
+        "assignment_total": 32
+      },
+      "illumination": {
+        "multi_valued": false,
+        "category_count": 6,
+        "categories_present": 6,
+        "categories_missing": 0,
+        "coverage_fraction": 1.0,
+        "missing_categories": [],
+        "counts": {
+          "front": 6,
+          "left": 6,
+          "right": 5,
+          "top": 5,
+          "bottom": 5,
+          "mixed": 5
+        },
+        "assignment_counts": {
+          "front": 6,
+          "left": 6,
+          "right": 5,
+          "top": 5,
+          "bottom": 5,
+          "mixed": 5
+        },
+        "recipe_percent": {
+          "front": 18.75,
+          "left": 18.75,
+          "right": 15.625,
+          "top": 15.625,
+          "bottom": 15.625,
+          "mixed": 15.625
+        },
+        "assignment_percent": {
+          "front": 18.75,
+          "left": 18.75,
+          "right": 15.625,
+          "top": 15.625,
+          "bottom": 15.625,
+          "mixed": 15.625
+        },
+        "assignment_total": 32
+      }
+    },
+    "artifacts_per_recipe": {
+      "n": 32,
+      "min": 2,
+      "max": 3,
+      "mean": 2.09375,
+      "histogram": {
+        "2": 29,
+        "3": 3
+      },
+      "percent": {
+        "2": 90.625,
+        "3": 9.375
+      }
+    },
+    "regions_per_recipe": {
+      "n": 32,
+      "min": 1,
+      "max": 3,
+      "mean": 2.3125,
+      "histogram": {
+        "1": 3,
+        "2": 16,
+        "3": 13
+      },
+      "percent": {
+        "1": 9.375,
+        "2": 50.0,
+        "3": 40.625
+      }
+    }
+  },
+  "mode_collapse_comparison": {
+    "comparison_scope": "C2 singleton pilot versus the C2B batch, both source-independent prompt-development evidence. No dataset, target metric or attack taxonomy was consulted.",
+    "axes": [
+      {
+        "axis": "artifacts",
+        "total_categories": 8,
+        "c2_singleton_present": 6,
+        "c2b_batch_present": 8,
+        "presence_delta": 2,
+        "c2_singleton_max_share_percent": 30.2326,
+        "c2b_batch_max_share_percent": 16.4179,
+        "share_delta": -13.8147,
+        "c2_singleton_missing": [
+          "boundary_inconsistency",
+          "blur"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "regions",
+        "total_categories": 9,
+        "c2_singleton_present": 8,
+        "c2b_batch_present": 9,
+        "presence_delta": 1,
+        "c2_singleton_max_share_percent": 32.6316,
+        "c2b_batch_max_share_percent": 12.1622,
+        "share_delta": -20.4694,
+        "c2_singleton_missing": [
+          "context"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "media",
+        "total_categories": 5,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 5,
+        "presence_delta": 3,
+        "c2_singleton_max_share_percent": 81.25,
+        "c2b_batch_max_share_percent": 21.875,
+        "share_delta": -59.375,
+        "c2_singleton_missing": [
+          "plastic-like",
+          "fabric-like",
+          "reflective-film-like"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "geometry",
+        "total_categories": 6,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 6,
+        "presence_delta": 4,
+        "c2_singleton_max_share_percent": 84.375,
+        "c2b_batch_max_share_percent": 18.75,
+        "share_delta": -65.625,
+        "c2_singleton_missing": [
+          "partial-curved",
+          "flexible",
+          "rigid",
+          "boundary-only"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      },
+      {
+        "axis": "illumination",
+        "total_categories": 6,
+        "c2_singleton_present": 2,
+        "c2b_batch_present": 6,
+        "presence_delta": 4,
+        "c2_singleton_max_share_percent": 81.25,
+        "c2b_batch_max_share_percent": 18.75,
+        "share_delta": -62.5,
+        "c2_singleton_missing": [
+          "left",
+          "right",
+          "top",
+          "bottom"
+        ],
+        "c2b_batch_missing": [],
+        "fully_covered_now": true,
+        "collapse_resolved": true
+      }
+    ],
+    "axes_fully_covered": 5,
+    "axes_collapse_resolved": 5,
+    "axes_total": 5,
+    "verdict": "resolved on every axis"
+  }
+}
