@@ -27,6 +27,7 @@ testable, on a machine with no SDK and no credential.
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any
 
@@ -48,6 +49,29 @@ def sdk_version() -> str | None:
         return None
 
 
+#: A 429 whose replenishment is further away than this is treated as exhaustion
+#: for the purposes of this run: waiting it out inside a bounded retry budget is
+#: not realistic, so the run checkpoints and stops instead of spinning.
+RATE_LIMIT_RETRY_CEILING_SECONDS = 300.0
+
+#: "Please retry in 18.039133522s." - the Gemini 429 body's replenishment hint.
+_RETRY_HINT_PATTERN = re.compile(r"retry\s+in\s+([0-9]+(?:\.[0-9]+)?)\s*s", re.IGNORECASE)
+
+#: Markers that name a genuinely long window. A per-day metric does not
+#: replenish inside a run, whatever hint accompanies it.
+_PER_DAY_MARKERS: tuple[str, ...] = ("per day", "perday", "per_day", "daily limit",
+                                     "daily quota", "requests per day")
+
+
+def _retry_delay_seconds(exc: BaseException, message: str) -> float | None:
+    """The provider's own replenishment hint, if it gave one."""
+    value = getattr(exc, "retry_after", None)
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+        return float(value)
+    match = _RETRY_HINT_PATTERN.search(message)
+    return float(match.group(1)) if match else None
+
+
 def _classify(exc: BaseException) -> ProviderError:
     """Map an SDK/transport exception onto the frozen error vocabulary.
 
@@ -62,15 +86,32 @@ def _classify(exc: BaseException) -> ProviderError:
 
     # Quota exhaustion and rate limiting are both 429 and must not be confused:
     # one backs off and retries, the other stops the run cleanly.
+    #
+    # C2 finding, observed twice on the live Free Tier: Gemini uses the SAME
+    # "You exceeded your current quota" wording for a short-window request limit
+    # as for daily exhaustion, and separates them only by the replenishment hint
+    # in the body ("Please retry in 18.039133522s."). Matching on the wording
+    # alone stopped a pilot that a bounded backoff would have completed, and
+    # labelled a transient limit as daily exhaustion in the block artifact.
+    # The hint, not the prose, decides.
     quota_markers = ("quota_exceeded", "quota exceeded", "daily quota", "resource_exhausted",
                      "exceeded your current quota", "quota_failure")
     rate_markers = ("rate_limit_exceeded", "rate limit", "too many requests")
-    if any(marker in lowered for marker in quota_markers):
-        return ProviderError(ErrorClass.QUOTA_EXHAUSTED, message, status_code=status or 429)
-    if status == 429 or any(marker in lowered for marker in rate_markers):
-        retry_after = getattr(exc, "retry_after", None)
+    looks_quota = any(marker in lowered for marker in quota_markers)
+    looks_rate = status == 429 or any(marker in lowered for marker in rate_markers)
+    if looks_quota or looks_rate:
+        delay = _retry_delay_seconds(exc, message)
+        long_window = any(marker in lowered for marker in _PER_DAY_MARKERS)
+        replenishes_soon = (delay is not None and not long_window
+                            and delay <= RATE_LIMIT_RETRY_CEILING_SECONDS)
+        if replenishes_soon:
+            return ProviderError(ErrorClass.RATE_LIMIT, message, status_code=status or 429,
+                                 retry_after_seconds=delay)
+        if looks_quota:
+            # No usable hint, or a window too long to wait out: fail closed.
+            return ProviderError(ErrorClass.QUOTA_EXHAUSTED, message, status_code=status or 429)
         return ProviderError(ErrorClass.RATE_LIMIT, message, status_code=status or 429,
-                             retry_after_seconds=retry_after if isinstance(retry_after, (int, float)) else None)
+                             retry_after_seconds=delay)
     if status in (401, 403) or any(m in lowered for m in
                                    ("api key not valid", "unauthenticated", "permission denied",
                                     "invalid authentication", "missing credential")):
@@ -215,10 +256,14 @@ class GeminiRecipeProvider(RecipeProvider):
         usage = getattr(interaction, "usage", None)
         return result(
             raw_text=raw_text,
-            finish_reason=str(getattr(interaction, "finish_reason", None) or "") or None,
+            # C2 finding: an Interaction carries `status`, not `finish_reason`.
+            # Reading only the documented name recorded a null for every call.
+            finish_reason=_first_str(interaction, "finish_reason", "status"),
             usage=_usage_dict(usage),
-            provider_request_id=str(getattr(interaction, "id", None) or "") or None,
-            model_version=str(getattr(interaction, "model_version", None) or "") or None,
+            provider_request_id=_first_str(interaction, "id"),
+            # C2 finding: the resolved model is reported as `model`. It is the
+            # only revision the surface exposes, so it is the model_revision.
+            model_version=_first_str(interaction, "model_version", "model"),
             provider_seed=None,   # not exposed on this surface; recorded as null
         )
 
@@ -234,12 +279,74 @@ class GeminiRecipeProvider(RecipeProvider):
                 "forbidden_sampling_fields_sent": []}
 
 
+def _first_str(source: Any, *names: str) -> str | None:
+    """First non-empty attribute among `names`, as a string.
+
+    The SDK types some of these as a Literal union with an `UnrecognizedStr`
+    fallback, so the value is stringified rather than compared to a fixed set.
+    """
+    for name in names:
+        value = getattr(source, name, None)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+#: Token counters the installed SDK's `Usage` model actually exposes, verified
+#: against google-genai 2.17.0. The names in the older guide (`input_tokens`,
+#: `prompt_token_count`, ...) are kept so a rename does not silently drop usage.
+_USAGE_SCALAR_FIELDS: tuple[str, ...] = (
+    "total_input_tokens", "total_output_tokens", "total_thought_tokens",
+    "total_cached_tokens", "total_tool_use_tokens", "total_tokens", "grounding_tool_count",
+    "input_tokens", "output_tokens", "thinking_tokens",
+    "prompt_token_count", "candidates_token_count", "total_token_count",
+)
+
+#: Per-modality breakdowns. Recorded verbatim when present; never synthesised.
+_USAGE_MODALITY_FIELDS: tuple[str, ...] = (
+    "input_tokens_by_modality", "output_tokens_by_modality",
+    "cached_tokens_by_modality", "tool_use_tokens_by_modality",
+)
+
+
 def _usage_dict(usage: Any) -> dict[str, Any]:
+    """Whatever the surface reported, and nothing it did not.
+
+    C2 finding: reading only the documented `input_tokens`/`output_tokens` names
+    captured `total_tokens` alone from this SDK, so the pilot could not report an
+    input/output split that the provider was in fact returning.
+    """
     if usage is None:
         return {}
     if isinstance(usage, dict):
-        return {str(key): value for key, value in usage.items()}
-    fields = ("input_tokens", "output_tokens", "total_tokens", "thinking_tokens",
-              "prompt_token_count", "candidates_token_count", "total_token_count")
-    collected = {name: getattr(usage, name) for name in fields if getattr(usage, name, None) is not None}
-    return {key: value for key, value in collected.items()}
+        return {str(key): value for key, value in usage.items() if value is not None}
+    collected: dict[str, Any] = {}
+    for name in _USAGE_SCALAR_FIELDS:
+        value = getattr(usage, name, None)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            collected[name] = value
+    for name in _USAGE_MODALITY_FIELDS:
+        value = getattr(usage, name, None)
+        if value:
+            collected[name] = _plain(value)
+    return collected
+
+
+def _plain(value: Any) -> Any:
+    """JSON-safe form of an SDK sub-object, without importing its type."""
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        try:
+            return _plain(dump(mode="json", exclude_none=True))
+        except Exception:
+            return str(value)
+    return str(value)

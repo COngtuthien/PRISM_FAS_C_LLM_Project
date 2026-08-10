@@ -1,0 +1,110 @@
+{
+  "schema_version": "c2-prompt-review-v1",
+  "milestone": "C2",
+  "generated_at_utc": "2026-08-10T10:57:19.006566Z",
+  "thresholds": {
+    "min_eventual_valid_rate": 0.9,
+    "min_first_attempt_valid_rate": 0.75,
+    "max_duplicate_rate": 0.1,
+    "min_axis_coverage_fraction": 0.5,
+    "max_single_category_share": 0.6,
+    "max_compatibility_violation_rate": 0.1,
+    "max_ontology_violation_rate": 0.05
+  },
+  "findings": [
+    {
+      "criterion": "schema_compliance",
+      "observed": 1.0,
+      "threshold": ">= 0.9",
+      "within_contract": true,
+      "note": "share of slots that produced an accepted recipe within the frozen retry budget"
+    },
+    {
+      "criterion": "first_attempt_compliance",
+      "observed": 1.0,
+      "threshold": ">= 0.75",
+      "within_contract": true,
+      "note": "share of slots valid on the first call; a low value means the prompt under-constrains"
+    },
+    {
+      "criterion": "duplicate_rate",
+      "observed": 0.0,
+      "threshold": "<= 0.1",
+      "within_contract": true,
+      "note": "exact canonical-content repeats across the pilot"
+    },
+    {
+      "criterion": "ontology_violation_rate",
+      "observed": 0.0,
+      "threshold": "<= 0.05",
+      "within_contract": true,
+      "note": "non-canonical enum values per provider call; systematic mismatch would mean the vocabulary in the prompt does not match the validator"
+    },
+    {
+      "criterion": "compatibility_violation_rate",
+      "observed": 0.0,
+      "threshold": "<= 0.1",
+      "within_contract": true,
+      "note": "medium/artifact and geometry/region rejections per call"
+    },
+    {
+      "criterion": "coverage_geometry",
+      "observed": 0.333333,
+      "threshold": ">= 0.5",
+      "within_contract": false,
+      "note": "weakest axis; missing ['partial-curved', 'flexible', 'rigid', 'boundary-only']"
+    },
+    {
+      "criterion": "mode_collapse",
+      "observed": 3,
+      "threshold": "no category above 60.0% of its axis",
+      "within_contract": false,
+      "note": "collapsed categories: [{'axis': 'media', 'category': 'display-like', 'share_percent': 81.25}, {'axis': 'geometry', 'category': 'flat', 'share_percent': 84.375}, {'axis': 'illumination', 'category': 'front', 'share_percent': 81.25}]"
+    }
+  ],
+  "criteria_breached": [
+    "coverage_geometry",
+    "mode_collapse"
+  ],
+  "collapsed_categories": [
+    {
+      "axis": "media",
+      "category": "display-like",
+      "share_percent": 81.25
+    },
+    {
+      "axis": "geometry",
+      "category": "flat",
+      "share_percent": 84.375
+    },
+    {
+      "axis": "illumination",
+      "category": "front",
+      "share_percent": 81.25
+    }
+  ],
+  "prompt_change_recommended": true,
+  "prompt_changed_in_c2": false,
+  "allow_ontology_aliases": false,
+  "alias_policy_changed": false,
+  "second_pilot_run_automatically": false,
+  "confounds": {
+    "applies_to": [
+      "coverage_geometry",
+      "mode_collapse"
+    ],
+    "pilot_batch_size": 1,
+    "c3_planned_batch_size": 32,
+    "coverage_quotas_used_in_the_pilot": false,
+    "statement": "The coverage breach is measured, but its cause is not isolated. The frozen prompt's diversity rules are BATCH-scoped ('vary medium, geometry, region coverage ... within this batch'), and a C2 pilot slot asked for exactly one recipe, so those rules had no batch to act on. The pilot also passed no coverage quotas, although the request template supports them. The C3 schedule asks for 32 recipes per call, where both mechanisms do have scope.",
+    "what_the_evidence_does_show": "Under a batch of one, with no coverage quotas and no sampling controls, 32 independent calls under this prompt return a strongly modal distribution: display-like / flat / front dominate, and four of six geometries, three of five media and four of six illumination modes never appear.",
+    "what_the_evidence_does_not_show": "It does not establish that the prompt would collapse the same way at the C3 batch shape, and it is not evidence that any prompt wording is wrong."
+  },
+  "recommended_next_step": {
+    "action": "Before editing a single prompt byte, re-measure coverage at the C3 batch shape (one call requesting 32 recipes, the frozen 12x32 schema) so the batch-size confound is removed. Only if the collapse survives that does a prompt change have evidence behind it.",
+    "requires_user_approval": true,
+    "not_done_automatically": "No second pilot was run and no prompt byte was changed.",
+    "alternative_if_collapse_persists": "Use the request template's existing coverage_quotas mechanism, which is ontology-level and source-only, rather than rewording the system instruction. It is already implemented and was deliberately left unused in C2."
+  },
+  "policy": "A prompt change is recommended only on an objective, source-independent contract failure. Aesthetic oddness in a recipe is never a reason, and no second 32-slot pilot is run automatically: a material change stops for user review."
+}

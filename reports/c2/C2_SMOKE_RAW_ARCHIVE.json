@@ -1,0 +1,109 @@
+{
+  "schema_version": "c2-smoke-raw-archive-v1",
+  "marker": "C2_SMOKE_ONLY",
+  "note": "verbatim provider output for every smoke attempt; the same bytes are on disk under reports/c2/raw_responses/smoke/ (git-ignored by repository policy)",
+  "records": [
+    {
+      "phase": "smoke",
+      "slot_id": "smoke_000",
+      "attempt": 1,
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_version": null,
+      "finish_reason": null,
+      "usage": {
+        "total_tokens": 3562
+      },
+      "provider_request_id": null,
+      "provider_seed": null,
+      "sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "request_sha256": "e8a1801ea81f173e39513248e9754c55db5c75f7ccf731b1687de8f5660ec053",
+      "raw_text": "{\n  \"recipes\": [\n    {\n      \"schema_version\": \"1.1\",\n      \"medium\": {\n        \"family\": \"display-like\",\n        \"transparency\": 0.05,\n        \"roughness\": 0.15\n      },\n      \"geometry\": {\n        \"shape\": \"flat\",\n        \"rigidity\": 0.95,\n        \"coverage\": 0.85\n      },\n      \"regions\": [\n        \"left_eye\",\n        \"right_eye\",\n        \"nose\"\n      ],\n      \"artifacts\": [\n        {\n          \"name\": \"pixel_grid\",\n          \"strength\": 0.25\n        },\n        {\n          \"name\": \"moire\",\n          \"strength\": 0.2\n        },\n        {\n          \"name\": \"specular_reflection\",\n          \"strength\": 0.15\n        }\n      ],\n      \"capture\": {\n        \"yaw\": 12.5,\n        \"illumination\": \"front\",\n        \"compression_q\": 85,\n        \"scale\": 1.05,\n        \"motion\": 0.05,\n        \"defocus\": 0.1\n      },\n      \"forbidden_shortcuts\": [\n        \"always_moire\"\n      ],\n      \"generator_route\": [\n        \"physics\",\n        \"gpat\"\n      ],\n      \"seed\": 4829104\n    }\n  ]\n}",
+      "raw_response_sha256": "24c0cbf25408889541e75cb5b3cc947d5ea6f1621bd1e5bf3d5c72fa77a4bd28",
+      "latency_seconds": 11.13852,
+      "recorded_at_utc": "2026-08-10T04:04:53.562650Z",
+      "error": null
+    },
+    {
+      "phase": "smoke",
+      "slot_id": "smoke_001",
+      "attempt": 1,
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_version": "gemini-3.6-flash",
+      "finish_reason": "completed",
+      "usage": {
+        "total_input_tokens": 1451,
+        "total_output_tokens": 350,
+        "total_thought_tokens": 1251,
+        "total_cached_tokens": 0,
+        "total_tool_use_tokens": 0,
+        "total_tokens": 3052,
+        "input_tokens_by_modality": [
+          {
+            "modality": "text",
+            "tokens": 1451
+          }
+        ]
+      },
+      "provider_request_id": null,
+      "provider_seed": null,
+      "sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "request_sha256": "31af65c5fecc648bd22daf4da319b238b21de786e4634f6714bba35bd3a3c344",
+      "raw_text": "{\n  \"recipes\": [\n    {\n      \"schema_version\": \"1.1\",\n      \"medium\": {\n        \"family\": \"display-like\",\n        \"transparency\": 0.02,\n        \"roughness\": 0.05\n      },\n      \"geometry\": {\n        \"shape\": \"flat\",\n        \"rigidity\": 0.95,\n        \"coverage\": 0.85\n      },\n      \"regions\": [\n        \"left_eye\",\n        \"right_eye\",\n        \"nose\"\n      ],\n      \"artifacts\": [\n        {\n          \"name\": \"pixel_grid\",\n          \"strength\": 0.25\n        },\n        {\n          \"name\": \"moire\",\n          \"strength\": 0.20\n        },\n        {\n          \"name\": \"specular_reflection\",\n          \"strength\": 0.15\n        }\n      ],\n      \"capture\": {\n        \"yaw\": 5.5,\n        \"illumination\": \"front\",\n        \"compression_q\": 85,\n        \"scale\": 1.02,\n        \"motion\": 0.02,\n        \"defocus\": 0.05\n      },\n      \"forbidden_shortcuts\": [\n        \"always_moire\"\n      ],\n      \"generator_route\": [\n        \"physics\",\n        \"gpat\"\n      ],\n      \"seed\": 4829104\n    }\n  ]\n}",
+      "raw_response_sha256": "8b05d25c510daf1335503fef4e5de48a14049b27c17e32ac69f13dda11f75209",
+      "latency_seconds": 9.005585,
+      "recorded_at_utc": "2026-08-10T04:10:50.472954Z",
+      "error": null
+    }
+  ],
+  "replay_records": [
+    {
+      "slot_id": "smoke_000",
+      "attempt": 1,
+      "raw_text": "{\n  \"recipes\": [\n    {\n      \"schema_version\": \"1.1\",\n      \"medium\": {\n        \"family\": \"display-like\",\n        \"transparency\": 0.05,\n        \"roughness\": 0.15\n      },\n      \"geometry\": {\n        \"shape\": \"flat\",\n        \"rigidity\": 0.95,\n        \"coverage\": 0.85\n      },\n      \"regions\": [\n        \"left_eye\",\n        \"right_eye\",\n        \"nose\"\n      ],\n      \"artifacts\": [\n        {\n          \"name\": \"pixel_grid\",\n          \"strength\": 0.25\n        },\n        {\n          \"name\": \"moire\",\n          \"strength\": 0.2\n        },\n        {\n          \"name\": \"specular_reflection\",\n          \"strength\": 0.15\n        }\n      ],\n      \"capture\": {\n        \"yaw\": 12.5,\n        \"illumination\": \"front\",\n        \"compression_q\": 85,\n        \"scale\": 1.05,\n        \"motion\": 0.05,\n        \"defocus\": 0.1\n      },\n      \"forbidden_shortcuts\": [\n        \"always_moire\"\n      ],\n      \"generator_route\": [\n        \"physics\",\n        \"gpat\"\n      ],\n      \"seed\": 4829104\n    }\n  ]\n}",
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_version": null,
+      "finish_reason": null,
+      "usage": {
+        "total_tokens": 3562
+      },
+      "provider_request_id": null,
+      "provider_seed": null,
+      "sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "request_sha256": "e8a1801ea81f173e39513248e9754c55db5c75f7ccf731b1687de8f5660ec053"
+    },
+    {
+      "slot_id": "smoke_001",
+      "attempt": 1,
+      "raw_text": "{\n  \"recipes\": [\n    {\n      \"schema_version\": \"1.1\",\n      \"medium\": {\n        \"family\": \"display-like\",\n        \"transparency\": 0.02,\n        \"roughness\": 0.05\n      },\n      \"geometry\": {\n        \"shape\": \"flat\",\n        \"rigidity\": 0.95,\n        \"coverage\": 0.85\n      },\n      \"regions\": [\n        \"left_eye\",\n        \"right_eye\",\n        \"nose\"\n      ],\n      \"artifacts\": [\n        {\n          \"name\": \"pixel_grid\",\n          \"strength\": 0.25\n        },\n        {\n          \"name\": \"moire\",\n          \"strength\": 0.20\n        },\n        {\n          \"name\": \"specular_reflection\",\n          \"strength\": 0.15\n        }\n      ],\n      \"capture\": {\n        \"yaw\": 5.5,\n        \"illumination\": \"front\",\n        \"compression_q\": 85,\n        \"scale\": 1.02,\n        \"motion\": 0.02,\n        \"defocus\": 0.05\n      },\n      \"forbidden_shortcuts\": [\n        \"always_moire\"\n      ],\n      \"generator_route\": [\n        \"physics\",\n        \"gpat\"\n      ],\n      \"seed\": 4829104\n    }\n  ]\n}",
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_version": "gemini-3.6-flash",
+      "finish_reason": "completed",
+      "usage": {
+        "total_input_tokens": 1451,
+        "total_output_tokens": 350,
+        "total_thought_tokens": 1251,
+        "total_cached_tokens": 0,
+        "total_tool_use_tokens": 0,
+        "total_tokens": 3052,
+        "input_tokens_by_modality": [
+          {
+            "modality": "text",
+            "tokens": 1451
+          }
+        ]
+      },
+      "provider_request_id": null,
+      "provider_seed": null,
+      "sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "request_sha256": "31af65c5fecc648bd22daf4da319b238b21de786e4634f6714bba35bd3a3c344"
+    }
+  ]
+}

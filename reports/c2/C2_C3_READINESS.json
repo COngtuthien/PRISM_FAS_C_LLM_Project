@@ -1,0 +1,43 @@
+{
+  "schema_version": "c2-c3-readiness-v1",
+  "milestone": "C2",
+  "generated_at_utc": "2026-08-10T10:57:19.003985Z",
+  "c3_candidates_generated": 0,
+  "note": "an estimate only; no C3 candidate was generated and no bank was frozen",
+  "audit_schema_version": "c2-pilot-audit-v1",
+  "basis": {
+    "observed_slots": 32,
+    "observed_calls": 42,
+    "first_attempt_valid_rate": 1.0,
+    "eventual_valid_rate": 1.0,
+    "retry_rate": 0.0,
+    "duplicate_rate": 0.0,
+    "calls_per_slot_mean": 1.3125,
+    "sample_size_caveat": "every projection below extrapolates from 32 slots; a rate measured on a sample this small carries wide uncertainty and is a planning input, not a guarantee"
+  },
+  "projection": {
+    "candidate_slots": 384,
+    "recipes_per_slot": 1,
+    "expected_valid_candidates": 384.0,
+    "expected_api_calls": 504.0,
+    "expected_retry_calls": 120.0,
+    "expected_retry_burden_calls_per_slot": 0.3125,
+    "expected_duplicate_candidates": 0.0,
+    "expected_exhausted_slots": 0.0,
+    "expected_wall_clock_seconds_serial": 3902.02
+  },
+  "quota_risk": {
+    "observed_quota_exhaustion_events": 2,
+    "observed_transient_429": 8,
+    "expected_calls_vs_free_tier": "the Free Tier requests-per-day limit for the frozen model is a project-specific number that must be read from AI Studio; it is not hard-coded here and was not invented",
+    "expected_token_usage": {
+      "total_cached_tokens": 0,
+      "total_input_tokens": 46432,
+      "total_output_tokens": 10441,
+      "total_thought_tokens": 50449,
+      "total_tokens": 107322,
+      "total_tool_use_tokens": 0
+    },
+    "policy": "on quota_exceeded the run checkpoints and stops; code never enables billing"
+  }
+}

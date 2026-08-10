@@ -1,0 +1,389 @@
+{
+  "schema_version": "c2-live-smoke-audit-v1",
+  "milestone": "C2",
+  "marker": "C2_SMOKE_ONLY",
+  "generated_at_utc": "2026-08-10T04:10:50.496441Z",
+  "generator_code_commit": "bf73fbb76737ea105420635eda34c4f977e1cedd",
+  "result": "SMOKE_PASS",
+  "disposable": true,
+  "scope_exclusion": {
+    "counts_towards_32_pilot_slots": false,
+    "counts_towards_c3_384_slots": false,
+    "enters_final_256_recipe_bank": false,
+    "enters_detector_training": false
+  },
+  "budget": {
+    "max_calls": 2,
+    "calls_made": 2
+  },
+  "frozen_contract": {
+    "provider": "Google Gemini Developer API",
+    "provider_name": "gemini",
+    "model_id": "gemini-3.6-flash",
+    "api_surface": "interactions",
+    "thinking_level": "medium",
+    "response_mime_type": "application/json",
+    "max_output_tokens": 32768,
+    "prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+    "request_template_sha256": "29c1e2621a188056a69199ebfa389cd0ca148e8d013e4483edcb701db45ab97e",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "schema_identity_12x32_reference": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "schema_identity_per_pilot_slot": "e9f66067c2de2deda5373a99dc6c92689c0ab2d2163b80adcde57af83df9bbd1",
+    "provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "allow_ontology_aliases": false,
+    "recipes_per_pilot_slot": 1,
+    "schema_identity_note": "The frozen 12x32 schema identity is the reference recorded at C1 for the C3 schedule. A pilot slot asks for one recipe, so its schema instance carries minItems/maxItems = 1 and therefore a different SHA-256. The schema BUILDER, the ontology it is built from and every enum, range and rule inside it are unchanged; only the batch size differs.",
+    "sampling_controls_sent": [],
+    "tools_sent": false,
+    "grounding": false,
+    "url_context": false,
+    "file_search": false,
+    "code_execution": false,
+    "media_inputs": false,
+    "input_type": "str (text only)",
+    "store_interaction": false
+  },
+  "calls": [
+    {
+      "slot_id": "smoke_000",
+      "attempt": 1,
+      "marker": "C2_SMOKE_ONLY",
+      "request_identity": "e8a1801ea81f173e39513248e9754c55db5c75f7ccf731b1687de8f5660ec053",
+      "raw_response_sha256": "24c0cbf25408889541e75cb5b3cc947d5ea6f1621bd1e5bf3d5c72fa77a4bd28",
+      "latency_seconds": 11.13852,
+      "finish_reason": null,
+      "model_version": null,
+      "usage": {
+        "total_tokens": 3562
+      },
+      "error": null
+    },
+    {
+      "slot_id": "smoke_001",
+      "attempt": 1,
+      "marker": "C2_SMOKE_ONLY",
+      "request_identity": "31af65c5fecc648bd22daf4da319b238b21de786e4634f6714bba35bd3a3c344",
+      "raw_response_sha256": "8b05d25c510daf1335503fef4e5de48a14049b27c17e32ac69f13dda11f75209",
+      "latency_seconds": 9.005585,
+      "finish_reason": "completed",
+      "model_version": "gemini-3.6-flash",
+      "usage": {
+        "total_input_tokens": 1451,
+        "total_output_tokens": 350,
+        "total_thought_tokens": 1251,
+        "total_cached_tokens": 0,
+        "total_tool_use_tokens": 0,
+        "total_tokens": 3052,
+        "input_tokens_by_modality": [
+          {
+            "modality": "text",
+            "tokens": 1451
+          }
+        ]
+      },
+      "error": null
+    }
+  ],
+  "pipeline_stages": [
+    {
+      "stage": "provider_call",
+      "ok": true,
+      "detail": "interaction returned 979 chars"
+    },
+    {
+      "stage": "raw_response_archive",
+      "ok": true,
+      "detail": "sha256 24c0cbf25408889541e75cb5b3cc947d5ea6f1621bd1e5bf3d5c72fa77a4bd28"
+    },
+    {
+      "stage": "json_parsing",
+      "ok": true,
+      "detail": "response parsed as JSON"
+    },
+    {
+      "stage": "envelope_schema",
+      "ok": true,
+      "detail": "0 envelope issues"
+    },
+    {
+      "stage": "typed_recipe_schema",
+      "ok": true,
+      "detail": "strict v1.1 schema satisfied"
+    },
+    {
+      "stage": "ontology_membership",
+      "ok": true,
+      "detail": "every enum value is canonical under the frozen ontology"
+    },
+    {
+      "stage": "range_checks",
+      "ok": true,
+      "detail": "every numeric value inside its safe band"
+    },
+    {
+      "stage": "compatibility_checks",
+      "ok": true,
+      "detail": "medium/artifact and geometry/region compatible"
+    },
+    {
+      "stage": "canonicalization",
+      "ok": true,
+      "detail": "canonical JSON produced"
+    },
+    {
+      "stage": "recipe_identity",
+      "ok": true,
+      "detail": "recipe identity a3181621c70a5e603f24e3227424979552f201c4eb432810ae9011b133a96760"
+    },
+    {
+      "stage": "inherited_compiler",
+      "ok": true,
+      "detail": "compiled to 3 operator nodes"
+    },
+    {
+      "stage": "operator_graph",
+      "ok": true,
+      "detail": "graph hash 9f218128fe7654ce2924a5ff6f5c39179d0b3eba8439d2d7d78926447eadd4f6"
+    },
+    {
+      "stage": "region_mask_policy",
+      "ok": true,
+      "detail": "policy 'parsing_first_geometry_fallback'"
+    },
+    {
+      "stage": "conditioning_41d",
+      "ok": true,
+      "detail": "conditioning dimension 41"
+    },
+    {
+      "stage": "provider_call",
+      "ok": true,
+      "detail": "interaction returned 980 chars"
+    },
+    {
+      "stage": "raw_response_archive",
+      "ok": true,
+      "detail": "sha256 8b05d25c510daf1335503fef4e5de48a14049b27c17e32ac69f13dda11f75209"
+    },
+    {
+      "stage": "json_parsing",
+      "ok": true,
+      "detail": "response parsed as JSON"
+    },
+    {
+      "stage": "envelope_schema",
+      "ok": true,
+      "detail": "0 envelope issues"
+    },
+    {
+      "stage": "typed_recipe_schema",
+      "ok": true,
+      "detail": "strict v1.1 schema satisfied"
+    },
+    {
+      "stage": "ontology_membership",
+      "ok": true,
+      "detail": "every enum value is canonical under the frozen ontology"
+    },
+    {
+      "stage": "range_checks",
+      "ok": true,
+      "detail": "every numeric value inside its safe band"
+    },
+    {
+      "stage": "compatibility_checks",
+      "ok": true,
+      "detail": "medium/artifact and geometry/region compatible"
+    },
+    {
+      "stage": "canonicalization",
+      "ok": true,
+      "detail": "canonical JSON produced"
+    },
+    {
+      "stage": "recipe_identity",
+      "ok": true,
+      "detail": "recipe identity 48369a94f86bbb2c9d008f5d483570353788d09e79fb4d8919fd82fc474ff803"
+    },
+    {
+      "stage": "inherited_compiler",
+      "ok": true,
+      "detail": "compiled to 3 operator nodes"
+    },
+    {
+      "stage": "operator_graph",
+      "ok": true,
+      "detail": "graph hash c34613fb2015fb873622d57d05d7ed7bf281685ac84ba87b4f3b0c6ea6ce326a"
+    },
+    {
+      "stage": "region_mask_policy",
+      "ok": true,
+      "detail": "policy 'parsing_first_geometry_fallback'"
+    },
+    {
+      "stage": "conditioning_41d",
+      "ok": true,
+      "detail": "conditioning dimension 41"
+    }
+  ],
+  "accepted_smoke_recipe": {
+    "slot_id": "smoke_001",
+    "recipe_identity": "48369a94f86bbb2c9d008f5d483570353788d09e79fb4d8919fd82fc474ff803",
+    "canonical_recipe": "{\"artifacts\":[{\"name\":\"pixel_grid\",\"parameters\":{},\"strength\":0.25},{\"name\":\"moire\",\"parameters\":{},\"strength\":0.2},{\"name\":\"specular_reflection\",\"parameters\":{},\"strength\":0.15}],\"capture\":{\"compression_q\":85,\"defocus\":0.05,\"illumination\":\"front\",\"motion\":0.02,\"scale\":1.02,\"yaw\":5.5},\"forbidden_shortcuts\":[\"always_moire\"],\"generator_route\":[\"physics\",\"gpat\"],\"geometry\":{\"coverage\":0.85,\"rigidity\":0.95,\"shape\":\"flat\"},\"medium\":{\"family\":\"display-like\",\"roughness\":0.05,\"transparency\":0.02},\"recipe_id\":\"R-000000\",\"regions\":[\"left_eye\",\"right_eye\",\"nose\"],\"schema_version\":\"1.1\",\"seed\":4829104}",
+    "medium": "display-like",
+    "geometry": "flat",
+    "regions": [
+      "left_eye",
+      "right_eye",
+      "nose"
+    ],
+    "artifacts": [
+      {
+        "name": "pixel_grid",
+        "strength": 0.25
+      },
+      {
+        "name": "moire",
+        "strength": 0.2
+      },
+      {
+        "name": "specular_reflection",
+        "strength": 0.15
+      }
+    ],
+    "illumination": "front",
+    "graph_hash": "c34613fb2015fb873622d57d05d7ed7bf281685ac84ba87b4f3b0c6ea6ce326a",
+    "operator_names": [
+      "pixel_grid",
+      "moire",
+      "specular_reflection"
+    ],
+    "conditioning_dimension": 41,
+    "conditioning_version": "recipe_conditioning_v1",
+    "disposable": true,
+    "enters_pilot": false,
+    "enters_c3": false,
+    "enters_final_bank": false
+  },
+  "identity_chain": {
+    "chain_order": [
+      "ontology_identity",
+      "llm_schema_identity",
+      "llm_prompt_template_identity",
+      "llm_provider_config_identity",
+      "generation_request_identity",
+      "raw_response_identity",
+      "canonical_recipe_identity"
+    ],
+    "links": {
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "llm_schema_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+      "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+      "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "generation_request_identity": "31af65c5fecc648bd22daf4da319b238b21de786e4634f6714bba35bd3a3c344",
+      "raw_response_identity": "8b05d25c510daf1335503fef4e5de48a14049b27c17e32ac69f13dda11f75209",
+      "canonical_recipe_identity": "48369a94f86bbb2c9d008f5d483570353788d09e79fb4d8919fd82fc474ff803"
+    },
+    "resolved_links": 7,
+    "chain_identity": "66dac6e0904c54a89a78ad82991bb2f0bd0b7fcf97ef9498233f7b0a04c31829"
+  },
+  "provenance_records": [
+    {
+      "provenance_schema_version": "c1-llm-provenance-v1",
+      "slot_id": "smoke_000",
+      "attempt": 1,
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_revision": null,
+      "generation_timestamp_utc": "2026-08-10T04:04:53.577524Z",
+      "system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+      "request_template_sha256": "29c1e2621a188056a69199ebfa389cd0ca148e8d013e4483edcb701db45ab97e",
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "schema_version": "1.1",
+      "thinking_level": "medium",
+      "max_output_tokens": 32768,
+      "provider_seed": null,
+      "raw_response_sha256": "24c0cbf25408889541e75cb5b3cc947d5ea6f1621bd1e5bf3d5c72fa77a4bd28",
+      "raw_response_path": "reports/c2/raw_responses/smoke/smoke_000__attempt01.txt",
+      "parsed_recipe_sha256": [
+        "a3181621c70a5e603f24e3227424979552f201c4eb432810ae9011b133a96760"
+      ],
+      "validation_result": "accepted",
+      "validation_errors": [],
+      "retry_count": 0,
+      "generator_code_commit": "bf73fbb76737ea105420635eda34c4f977e1cedd",
+      "billing_tier": "free",
+      "request_schedule_id": "C2_SMOKE_ONLY:smoke_000",
+      "api_or_sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "llm_schema_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+      "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+      "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "generation_request_identity": "e8a1801ea81f173e39513248e9754c55db5c75f7ccf731b1687de8f5660ec053",
+      "finish_reason": null,
+      "latency_seconds": 11.13852,
+      "usage": {
+        "total_tokens": 3562
+      },
+      "provider_request_id": null,
+      "error": null
+    },
+    {
+      "provenance_schema_version": "c1-llm-provenance-v1",
+      "slot_id": "smoke_001",
+      "attempt": 1,
+      "provider": "gemini",
+      "model_id": "gemini-3.6-flash",
+      "model_revision": "gemini-3.6-flash",
+      "generation_timestamp_utc": "2026-08-10T04:10:50.483656Z",
+      "system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+      "request_template_sha256": "29c1e2621a188056a69199ebfa389cd0ca148e8d013e4483edcb701db45ab97e",
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "schema_version": "1.1",
+      "thinking_level": "medium",
+      "max_output_tokens": 32768,
+      "provider_seed": null,
+      "raw_response_sha256": "8b05d25c510daf1335503fef4e5de48a14049b27c17e32ac69f13dda11f75209",
+      "raw_response_path": "reports/c2/raw_responses/smoke/smoke_001__attempt01.txt",
+      "parsed_recipe_sha256": [
+        "48369a94f86bbb2c9d008f5d483570353788d09e79fb4d8919fd82fc474ff803"
+      ],
+      "validation_result": "accepted",
+      "validation_errors": [],
+      "retry_count": 0,
+      "generator_code_commit": "bf73fbb76737ea105420635eda34c4f977e1cedd",
+      "billing_tier": "free",
+      "request_schedule_id": "C2_SMOKE_ONLY:smoke_001",
+      "api_or_sdk_version": "2.17.0",
+      "api_surface": "interactions",
+      "llm_schema_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+      "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+      "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "generation_request_identity": "31af65c5fecc648bd22daf4da319b238b21de786e4634f6714bba35bd3a3c344",
+      "finish_reason": "completed",
+      "latency_seconds": 9.005585,
+      "usage": {
+        "total_input_tokens": 1451,
+        "total_output_tokens": 350,
+        "total_thought_tokens": 1251,
+        "total_cached_tokens": 0,
+        "total_tool_use_tokens": 0,
+        "total_tokens": 3052,
+        "input_tokens_by_modality": [
+          {
+            "modality": "text",
+            "tokens": 1451
+          }
+        ]
+      },
+      "provider_request_id": null,
+      "error": null
+    }
+  ],
+  "credential": {
+    "env_var": "GEMINI_API_KEY",
+    "present": true,
+    "value_read_into_artifact": false
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": "c2-retry-quota-audit-v1",
+  "milestone": "C2",
+  "generated_at_utc": "2026-08-10T10:57:19.003514Z",
+  "frozen_retry_policy": {
+    "semantic_max_retries": 2,
+    "semantic_attempts_per_slot": 3,
+    "transport_max_attempts": 4,
+    "backoff_initial_seconds": 1.0,
+    "backoff_multiplier": 2.0,
+    "backoff_max_seconds": 60.0,
+    "changed_in_c2": false
+  },
+  "observed": {
+    "total_provider_calls": 42,
+    "slots_that_retried": 0,
+    "retry_rate": 0.0,
+    "retry_exhaustion_rate": 0.0,
+    "exhausted_slot_ids": [],
+    "transport_error_classes": {
+      "quota_exhausted": 2,
+      "rate_limit": 8
+    },
+    "transient_rate_limit_429": 8,
+    "quota_exhausted_events": 2,
+    "latency_seconds": {
+      "n": 42,
+      "mean": 7.742103,
+      "median": 8.42513,
+      "p95": 11.021597,
+      "min": 3.340619,
+      "max": 13.937153,
+      "total": 325.168315
+    },
+    "token_usage": {
+      "attempts_with_usage": 32,
+      "totals": {
+        "total_cached_tokens": 0,
+        "total_input_tokens": 46432,
+        "total_output_tokens": 10441,
+        "total_thought_tokens": 50449,
+        "total_tokens": 107322,
+        "total_tool_use_tokens": 0
+      },
+      "available": true
+    }
+  },
+  "quota": {
+    "billing_tier": "free",
+    "auto_enable_paid": false,
+    "on_quota_exhausted": "checkpoint_and_stop",
+    "quota_block_artifact": "API_QUOTA_BLOCKED.json",
+    "quota_block_artifact_written": false,
+    "billing_enabled_by_code": false,
+    "quota_snapshot": "QUOTA_SNAPSHOT_NOT_PROGRAMMATICALLY_AVAILABLE - the Free Tier RPM/TPM/RPD limits for this project must be read from AI Studio before C3; no number was invented here"
+  },
+  "model_or_provider_switched": false,
+  "prompt_changed_automatically": false,
+  "successful_slots_regenerated": 0
+}
