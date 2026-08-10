@@ -1,0 +1,142 @@
+{
+  "schema_version": "c1-provider-audit-v1",
+  "milestone": "C1",
+  "claim": "The frozen scientific provider/model contract was verified against the official Google documentation and the installed SDK before being frozen. No live scientific generation was performed.",
+  "verification_date": "2026-08-10",
+  "model": {
+    "provider": "Google Gemini Developer API",
+    "model_id": "gemini-3.6-flash",
+    "status_documented": "stable",
+    "spec_required_model": "gemini-3.6-flash",
+    "matches_spec": true,
+    "structured_output_supported": true,
+    "thinking_supported": true,
+    "thinking_levels_documented": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
+    "thinking_level_used": "medium",
+    "evidence": [
+      "https://ai.google.dev/gemini-api/docs/models - gemini-3.6-flash listed as Stable",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash - capabilities list structured output: Supported, thinking: Supported",
+      "https://ai.google.dev/gemini-api/docs/thinking - thinking_level nested in generation_config; allowed values minimal|low|medium|high"
+    ]
+  },
+  "sdk": {
+    "package": "google-genai",
+    "installed_version": "2.17.0",
+    "version_pin": ">=2.3.0,<3",
+    "python_version": "3.13.11",
+    "import_path": "from google import genai",
+    "client": "genai.Client(api_key=<from environment>)",
+    "api_surface": "interactions",
+    "call": "client.interactions.create(...)",
+    "interactions_available_from": "google-genai 2.3.0",
+    "surface_rationale": "The Interactions API is GA and is the surface Google recommends for current models. The spec left the choice open (api_surface: generate_content_or_interactions_frozen_at_C1); C1 freezes 'interactions'.",
+    "verified_create_parameters": [
+      "model",
+      "input",
+      "stream",
+      "store",
+      "background",
+      "system_instruction",
+      "tools",
+      "response_modalities",
+      "response_mime_type",
+      "previous_interaction_id",
+      "service_tier",
+      "webhook_config",
+      "response_format",
+      "environment",
+      "generation_config",
+      "safety_settings",
+      "labels"
+    ],
+    "verified_generation_config_fields": [
+      "image_config",
+      "max_output_tokens",
+      "seed",
+      "speech_config",
+      "stop_sequences",
+      "thinking_level",
+      "thinking_summaries",
+      "tool_choice",
+      "transcription_config",
+      "video_config"
+    ]
+  },
+  "structured_output": {
+    "mechanism": "response_format",
+    "shape": {
+      "type": "text",
+      "mime_type": "application/json",
+      "schema": "<JSON Schema>"
+    },
+    "response_mime_type": "application/json",
+    "candidate_schema_version": "c1-llm-candidate-schema-v1",
+    "schema_identity_for_12x32_schedule": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "markdown_fence_scraping_is_the_scientific_path": false,
+    "local_validation_is_authoritative": true
+  },
+  "sampling_controls": {
+    "spec_requirement": "temperature/top_p/top_k MUST NOT be sent",
+    "implemented": "never sent",
+    "structural_finding": "GenerationConfigParam in google-genai 2.17.0 exposes no temperature, top_p or top_k field at all, so these controls cannot be sent on this surface.",
+    "documentation_discrepancy": {
+      "spec_wording": "Appendix E states current Gemini 3.x guidance DEPRECATES temperature, top_p and top_k for gemini-3.6-flash.",
+      "documentation_wording": "The Gemini 3 developer guide instead states: 'For all Gemini 3 models, we strongly recommend keeping the temperature parameter at its default value of 1.0.' top_p and top_k are not discussed on that page.",
+      "impact_on_behaviour": "None. Not sending the controls satisfies both the spec requirement and the documented recommendation, and the installed surface has no such fields.",
+      "spec_amendment_required": false,
+      "recorded_because": "the spec's stated rationale is narrower than what the current documentation says, and C1 must not paper over that."
+    },
+    "forbidden_fields": [
+      "temperature",
+      "top_p",
+      "top_k"
+    ]
+  },
+  "disabled_capabilities": {
+    "tools": "never passed; omitting `tools` disables function calling, Search grounding, URL context, code execution and file search together",
+    "grounding": false,
+    "url_context": false,
+    "code_execution": false,
+    "file_search": false,
+    "image_input": false,
+    "audio_input": false,
+    "video_input": false,
+    "store_interaction": false,
+    "input_type": "str (text only)"
+  },
+  "providers_implemented": {
+    "interface": "prism_fas.llm.providers.base.RecipeProvider",
+    "implementations": [
+      "gemini",
+      "mock",
+      "replay"
+    ],
+    "supported_provider_names": [
+      "gemini",
+      "mock",
+      "replay"
+    ],
+    "vendor_sdk_imported_outside_the_gemini_provider": false,
+    "gemini_sdk_import_is_lazy": true,
+    "firewall_runs_in_every_implementation": true
+  },
+  "credential": {
+    "env_var": "GEMINI_API_KEY",
+    "api_key_present": false,
+    "passed_explicitly_to_client": true,
+    "rationale": "The SDK also honours GOOGLE_API_KEY and lets it take precedence; passing the key explicitly prevents a different project's credential from being used silently."
+  },
+  "live_probe": {
+    "executed": false,
+    "calls": 0,
+    "status": "NOT_RUN_NO_KEY",
+    "spec_position": "C1 hard acceptance says a live-provider integration test MAY generate <=2 disposable recipes. It is optional, so C1 can pass without it.",
+    "cost_incurred": 0
+  },
+  "config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da"
+}

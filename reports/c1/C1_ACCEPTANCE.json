@@ -1,0 +1,280 @@
+{
+  "schema_version": "c1-acceptance-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.1 FINAL",
+  "milestone": "C1",
+  "objective": "Implement the LLM provider and the strict recipe contract",
+  "result": "PASS",
+  "claim": "C1 establishes that Version C can receive a structured recipe from a real LLM provider without free-form output, target leakage, untraceable generation, silent semantic repair or secret leakage. C1 creates no scientific recipe bank, runs no pilot, trains nothing and made zero live provider calls.",
+
+  "spec_authority": {
+    "path": "docs/spec/PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx",
+    "sha256": "d9edbfefa6829f29bb075e2f3d12073bb6517be57c0debcf93c92c4346d2e2df",
+    "re_read_at_c1": true,
+    "unchanged_since_c0": true,
+    "sections_applied": ["7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "9", "21", "23.1", "23.4", "24 (C1)"]
+  },
+
+  "preflight": {
+    "starting_head": "955a8344182b4eaa7af70b80ee2783a792bc5d41",
+    "starting_branch": "c0-spec-reconciliation",
+    "working_tree_clean_at_start": true,
+    "origin": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
+    "origin_is_version_c": true,
+    "version_b_push_url": "DISABLED_NO_PUSH_TO_VERSION_B",
+    "version_b_push_dry_run_exit_code": 128,
+    "version_b_push_impossible_verified": true,
+    "c1_branch": "c1-llm-provider-contract",
+    "branch_created_from": "955a8344182b4eaa7af70b80ee2783a792bc5d41"
+  },
+
+  "gemini_contract": {
+    "verification_source": "official Google documentation plus the installed SDK capability surface",
+    "model_id": "gemini-3.6-flash",
+    "model_status": "stable",
+    "model_available": true,
+    "matches_spec_without_substitution": true,
+    "structured_output_supported": true,
+    "thinking_supported": true,
+    "thinking_level": "medium",
+    "thinking_levels_allowed": ["minimal", "low", "medium", "high"],
+    "sdk_package": "google-genai",
+    "sdk_version_installed": "2.17.0",
+    "sdk_version_pin": ">=2.3.0,<3",
+    "python_version": "3.13.11",
+    "api_surface": "interactions",
+    "api_surface_call": "client.interactions.create(...)",
+    "structured_output_mechanism": "response_format={type:'text', mime_type:'application/json', schema:<JSON Schema>}",
+    "deprecated_sampling_fields_sent": [],
+    "deprecated_sampling_fields_structurally_absent_from_sdk": true,
+    "tools_passed": false,
+    "grounding_url_context_code_execution_file_search": "all disabled by omitting tools",
+    "media_inputs": "none; input is a plain string",
+    "store_interaction": false,
+    "documentation_discrepancy_recorded": true,
+    "spec_amendment_required": false,
+    "blocked": false
+  },
+
+  "live_provider_probe": {
+    "status": "NOT_RUN_NO_KEY",
+    "executed": false,
+    "calls": 0,
+    "max_permitted": 2,
+    "api_key_present": false,
+    "spec_position": "C1 hard acceptance states a live-provider integration test MAY generate <=2 disposable recipes; it is optional, so C1 passes without it.",
+    "cost_incurred": 0,
+    "user_action_if_wanted_later": "set GEMINI_API_KEY in the shell before running; never commit it and never paste it into a transcript"
+  },
+
+  "recipe_contract": {
+    "recipe_schema_version": "1.1",
+    "recipe_schema_source": "inherited Version-B schema v1.1, reused unchanged for comparability",
+    "ontology_version": "m7-ontology-v1",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "enum_counts": {
+      "artifacts": 8,
+      "regions": 9,
+      "media": 5,
+      "geometry_shapes": 6,
+      "illumination": 6,
+      "routes": 2,
+      "forbidden_shortcuts": 2
+    },
+    "validation_stages": [
+      "json_parsing", "envelope_schema", "typed_recipe_schema", "ontology_membership",
+      "range_checks", "compatibility_checks", "canonicalization", "recipe_identity",
+      "duplicate_detection"
+    ],
+    "unknown_field_policy": "REJECT",
+    "unknown_enum_policy": "REJECT",
+    "out_of_range_policy": "REJECT",
+    "missing_field_policy": "REJECT",
+    "prose_or_markdown_fence_policy": "REJECT, never scraped",
+    "silent_semantic_repair": false,
+    "ontology_alias_normalization_enabled": false,
+    "canonicalization_method": "sorted keys, 6-decimal floats, compact separators, SHA-256 over canonical UTF-8",
+    "duplicate_policy": "canonical content identity with the positional recipe_id excluded; exact and key-reordered duplicates rejected",
+    "compiler_compatibility": "PROVEN",
+    "compiler_outputs_verified": ["operator graph", "region mask policy", "41-D conditioning vector", "deterministic graph hash"],
+    "conditioning_dimension": 41
+  },
+
+  "identities": {
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "llm_schema_identity_12x32": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "identity_chain_identity": "2e3393b326056e678d805697fbb02f6d14178ba16227956b7619196922488e7f",
+    "chain_order": [
+      "ontology_identity", "llm_schema_identity", "llm_prompt_template_identity",
+      "llm_provider_config_identity", "generation_request_identity",
+      "raw_response_identity", "canonical_recipe_identity"
+    ],
+    "invalidation_rule": "changing the model, prompt, schema, ontology or thinking configuration changes the request identity and invalidates downstream scientific generation"
+  },
+
+  "security": {
+    "target_firewall_implemented": true,
+    "target_firewall_fail_closed": true,
+    "firewall_runs_in_every_provider_including_test_doubles": true,
+    "firewall_runs_before_client_construction": true,
+    "frozen_prompt_target_free": true,
+    "frozen_prompt_violations": 0,
+    "text_only_path_enforced": true,
+    "image_input_code_path_exists": false,
+    "face_images_sent_to_llm": 0,
+    "dataset_content_sent_to_llm": 0,
+    "target_info_in_prompts": 0,
+    "api_keys_committed": 0,
+    "api_keys_hardcoded": 0,
+    "api_keys_logged_or_serialized": 0,
+    "secret_redaction_tested": true,
+    "env_example_carries_value": false,
+    "repository_secret_scan": "clean"
+  },
+
+  "retry_and_quota": {
+    "retry_bounded": true,
+    "semantic_max_retries": 2,
+    "max_semantic_attempts": 3,
+    "transport_max_attempts": 4,
+    "backoff": "exponential, initial 1.0s, multiplier 2.0, capped 60.0s",
+    "transport_failures_consume_semantic_budget": false,
+    "error_classes_total_and_disjoint": true,
+    "retryable_classes": ["transport", "server_error", "rate_limit", "invalid_candidate"],
+    "non_retryable_classes": ["auth", "model_unavailable", "unsupported_config", "quota_exhausted", "forbidden_request", "contract_violation", "local_error"],
+    "rate_limit_429_behaviour": "bounded exponential backoff, retry the same frozen request",
+    "quota_exhausted_429_behaviour": "preserve completed slots, write API_QUOTA_BLOCKED.json, stop cleanly, notify the user",
+    "auto_paid_billing": "DISABLED",
+    "provider_switching_on_quota": false,
+    "model_or_prompt_change_on_quota": false,
+    "completed_slots_regenerated_on_resume": false
+  },
+
+  "providers": {
+    "interface": "prism_fas.llm.providers.base.RecipeProvider",
+    "mock_implemented": true,
+    "replay_implemented": true,
+    "gemini_implemented": true,
+    "vendor_sdk_confined_to_gemini_provider": true,
+    "gemini_sdk_import_lazy": true,
+    "replay_deterministic": true,
+    "replay_makes_no_network_call": true,
+    "replay_refuses_cross_identity_reuse": true,
+    "result_fields": ["request identity", "provider metadata", "raw response preservation", "parsed response", "attempt/retry number", "finish/status", "latency", "token usage", "provider/model identity", "error classification"]
+  },
+
+  "provenance": {
+    "required_field_count": 21,
+    "all_required_fields_present": true,
+    "missing_field_raises": true,
+    "credential_field_raises": true,
+    "redaction_applied_to_every_string": true,
+    "raw_response_preserved_verbatim": true,
+    "raw_response_sha256_recorded": true
+  },
+
+  "tests": {
+    "detail": "reports/c1/C1_TEST_SUITE.json",
+    "c1": {"passed": 138, "failed": 0, "skipped": 0},
+    "full_suite": {"passed": 1143, "failed": 7, "skipped": 101},
+    "c0_baseline": {"passed": 1005, "failed": 7, "skipped": 101},
+    "new_unexplained_failures": 0,
+    "regressions_among_runnable_inherited_tests": 0,
+    "known_inherited_artifact_failures": 7,
+    "known_inherited_artifact_failure_status": "KNOWN_ENVIRONMENT_LIMITATION, unchanged from C0",
+    "inherited_tests_modified": 0,
+    "version_b_artifact_trees_copied": 0,
+    "network_required_for_c1_tests": false
+  },
+
+  "no_execution_proof": {
+    "gemini_api_calls": 0,
+    "llm_recipes_generated": 0,
+    "scientific_recipe_bank_created": 0,
+    "c2_pilot_recipes_generated": 0,
+    "c3_candidate_slots_generated": 0,
+    "rnd_det_banks_built": 0,
+    "synthetic_images_built": 0,
+    "gpat_training_runs": 0,
+    "detector_training_runs": 0,
+    "gpu_jobs": 0,
+    "modal_jobs": 0,
+    "ssh_lab_jobs": 0,
+    "dataset_preprocessing_runs": 0,
+    "target_packages_built": 0,
+    "siw_label_reads": 0,
+    "siw_scoring_runs": 0,
+    "target_metrics_computed": 0,
+    "version_b_artifacts_modified": 0,
+    "version_b_commits": 0,
+    "version_b_pushes": 0
+  },
+
+  "version_b_final_recheck": {
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "expected": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "matches": true,
+    "working_tree": "clean",
+    "scientific_artifacts_changed": 0,
+    "written_to_during_c1": false
+  },
+
+  "checks": {
+    "version_c_branch_c1_llm_provider_contract_exists": true,
+    "version_b_unchanged": true,
+    "provider_neutral_interface_implemented": true,
+    "mock_provider_implemented": true,
+    "replay_provider_implemented": true,
+    "gemini_provider_implemented": true,
+    "exact_model_api_contract_verified": true,
+    "official_sdk_package_and_version_recorded": true,
+    "strict_json_schema_implemented": true,
+    "unknown_fields_rejected": true,
+    "ontology_validation_implemented": true,
+    "range_validation_implemented": true,
+    "compatibility_validation_implemented": true,
+    "no_silent_semantic_repair": true,
+    "deterministic_canonicalization_implemented": true,
+    "duplicate_detection_implemented": true,
+    "compiler_compatibility_proven": true,
+    "prompt_template_created": true,
+    "target_info_firewall_implemented": true,
+    "text_only_llm_path_enforced": true,
+    "provenance_schema_implemented": true,
+    "secret_redaction_tested": true,
+    "identity_chain_implemented": true,
+    "bounded_retry_implemented": true,
+    "quota_block_behaviour_implemented": true,
+    "replay_deterministic": true,
+    "normal_c1_tests_require_no_network": true,
+    "no_scientific_recipe_bank_created": true,
+    "no_c2_pilot_created": true,
+    "no_gpat_training": true,
+    "no_detector_training": true,
+    "no_gpu_job": true,
+    "no_siw_scoring": true,
+    "no_siw_label_access": true,
+    "no_target_derived_prompt_content": true,
+    "no_secret_committed": true,
+    "c1_reports_generated": true,
+    "git_status_clean_after_commit": true,
+    "branch_pushed_normally_to_version_c_remote": true,
+    "no_force_push": true,
+    "c0_test_limitation_carried_forward_not_hidden": true,
+    "no_new_unexplained_failures": true
+  },
+
+  "not_claimed": [
+    "any recipe quality, diversity or coverage result",
+    "any detector or cross-domain performance",
+    "any LLM benefit",
+    "that the live Gemini provider path was exercised end to end",
+    "that the Version-C suite reproduces the Version-B pass count",
+    "that SiW-Mv2 is a never-before-seen blind target"
+  ],
+
+  "c2_status": "NOT STARTED. No 32-recipe pilot has been generated."
+}

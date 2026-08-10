@@ -5,9 +5,19 @@ build-backend = "hatchling.build"
 [project]
 name = "prism-fas"
 version = "0.1.0"
-description = "PRISM-FAS-B local data-factory infrastructure"
+description = "PRISM-FAS-C-LLM: LLM-guided executable artifact planning for cross-domain face anti-spoofing"
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.7,<3", "PyYAML>=6,<7", "typer>=0.12,<1", "pyarrow>=25,<26"]
+
+[project.optional-dependencies]
+# The Gemini SDK is an EXTRA, not a core dependency. The provider imports it
+# lazily, so the whole C1 contract - schema, validation, canonicalization,
+# duplicate detection, retry, quota, replay and provenance - is testable on a
+# machine with neither the SDK nor a credential installed.
+#
+# 2.3.0 is the first release exposing client.interactions; the major bound keeps
+# a future breaking release from silently changing the frozen call shape.
+llm = ["google-genai>=2.3.0,<3"]
 
 [project.scripts]
 prism = "prism_fas.cli.main:app"

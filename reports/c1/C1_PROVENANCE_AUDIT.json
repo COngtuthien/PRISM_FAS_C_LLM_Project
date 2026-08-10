@@ -1,0 +1,77 @@
+{
+  "schema_version": "c1-provenance-audit-v1",
+  "milestone": "C1",
+  "required_fields": [
+    "provider",
+    "model_id",
+    "model_revision",
+    "generation_timestamp_utc",
+    "system_prompt_sha256",
+    "request_template_sha256",
+    "ontology_identity",
+    "schema_version",
+    "thinking_level",
+    "max_output_tokens",
+    "provider_seed",
+    "raw_response_sha256",
+    "raw_response_path",
+    "parsed_recipe_sha256",
+    "validation_result",
+    "validation_errors",
+    "retry_count",
+    "generator_code_commit",
+    "billing_tier",
+    "request_schedule_id",
+    "api_or_sdk_version"
+  ],
+  "required_field_count": 21,
+  "source": "spec section 7.7 LLM provenance record",
+  "enforcement": "a record missing any required field raises ProvenanceError; a record carrying a credential-shaped key raises ProvenanceError",
+  "credential_fields_permitted": 0,
+  "redaction_applied_to_every_string": true,
+  "identity_chain": {
+    "order": [
+      "ontology_identity",
+      "llm_schema_identity",
+      "llm_prompt_template_identity",
+      "llm_provider_config_identity",
+      "generation_request_identity",
+      "raw_response_identity",
+      "canonical_recipe_identity"
+    ],
+    "resolved_at_c1": 4,
+    "links": {
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "llm_schema_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+      "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+      "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+      "generation_request_identity": null,
+      "raw_response_identity": null,
+      "canonical_recipe_identity": null
+    },
+    "chain_identity": "2e3393b326056e678d805697fbb02f6d14178ba16227956b7619196922488e7f",
+    "invalidation_rule": "changing the model, prompt, schema, ontology or thinking configuration changes the request identity and therefore invalidates any downstream scientific generation"
+  },
+  "identities": {
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "llm_schema_identity": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "llm_prompt_template_identity": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+    "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+    "system_prompt_sha256": "d0b4aaf1ba92c379a1bb707f7a1d36e483594dd200c2788f0c32ed2f6702ab9d",
+    "request_template_sha256": "29c1e2621a188056a69199ebfa389cd0ca148e8d013e4483edcb701db45ab97e"
+  },
+  "prompt_template": {
+    "version": "c1-llm-prompt-v1",
+    "frozen_for_c3": false,
+    "note": "This is the C1 template. C2 may still tune wording on source-only validity and coverage evidence; the exact bytes are frozen in the LLM bank lock before the 384-slot generation begins (spec 7.5).",
+    "system_instruction_chars": 4876,
+    "generation_template_chars": 423
+  },
+  "raw_response_preservation": {
+    "raw_text_preserved_verbatim": true,
+    "raw_response_sha256_recorded": true,
+    "replay_provider_implemented": true,
+    "rationale": "a hosted model is not reproducible; the archived response is the reproducible artifact, not the request"
+  },
+  "generator_code_commit": "955a8344182b4eaa7af70b80ee2783a792bc5d41"
+}

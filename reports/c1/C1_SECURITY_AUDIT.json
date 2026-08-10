@@ -1,0 +1,70 @@
+{
+  "schema_version": "c1-security-audit-v1",
+  "milestone": "C1",
+  "target_firewall": {
+    "implemented": true,
+    "fail_closed": true,
+    "runs_in_every_provider_including_test_doubles": true,
+    "runs_before_any_client_is_constructed": true,
+    "categories": [
+      "dataset_reference",
+      "target_metric",
+      "target_structure",
+      "target_feedback",
+      "binary_payload",
+      "forbidden_payload_key"
+    ],
+    "frozen_prompt_violations": 0,
+    "frozen_prompt_is_target_free": true
+  },
+  "text_only_path": {
+    "input_type": "str",
+    "media_input_code_path_exists": false,
+    "banned_symbols_checked": [
+      "Part.from_bytes",
+      "upload_file",
+      "inline_data",
+      "from_uri",
+      "image_bytes",
+      "PIL.Image"
+    ],
+    "banned_symbols_found": [],
+    "face_images_sent_to_llm": 0,
+    "dataset_content_sent_to_llm": 0
+  },
+  "secrets": {
+    "env_var": "GEMINI_API_KEY",
+    "api_key_present_in_environment": false,
+    "api_key_value_read_into_any_report_field": false,
+    "hardcoded_keys": 0,
+    "keys_committed": 0,
+    "redaction_patterns": [
+      "google api key",
+      "google oauth token",
+      "generic sk- key",
+      "PEM private key header",
+      "credential assignment"
+    ],
+    "redaction_applied_to": [
+      "exception messages",
+      "provenance records",
+      "quota state",
+      "provider describe()"
+    ],
+    "env_example_contains_value": false,
+    "tests_use_a_synthetic_key_only": true
+  },
+  "network": {
+    "unit_tests_require_network": false,
+    "network_blocked_in_test_fixtures": true,
+    "live_provider_calls_in_c1": 0,
+    "api_cost_incurred": 0
+  },
+  "target_isolation": {
+    "siw_labels_accessed": 0,
+    "siw_scoring_runs": 0,
+    "target_metrics_computed": 0,
+    "target_derived_prompt_content": 0,
+    "version_b_artifacts_modified": 0
+  }
+}

@@ -1,0 +1,66 @@
+# PRISM-FAS-C-LLM — C1 provider contract.
+#
+# Authority: PRISM_FAS_C_LLM_v1_1_FINAL_Detailed_Spec_2026.docx §7.2, §23.1
+#            SHA256 d9edbfefa6829f29bb075e2f3d12073bb6517be57c0debcf93c92c4346d2e2df
+#
+# Verified against the installed SDK and the official Gemini documentation during
+# C1; the evidence is in reports/c1/C1_PROVIDER_AUDIT.json.
+#
+# This file NEVER contains a credential. `api_key_env` names an environment
+# variable; the value is read from the environment at call time and is never
+# written to a config, a log, a report or a provenance record.
+#
+# Unknown keys are REJECTED by prism_fas.llm.config (extra="forbid"), so a typo
+# fails loudly instead of silently changing scientific behaviour.
+
+config_schema_version: "c1-llm-provider-config-v1"
+
+provider: "gemini"
+model_id: "gemini-3.6-flash"          # stable; frozen scientific model
+api_surface: "interactions"           # client.interactions.create — GA surface
+sdk_package: "google-genai"
+sdk_version_pin: ">=2.3.0,<3"         # interactions API available from 2.3.0
+
+# §7.2: thinking_level MUST be "medium". temperature / top_p / top_k are never
+# sent; on this surface GenerationConfigParam has no such fields at all.
+thinking_level: "medium"
+response_mime_type: "application/json"
+max_output_tokens: 32768
+
+# Everything that could turn a text-only prior into retrieval, execution or
+# visual target adaptation. All false, and the typed config forbids true.
+tools_enabled: false
+grounding_enabled: false
+url_context_enabled: false
+code_execution_enabled: false
+file_search_enabled: false
+image_input_enabled: false
+audio_input_enabled: false
+video_input_enabled: false
+store_interaction: false              # no server-side conversation state
+
+# Strictest reading of §7.6 ("unknown enum -> REJECT"): the ontology's documented
+# alias map is OFF, so a non-canonical spelling is rejected rather than silently
+# normalized. Identity-bearing: flipping it changes the recipe bank identity, so
+# it may only change as a source-only decision recorded before C3.
+allow_ontology_aliases: false
+
+api_key_env: "GEMINI_API_KEY"
+request_timeout_seconds: 120.0
+
+retry:
+  # §7.6: retry maximum = 2 per request. Transport attempts are counted
+  # separately so a flaky connection cannot consume the semantic budget.
+  semantic_max_retries: 2
+  transport_max_attempts: 4
+  backoff_initial_seconds: 1.0
+  backoff_multiplier: 2.0
+  backoff_max_seconds: 60.0
+
+quota:
+  # §7.2 / §23.4: Free Tier first. Code MUST NEVER enable billing. On daily
+  # quota exhaustion, preserve completed slots, write the block artifact, stop.
+  billing_tier: "free"
+  auto_enable_paid: false
+  on_quota_exhausted: "checkpoint_and_stop"
+  quota_block_filename: "API_QUOTA_BLOCKED.json"

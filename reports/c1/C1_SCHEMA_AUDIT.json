@@ -1,0 +1,167 @@
+{
+  "schema_version": "c1-schema-audit-v1",
+  "milestone": "C1",
+  "recipe_schema_version": "1.1",
+  "recipe_schema_source": "inherited Version-B schema v1.1 (prism_fas.recipes.schema), reused unchanged for comparability",
+  "ontology": {
+    "version": "m7-ontology-v1",
+    "identity_sha256": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "path": "configs/recipes/ontology_m7.yaml",
+    "authority": "the ontology and the compiler are the execution authority; the model may propose only values that already exist here",
+    "counts": {
+      "media": 5,
+      "geometry_shapes": 6,
+      "regions": 9,
+      "artifacts": 8,
+      "illumination": 6,
+      "routes": 2,
+      "forbidden_shortcuts": 2
+    },
+    "vocabulary": {
+      "media": [
+        "paper-like",
+        "display-like",
+        "plastic-like",
+        "fabric-like",
+        "reflective-film-like"
+      ],
+      "geometry_shapes": [
+        "flat",
+        "curved",
+        "partial-curved",
+        "flexible",
+        "rigid",
+        "boundary-only"
+      ],
+      "regions": [
+        "left_eye",
+        "right_eye",
+        "nose",
+        "mouth",
+        "forehead",
+        "left_cheek",
+        "right_cheek",
+        "face_boundary",
+        "context"
+      ],
+      "artifacts": [
+        "halftone",
+        "pixel_grid",
+        "moire",
+        "specular_reflection",
+        "texture_smoothing",
+        "color_shift",
+        "boundary_inconsistency",
+        "blur"
+      ],
+      "illumination": [
+        "front",
+        "left",
+        "right",
+        "top",
+        "bottom",
+        "mixed"
+      ],
+      "routes": [
+        "physics",
+        "gpat"
+      ]
+    },
+    "limits": {
+      "min_artifacts_per_recipe": 1,
+      "max_artifacts_per_recipe": 3,
+      "min_regions_per_recipe": 1,
+      "max_regions_per_recipe": 3,
+      "max_total_artifact_strength": 1.0,
+      "seed_min": 0,
+      "seed_max": 2147483647,
+      "recipe_id_pattern": "^R-[0-9]{6}$"
+    }
+  },
+  "request_side_json_schema": {
+    "candidate_schema_version": "c1-llm-candidate-schema-v1",
+    "identity_for_12x32_schedule": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4",
+    "recipes_per_call": 32,
+    "additional_properties_allowed": false,
+    "system_owned_keys_absent_from_schema": [
+      "accepted",
+      "content_hash",
+      "identity",
+      "provenance",
+      "recipe_hash",
+      "recipe_id",
+      "valid",
+      "validation",
+      "validation_result"
+    ]
+  },
+  "validation_pipeline_stages": [
+    "json_parsing",
+    "envelope_schema",
+    "typed_recipe_schema",
+    "ontology_membership",
+    "range_checks",
+    "compatibility_checks",
+    "canonicalization",
+    "recipe_identity",
+    "duplicate_detection"
+  ],
+  "inherited_validator_stages": [
+    "schema",
+    "canonical",
+    "medium_artifact",
+    "geometry_region",
+    "strength_range",
+    "severity",
+    "duplicate",
+    "route",
+    "shortcut",
+    "leakage",
+    "serialization",
+    "hash"
+  ],
+  "rejection_rules": {
+    "unknown_field": "REJECT (pydantic extra='forbid')",
+    "unknown_enum": "REJECT",
+    "out_of_range_value": "REJECT",
+    "missing_required_field": "REJECT",
+    "malformed_json": "REJECT",
+    "prose_or_markdown_fence": "REJECT (not scraped)",
+    "model_supplied_system_owned_field": "REJECT (not stripped)",
+    "duplicate": "REJECT as candidate duplicate, recorded in the audit"
+  },
+  "silent_repair": {
+    "performed": false,
+    "policy": "No semantic field is ever edited to make an invalid candidate valid. The only recovery is another candidate from the provider under the same frozen contract, bounded by the retry budget.",
+    "recipe_id_assignment": "recipe_id is ASSIGNED by the system after the semantic content is known. The model is forbidden to supply one and is rejected if it does. This adds provenance rather than repairing semantics (spec 7.3).",
+    "ontology_alias_normalization_enabled": false,
+    "alias_note": "The inherited ontology documents an alias map. C1 leaves it OFF, the strictest reading of spec 7.6. It is identity-bearing, so enabling it would change the recipe bank identity."
+  },
+  "canonicalization": {
+    "method": "prism_fas.recipes.canonical.canonical_json",
+    "key_order": "sorted",
+    "float_decimals": 6,
+    "separators": "compact (',', ':')",
+    "identity": "SHA-256 over the canonical UTF-8 text",
+    "order_invariance": "response key order and equivalent float spellings collapse; a real numeric difference does not"
+  },
+  "duplicate_policy": {
+    "basis": "canonical scientific content identity",
+    "positional_recipe_id_excluded": true,
+    "reason": "recipe_id is positional, so including it would let renumbering defeat duplicate detection",
+    "fuzzy_similarity_used": false,
+    "fuzzy_note": "the spec does not require semantic-similarity dedup at C1; coverage and diversity selection belong to C3"
+  },
+  "compiler_compatibility": {
+    "compiler": "prism_fas.recipes.compile.compile_recipe (m7-compiler-v1)",
+    "proven_in_tests": true,
+    "outputs_checked": [
+      "operator graph",
+      "region mask policy",
+      "41-D conditioning vector",
+      "graph hash determinism"
+    ],
+    "conditioning_dimension": 41,
+    "authority": "a candidate that validates at the LLM layer but cannot compile is not acceptable; the compiler stays authoritative"
+  }
+}

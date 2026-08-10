@@ -1,0 +1,116 @@
+{
+  "schema_version": "c1-test-suite-v1",
+  "milestone": "C1",
+  "command": "python -m pytest -q",
+  "working_directory": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project",
+  "branch": "c1-llm-provider-contract",
+
+  "c1_tests": {
+    "path": "tests/c1/",
+    "command": "python -m pytest tests/c1 -q",
+    "passed": 138,
+    "failed": 0,
+    "skipped": 0,
+    "raw": "138 passed in 3.85s",
+    "modules": [
+      "tests/c1/test_c1_config_and_schema.py",
+      "tests/c1/test_c1_validation_and_compiler.py",
+      "tests/c1/test_c1_security.py",
+      "tests/c1/test_c1_provider_retry_replay.py"
+    ],
+    "network_required": false,
+    "api_key_required": false,
+    "live_provider_calls": 0,
+    "api_cost_incurred": 0
+  },
+
+  "full_suite": {
+    "passed": 1143,
+    "failed": 7,
+    "skipped": 101,
+    "errors": 0,
+    "warnings": 1,
+    "duration_seconds": 448.07,
+    "raw": "7 failed, 1143 passed, 101 skipped, 1 warning in 448.07s (0:07:28)"
+  },
+
+  "comparison_with_c0_baseline": {
+    "c0_baseline": {"passed": 1005, "failed": 7, "skipped": 101},
+    "c1_measured": {"passed": 1143, "failed": 7, "skipped": 101},
+    "passed_delta": 138,
+    "passed_delta_explanation": "exactly the 138 new C1 contract tests; no inherited test changed state",
+    "failed_delta": 0,
+    "skipped_delta": 0,
+    "new_unexplained_failures": 0,
+    "regressions_among_runnable_inherited_tests": 0,
+    "failure_set_identical_to_c0": true
+  },
+
+  "known_environment_limitation": {
+    "status": "KNOWN_ENVIRONMENT_LIMITATION",
+    "carried_forward_from": "C0",
+    "unchanged_in_c1": true,
+    "count": 7,
+    "cause": "A fresh Version-C clone does not contain the git-ignored Version-B local artifact trees (data/work/, data/processed/, reports/m7-m10/). Seven inherited tests assert directly against those frozen Version-B evidence files.",
+    "policy_applied": "Inherited Version-B tests were NOT modified to make the suite look green, and no Version-B artifact tree was copied into Version C during C1.",
+    "categories": [
+      {
+        "category": "missing reports/m8/ evidence tree",
+        "count": 2,
+        "tests": [
+          "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed",
+          "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields"
+        ],
+        "missing_artifact": "reports/m8/pairs/PAIR_PLAN_LOCK.json"
+      },
+      {
+        "category": "missing reports/m10/ evidence tree",
+        "count": 2,
+        "tests": [
+          "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+          "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass"
+        ],
+        "missing_artifact": "frozen Version-B M10 closure evidence under reports/m10/"
+      },
+      {
+        "category": "missing reports/m9-m10 isolation evidence",
+        "count": 1,
+        "tests": ["tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive"],
+        "missing_artifact": "frozen Version-B isolation-declaration evidence"
+      },
+      {
+        "category": "missing data/work/ M2 tree",
+        "count": 2,
+        "tests": [
+          "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+          "tests/test_m2_validation.py::test_status_reports_expected_counts"
+        ],
+        "missing_artifact": "paths.work_root/m2/<version>/<config_hash>/manifests/*.parquet"
+      }
+    ]
+  },
+
+  "skips": {
+    "total": 101,
+    "delta_from_c0": 0,
+    "all_carry_an_explicit_reason": true,
+    "silent_skips": 0,
+    "unexplained_skips": 0,
+    "classification": "EXPECTED for a fresh clone; the inherited suite guards artifact-dependent tests with explicit skip reasons rather than failing them."
+  },
+
+  "environment_note": {
+    "finding": "The Python environment's editable install of `prism_fas` resolves to the VERSION-B source tree (PRISM_FAS_B_Project/src/prism_fas).",
+    "impact_on_tests": "None. pyproject sets `pythonpath = [\"src\"]`, so pytest imports the Version-C source; this was verified directly by a probe test that printed prism_fas.__path__.",
+    "impact_on_ad_hoc_commands": "A bare `python -c` or `python -m` run from the Version-C repository would import Version-B code. Version-C scripts therefore insert `src` on sys.path explicitly (see scripts/c1_build_reports.py).",
+    "version_b_written_to": false,
+    "action_taken": "documented, not silently repaired; changing the global editable install is a user decision"
+  },
+
+  "not_claimed": [
+    "that the Version-C suite reproduces the Version-B pass count of 1081",
+    "that the 7 inherited failures were investigated as code defects and cleared",
+    "any invented or estimated pass count",
+    "that the live Gemini provider was exercised"
+  ]
+}
