@@ -1,0 +1,46 @@
+{
+  "schema_version": "v15-preflight-v1",
+  "generated_at_utc": "2026-08-12T07:39:57.126431Z",
+  "version_c": {
+    "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project",
+    "branch": "v15-spec-reconciliation",
+    "head": "50514cef4b1105bfaf6b3a97c44d1e25588c6448",
+    "working_tree_clean_at_preflight": true,
+    "origin": "https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git",
+    "version_b_remote_push": "DISABLED_NO_PUSH_TO_VERSION_B",
+    "branches": [
+      "c0-spec-reconciliation",
+      "c1-llm-provider-contract",
+      "c2-llm-pilot",
+      "c2b-batch-shape-validation",
+      "c2c-route-contract-freeze",
+      "c3-generation-bank-lock",
+      "main",
+      "v15-spec-reconciliation"
+    ]
+  },
+  "version_b": {
+    "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "tag": "m10-blind-evaluation-checkpoint",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "B_HEAD_MATCH": true,
+    "B_TAG_MATCH": true,
+    "B_TREE_CLEAN": true,
+    "written_to": false
+  },
+  "spec": {
+    "source_path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "repo_path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "expected_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+    "actual_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+    "match": true,
+    "source_preserved": true,
+    "read_in_full": true,
+    "blocks": 741,
+    "paragraphs": 684,
+    "tables": 57,
+    "characters": 169586,
+    "headings_indexed": 211
+  }
+}

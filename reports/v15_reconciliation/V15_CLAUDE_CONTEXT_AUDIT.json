@@ -1,0 +1,37 @@
+{
+  "schema_version": "v15-claude-context-audit-v1",
+  "generated_at_utc": "2026-08-12T07:39:57.125853Z",
+  "parent_scope": {
+    "path": "D:\\AI on IOT\\Anti_spoofing\\.claude",
+    "files_found": [
+      "settings.json",
+      "settings.local.json"
+    ],
+    "contains_instructions": false,
+    "contents": "permission allowlists only (Bash pytest/python invocations)",
+    "conflicts_with_project_science": false,
+    "action_taken": "left unmodified; read-only audit"
+  },
+  "parent_claude_md_found": false,
+  "project_scope_before": {
+    "CLAUDE.md": false,
+    "CLAUDE.local.md": false,
+    ".claude/": false,
+    "skills": [],
+    "rules": [],
+    "commands": [],
+    "settings": []
+  },
+  "project_scope_after": {
+    "CLAUDE.md": true,
+    "skills": [
+      "prism-milestone",
+      "prism-handoff"
+    ],
+    "rules": [],
+    "commands": [],
+    "settings": "unchanged (none created)"
+  },
+  "authority_note": "CLAUDE.md and skills are execution procedure only (authority layer 6). They define no scientific constant.",
+  "auto_memory_policy": "convenience only; scientific state lives in Git, locks and identity-bound artifacts"
+}

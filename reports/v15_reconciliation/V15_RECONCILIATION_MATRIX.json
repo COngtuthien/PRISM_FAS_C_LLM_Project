@@ -1,0 +1,359 @@
+{
+  "schema_version": "v15-reconciliation-matrix-v1",
+  "generated_at_utc": "2026-08-12T07:39:57.124617Z",
+  "status_vocabulary": [
+    "EXACT",
+    "PARTIAL",
+    "DEVIATED",
+    "MISSING",
+    "HISTORICAL_SUPERSEDED",
+    "NOT_APPLICABLE"
+  ],
+  "scientific_core": [
+    {
+      "item": "Datasets / protocols P1/P2/P3",
+      "spec_clause": "§5.3",
+      "status": "PARTIAL",
+      "evidence": "docs/c0/C0_FROZEN_DESIGN_DECISIONS.md; inherited Version-B adapters",
+      "note": "Protocol-specific manifests and the leakage=0 proof required by §5.3 are not materialized in Version C."
+    },
+    {
+      "item": "Target label firewall",
+      "spec_clause": "§5.4",
+      "status": "EXACT",
+      "evidence": "src/prism_fas/llm/firewall.py; tests in c1/c2/c2b/c2c",
+      "note": "Fail-closed scan runs in every provider including test doubles; 0 SiW label reads recorded across all milestones."
+    },
+    {
+      "item": "Version-B immutability",
+      "spec_clause": "§4.1, §4.2",
+      "status": "EXACT",
+      "evidence": "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json; re-verified this task",
+      "note": "HEAD and peeled tag 7799f7de…, tree clean, push URL disabled."
+    },
+    {
+      "item": "LLM offline-planner role",
+      "spec_clause": "§7.1",
+      "status": "EXACT",
+      "evidence": "src/prism_fas/llm/prompt.py; text-only, no media path",
+      "note": ""
+    },
+    {
+      "item": "Gemini provider contract",
+      "spec_clause": "§7.2, Appendix E",
+      "status": "EXACT",
+      "evidence": "configs/version_c/llm/c1_gemini_provider.yaml; provider_config_identity 3f6a446a…",
+      "note": "gemini-3.6-flash, Interactions API, thinking_level medium, no sampling controls, tools/grounding/media all off."
+    },
+    {
+      "item": "Scientific generator route",
+      "spec_clause": "§7.3.1",
+      "status": "EXACT",
+      "evidence": "configs/version_c/llm/c2c_route_policy.yaml; route_policy_identity 209ccacd…",
+      "note": "Exactly ['physics','gpat']; enforced before canonicalization and the compiler."
+    },
+    {
+      "item": "Gemini 32-object batch envelope",
+      "spec_clause": "§7.6.1",
+      "status": "EXACT",
+      "evidence": "batch_envelope_schema_identity f2c3bca7…; C2B/C2C live evidence",
+      "note": "Bounded form rejected 400 by the provider; exactly-32 enforced on the response."
+    },
+    {
+      "item": "384 raw candidates per arm",
+      "spec_clause": "§7.8, §24 C3",
+      "status": "MISSING",
+      "evidence": "no C3 generation artifact exists",
+      "note": "LLM schedule frozen in the lock; RND/DET schedules per §7.8.5 not implemented."
+    },
+    {
+      "item": ">=320 unique valid+compilable per arm",
+      "spec_clause": "§7.8.1, §24 C3",
+      "status": "MISSING",
+      "evidence": "no candidate pool exists",
+      "note": ""
+    },
+    {
+      "item": "256 final recipes per arm",
+      "spec_clause": "§7.8.2, §24 C3",
+      "status": "MISSING",
+      "evidence": "no bank exists",
+      "note": ""
+    },
+    {
+      "item": "prism_c3_selection_v1",
+      "spec_clause": "§7.8.3",
+      "status": "MISSING",
+      "evidence": "no selector module in src/prism_fas/",
+      "note": "Five-stage lexicographic policy with canonical SHA tie-break is fully specified but unimplemented."
+    },
+    {
+      "item": "Frozen final-bank coverage constraints",
+      "spec_clause": "§7.8.2",
+      "status": "MISSING",
+      "evidence": "quota table absent from configs/",
+      "note": "Medium 32/80, geometry 24/64, illumination 24/64, artifact 8/128 pref 32, region 8/128 pref 24."
+    },
+    {
+      "item": "Generation / selection / bank identity hierarchy",
+      "spec_clause": "§7.8.4, §21.3",
+      "status": "PARTIAL",
+      "evidence": "reports/c3/C3_BANK_LOCK.json binds generation only",
+      "note": "SUPERSESSION_REQUIRED_BEFORE_C3_SCIENTIFIC_GENERATION."
+    },
+    {
+      "item": "Deterministic control-arm schedules (RND/DET)",
+      "spec_clause": "§7.8.5",
+      "status": "MISSING",
+      "evidence": "no RND/DET generator in src/prism_fas/",
+      "note": ""
+    },
+    {
+      "item": "RND/DET/LLM fairness",
+      "spec_clause": "§8.2",
+      "status": "MISSING",
+      "evidence": "arms not built",
+      "note": ""
+    },
+    {
+      "item": "Neutral shared GPAT",
+      "spec_clause": "§8.3, §24 C4",
+      "status": "MISSING",
+      "evidence": "inherited Version-B GPAT only; neutral C4 support not built",
+      "note": ""
+    },
+    {
+      "item": "2048 renders / 1024 accepted per arm",
+      "spec_clause": "§10.4, §11.3",
+      "status": "MISSING",
+      "evidence": "C5/C6 not started",
+      "note": ""
+    },
+    {
+      "item": "q applied exactly once",
+      "spec_clause": "§11.2",
+      "status": "MISSING",
+      "evidence": "C6 not started",
+      "note": ""
+    },
+    {
+      "item": "Track-G final score identity",
+      "spec_clause": "§13.4.1",
+      "status": "MISSING",
+      "evidence": "C7 not started",
+      "note": ""
+    },
+    {
+      "item": "Track-R final decision identity",
+      "spec_clause": "§13.4.2",
+      "status": "MISSING",
+      "evidence": "C7 not started",
+      "note": ""
+    },
+    {
+      "item": "PromptHead target-time exclusion",
+      "spec_clause": "§12.3, §13.4.4",
+      "status": "MISSING",
+      "evidence": "C7 not started",
+      "note": ""
+    },
+    {
+      "item": "Manifold primary OFF policy",
+      "spec_clause": "§13.5",
+      "status": "MISSING",
+      "evidence": "C7 not started",
+      "note": ""
+    },
+    {
+      "item": "Source-only adaptation envelope",
+      "spec_clause": "§15.2.2",
+      "status": "MISSING",
+      "evidence": "no SEARCH_PLAN artifact exists",
+      "note": ""
+    },
+    {
+      "item": "Source checkpoint-selection rule",
+      "spec_clause": "§15.4",
+      "status": "MISSING",
+      "evidence": "C8/C9 not started",
+      "note": ""
+    },
+    {
+      "item": "Video validity / aggregation rules",
+      "spec_clause": "§20.2, §20.2.1",
+      "status": "MISSING",
+      "evidence": "inherited Version-B logic not re-frozen for C",
+      "note": ""
+    },
+    {
+      "item": "C-H4 quantitative rule",
+      "spec_clause": "§3.1.1",
+      "status": "MISSING",
+      "evidence": "no source-only probe implementation",
+      "note": ""
+    },
+    {
+      "item": "Bootstrap / statistical contract",
+      "spec_clause": "§20.3",
+      "status": "MISSING",
+      "evidence": "C12 not started",
+      "note": ""
+    }
+  ],
+  "v15_execution_closure": [
+    {
+      "item": "validate profile",
+      "spec_clause": "L.2",
+      "status": "MISSING",
+      "evidence": "configs/execution exists: False",
+      "note": ""
+    },
+    {
+      "item": "smoke profile",
+      "spec_clause": "L.2",
+      "status": "MISSING",
+      "evidence": "no configs/execution/smoke.yaml",
+      "note": ""
+    },
+    {
+      "item": "full profile",
+      "spec_clause": "L.2",
+      "status": "MISSING",
+      "evidence": "no configs/execution/full.yaml",
+      "note": ""
+    },
+    {
+      "item": "engineering_status vs scientific_status",
+      "spec_clause": "L.3",
+      "status": "MISSING",
+      "evidence": "milestone artifacts carry a single 'result' field only",
+      "note": "C0–C2C acceptance files predate the dual-status model."
+    },
+    {
+      "item": "Single full orchestrator entrypoint (train.py)",
+      "spec_clause": "L.4",
+      "status": "MISSING",
+      "evidence": "no train.py at repository root",
+      "note": "Current entrypoints are per-milestone scripts under scripts/."
+    },
+    {
+      "item": "Resume / idempotency",
+      "spec_clause": "L.11",
+      "status": "PARTIAL",
+      "evidence": "scripts/c2_run_pilot.py resume; c2b/c2c one-batch guards; bank_lock.write_lock_once",
+      "note": "Real identity-aware resume exists in places but is not centralized in a pipeline resume module."
+    },
+    {
+      "item": "Stage-level acceptance",
+      "spec_clause": "L.9",
+      "status": "PARTIAL",
+      "evidence": "C0/C1/C2/C2B/C2C/C3-prep acceptance JSONs exist",
+      "note": "Format predates L.9 and lacks profile/eligibility fields."
+    },
+    {
+      "item": "Method/config/seed isolation",
+      "spec_clause": "L.8",
+      "status": "MISSING",
+      "evidence": "no runs/<protocol>/<method>/<config_id>/<seed>/ tree",
+      "note": ""
+    },
+    {
+      "item": "All-output preservation",
+      "spec_clause": "L.8",
+      "status": "PARTIAL",
+      "evidence": "reports/c2 preserves every attempt; C2B negative result preserved",
+      "note": "Principle already honoured; not yet a systematic run tree."
+    },
+    {
+      "item": "Source-search phase",
+      "spec_clause": "L.5, L.6",
+      "status": "MISSING",
+      "evidence": "no SEARCH_PLAN, no leaderboard",
+      "note": ""
+    },
+    {
+      "item": "Deterministic source selector",
+      "spec_clause": "L.6",
+      "status": "MISSING",
+      "evidence": "not implemented",
+      "note": ""
+    },
+    {
+      "item": "Selected-config lock",
+      "spec_clause": "L.6",
+      "status": "MISSING",
+      "evidence": "not implemented",
+      "note": ""
+    },
+    {
+      "item": "Full scientific phase",
+      "spec_clause": "L.5",
+      "status": "MISSING",
+      "evidence": "not implemented",
+      "note": ""
+    },
+    {
+      "item": "MASTER_RUN_INDEX",
+      "spec_clause": "L.10",
+      "status": "MISSING",
+      "evidence": "no state/MASTER_RUN_INDEX.json",
+      "note": ""
+    },
+    {
+      "item": "PIPELINE_STATE",
+      "spec_clause": "L.10",
+      "status": "MISSING",
+      "evidence": "no state/PIPELINE_STATE.json",
+      "note": ""
+    },
+    {
+      "item": "Bounded recovery ladder",
+      "spec_clause": "L.6, §26.1",
+      "status": "MISSING",
+      "evidence": "not implemented",
+      "note": ""
+    },
+    {
+      "item": "Scientific eligibility flags",
+      "spec_clause": "L.2",
+      "status": "MISSING",
+      "evidence": "no artifact serializes execution_profile / scientific_eligible",
+      "note": ""
+    },
+    {
+      "item": "No smoke artifact promoted to scientific",
+      "spec_clause": "L.1, L.2",
+      "status": "NOT_APPLICABLE",
+      "evidence": "no smoke artifact exists yet",
+      "note": "Rule is now encoded in CLAUDE.md and prism-milestone."
+    },
+    {
+      "item": "CLAUDE.md persistent layer",
+      "spec_clause": "M.1, M.3",
+      "status": "EXACT",
+      "evidence": "CLAUDE.md created in this task",
+      "note": ""
+    },
+    {
+      "item": "PROJECT_STATE.md",
+      "spec_clause": "M.4",
+      "status": "EXACT",
+      "evidence": "docs/PROJECT_STATE.md created in this task",
+      "note": ""
+    },
+    {
+      "item": "prism-milestone / prism-handoff skills",
+      "spec_clause": "M.5",
+      "status": "EXACT",
+      "evidence": ".claude/skills/{prism-milestone,prism-handoff}/SKILL.md created",
+      "note": ""
+    },
+    {
+      "item": "Spec location docs/specs/",
+      "spec_clause": "M.1",
+      "status": "DEVIATED",
+      "evidence": "spec copied to docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+      "note": "Bootstrap prompt directed docs/; M.1 canonical layout says docs/specs/. Recorded rather than silently reconciled; move planned in the restructure plan."
+    }
+  ]
+}

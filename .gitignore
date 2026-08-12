@@ -46,6 +46,7 @@ reports/*
 !reports/c12/
 !reports/c13/
 !reports/final/
+!reports/v15_reconciliation/
 # Inside a Version-C report root, large or generated artifacts stay out. Raw LLM
 # response archives, prediction tables, checkpoints and logs are provenance held on
 # disk and referenced by hash, not Git payload.

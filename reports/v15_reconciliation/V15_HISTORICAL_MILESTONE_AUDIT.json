@@ -1,0 +1,604 @@
+{
+  "schema_version": "v15-historical-milestone-audit-v1",
+  "generated_at_utc": "2026-08-12T07:39:56.857922Z",
+  "generator_code_commit": "50514cef4b1105bfaf6b3a97c44d1e25588c6448",
+  "branch": "v15-spec-reconciliation",
+  "method": "classified from Git, artifacts, locks and reruns — not from conversation",
+  "classification_vocabulary": [
+    "ACCEPTED",
+    "ACCEPTED_WITH_DOCUMENTED_DEVIATION",
+    "PARTIAL",
+    "SUPERSEDED_BY_V15",
+    "MISSING",
+    "INVALID",
+    "BLOCKED"
+  ],
+  "milestones": {
+    "C0": {
+      "historical_branch": "c0-spec-reconciliation",
+      "historical_commit": "955a8344182b4eaa7af70b80ee2783a792bc5d41",
+      "governing_clauses": [
+        "§24 C0",
+        "§4.1",
+        "§4.2",
+        "§5.2"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c0/C0_ACCEPTANCE.json",
+          "present": true,
+          "sha256": "5521ea05ad37b327780b72d592fa2eb7dfcb94a430b94cf9966c8ff4e7fb8d8a"
+        },
+        {
+          "path": "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json",
+          "present": true,
+          "sha256": "52f8b2ccc3cc3758799f0f706bdbfa845f8d62f6cc8fc3d88708936a1e980a78"
+        },
+        {
+          "path": "reports/c0/C0_TEST_SUITE.json",
+          "present": true,
+          "sha256": "7e08f7ad50f329e86a46e94bce517b05c7de8430412aa6ddc99bfefe110448e3"
+        },
+        {
+          "path": "docs/c0/C0_FROZEN_DESIGN_DECISIONS.md",
+          "present": true,
+          "sha256": "3adcdf44404bc5c03cd2a45f60062191dc9b895a3003f91564e0e93a05ab5ef8"
+        }
+      ],
+      "tests_found": "tests/c0/test_c0_frozen_design.py",
+      "tests_rerun": "32 passed",
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [
+        "C0 froze against spec v1.1; v1.5 adds Appendix L/M execution and persistent-context requirements C0 never evaluated",
+        "C0 recorded the inherited-suite limitation (7 failures / 101 skips) as an open item rather than resolving it"
+      ],
+      "v15_compatibility": "scientific content compatible; execution-layer content absent",
+      "classification": "ACCEPTED_WITH_DOCUMENTED_DEVIATION",
+      "required_remediation": [
+        "No scientific rework. The v1.5 execution layer (profiles, dual status, orchestrator, state files) is new scope tracked under the restructure plan."
+      ]
+    },
+    "C1": {
+      "historical_branch": "c1-llm-provider-contract",
+      "historical_commit": "cdf1594ca6892ca05c168fb2f6b4494236981222",
+      "governing_clauses": [
+        "§24 C1",
+        "§7.2",
+        "§7.5",
+        "§7.6",
+        "§7.7"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c1/C1_ACCEPTANCE.json",
+          "present": true,
+          "sha256": "b9ec06a3640a204386a4ce91e1842570e98e4ba20b1d309958f0ccc3aab4437a"
+        },
+        {
+          "path": "reports/c1/C1_PROVIDER_AUDIT.json",
+          "present": true,
+          "sha256": "720e70d09dea41b61865516dc1aed99a76ada9ecdd5930f5aa7cd0bc86237aff"
+        },
+        {
+          "path": "reports/c1/C1_SCHEMA_AUDIT.json",
+          "present": true,
+          "sha256": "1b5fd5dd251e15c1e59bc007174cabb6ff5d66247b20f55c022d900d902d744a"
+        },
+        {
+          "path": "reports/c1/C1_SECURITY_AUDIT.json",
+          "present": true,
+          "sha256": "1d255215e8772634ac31d2ec609c9484845ed3e27c0b44f485a5fdd53a935549"
+        },
+        {
+          "path": "docs/c1/C_LLM_RECIPE_CONTRACT.md",
+          "present": true,
+          "sha256": "ad51932daa0342e163a6a2889bbdac6cc05bc461a3d6be74db2ac363c3a2be49"
+        },
+        {
+          "path": "src/prism_fas/llm/providers/gemini.py",
+          "present": true,
+          "sha256": "a5b9ccd8130d4b50cd7baee04396a8e6add18fa373a942d740f59373c6d0bd99"
+        }
+      ],
+      "tests_found": "tests/c1/ (4 modules)",
+      "tests_rerun": "138 passed",
+      "locks_found": [],
+      "identity_hashes": {
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "llm_provider_config_identity": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da"
+      },
+      "known_deviations": [
+        "C1 recorded 7afc3abd… under a name reading as a single-recipe schema identity; it is the 32-object ENVELOPE identity. Corrected prospectively in docs/c2c/C2C_IDENTITY_CORRECTION_NOTE.md; historical artifacts unedited.",
+        "The C1 provider implementation was later corrected twice against the live wire (usage/model/status capture; 429 classification) — see C2."
+      ],
+      "v15_compatibility": "compatible; §7.6.1 batch envelope closure satisfied at C2B",
+      "classification": "ACCEPTED_WITH_DOCUMENTED_DEVIATION",
+      "required_remediation": [
+        "None for C1 itself."
+      ]
+    },
+    "C2": {
+      "historical_branch": "c2-llm-pilot",
+      "historical_commit": "a7f56be7109f149be18bbd4c4907edf4b04b17f8",
+      "governing_clauses": [
+        "§24 C2",
+        "§7.6",
+        "§23.4"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c2/C2_ACCEPTANCE.json",
+          "present": true,
+          "sha256": "b69ceab0e6de7d938ff050e48f998d01f8cb3be8ec72851e067c46428c5e99a0"
+        },
+        {
+          "path": "reports/c2/C2_PILOT_AUDIT.json",
+          "present": true,
+          "sha256": "6373ed828f1c20d4e735f77d3363b48025f5daae40ab48bc1b153209409bd81d"
+        },
+        {
+          "path": "reports/c2/C2_COVERAGE_AUDIT.json",
+          "present": true,
+          "sha256": "318c7738ee37886e1be24fb6e6d80fa376db37045f1ed51211ef346ddab54e50"
+        },
+        {
+          "path": "reports/c2/C2_PILOT_RAW_ARCHIVE.json",
+          "present": true,
+          "sha256": "ff8e458c871b1d2c88701db788426ad6d2807feee50d0f9de4565bfb74eecec4"
+        },
+        {
+          "path": "reports/c2/C2_RATE_LIMIT_INCIDENTS.json",
+          "present": true,
+          "sha256": "68663806fdfee891cc94e3d5c743f48f894718a70f58765d267810d9c3e0b938"
+        },
+        {
+          "path": "docs/c2/C2_LLM_PILOT_REPORT.md",
+          "present": true,
+          "sha256": "5a5a778f19c0cbb5a6ca12db7a2a9466e979e21414ed10091aace07fb1a6308e"
+        }
+      ],
+      "tests_found": "tests/c2/ (4 modules)",
+      "tests_rerun": "43 passed",
+      "locks_found": [],
+      "identity_hashes": {
+        "pilot_schema_envelope_n1": "e9f66067c2de2deda5373a99dc6c92689c0ab2d2163b80adcde57af83df9bbd1"
+      },
+      "known_deviations": [
+        "32 singleton slots (1 recipe/request), not the C3 12×32 batch shape — explicitly disposable, and the coverage collapse it showed was later attributed to batch size at C2B.",
+        "Two provider defects found and fixed against the live wire."
+      ],
+      "v15_compatibility": "satisfies §24 C2 hard acceptance: no final bank, statistics documented, model/prompt/schema frozen before C3",
+      "classification": "ACCEPTED",
+      "required_remediation": [
+        "None. Pilot recipes must never enter C3."
+      ]
+    },
+    "C2B": {
+      "historical_branch": "c2b-batch-shape-validation",
+      "historical_commit": "969639cc1a72690ae276afdb6e42487721b04c04",
+      "governing_clauses": [
+        "§7.6.1",
+        "§7.8.1",
+        "§24 C2"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c2b/C2B_ACCEPTANCE.json",
+          "present": true,
+          "sha256": "275d9c9f29e42e212942c3aa4061d71d6248e6e117a48816f8d51bc3749d8bc9"
+        },
+        {
+          "path": "reports/c2b/C2B_LIVE_BATCH_AUDIT.json",
+          "present": true,
+          "sha256": "17b8b3b6bd8769c3685b0d07faaa1d4da274b06a4eac9d0881fd66254b9d6429"
+        },
+        {
+          "path": "reports/c2b/C2B_ENVELOPE_REJECTION.json",
+          "present": true,
+          "sha256": "14fe8ddeaf1be582f56ae539d0b032bdbff3abca7bc21b92f6ea5c63527c1d3a"
+        },
+        {
+          "path": "reports/c2b/C2B_RAW_ARCHIVE.json",
+          "present": true,
+          "sha256": "bc259a967fa0a71794e03e950e3449686952e5dec4f351f9bb79ddf4c4503f4e"
+        },
+        {
+          "path": "docs/c2b/C2B_BATCH_SHAPE_REPORT.md",
+          "present": true,
+          "sha256": "20da0297149b75fcfcb5b9281dd1ed0d6049ea0f708edb97c88a9266f2cab2a2"
+        }
+      ],
+      "tests_found": "tests/c2b/ (3 modules)",
+      "tests_rerun": "41 passed",
+      "locks_found": [],
+      "identity_hashes": {
+        "batch_envelope_schema_identity": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+        "c1_recorded_bounded_envelope_rejected_by_provider": "7afc3abd29178bb07e83538bdf1a9f15f1ce3c626ed3f5d467841f7038b777c4"
+      },
+      "known_deviations": [
+        "Outcome BATCH_SHAPE_FAIL and it stays that way: 10 of 32 accepted recipes declared generator_route without physics and could not compile.",
+        "The C1-recorded 32-object envelope is unusable: the provider returns 400 INVALID_ARGUMENT for minItems=maxItems=32. The array bound was dropped from the request only; exactly-32 is enforced on the response."
+      ],
+      "v15_compatibility": "§7.6.1 permits the working envelope; the route defect is closed by §7.3.1 and was implemented at C2C",
+      "classification": "ACCEPTED_WITH_DOCUMENTED_DEVIATION",
+      "required_remediation": [
+        "None. BATCH_SHAPE_FAIL is preserved as historical evidence and must not be rewritten."
+      ]
+    },
+    "C2C": {
+      "historical_branch": "c2c-route-contract-freeze",
+      "historical_commit": "c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5",
+      "governing_clauses": [
+        "§7.3.1",
+        "§7.8.3 eligibility pipeline",
+        "§24 C2"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c2c/C2C_ACCEPTANCE.json",
+          "present": true,
+          "sha256": "6349779b3e5e6169e4dc0f9fa385a5d150e0756a98a946ff556800d0e32860f3"
+        },
+        {
+          "path": "reports/c2c/C2C_ROUTE_POLICY_AUDIT.json",
+          "present": true,
+          "sha256": "79742d1c02e0039f93d92e90b7988f4e9c4b22f251716ff8faed8e8d4f7feffd"
+        },
+        {
+          "path": "reports/c2c/C2C_C2B_REPLAY_AUDIT.json",
+          "present": true,
+          "sha256": "0069b3e0b2570068eb75b7263bcd54cf9e7a5c985777c9f6992d2f22782dea45"
+        },
+        {
+          "path": "reports/c2c/C2C_LIVE_BATCH_AUDIT.json",
+          "present": true,
+          "sha256": "71a948e0bb7ef21303f50921cddff2bbbb0187846cd28a05f33e1760b0334f77"
+        },
+        {
+          "path": "reports/c2c/C2C_COVERAGE_AUDIT.json",
+          "present": true,
+          "sha256": "df7d433be590db4aecf2ddbc224aab253b31e4f157d1833e3cbd78192db6103c"
+        },
+        {
+          "path": "configs/version_c/llm/c2c_route_policy.yaml",
+          "present": true,
+          "sha256": "6ad7a1f40e915b063e5a2b51cc2f0cbfcbe9dec9bce8ebbb55475104ab48f440"
+        },
+        {
+          "path": "src/prism_fas/llm/route_policy.py",
+          "present": true,
+          "sha256": "eb9f45eea7c908fe4804ac76c543f7e5d1d222f62469312765fe9bcde7faf053"
+        }
+      ],
+      "tests_found": "tests/c2c/ (3 modules)",
+      "tests_rerun": "54 passed",
+      "locks_found": [],
+      "identity_hashes": {
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+        "system_prompt_identity_before": "d95e46fcef4e3ec54a3405f75526cb60f3966c2820934a5f6224fc979277038f",
+        "system_prompt_identity_after": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+        "single_recipe_schema_identity": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579"
+      },
+      "known_deviations": [
+        "The system prompt changed by 8 lines / 410 characters to state the route contract. Source-independent spec reconciliation, not target tuning."
+      ],
+      "v15_compatibility": "EXACT against §7.3.1: scientific generator_route is exactly ['physics','gpat']; physics-only and gpat-only both rejected; no GPAT-only class; no silent repair",
+      "classification": "ACCEPTED",
+      "required_remediation": [
+        "None."
+      ]
+    },
+    "C3_preparation": {
+      "historical_branch": "c3-generation-bank-lock",
+      "historical_commit": "50514cef4b1105bfaf6b3a97c44d1e25588c6448",
+      "governing_clauses": [
+        "§7.8.2",
+        "§7.8.3",
+        "§7.8.4",
+        "§7.8.5",
+        "§21.3",
+        "§24 C3"
+      ],
+      "implemented_artifacts": [
+        {
+          "path": "reports/c3/C3_BANK_LOCK.json",
+          "present": true,
+          "sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8"
+        },
+        {
+          "path": "reports/c3/C3_BANK_LOCK_VERIFICATION.json",
+          "present": true,
+          "sha256": "755f3c77bfcb5ffe4e4c437d6085b0966c5ea9fff16d4cda739c04981545b5d4"
+        },
+        {
+          "path": "src/prism_fas/llm/bank_lock.py",
+          "present": true,
+          "sha256": "52f5ebc1e3734dd9dd75195e6d11114c44007d9b886b40b51df7d933a34e0a6e"
+        },
+        {
+          "path": "docs/c3/C3_BANK_LOCK.md",
+          "present": true,
+          "sha256": "bfa0edebf645d6e72dbb18765fece2c6337a4f4ce7bb0bef02c1254c57f2f092"
+        }
+      ],
+      "tests_found": "tests/c3/test_c3_bank_lock.py",
+      "tests_rerun": "29 passed",
+      "locks_found": [
+        "reports/c3/C3_BANK_LOCK.json"
+      ],
+      "identity_hashes": {
+        "bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+        "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+        "c3_selection_contract_identity": null,
+        "c3_bank_contract_identity": null
+      },
+      "known_deviations": [
+        "The lock binds only the GENERATION contract. §7.8.4 requires a BANK_LOCK to bind C3_BANK_CONTRACT_IDENTITY = SHA256(canonical_json({generation, selection})). No C3_SELECTION_CONTRACT_IDENTITY exists.",
+        "prism_c3_selection_v1 (§7.8.3) is not implemented: no selector module, no eligibility-pipeline driver, no hard/soft quota constants from §7.8.2.",
+        "The lock covers the LLM arm only. §7.8.5 requires frozen RND and DET 384-slot schedules under the same eligibility layer.",
+        "Coverage constraints in §7.8.2 (medium 32/80, geometry 24/64, illumination 24/64, artifact 8/128 pref 32, region 8/128 pref 24) are absent from the repository."
+      ],
+      "v15_compatibility": "INCOMPLETE for C3 execution; the generation half is exact",
+      "classification": "PARTIAL",
+      "required_remediation": [
+        "Implement prism_c3_selection_v1 per §7.8.3 with the §7.8.2 quota table.",
+        "Implement frozen RND and DET 384-slot generation schedules per §7.8.5.",
+        "Compute C3_SELECTION_CONTRACT_IDENTITY and C3_BANK_CONTRACT_IDENTITY.",
+        "Supersede the preliminary lock per §7.8.4, preserving its bytes, recording supersedes identity, reason and scientific_requests_before_supersession=0."
+      ],
+      "selection_identity_bound_in_lock": false,
+      "supersession_status": "SUPERSESSION_REQUIRED_BEFORE_C3_SCIENTIFIC_GENERATION",
+      "supersession_permitted_now": "yes — §7.8.4 permits supersession before the first affected scientific request, and c3_scientific_logical_requests = 0",
+      "supersession_performed_in_this_task": false
+    },
+    "C4": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C4",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C4 not implemented; out of scope for this task."
+      ]
+    },
+    "C5": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C5",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C5 not implemented; out of scope for this task."
+      ]
+    },
+    "C6": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C6",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C6 not implemented; out of scope for this task."
+      ]
+    },
+    "C7": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C7",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C7 not implemented; out of scope for this task."
+      ]
+    },
+    "C8": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C8",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C8 not implemented; out of scope for this task."
+      ]
+    },
+    "C9": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C9",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C9 not implemented; out of scope for this task."
+      ]
+    },
+    "C10": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C10",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C10 not implemented; out of scope for this task."
+      ]
+    },
+    "C11": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C11",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C11 not implemented; out of scope for this task."
+      ]
+    },
+    "C12": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C12",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C12 not implemented; out of scope for this task."
+      ]
+    },
+    "C13": {
+      "historical_branch": null,
+      "historical_commit": null,
+      "governing_clauses": [
+        "§24 C13",
+        "Appendix L.9"
+      ],
+      "implemented_artifacts": [],
+      "tests_found": null,
+      "tests_rerun": null,
+      "locks_found": [],
+      "identity_hashes": {},
+      "known_deviations": [],
+      "v15_compatibility": "not started",
+      "classification": "MISSING",
+      "required_remediation": [
+        "C13 not implemented; out of scope for this task."
+      ]
+    }
+  },
+  "provider_call_audit": {
+    "phases": {
+      "C2_smoke": {
+        "archive": "reports/c2/C2_SMOKE_RAW_ARCHIVE.json",
+        "archived_attempts": 2,
+        "semantic_responses": 2,
+        "error_attempts": 0,
+        "scientific": false,
+        "classification": "disposable pilot / diagnostic validation, not C3 scientific"
+      },
+      "C2_pilot": {
+        "archive": "reports/c2/C2_PILOT_RAW_ARCHIVE.json",
+        "archived_attempts": 42,
+        "semantic_responses": 32,
+        "error_attempts": 10,
+        "scientific": false,
+        "classification": "disposable pilot / diagnostic validation, not C3 scientific"
+      },
+      "C2B_batch": {
+        "archive": "reports/c2b/C2B_RAW_ARCHIVE.json",
+        "archived_attempts": 1,
+        "semantic_responses": 1,
+        "error_attempts": 0,
+        "scientific": false,
+        "classification": "disposable pilot / diagnostic validation, not C3 scientific"
+      },
+      "C2C_batch": {
+        "archive": "reports/c2c/C2C_RAW_ARCHIVE.json",
+        "archived_attempts": 1,
+        "semantic_responses": 1,
+        "error_attempts": 0,
+        "scientific": false,
+        "classification": "disposable pilot / diagnostic validation, not C3 scientific"
+      },
+      "C1": {
+        "archive": "reports/c1/C1_SECURITY_AUDIT.json",
+        "archived_attempts": 0,
+        "semantic_responses": 0,
+        "scientific": false,
+        "classification": "contract tests only; C1 recorded zero live provider calls"
+      }
+    },
+    "historical_live_provider_calls_before_C3": 47,
+    "archived_attempts": 46,
+    "semantic_responses": 36,
+    "attempts_documented_but_not_archived": 1,
+    "attempts_documented_but_not_archived_evidence": "reports/c2b/C2B_ENVELOPE_REJECTION.json — a 400 INVALID_ARGUMENT attempt whose record the then-current runner overwrote on retry; preserved as a reconstruction",
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "c3_reports_directory_contents": [
+      ".gitkeep",
+      "C3_BANK_LOCK.json",
+      "C3_BANK_LOCK_VERIFICATION.json"
+    ],
+    "c3_generation_shaped_artifacts": [],
+    "c3_generation_has_occurred": false,
+    "verdict": "NO C3 SCIENTIFIC GENERATION HAS OCCURRED"
+  }
+}
