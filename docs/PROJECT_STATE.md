@@ -95,7 +95,9 @@ c3:
     gate: PASS
     evidence: reports/c3/v15_pre_live_audit/
     verified_at_utc: 2026-08-14
-    verified_commit: e850e998ee4387dfd47558452069eff0e848e2df
+    verified_commit: f53dec103bc2073b6dfb510738b8f75335646d19
+    verified_worktree_clean: true   # the e850e99 run stamped its parent while the new
+                                    # C3 tests were still untracked; this run is clean
     requirements_mapped: 25
     requirements_passing: 25
     provider_call_delta: 0
@@ -166,14 +168,14 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1398
+  passed: 1418
   failed: 7
   skipped: 101
-  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 117}
+  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 137}
   inherited_known_failures: 7   # exactly the set documented in reports/c0/C0_TEST_SUITE.json
   new_unexplained_failures: 0
   c3_suite_exact_command: python -m pytest tests/c3 -q --no-header -p no:cacheprovider
-  c3_suite: {passed: 117, failed: 0, skipped: 0}
+  c3_suite: {passed: 137, failed: 0, skipped: 0}
   c3_offline: sockets blocked, ambient credentials deleted, no provider SDK on the C3 path
 
 known_deviations:

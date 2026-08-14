@@ -4,8 +4,8 @@
   "substage": "pre-live verification gate",
   "artifact_kind": "VERIFICATION_EVIDENCE",
   "not_scientific_generation_evidence": true,
-  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
-  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "generated_at_utc": "2026-08-14T08:53:09.971183Z",
+  "generator_code_commit": "f53dec103bc2073b6dfb510738b8f75335646d19",
   "execution_profile": "validate",
   "scientific_eligible": false,
   "scientific_status": "NOT_RUN",
@@ -21,17 +21,12 @@
   ],
   "preflight": {
     "branch": "c3-v15-selection-contract",
-    "head": "e850e998ee4387dfd47558452069eff0e848e2df",
+    "head": "f53dec103bc2073b6dfb510738b8f75335646d19",
     "commit_feat": "51dd4b2ce7fe3273fcb54454aa6780da43ad251c",
     "commit_fix": "e850e998ee4387dfd47558452069eff0e848e2df",
     "commits_resolvable": true,
     "remote_tracking": "origin/c3-v15-selection-contract",
-    "worktree_dirty_paths": [
-      "M docs/PROJECT_STATE.md",
-      "?? reports/c3/v15_pre_live_audit/",
-      "?? scripts/c3_pre_live_audit.py",
-      "?? tests/c3/test_c3_forbidden_inputs.py"
-    ],
+    "worktree_dirty_paths": [],
     "spec_path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
     "spec_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
     "spec_matches": true,
@@ -375,8 +370,8 @@
     },
     "quota_table_modified": false,
     "elapsed_seconds": {
-      "first": 53.9,
-      "second": 52.9
+      "first": 56.3,
+      "second": 89.2
     },
     "ok": true
   },
@@ -384,13 +379,13 @@
     "focused": {
       "command": "python -m pytest tests/c3 -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
       "exit_code": 0,
-      "summary_line": "137 passed in 69.19s (0:01:09)",
+      "summary_line": "137 passed in 98.47s (0:01:38)",
       "passed": 137,
       "failed": 0,
       "skipped": 0,
       "xfailed": 0,
       "errors": 0,
-      "duration_seconds": 70.0,
+      "duration_seconds": 99.5,
       "outcomes": {
         "tests/c3/test_c3_bank_contract_lock.py::test_the_lock_body_hash_is_reproducible": "PASSED",
         "tests/c3/test_c3_bank_contract_lock.py::test_the_identities_reproduce_from_live_code": "PASSED",
@@ -535,13 +530,13 @@
     "broad": {
       "command": "python -m pytest -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
       "exit_code": 1,
-      "summary_line": "7 failed, 1418 passed, 101 skipped, 1 warning in 392.07s (0:06:32)",
+      "summary_line": "7 failed, 1418 passed, 101 skipped, 1 warning in 451.91s (0:07:31)",
       "passed": 1418,
       "failed": 7,
       "skipped": 101,
       "xfailed": 0,
       "errors": 0,
-      "duration_seconds": 396.1,
+      "duration_seconds": 457.3,
       "outcomes": {
         "tests/c0/test_c0_frozen_design.py::test_exactly_three_datasets_and_no_fourth": "PASSED",
         "tests/c0/test_c0_frozen_design.py::test_siw_is_never_described_as_a_never_seen_blind_target": "PASSED",
