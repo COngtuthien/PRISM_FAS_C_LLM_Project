@@ -95,12 +95,16 @@ c3:
     gate: PASS
     evidence: reports/c3/v15_pre_live_audit/
     verified_at_utc: 2026-08-14
-    verified_commit: f53dec103bc2073b6dfb510738b8f75335646d19
+    verified_commit: da50fd911222d11ca211cd317f4c0b47ccac4d4f
     verified_worktree_clean: true   # the e850e99 run stamped its parent while the new
                                     # C3 tests were still untracked; this run is clean
     requirements_mapped: 25
     requirements_passing: 25
     provider_call_delta: 0
+    provider_fingerprint: de3ba4703be8cd23c73b1d49fc7db01952f6ad81a4cb59c415f48e85d99bd273
+    provider_fingerprint_scope: PROVIDER_EVIDENCE_ALLOWLIST   # 75 files; excludes this
+                                                              # audit's own output
+    provider_fingerprint_identical_across_two_full_runs: true
     identities_reproduced: [generation, selection, bank_contract, superseding_lock,
                             rnd_schedule, det_schedule]
     meaning: >-
@@ -168,14 +172,14 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1418
+  passed: 1437
   failed: 7
   skipped: 101
-  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 137}
+  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156}
   inherited_known_failures: 7   # exactly the set documented in reports/c0/C0_TEST_SUITE.json
   new_unexplained_failures: 0
   c3_suite_exact_command: python -m pytest tests/c3 -q --no-header -p no:cacheprovider
-  c3_suite: {passed: 137, failed: 0, skipped: 0}
+  c3_suite: {passed: 156, failed: 0, skipped: 0}
   c3_offline: sockets blocked, ambient credentials deleted, no provider SDK on the C3 path
 
 known_deviations:
