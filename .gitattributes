@@ -17,7 +17,10 @@ src/prism_fas/recipes/eligibility.py      text eol=lf
 src/prism_fas/recipes/arm_schedules.py    text eol=lf
 configs/version_c/llm/c3_selection_contract.yaml text eol=lf
 
-# C3 locks and their evidence: C3_PRELIMINARY_LOCK_INTEGRITY.json records the
-# byte-level SHA-256 of the historical preliminary lock, so that file's bytes
-# must survive a clone unchanged too.
-reports/c3/**  text eol=lf
+# reports/c3/ is deliberately NOT pinned here. The historical preliminary lock
+# reports/c3/C3_BANK_LOCK.json was committed before this rule existed and is
+# checked out with platform line endings; pinning it now would rewrite the bytes
+# of a frozen artifact on the next checkout. Its immutability is proved instead
+# by the line-ending-independent hashes recorded in
+# reports/c3/v15_selection_contract/C3_PRELIMINARY_LOCK_INTEGRITY.json — the
+# canonical body identity, and a SHA-256 over the LF-normalized text.

@@ -119,9 +119,21 @@ def verify_preliminary_lock() -> dict[str, Any]:
     if generation != GENERATION_CONTRACT_IDENTITY:
         raise FreezeError("preliminary lock generation contract identity mismatch")
     binds_selection = any("selection" in key.lower() for key in lock.get("components", {}))
+    # `file_sha256` is the bytes as checked out, which on Windows means CRLF and
+    # on Linux LF: the lock predates the .gitattributes rules and Git rewrites
+    # its line endings per platform. It is recorded for this checkout only. The
+    # two hashes BELOW are the portable ones, and they are what proves the lock
+    # unchanged anywhere:
+    #   * body identity  — SHA-256 over canonical JSON of the parsed body, so it
+    #     is independent of formatting entirely;
+    #   * normalized     — SHA-256 over the file text with CRLF folded to LF,
+    #     which equals the committed blob's hash on every platform.
+    normalized = raw.decode("utf-8").replace("\r\n", "\n").encode("utf-8")
     return {
         "path": PRELIMINARY_LOCK.relative_to(REPO).as_posix(),
         "file_sha256": hashlib.sha256(raw).hexdigest(),
+        "file_sha256_scope": "this checkout only; line endings are platform-dependent",
+        "file_sha256_lf_normalized": hashlib.sha256(normalized).hexdigest(),
         "bank_lock_identity": lock["bank_lock_identity"],
         "body_hash_reproducible": recomputed == PRELIMINARY_LOCK_IDENTITY,
         "generation_contract_identity": generation,

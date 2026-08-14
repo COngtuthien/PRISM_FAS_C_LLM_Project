@@ -125,21 +125,31 @@ def test_the_supersession_evidence_matches_the_lock():
 
 
 def test_the_historical_preliminary_lock_is_byte_identical():
-    """Byte-level, not just body-hash: the integrity report recorded the file's
-    SHA-256 before the supersession, and the file on disk must still match it."""
+    """Byte-level, not just body-hash.
+
+    The comparison is made on the LF-NORMALIZED bytes. The lock predates the
+    repository's .gitattributes rules, so Git checks it out with CRLF on Windows
+    and LF elsewhere; a raw-byte assertion would be testing the platform rather
+    than the artifact. Folding CRLF to LF gives the committed blob's hash on
+    every platform, which is exactly the claim worth making: nobody has edited
+    this file.
+    """
     import hashlib
 
     path = OUT / "C3_PRELIMINARY_LOCK_INTEGRITY.json"
     if not path.exists():
         pytest.skip("run scripts/c3_selection_contract_freeze.py")
     integrity = json.loads(path.read_text(encoding="utf-8"))
-    recorded = integrity["before"]["file_sha256"]
+    recorded = integrity["before"]["file_sha256_lf_normalized"]
 
     preliminary = REPO / "reports" / "c3" / "C3_BANK_LOCK.json"
-    on_disk = hashlib.sha256(preliminary.read_bytes()).hexdigest()
+    raw = preliminary.read_bytes()
+    normalized = raw.decode("utf-8").replace("\r\n", "\n").encode("utf-8")
 
-    assert on_disk == recorded, "the historical preliminary lock's bytes changed"
-    assert integrity["after"]["file_sha256"] == recorded
+    assert hashlib.sha256(normalized).hexdigest() == recorded, (
+        "the historical preliminary lock's content changed")
+    assert integrity["after"]["file_sha256_lf_normalized"] == recorded
+    assert integrity["before"]["body_hash_reproducible"] is True
     assert integrity["edited"] is False
 
 

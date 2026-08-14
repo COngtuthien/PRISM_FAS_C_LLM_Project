@@ -1,9 +1,11 @@
 {
   "schema_version": "c3-preliminary-lock-integrity-v1",
-  "generated_at_utc": "2026-08-14T04:44:04.035441Z",
+  "generated_at_utc": "2026-08-14T05:50:04.104013Z",
   "before": {
     "path": "reports/c3/C3_BANK_LOCK.json",
     "file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "file_sha256_scope": "this checkout only; line endings are platform-dependent",
+    "file_sha256_lf_normalized": "db8466aa9089db6171438aa7418f2f84468faa324ea3593df982c7cf18b0e469",
     "bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
     "body_hash_reproducible": true,
     "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
@@ -14,6 +16,8 @@
   "after": {
     "path": "reports/c3/C3_BANK_LOCK.json",
     "file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "file_sha256_scope": "this checkout only; line endings are platform-dependent",
+    "file_sha256_lf_normalized": "db8466aa9089db6171438aa7418f2f84468faa324ea3593df982c7cf18b0e469",
     "bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
     "body_hash_reproducible": true,
     "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",

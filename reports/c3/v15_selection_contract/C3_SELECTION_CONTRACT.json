@@ -2,8 +2,8 @@
   "schema_version": "c3-selection-contract-v1",
   "milestone": "C3",
   "substage": "v1.5 selection-contract freeze",
-  "generated_at_utc": "2026-08-14T04:44:03.990911Z",
-  "generator_code_commit": "a876d5ffba410a867173c7ca719618b2b48a5144",
+  "generated_at_utc": "2026-08-14T05:50:04.054967Z",
+  "generator_code_commit": "51dd4b2ce7fe3273fcb54454aa6780da43ad251c",
   "governing_clauses": [
     "7.8",
     "7.8.1",

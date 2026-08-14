@@ -2,8 +2,8 @@
   "schema_version": "c3-selector-determinism-report-v1",
   "milestone": "C3",
   "substage": "selection-contract freeze (pre-scientific)",
-  "generated_at_utc": "2026-08-14T04:44:02.343814Z",
-  "generator_code_commit": "a876d5ffba410a867173c7ca719618b2b48a5144",
+  "generated_at_utc": "2026-08-14T05:53:48.925777Z",
+  "generator_code_commit": "51dd4b2ce7fe3273fcb54454aa6780da43ad251c",
   "selection_version": "prism_c3_selection_v1",
   "governing_clauses": [
     "7.8",
@@ -24,12 +24,12 @@
   "offline_suite": {
     "command": "-m pytest tests/c3 -q --no-header -p no:cacheprovider --continue-on-collection-errors",
     "exit_code": 0,
-    "summary_line": "117 passed in 59.79s",
+    "summary_line": "117 passed in 61.73s (0:01:01)",
     "passed": 117,
     "failed": 0,
     "skipped": 0,
     "errors": 0,
-    "elapsed_seconds": 60.6,
+    "elapsed_seconds": 62.5,
     "offline": "the suite blocks sockets and deletes ambient credentials in conftest"
   },
   "probes": {
@@ -158,7 +158,7 @@
         }
       },
       "selected_set_identity": "94e8be275eaa4d3406882f9601e1e6d73b4e6109ce5c55a654fcf3c6c4b9adf3",
-      "elapsed_seconds": 52.2,
+      "elapsed_seconds": 53.0,
       "quota_table_modified": false
     }
   },
