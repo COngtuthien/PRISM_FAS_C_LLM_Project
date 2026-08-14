@@ -4,8 +4,8 @@
   "substage": "pre-live verification gate",
   "artifact_kind": "VERIFICATION_EVIDENCE",
   "not_scientific_generation_evidence": true,
-  "generated_at_utc": "2026-08-14T14:42:33.566541Z",
-  "generator_code_commit": "da50fd911222d11ca211cd317f4c0b47ccac4d4f",
+  "generated_at_utc": "2026-08-14T15:38:30.095722Z",
+  "generator_code_commit": "8763dc986861b5b11e45297863ef5bc2bff5b3c0",
   "execution_profile": "validate",
   "scientific_eligible": false,
   "scientific_status": "NOT_RUN",
@@ -21,20 +21,12 @@
   ],
   "preflight": {
     "branch": "c3-v15-selection-contract",
-    "head": "da50fd911222d11ca211cd317f4c0b47ccac4d4f",
+    "head": "8763dc986861b5b11e45297863ef5bc2bff5b3c0",
     "commit_feat": "51dd4b2ce7fe3273fcb54454aa6780da43ad251c",
     "commit_fix": "e850e998ee4387dfd47558452069eff0e848e2df",
     "commits_resolvable": true,
     "remote_tracking": "origin/c3-v15-selection-contract",
-    "worktree_dirty_paths": [
-      "M reports/c3/v15_pre_live_audit/C3_IDENTITY_REPRODUCTION.json",
-      " M reports/c3/v15_pre_live_audit/C3_PRE_LIVE_ACCEPTANCE.json",
-      " M reports/c3/v15_pre_live_audit/C3_PRE_LIVE_AUDIT.json",
-      " M reports/c3/v15_pre_live_audit/C3_PROJECT_STATE_SEMANTICS_AUDIT.json",
-      " M reports/c3/v15_pre_live_audit/C3_PROVIDER_DELTA_AUDIT.json",
-      " M reports/c3/v15_pre_live_audit/C3_REQUIRED_TEST_MAPPING.json",
-      " M reports/c3/v15_pre_live_audit/C3_SCHEDULE_AUDIT.json"
-    ],
+    "worktree_dirty_paths": [],
     "spec_path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
     "spec_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
     "spec_matches": true,
@@ -378,8 +370,8 @@
     },
     "quota_table_modified": false,
     "elapsed_seconds": {
-      "first": 51.5,
-      "second": 48.8
+      "first": 48.2,
+      "second": 48.3
     },
     "ok": true
   },
@@ -387,13 +379,13 @@
     "focused": {
       "command": "python -m pytest tests/c3 -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
       "exit_code": 0,
-      "summary_line": "156 passed in 66.88s (0:01:06)",
+      "summary_line": "156 passed in 63.11s (0:01:03)",
       "passed": 156,
       "failed": 0,
       "skipped": 0,
       "xfailed": 0,
       "errors": 0,
-      "duration_seconds": 67.6,
+      "duration_seconds": 63.8,
       "outcomes": {
         "tests/c3/test_c3_bank_contract_lock.py::test_the_lock_body_hash_is_reproducible": "PASSED",
         "tests/c3/test_c3_bank_contract_lock.py::test_the_identities_reproduce_from_live_code": "PASSED",
@@ -557,13 +549,13 @@
     "broad": {
       "command": "python -m pytest -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
       "exit_code": 1,
-      "summary_line": "7 failed, 1437 passed, 101 skipped, 1 warning in 386.22s (0:06:26)",
+      "summary_line": "7 failed, 1437 passed, 101 skipped, 1 warning in 428.89s (0:07:08)",
       "passed": 1437,
       "failed": 7,
       "skipped": 101,
       "xfailed": 0,
       "errors": 0,
-      "duration_seconds": 389.2,
+      "duration_seconds": 433.4,
       "outcomes": {
         "tests/c0/test_c0_frozen_design.py::test_exactly_three_datasets_and_no_fourth": "PASSED",
         "tests/c0/test_c0_frozen_design.py::test_siw_is_never_described_as_a_never_seen_blind_target": "PASSED",

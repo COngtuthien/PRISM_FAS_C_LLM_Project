@@ -95,7 +95,7 @@ c3:
     gate: PASS
     evidence: reports/c3/v15_pre_live_audit/
     verified_at_utc: 2026-08-14
-    verified_commit: da50fd911222d11ca211cd317f4c0b47ccac4d4f
+    verified_commit: 8763dc986861b5b11e45297863ef5bc2bff5b3c0
     verified_worktree_clean: true   # the e850e99 run stamped its parent while the new
                                     # C3 tests were still untracked; this run is clean
     requirements_mapped: 25
@@ -104,7 +104,8 @@ c3:
     provider_fingerprint: de3ba4703be8cd23c73b1d49fc7db01952f6ad81a4cb59c415f48e85d99bd273
     provider_fingerprint_scope: PROVIDER_EVIDENCE_ALLOWLIST   # 75 files; excludes this
                                                               # audit's own output
-    provider_fingerprint_identical_across_two_full_runs: true
+    provider_fingerprint_identical_across_three_full_runs: true
+    verified_preflight_worktree_dirty_paths: []
     identities_reproduced: [generation, selection, bank_contract, superseding_lock,
                             rnd_schedule, det_schedule]
     meaning: >-
