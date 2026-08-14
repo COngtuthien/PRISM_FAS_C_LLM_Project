@@ -1,0 +1,25 @@
+{
+  "schema_version": "c3-arm-schedule-contract-v1",
+  "generated_at_utc": "2026-08-14T04:44:04.033841Z",
+  "governing_clause": "7.8.5",
+  "version": "prism_c3_arm_schedule_v1",
+  "arm": "RND",
+  "slots": 384,
+  "seed": 20260812,
+  "strategy": "rule-valid random sampling over the frozen ontology, ranges and compatibility tables; every draw derived per slot from the frozen seed family",
+  "route": [
+    "physics",
+    "gpat"
+  ],
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "slot_id_pattern": "RND_SLOT_%03d",
+  "first_slot_id": "RND_SLOT_000",
+  "last_slot_id": "RND_SLOT_383",
+  "slot_id_list_sha256": "9d2753a0422922d0a6bdbfe1a42df616b0e612eb4b0beeeb9ce1a5aa58655b35",
+  "derivation": "SHA-256(version|arm|seed|slot_id|field); per-slot, order-independent",
+  "target_information_used": false,
+  "llm_output_used": false,
+  "schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+  "candidates_generated_by_this_task": 0,
+  "note": "schedule and identity only; the scientific 384-slot archive is NOT produced here"
+}

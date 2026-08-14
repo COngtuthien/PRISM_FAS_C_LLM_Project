@@ -1,0 +1,134 @@
+# PRISM-FAS-C-LLM — the frozen C3 selection contract, prism_c3_selection_v1.
+#
+# Governing clauses: v1.5 §7.8, §7.8.1, §7.8.2, §7.8.3, §7.8.4, §7.8.5, §21.3.
+#
+# These are GENERIC ONTOLOGY CONTROLS. Every category named here is a value
+# configs/recipes/ontology_m7.yaml already defines. No number below is derived
+# from CASIA, MSU, SiW-Mv2, any attack taxonomy, any target metric, any
+# Version-B target error, any detector score or any synthetic quality value.
+#
+# Identity-bearing. C3_SELECTION_CONTRACT_IDENTITY is computed over the
+# canonical JSON of this contract plus the code/schedule identities it names;
+# changing any value invalidates every selected-bank descendant (§21.3).
+
+version: "prism_c3_selection_v1"
+
+# --- candidate-pool budget, §7.8 / §7.8.1 -----------------------------------
+# Identical for every arm. No arm may receive extra candidates after the pool
+# is inspected.
+raw_candidate_slots_per_arm: 384
+minimum_eligible_pool_per_arm: 320
+final_bank_size_per_arm: 256
+arms: ["RND", "DET", "LLM"]
+
+# --- eligibility pipeline, §7.8.3, in exact governing order -----------------
+# Only UNIQUE candidates that pass every stage are eligible.
+eligibility_order:
+  - "item_schema"
+  - "ontology"
+  - "scientific_route_policy"
+  - "numeric_range"
+  - "compatibility"
+  - "canonicalization"
+  - "deduplication"
+  - "compiler"
+  - "operator_graph"
+  - "mask_policy"
+  - "conditioning_41d"
+
+# --- category ordering, frozen so the objective sums are reproducible -------
+# Taken from the ontology; restated here because the objectives iterate them.
+category_order:
+  medium: ["paper-like", "display-like", "plastic-like", "fabric-like", "reflective-film-like"]
+  geometry: ["flat", "curved", "partial-curved", "flexible", "rigid", "boundary-only"]
+  illumination: ["front", "left", "right", "top", "bottom", "mixed"]
+  artifact: ["halftone", "pixel_grid", "moire", "specular_reflection", "texture_smoothing",
+             "color_shift", "boundary_inconsistency", "blur"]
+  region: ["left_eye", "right_eye", "nose", "mouth", "forehead", "left_cheek", "right_cheek",
+           "face_boundary", "context"]
+
+# --- hard and soft coverage over the selected 256, §7.8.2 -------------------
+# Counts are recipe-occurrence counts over the selected bank.
+quotas:
+  medium:       {categories: 5, hard_min: 32, hard_max: 80, preferred_min: null}
+  geometry:     {categories: 6, hard_min: 24, hard_max: 64, preferred_min: null}
+  illumination: {categories: 6, hard_min: 24, hard_max: 64, preferred_min: null}
+  artifact:     {categories: 8, hard_min: 8,  hard_max: 128, preferred_min: 32}
+  region:       {categories: 9, hard_min: 8,  hard_max: 128, preferred_min: 24}
+
+# Single-valued axes partition the bank; multi-valued axes are membership counts.
+axis_kind:
+  medium: "single"
+  geometry: "single"
+  illumination: "single"
+  artifact: "multi"
+  region: "multi"
+
+# --- lexicographic objective, §7.8.3 ---------------------------------------
+# Exact integer arithmetic. Stages are applied strictly in order; each later
+# stage optimizes only among the previous stage's optima.
+objective_stages:
+  - stage: 1
+    name: "hard_feasibility"
+    rule: "select exactly 256 and satisfy every hard minimum/maximum in quotas.
+           If infeasible, C3 FAILS for that arm."
+  - stage: 2
+    name: "preferred_shortfall"
+    formula: "S_pref = sum_artifact max(0, 32 - count_a) + sum_region max(0, 24 - count_r)"
+    sense: "minimize"
+  - stage: 3
+    name: "single_value_balance"
+    formula: "S_single = sum_medium |5*count_m - 256| + sum_geometry |6*count_g - 256|
+              + sum_illumination |6*count_i - 256|"
+    sense: "minimize"
+  - stage: 4
+    name: "multi_label_balance"
+    formula: "A_total = total artifact occurrences in the selected bank;
+              R_total = total region occurrences in the selected bank;
+              S_multi = sum_artifact |8*count_a - A_total| + sum_region |9*count_r - R_total|"
+    sense: "minimize"
+  - stage: 5
+    name: "canonical_tie_break"
+    rule: "order eligible candidates by canonical recipe SHA-256 ascending and choose the
+           lexicographically smallest 256-element selected SHA set among all subsets tied on
+           stages 1-4. Solver traversal order, thread scheduling, input file order and
+           provider response order MUST NOT decide the final bank."
+
+# --- canonical recipe identity, §7.8.3 -------------------------------------
+canonical_recipe_identity:
+  method: "prism_fas.recipes.canonical.recipe_hash"
+  representation: "json.dumps(model_dump(mode='json'), sort_keys=True, separators=(',',':'),
+                   ensure_ascii=False) with every float rounded to 6 decimals"
+  algorithm: "SHA-256 over the canonical UTF-8 text"
+  positional_recipe_id_included: true
+  note: >-
+    recipe_id is assigned deterministically by slot position before hashing, so the
+    canonical SHA is stable for a fixed arm schedule. Duplicate detection uses the
+    content identity with recipe_id excluded (prism_fas.llm.pipeline.RecipePlanner.
+    content_identity), so renumbering cannot defeat deduplication.
+
+# --- forbidden selector inputs, §7.8.3 -------------------------------------
+# The selector reads recipe content and canonical SHA only. It has no parameter,
+# field or code path through which any of these could reach it.
+forbidden_selector_inputs:
+  - "SiW-Mv2 information of any kind"
+  - "target metadata"
+  - "target metrics"
+  - "Version-B target error analysis"
+  - "human aesthetic preference or manual ranking"
+  - "downstream detector score"
+  - "synthetic quality q"
+  - "quality-gate outcome"
+  - "provider response order"
+  - "input file order, filesystem order, thread scheduling, solver traversal order"
+
+# --- engineering engine, §7.8.3 --------------------------------------------
+solver:
+  engine: "scipy.optimize.milp (HiGHS)"
+  status: "engineering engine only; the mathematical policy above is the scientific contract"
+  exactness_rule: >-
+    every objective value and every quota count is recomputed from the selected set in pure
+    Python integer arithmetic and must equal the value the solver claimed, or selection FAILS.
+  determinism_rule: >-
+    stage 5 is executed by iterative feasibility fixing over ascending canonical SHA-256 after
+    the stage 2/3/4 optima are known, so the result does not depend on solver traversal.

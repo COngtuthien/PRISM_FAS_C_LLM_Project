@@ -1,0 +1,30 @@
+{
+  "schema_version": "c3-selection-contract-acceptance-v1",
+  "milestone": "C3",
+  "substage": "selection-contract freeze (pre-scientific)",
+  "generated_at_utc": "2026-08-14T04:44:04.085266Z",
+  "generator_code_commit": "a876d5ffba410a867173c7ca719618b2b48a5144",
+  "result": "PASS",
+  "checks": {
+    "spec_sha256_matches": true,
+    "preliminary_lock_bytes_unchanged": true,
+    "preliminary_lock_binds_no_selection_identity": true,
+    "selection_contract_identity_computed": true,
+    "bank_contract_identity_computed": true,
+    "bank_contract_formula_is_spec_formula": true,
+    "rnd_schedule_frozen": true,
+    "det_schedule_frozen": true,
+    "route_contract_exact_physics_gpat": true,
+    "c3_scientific_requests_zero": true,
+    "no_candidates_generated": true,
+    "no_recipe_bank_created": true,
+    "no_live_provider_call": true,
+    "no_gpu_or_modal": true,
+    "no_target_access": true
+  },
+  "engineering_status": "SMOKE_PASS",
+  "scientific_status": "NOT_RUN",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "note": "This substage freezes a contract. It is not C3 scientific completion."
+}

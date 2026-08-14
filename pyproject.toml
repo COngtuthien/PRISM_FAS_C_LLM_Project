@@ -25,6 +25,12 @@ prism = "prism_fas.cli.main:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    # A test that runs a scientific budget at full scale rather than scaled down.
+    # It is part of the suite and is never skipped by default; the marker only
+    # makes the cost visible and selectable.
+    "slow: runs a full-scale scientific budget (tens of seconds)",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prism_fas"]

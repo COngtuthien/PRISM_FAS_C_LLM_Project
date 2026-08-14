@@ -1,0 +1,25 @@
+{
+  "schema_version": "c3-arm-schedule-contract-v1",
+  "generated_at_utc": "2026-08-14T04:44:04.034345Z",
+  "governing_clause": "7.8.5",
+  "version": "prism_c3_arm_schedule_v1",
+  "arm": "DET",
+  "slots": 384,
+  "seed": 20260813,
+  "strategy": "deterministic structured enumeration over the frozen ontology in a fixed category order; no randomness beyond the frozen per-slot derivation",
+  "route": [
+    "physics",
+    "gpat"
+  ],
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "slot_id_pattern": "DET_SLOT_%03d",
+  "first_slot_id": "DET_SLOT_000",
+  "last_slot_id": "DET_SLOT_383",
+  "slot_id_list_sha256": "03281e1089f6c98531ccefaea4092a557bba8f18f62a826b7caadf34680af82a",
+  "derivation": "SHA-256(version|arm|seed|slot_id|field); per-slot, order-independent",
+  "target_information_used": false,
+  "llm_output_used": false,
+  "schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+  "candidates_generated_by_this_task": 0,
+  "note": "schedule and identity only; the scientific 384-slot archive is NOT produced here"
+}

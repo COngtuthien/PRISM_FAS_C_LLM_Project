@@ -2,3 +2,22 @@
 # bank's identity is a hash over its exact text, and a CRLF checkout would make
 # the committed bank differ from the bank the builder reproduces.
 assets/recipe_banks/** text eol=lf
+
+# The same rule, for the same reason, applied to every file whose RAW BYTES are
+# hashed into a frozen contract identity.
+#
+# C3_SELECTION_CONTRACT_IDENTITY binds `file_sha256` over the selector
+# implementation and its configuration (see
+# prism_fas.llm.selection_contract.IMPLEMENTATION_FILES / CONFIG_FILES). With
+# core.autocrlf=true a fresh Windows clone would rewrite these to CRLF, every
+# hash would move, and the superseding bank-contract lock would stop verifying
+# against the code it claims to freeze.
+src/prism_fas/recipes/selection.py        text eol=lf
+src/prism_fas/recipes/eligibility.py      text eol=lf
+src/prism_fas/recipes/arm_schedules.py    text eol=lf
+configs/version_c/llm/c3_selection_contract.yaml text eol=lf
+
+# C3 locks and their evidence: C3_PRELIMINARY_LOCK_INTEGRITY.json records the
+# byte-level SHA-256 of the historical preliminary lock, so that file's bytes
+# must survive a clone unchanged too.
+reports/c3/**  text eol=lf

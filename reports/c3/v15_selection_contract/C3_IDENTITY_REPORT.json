@@ -1,0 +1,21 @@
+{
+  "schema_version": "c3-identity-report-v1",
+  "generated_at_utc": "2026-08-14T04:44:04.034882Z",
+  "spec_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+  "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "c3_selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+  "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+  "bank_contract_formula": "SHA256(canonical_json({generation_contract_identity, selection_contract_identity}))",
+  "canonical_json_utility": "prism_fas.llm.bank_lock.canonical_text (json.dumps sort_keys=True separators=(',',':') ensure_ascii=False), SHA-256 over UTF-8",
+  "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "rnd_schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+  "det_schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+  "implementation_identities": {
+    "src/prism_fas/recipes/selection.py": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1",
+    "src/prism_fas/recipes/eligibility.py": "9dfa8198e920897fb906483c79c21bda1fb8ef9bdfe334c9deb3bdcc00524d5c",
+    "src/prism_fas/recipes/arm_schedules.py": "6ca22bdab34c6682ffcf7cf443e1164e09db46a5a046a2f65e7abac8f1487c8b",
+    "configs/version_c/llm/c3_selection_contract.yaml": "d8d18edc8709aa0a887dc1e5201063c934e6dc30e5eac619871672588bd50c39"
+  },
+  "invalidation_rule": "a changed generation contract invalidates the affected raw archive and all descendants; a changed selection contract invalidates selected-bank descendants even if the raw candidates are unchanged (§21.3)"
+}

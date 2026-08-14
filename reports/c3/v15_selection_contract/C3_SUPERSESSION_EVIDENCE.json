@@ -1,0 +1,36 @@
+{
+  "schema_version": "c3-supersession-evidence-v1",
+  "generated_at_utc": "2026-08-14T04:44:04.084604Z",
+  "old_lock": {
+    "path": "reports/c3/C3_BANK_LOCK.json",
+    "file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+    "body_hash_reproducible": true,
+    "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+    "binds_selection_contract_identity": false,
+    "bytes_modified_by_this_task": false,
+    "status": "IMMUTABLE HISTORICAL EVIDENCE — preserved unchanged"
+  },
+  "new_lock": {
+    "path": "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json",
+    "bank_lock_identity": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+    "status": "PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK"
+  },
+  "reason": "SELECTION_CONTRACT_WAS_REQUIRED_BY_GOVERNING_SPEC_BUT_NOT_IDENTITY_BOUND_BEFORE_C3_GENERATION",
+  "scientific_requests_before_supersession": 0,
+  "c3_scientific_request_audit": {
+    "reports_c3_contents": [
+      ".gitkeep",
+      "C3_BANK_LOCK.json",
+      "C3_BANK_LOCK_VERIFICATION.json",
+      "v15_selection_contract"
+    ],
+    "generation_shaped_artifacts": [],
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "evidence": "no raw candidate archive, selection audit, recipe bank lock or C3 acceptance artifact exists in reports/c3"
+  },
+  "old_lock_edited": false,
+  "old_lock_deleted": false,
+  "spec_clause": "7.8.4"
+}

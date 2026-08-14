@@ -35,6 +35,20 @@ def no_ambient_credential(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(scope="session")
+def ontology():
+    from prism_fas.recipes.ontology import load_ontology
+
+    return load_ontology(REPO / "configs" / "recipes" / "ontology_m7.yaml")
+
+
+@pytest.fixture(scope="session")
+def route_policy():
+    from prism_fas.llm.route_policy import load_route_policy
+
+    return load_route_policy(REPO / "configs" / "version_c" / "llm" / "c2c_route_policy.yaml")
+
+
+@pytest.fixture(scope="session")
 def context():
     """The live C2C contract context, loaded from configuration on disk."""
     from c2c_common import RouteContext

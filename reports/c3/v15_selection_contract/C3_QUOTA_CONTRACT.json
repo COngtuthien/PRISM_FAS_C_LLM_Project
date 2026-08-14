@@ -1,0 +1,92 @@
+{
+  "schema_version": "c3-quota-contract-v1",
+  "generated_at_utc": "2026-08-14T04:44:04.033382Z",
+  "governing_clause": "7.8.2",
+  "final_bank_size": 256,
+  "quotas": {
+    "medium": {
+      "hard_min": 32,
+      "hard_max": 80,
+      "preferred_min": null
+    },
+    "geometry": {
+      "hard_min": 24,
+      "hard_max": 64,
+      "preferred_min": null
+    },
+    "illumination": {
+      "hard_min": 24,
+      "hard_max": 64,
+      "preferred_min": null
+    },
+    "artifact": {
+      "hard_min": 8,
+      "hard_max": 128,
+      "preferred_min": 32
+    },
+    "region": {
+      "hard_min": 8,
+      "hard_max": 128,
+      "preferred_min": 24
+    }
+  },
+  "category_order": {
+    "medium": [
+      "paper-like",
+      "display-like",
+      "plastic-like",
+      "fabric-like",
+      "reflective-film-like"
+    ],
+    "geometry": [
+      "flat",
+      "curved",
+      "partial-curved",
+      "flexible",
+      "rigid",
+      "boundary-only"
+    ],
+    "illumination": [
+      "front",
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "mixed"
+    ],
+    "artifact": [
+      "halftone",
+      "pixel_grid",
+      "moire",
+      "specular_reflection",
+      "texture_smoothing",
+      "color_shift",
+      "boundary_inconsistency",
+      "blur"
+    ],
+    "region": [
+      "left_eye",
+      "right_eye",
+      "nose",
+      "mouth",
+      "forehead",
+      "left_cheek",
+      "right_cheek",
+      "face_boundary",
+      "context"
+    ]
+  },
+  "single_valued_axes": [
+    "medium",
+    "geometry",
+    "illumination"
+  ],
+  "multi_valued_axes": [
+    "artifact",
+    "region"
+  ],
+  "hard_constraints_mandatory": true,
+  "soft_preferred_are_objectives_only": true,
+  "dataset_derived_frequency_targets": 0,
+  "note": "recipe-occurrence counts over the selected bank; generic ontology controls"
+}

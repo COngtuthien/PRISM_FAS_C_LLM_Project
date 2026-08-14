@@ -1,0 +1,131 @@
+{
+  "bank_lock_schema_version": "c3-bank-contract-lock-v1",
+  "project": "PRISM-FAS-C-LLM",
+  "spec_version": "v1.5 FINAL",
+  "milestone": "C3",
+  "status": "PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK",
+  "purpose": "Freeze the CONTRACT under which C3 generation and selection must occur. This lock does not assert that any 384-slot raw archive or 256-recipe bank exists; no arm has been generated or selected.",
+  "generated_at_utc": "2026-08-12T08:22:31.894276Z",
+  "generator_code_commit": "a876d5ffba410a867173c7ca719618b2b48a5144",
+  "supersedes": {
+    "supersedes_bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+    "supersedes_path": "reports/c3/C3_BANK_LOCK.json",
+    "reason": "SELECTION_CONTRACT_WAS_REQUIRED_BY_GOVERNING_SPEC_BUT_NOT_IDENTITY_BOUND_BEFORE_C3_GENERATION",
+    "scientific_requests_before_supersession": 0,
+    "permitted_by": "v1.5 §7.8.4 — a preliminary immutable lock that omitted a scientifically required selection identity may be superseded only before the first affected scientific request",
+    "old_lock_bytes_preserved": true,
+    "old_lock_file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "actor": "C3 v1.5 selection-contract freeze task"
+  },
+  "spec": {
+    "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+  },
+  "contract_identities": {
+    "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+    "c3_selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+    "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+    "formula": "C3_BANK_CONTRACT_IDENTITY = SHA256(canonical_json({generation_contract_identity, selection_contract_identity}))"
+  },
+  "route_contract": {
+    "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+    "required_generator_route": [
+      "physics",
+      "gpat"
+    ],
+    "physics_only_accepted": false,
+    "gpat_only_accepted": false,
+    "silent_repair_permitted": false
+  },
+  "control_arm_schedules": {
+    "rnd_schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+    "det_schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+    "slots_per_arm": 384,
+    "llm_schedule": "12 requests x 32 recipe objects (frozen in the generation contract)"
+  },
+  "selection_contract": {
+    "version": "prism_c3_selection_v1",
+    "raw_candidate_slots_per_arm": 384,
+    "minimum_eligible_pool_per_arm": 320,
+    "final_bank_size_per_arm": 256,
+    "eligibility_order": [
+      "item_schema",
+      "ontology",
+      "scientific_route_policy",
+      "numeric_range",
+      "compatibility",
+      "canonicalization",
+      "deduplication",
+      "compiler",
+      "operator_graph",
+      "mask_policy",
+      "conditioning_41d"
+    ],
+    "quotas": {
+      "medium": {
+        "hard_min": 32,
+        "hard_max": 80,
+        "preferred_min": null
+      },
+      "geometry": {
+        "hard_min": 24,
+        "hard_max": 64,
+        "preferred_min": null
+      },
+      "illumination": {
+        "hard_min": 24,
+        "hard_max": 64,
+        "preferred_min": null
+      },
+      "artifact": {
+        "hard_min": 8,
+        "hard_max": 128,
+        "preferred_min": 32
+      },
+      "region": {
+        "hard_min": 8,
+        "hard_max": 128,
+        "preferred_min": 24
+      }
+    },
+    "objective_order": [
+      "hard_feasibility",
+      "preferred_shortfall",
+      "single_value_balance",
+      "multi_label_balance",
+      "canonical_tie_break"
+    ],
+    "stage_5_rule": "order eligible candidates by canonical recipe SHA-256 ascending and choose the lexicographically smallest 256-element selected SHA set among all subsets tied on stages 1-4",
+    "selector_implementation_identities": {
+      "src/prism_fas/recipes/selection.py": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1",
+      "src/prism_fas/recipes/eligibility.py": "9dfa8198e920897fb906483c79c21bda1fb8ef9bdfe334c9deb3bdcc00524d5c",
+      "src/prism_fas/recipes/arm_schedules.py": "6ca22bdab34c6682ffcf7cf443e1164e09db46a5a046a2f65e7abac8f1487c8b",
+      "configs/version_c/llm/c3_selection_contract.yaml": "d8d18edc8709aa0a887dc1e5201063c934e6dc30e5eac619871672588bd50c39"
+    }
+  },
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "state_at_freeze": {
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "raw_candidate_archives_created": 0,
+    "recipe_banks_selected": 0,
+    "recipe_bank_locks_created": 0,
+    "live_provider_calls_in_this_task": 0
+  },
+  "prohibitions_still_in_force": [
+    "no live C3 generation until explicitly authorized",
+    "no GPU training",
+    "no GPAT training",
+    "no synthesis",
+    "no detector training",
+    "no SiW access",
+    "no target metric",
+    "no manual recipe selection",
+    "no validator weakening"
+  ],
+  "immutability": {
+    "rewrite_permitted": false,
+    "rule": "written once; a later build producing different bytes raises rather than overwriting"
+  },
+  "bank_lock_identity": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628"
+}

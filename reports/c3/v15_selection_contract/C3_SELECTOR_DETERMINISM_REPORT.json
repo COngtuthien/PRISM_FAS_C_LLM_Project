@@ -1,0 +1,170 @@
+{
+  "schema_version": "c3-selector-determinism-report-v1",
+  "milestone": "C3",
+  "substage": "selection-contract freeze (pre-scientific)",
+  "generated_at_utc": "2026-08-14T04:44:02.343814Z",
+  "generator_code_commit": "a876d5ffba410a867173c7ca719618b2b48a5144",
+  "selection_version": "prism_c3_selection_v1",
+  "governing_clauses": [
+    "7.8",
+    "7.8.1",
+    "7.8.2",
+    "7.8.3",
+    "7.8.5"
+  ],
+  "offline_attestation": {
+    "live_provider_calls": 0,
+    "network_calls": 0,
+    "gpu_or_modal_jobs": 0,
+    "target_label_or_metric_reads": 0,
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "candidates_are": "synthetic ontology-derived fixtures"
+  },
+  "offline_suite": {
+    "command": "-m pytest tests/c3 -q --no-header -p no:cacheprovider --continue-on-collection-errors",
+    "exit_code": 0,
+    "summary_line": "117 passed in 59.79s",
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "elapsed_seconds": 60.6,
+    "offline": "the suite blocks sockets and deletes ambient credentials in conftest"
+  },
+  "probes": {
+    "repeated_run_identity": {
+      "runs": 3,
+      "selected_set_identities": [
+        "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b"
+      ],
+      "identical": true
+    },
+    "input_order_invariance": {
+      "selected_set_identities": {
+        "baseline": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "permutation_seed_1": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "permutation_seed_2": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "permutation_seed_3": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "permutation_seed_7": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "permutation_seed_11": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b",
+        "reversed": "382210259a3735acfedff4d487798b90869f5e97e4adeb0c3c1ee4841680f01b"
+      },
+      "invariant": true
+    },
+    "stage_5_canonical_tie_break": {
+      "pool": 10,
+      "bank": 4,
+      "every_subset_ties_on_stages_1_to_4": true,
+      "tied_subsets": 210,
+      "expected_smallest_shas": [
+        "2fcdf53e9f8c5168f69f9e2480782bd32a3d9dd54903077e3e4c52359acbadb2",
+        "33ff58013e14b4a10a3cfc6594c01f5790aad2fc4b055138049714db47e33f4c",
+        "58bdf7e02ef115f5f789bb8974bb6d407fd104c7be0e6bc0f279fadd1b73f659",
+        "7d1bbd3a0ecdb28424a4b6b84030c47e21a9c0e714dd17a0d978557058bd9b19"
+      ],
+      "selected_shas": [
+        "2fcdf53e9f8c5168f69f9e2480782bd32a3d9dd54903077e3e4c52359acbadb2",
+        "33ff58013e14b4a10a3cfc6594c01f5790aad2fc4b055138049714db47e33f4c",
+        "58bdf7e02ef115f5f789bb8974bb6d407fd104c7be0e6bc0f279fadd1b73f659",
+        "7d1bbd3a0ecdb28424a4b6b84030c47e21a9c0e714dd17a0d978557058bd9b19"
+      ],
+      "stage_5_returned_the_lexicographically_smallest_set": true
+    },
+    "control_arm_schedule_reproducibility": {
+      "RND": {
+        "slots": 384,
+        "unique_slot_ids": 384,
+        "seed": 20260812,
+        "schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "schedule_identity_recomputed": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "draft_digest_forward_order": "6bf34137f299d5bf17bad8ac476ba1937317e035cd51579efac8bef6a918d7f0",
+        "draft_digest_reverse_order": "6bf34137f299d5bf17bad8ac476ba1937317e035cd51579efac8bef6a918d7f0",
+        "reproducible": true,
+        "route_declared_by_every_slot": true
+      },
+      "DET": {
+        "slots": 384,
+        "unique_slot_ids": 384,
+        "seed": 20260813,
+        "schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "schedule_identity_recomputed": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "draft_digest_forward_order": "b020fb204f120c6dd06da1deca632436cb8a8a7af4f59dcda6e61814ee8b6147",
+        "draft_digest_reverse_order": "b020fb204f120c6dd06da1deca632436cb8a8a7af4f59dcda6e61814ee8b6147",
+        "reproducible": true,
+        "route_declared_by_every_slot": true
+      },
+      "schedules_are_distinct": true
+    },
+    "real_320_to_256_budget": {
+      "note": "synthetic fixtures; this bank is a harness artifact and is discarded. It is NOT a C3 scientific recipe bank.",
+      "eligible": 320,
+      "selected": 256,
+      "rejected": 64,
+      "selected_plus_rejected": 320,
+      "unique_selected": 256,
+      "hard_violations": [],
+      "objective": {
+        "S_pref": 13,
+        "S_single": 40,
+        "S_multi": 1854
+      },
+      "counts": {
+        "medium": {
+          "paper-like": 51,
+          "display-like": 51,
+          "plastic-like": 51,
+          "fabric-like": 51,
+          "reflective-film-like": 52
+        },
+        "geometry": {
+          "flat": 43,
+          "curved": 43,
+          "partial-curved": 43,
+          "flexible": 43,
+          "rigid": 42,
+          "boundary-only": 42
+        },
+        "illumination": {
+          "front": 43,
+          "left": 43,
+          "right": 42,
+          "top": 43,
+          "bottom": 43,
+          "mixed": 42
+        },
+        "artifact": {
+          "halftone": 63,
+          "pixel_grid": 19,
+          "moire": 39,
+          "specular_reflection": 32,
+          "texture_smoothing": 59,
+          "color_shift": 82,
+          "boundary_inconsistency": 102,
+          "blur": 75
+        },
+        "region": {
+          "left_eye": 45,
+          "right_eye": 54,
+          "nose": 54,
+          "mouth": 54,
+          "forehead": 53,
+          "left_cheek": 44,
+          "right_cheek": 48,
+          "face_boundary": 65,
+          "context": 69
+        }
+      },
+      "selected_set_identity": "94e8be275eaa4d3406882f9601e1e6d73b4e6109ce5c55a654fcf3c6c4b9adf3",
+      "elapsed_seconds": 52.2,
+      "quota_table_modified": false
+    }
+  },
+  "determinism_holds": true,
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "note": "Determinism evidence for the selector. Not C3 scientific completion."
+}
