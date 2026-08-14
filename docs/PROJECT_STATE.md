@@ -31,8 +31,28 @@ current_milestone: C3
 current_substage: selection-contract freeze (pre-scientific) — COMPLETE
 execution_profile: validate
 pipeline_phase: preflight
+
+# SCOPE WARNING. `engineering_status` below describes ONLY the current substage —
+# the C3 selection/bank contract and its offline test suite. It says nothing about
+# the v1.5 execution layer, which does not exist yet (see `execution_pipeline`).
+# It must never be read as "the validate/smoke/full pipeline has been run".
+engineering_status_scope: c3_selection_contract_substage
 engineering_status: SMOKE_PASS      # contract + selector frozen and tested offline
 scientific_status: NOT_RUN          # no C3 scientific generation has occurred
+
+# Machine-readable so no parser can infer these exist. Previously this fact lived
+# only in YAML comments beside real-looking paths, which a parser strips.
+execution_pipeline:
+  validate: NOT_IMPLEMENTED
+  smoke: NOT_IMPLEMENTED
+  full: NOT_IMPLEMENTED
+  orchestrator_exists: false
+  pipeline_state_exists: false
+  master_run_index_exists: false
+  c0_to_c13_pipeline_ever_run: false
+  note: >-
+    No profile has ever been executed end to end. The only thing that has passed is
+    the offline C3 contract suite.
 
 historical_milestones:
   C0: ACCEPTED_WITH_DOCUMENTED_DEVIATION   # froze against v1.1; v1.5 execution layer is new scope
@@ -71,6 +91,20 @@ c3:
   recipe_banks_selected: 0
   status: CONTRACT_FROZEN_AWAITING_USER_APPROVAL_BEFORE_SCIENTIFIC_GENERATION
 
+  pre_live_audit:
+    gate: PASS
+    evidence: reports/c3/v15_pre_live_audit/
+    verified_at_utc: 2026-08-14
+    verified_commit: e850e998ee4387dfd47558452069eff0e848e2df
+    requirements_mapped: 25
+    requirements_passing: 25
+    provider_call_delta: 0
+    identities_reproduced: [generation, selection, bank_contract, superseding_lock,
+                            rnd_schedule, det_schedule]
+    meaning: >-
+      Verification evidence only. PASS means the frozen contract is ready for USER REVIEW.
+      It does NOT authorize live Gemini generation.
+
   selection_contract_summary:
     version: prism_c3_selection_v1
     raw_candidate_slots_per_arm: 384          # 12 logical requests x exactly 32 objects
@@ -83,11 +117,13 @@ c3:
 
 execution:
   current_profile: validate
-  engineering_status: NOT_TESTED
+  engineering_status: NOT_TESTED   # the EXECUTION LAYER, not the C3 contract substage
   scientific_status: NOT_RUN
-  pipeline_state: state/PIPELINE_STATE.json      # NOT_CREATED
-  master_run_index: state/MASTER_RUN_INDEX.json  # NOT_CREATED
-  orchestrator: train.py                          # NOT_CREATED
+  # Planned paths. `*_exists: false` is the authoritative fact; the path is only where
+  # the artifact WILL live. Nothing here has been created.
+  pipeline_state: {planned_path: state/PIPELINE_STATE.json, exists: false}
+  master_run_index: {planned_path: state/MASTER_RUN_INDEX.json, exists: false}
+  orchestrator: {planned_path: train.py, exists: false}
 
 source_search:
   active: false
@@ -160,8 +196,9 @@ blockers:
     the manual AI Studio step recorded in reports/c3/C3_BANK_LOCK.json is still outstanding.
 
 next_authorized_action: >
-  Review and approve the v1.5 C3 superseding bank-contract lock before any live 12x32 C3
-  scientific generation.
+  USER REVIEW of the C3 pre-live audit (reports/c3/v15_pre_live_audit/) and the superseding
+  bank-contract lock, before any live Gemini 12x32 C3 scientific generation. The pre-live
+  audit gate is verification evidence only; it does not authorize generation.
 
 last_updated_utc: 2026-08-14
 ```

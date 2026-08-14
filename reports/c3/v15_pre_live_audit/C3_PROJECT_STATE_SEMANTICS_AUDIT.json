@@ -1,0 +1,60 @@
+{
+  "schema_version": "c3-project-state-semantics-audit-v1",
+  "milestone": "C3",
+  "substage": "pre-live verification gate",
+  "artifact_kind": "VERIFICATION_EVIDENCE",
+  "not_scientific_generation_evidence": true,
+  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
+  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "project_state": {
+    "method": "the YAML block is PARSED and only parsed values are treated as evidence; a qualifier that exists only in a YAML comment is stripped by every consumer and therefore proves nothing",
+    "top_level_engineering_status": "SMOKE_PASS",
+    "top_level_engineering_status_scope": "c3_selection_contract_substage",
+    "engineering_status_scope_declared": true,
+    "top_level_scientific_status": "NOT_RUN",
+    "current_substage": "selection-contract freeze (pre-scientific) — COMPLETE",
+    "execution_block": {
+      "current_profile": "validate",
+      "engineering_status": "NOT_TESTED",
+      "scientific_status": "NOT_RUN",
+      "pipeline_state": {
+        "planned_path": "state/PIPELINE_STATE.json",
+        "exists": false
+      },
+      "master_run_index": {
+        "planned_path": "state/MASTER_RUN_INDEX.json",
+        "exists": false
+      },
+      "orchestrator": {
+        "planned_path": "train.py",
+        "exists": false
+      }
+    },
+    "execution_pipeline_block": {
+      "validate": "NOT_IMPLEMENTED",
+      "smoke": "NOT_IMPLEMENTED",
+      "full": "NOT_IMPLEMENTED",
+      "orchestrator_exists": false,
+      "pipeline_state_exists": false,
+      "master_run_index_exists": false,
+      "c0_to_c13_pipeline_ever_run": false,
+      "note": "No profile has ever been executed end to end. The only thing that has passed is the offline C3 contract suite."
+    },
+    "profiles_marked_unimplemented": true,
+    "orchestrator_marked_absent": true,
+    "pipeline_state_marked_absent": true,
+    "blockers_state_execution_layer_absent": true,
+    "c3_scientific_generation": "NOT_RUN",
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "next_authorized_action": "USER REVIEW of the C3 pre-live audit (reports/c3/v15_pre_live_audit/) and the superseding bank-contract lock, before any live Gemini 12x32 C3 scientific generation. The pre-live audit gate is verification evidence only; it does not authorize generation.",
+    "ambiguities": [],
+    "unambiguous": true,
+    "falsely_claims_pipeline_completion": false,
+    "scientific_status_is_not_run": true,
+    "counters_are_zero": true
+  }
+}

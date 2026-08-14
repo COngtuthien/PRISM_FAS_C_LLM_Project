@@ -1,0 +1,55 @@
+{
+  "schema_version": "c3-provider-delta-audit-v1",
+  "milestone": "C3",
+  "substage": "pre-live verification gate",
+  "artifact_kind": "VERIFICATION_EVIDENCE",
+  "not_scientific_generation_evidence": true,
+  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
+  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "provider_delta": {
+    "before": {
+      "artifact_count": 120,
+      "fingerprint_sha256": "6d0926719e4046785e71b54dd93a19af25ed8385966d441493f91cb141bcf5d8",
+      "archived_provider_records_by_milestone": {
+        "reports/c2/C2_PILOT_RAW_ARCHIVE.json": 42,
+        "reports/c2/C2_SMOKE_RAW_ARCHIVE.json": 2,
+        "reports/c2b/C2B_RAW_ARCHIVE.json": 1,
+        "reports/c2c/C2C_RAW_ARCHIVE.json": 1
+      },
+      "archived_provider_records_total": 46,
+      "c3_generation_shaped_artifacts": []
+    },
+    "after": {
+      "artifact_count": 120,
+      "fingerprint_sha256": "6d0926719e4046785e71b54dd93a19af25ed8385966d441493f91cb141bcf5d8",
+      "archived_provider_records_by_milestone": {
+        "reports/c2/C2_PILOT_RAW_ARCHIVE.json": 42,
+        "reports/c2/C2_SMOKE_RAW_ARCHIVE.json": 2,
+        "reports/c2b/C2B_RAW_ARCHIVE.json": 1,
+        "reports/c2c/C2C_RAW_ARCHIVE.json": 1
+      },
+      "archived_provider_records_total": 46,
+      "c3_generation_shaped_artifacts": []
+    },
+    "fingerprint_unchanged": true,
+    "archived_records_before": 46,
+    "archived_records_after": 46,
+    "delta": 0,
+    "c3_scientific_logical_requests": 0,
+    "c3_scientific_candidate_slots": 0,
+    "c3_generation_shaped_artifacts": [],
+    "disposable_pilot_calls_are_not_c3": {
+      "c1": 0,
+      "c2_smoke": 2,
+      "c2_pilot": 42,
+      "c2b": 1,
+      "c2c": 1,
+      "c3_scientific": 0,
+      "note": "C1/C2/C2B/C2C calls were disposable or diagnostic; none produced a recipe that enters C3, and the archives record that explicitly"
+    },
+    "new_live_provider_requests_caused_by_contract_or_audit_tasks": 0
+  }
+}

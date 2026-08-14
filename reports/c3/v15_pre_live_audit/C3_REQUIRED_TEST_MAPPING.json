@@ -1,0 +1,804 @@
+{
+  "schema_version": "c3-required-test-mapping-v1",
+  "milestone": "C3",
+  "substage": "pre-live verification gate",
+  "artifact_kind": "VERIFICATION_EVIDENCE",
+  "not_scientific_generation_evidence": true,
+  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
+  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "mapping": {
+    "method": "each obligation is bound to explicit pytest node IDs; a requirement is PASS only when every bound node ID was actually collected AND reported PASSED in the recorded run. Existence of a similarly named file is not evidence.",
+    "requirements": [
+      {
+        "requirement_number": "01",
+        "requirement": "exact 384 candidate slots",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_each_control_arm_has_exactly_384_canonical_slot_ids[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_each_control_arm_has_exactly_384_canonical_slot_ids[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_each_control_arm_has_exactly_384_canonical_slot_ids[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_each_control_arm_has_exactly_384_canonical_slot_ids[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_frozen_cardinalities_are_the_spec_values",
+            "node_id": "tests/c3/test_c3_selection.py::test_frozen_cardinalities_are_the_spec_values",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_the_slot_budget_cannot_be_topped_up",
+            "node_id": "tests/c3/test_c3_selection.py::test_the_slot_budget_cannot_be_topped_up",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 4,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "02",
+        "requirement": "a pool below 320 eligible fails closed",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_a_pool_below_the_minimum_fails_closed",
+            "node_id": "tests/c3/test_c3_selection.py::test_a_pool_below_the_minimum_fails_closed",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_pool_below_minimum_is_reported",
+            "node_id": "tests/c3/test_c3_selection.py::test_pool_below_minimum_is_reported",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 2,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "03",
+        "requirement": "exactly 320 may proceed when feasible",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_exactly_the_minimum_pool_is_permitted_to_proceed",
+            "node_id": "tests/c3/test_c3_selection.py::test_exactly_the_minimum_pool_is_permitted_to_proceed",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_real_320_to_256_budget_selects_exactly_256",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_real_320_to_256_budget_selects_exactly_256",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 2,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "04",
+        "requirement": "final selected cardinality exactly 256",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_real_320_to_256_budget_selects_exactly_256",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_real_320_to_256_budget_selects_exactly_256",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_selected_cardinality_is_exact",
+            "node_id": "tests/c3/test_c3_selection.py::test_selected_cardinality_is_exact",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_frozen_cardinalities_are_the_spec_values",
+            "node_id": "tests/c3/test_c3_selection.py::test_frozen_cardinalities_are_the_spec_values",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "05",
+        "requirement": "every hard quota holds",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_the_frozen_quota_table_matches_the_spec",
+            "node_id": "tests/c3/test_c3_selection.py::test_the_frozen_quota_table_matches_the_spec",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_every_hard_quota_holds_in_the_selected_bank",
+            "node_id": "tests/c3/test_c3_selection.py::test_every_hard_quota_holds_in_the_selected_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_an_infeasible_hard_quota_fails_rather_than_relaxing",
+            "node_id": "tests/c3/test_c3_selection.py::test_an_infeasible_hard_quota_fails_rather_than_relaxing",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_real_320_to_256_budget_selects_exactly_256",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_real_320_to_256_budget_selects_exactly_256",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 4,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "06",
+        "requirement": "preferred objective S_pref",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_s_pref_is_exact_integer_arithmetic",
+            "node_id": "tests/c3/test_c3_selection.py::test_s_pref_is_exact_integer_arithmetic",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_selector_returns_the_exact_lexicographic_optimum[bf0-8-3]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_selector_returns_the_exact_lexicographic_optimum[bf0-8-3]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_selector_returns_the_exact_lexicographic_optimum[bf1-9-4]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_selector_returns_the_exact_lexicographic_optimum[bf1-9-4]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "07",
+        "requirement": "S_single arithmetic",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_s_single_is_exact_integer_arithmetic",
+            "node_id": "tests/c3/test_c3_selection.py::test_s_single_is_exact_integer_arithmetic",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_objective_values_are_recomputed_from_the_selected_set",
+            "node_id": "tests/c3/test_c3_selection.py::test_objective_values_are_recomputed_from_the_selected_set",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_selector_returns_the_exact_lexicographic_optimum[bf2-10-4]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_selector_returns_the_exact_lexicographic_optimum[bf2-10-4]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "08",
+        "requirement": "S_multi arithmetic",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_s_multi_is_exact_integer_arithmetic",
+            "node_id": "tests/c3/test_c3_selection.py::test_s_multi_is_exact_integer_arithmetic",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_selector_returns_the_exact_lexicographic_optimum[bf3-11-5]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_selector_returns_the_exact_lexicographic_optimum[bf3-11-5]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 2,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "09",
+        "requirement": "canonical stage-5 tie-break",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_stage_5_returns_the_lexicographically_smallest_tied_set[bf0-8-3]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_stage_5_returns_the_lexicographically_smallest_tied_set[bf0-8-3]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_stage_5_returns_the_lexicographically_smallest_tied_set[bf1-9-4]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_stage_5_returns_the_lexicographically_smallest_tied_set[bf1-9-4]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_stage_5_returns_the_lexicographically_smallest_tied_set[bf2-10-4]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_stage_5_returns_the_lexicographically_smallest_tied_set[bf2-10-4]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_stage_5_returns_the_lexicographically_smallest_tied_set[bf3-11-5]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_stage_5_returns_the_lexicographically_smallest_tied_set[bf3-11-5]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_stage_5_decides_alone_when_every_subset_ties",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_stage_5_decides_alone_when_every_subset_ties",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_the_selected_set_is_the_lexicographically_smallest_tied_set",
+            "node_id": "tests/c3/test_c3_selection.py::test_the_selected_set_is_the_lexicographically_smallest_tied_set",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 6,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "10",
+        "requirement": "input permutation invariance",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_input_permutation_does_not_change_the_bank",
+            "node_id": "tests/c3/test_c3_selection.py::test_input_permutation_does_not_change_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_reversed_input_does_not_change_the_bank",
+            "node_id": "tests/c3/test_c3_selection.py::test_reversed_input_does_not_change_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_tie_case_is_immune_to_input_order",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_tie_case_is_immune_to_input_order",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "11",
+        "requirement": "repeated-run identity",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_repeated_runs_are_identical",
+            "node_id": "tests/c3/test_c3_selection.py::test_repeated_runs_are_identical",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 1,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "12",
+        "requirement": "filesystem-order invariance",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_filesystem_listing_order_does_not_change_the_bank",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_filesystem_listing_order_does_not_change_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 1,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "13",
+        "requirement": "solver-order invariance",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_solver_traversal_order_cannot_decide_the_bank",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_solver_traversal_order_cannot_decide_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_candidates_are_ordered_by_canonical_sha_not_by_input_order",
+            "node_id": "tests/c3/test_c3_selection.py::test_candidates_are_ordered_by_canonical_sha_not_by_input_order",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 2,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "14",
+        "requirement": "exact-route rejection",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_route_invalid_candidates_are_excluded_before_the_compiler",
+            "node_id": "tests/c3/test_c3_selection.py::test_route_invalid_candidates_are_excluded_before_the_compiler",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_drafted_candidates_declare_the_scientific_route[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_drafted_candidates_declare_the_scientific_route[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_drafted_candidates_declare_the_scientific_route[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_drafted_candidates_declare_the_scientific_route[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_bank_lock.py",
+            "test_function": "test_the_lock_freezes_the_route_contract",
+            "node_id": "tests/c3/test_c3_bank_lock.py::test_the_lock_freezes_the_route_contract",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 4,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "15",
+        "requirement": "duplicate handling",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_duplicates_are_excluded_at_the_deduplication_stage",
+            "node_id": "tests/c3/test_c3_selection.py::test_duplicates_are_excluded_at_the_deduplication_stage",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 1,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "16",
+        "requirement": "compiler-invalid exclusion",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_an_uncompilable_candidate_is_excluded",
+            "node_id": "tests/c3/test_c3_selection.py::test_an_uncompilable_candidate_is_excluded",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 1,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "17",
+        "requirement": "target-field independence",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_one_forbidden_field_at_a_time_cannot_move_the_bank[siw_mv2_attack_family-print]",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_one_forbidden_field_at_a_time_cannot_move_the_bank[siw_mv2_attack_family-print]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_one_forbidden_field_at_a_time_cannot_move_the_bank[target_acer-0.0731]",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_one_forbidden_field_at_a_time_cannot_move_the_bank[target_acer-0.0731]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_selection_ignores_target_quality_and_score_fields",
+            "node_id": "tests/c3/test_c3_selection.py::test_selection_ignores_target_quality_and_score_fields",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_schedules_carry_no_target_or_llm_dependency[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_schedules_carry_no_target_or_llm_dependency[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_schedules_carry_no_target_or_llm_dependency[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_schedules_carry_no_target_or_llm_dependency[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 6,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "18",
+        "requirement": "synthetic quality q independence",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_one_forbidden_field_at_a_time_cannot_move_the_bank[synthetic_quality_q-0.421]",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_one_forbidden_field_at_a_time_cannot_move_the_bank[synthetic_quality_q-0.421]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_one_forbidden_field_at_a_time_cannot_move_the_bank[q-0.421]",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_one_forbidden_field_at_a_time_cannot_move_the_bank[q-0.421]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "19",
+        "requirement": "downstream detector-score independence",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_one_forbidden_field_at_a_time_cannot_move_the_bank[detector_score-0.8817]",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_one_forbidden_field_at_a_time_cannot_move_the_bank[detector_score-0.8817]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_a_forbidden_value_correlated_with_quality_cannot_bias_selection",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_a_forbidden_value_correlated_with_quality_cannot_bias_selection",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_forbidden_inputs.py",
+            "test_function": "test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "node_id": "tests/c3/test_c3_forbidden_inputs.py::test_every_forbidden_field_at_once_cannot_move_the_bank",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "20",
+        "requirement": "31/33 batch failure preserved",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_a_c3_batch_that_is_not_exactly_32_still_fails_closed[31]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_a_c3_batch_that_is_not_exactly_32_still_fails_closed[31]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_a_c3_batch_that_is_not_exactly_32_still_fails_closed[33]",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_a_c3_batch_that_is_not_exactly_32_still_fails_closed[33]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c2b/test_c2b_batch_envelope.py",
+            "test_function": "test_a_batch_that_is_not_exactly_32_is_rejected[31]",
+            "node_id": "tests/c2b/test_c2b_batch_envelope.py::test_a_batch_that_is_not_exactly_32_is_rejected[31]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c2b/test_c2b_batch_envelope.py",
+            "test_function": "test_a_batch_that_is_not_exactly_32_is_rejected[33]",
+            "node_id": "tests/c2b/test_c2b_batch_envelope.py::test_a_batch_that_is_not_exactly_32_is_rejected[33]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 4,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "21",
+        "requirement": "no silent truncation or padding",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_no_silent_truncation_or_padding",
+            "node_id": "tests/c3/test_c3_selection.py::test_no_silent_truncation_or_padding",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection.py",
+            "test_function": "test_a_missing_slot_is_a_rejection_not_an_omission",
+            "node_id": "tests/c3/test_c3_selection.py::test_a_missing_slot_is_a_rejection_not_an_omission",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_selection_optimality.py",
+            "test_function": "test_the_real_320_to_256_budget_selects_exactly_256",
+            "node_id": "tests/c3/test_c3_selection_optimality.py::test_the_real_320_to_256_budget_selects_exactly_256",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "22",
+        "requirement": "RND reproducibility",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_schedule_identity_is_reproducible[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_schedule_identity_is_reproducible[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_candidate_drafting_is_per_slot_deterministic[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_candidate_drafting_is_per_slot_deterministic[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_drafted_candidates_pass_the_common_eligibility_gate[RND]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_drafted_candidates_pass_the_common_eligibility_gate[RND]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "23",
+        "requirement": "DET reproducibility",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_schedule_identity_is_reproducible[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_schedule_identity_is_reproducible[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_candidate_drafting_is_per_slot_deterministic[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_candidate_drafting_is_per_slot_deterministic[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_drafted_candidates_pass_the_common_eligibility_gate[DET]",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_drafted_candidates_pass_the_common_eligibility_gate[DET]",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "24",
+        "requirement": "old preliminary lock integrity",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_bank_contract_lock.py",
+            "test_function": "test_the_historical_preliminary_lock_is_byte_identical",
+            "node_id": "tests/c3/test_c3_bank_contract_lock.py::test_the_historical_preliminary_lock_is_byte_identical",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_the_preliminary_lock_bytes_are_unchanged",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_the_preliminary_lock_bytes_are_unchanged",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_the_preliminary_lock_still_binds_no_selection_identity",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_the_preliminary_lock_still_binds_no_selection_identity",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 3,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      },
+      {
+        "requirement_number": "25",
+        "requirement": "zero live Gemini calls",
+        "tests": [
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_the_ambient_credential_is_removed",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_the_ambient_credential_is_removed",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_importing_the_c3_selection_path_loads_no_provider_sdk",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_importing_the_c3_selection_path_loads_no_provider_sdk",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_selection_and_schedule_modules_import_no_provider",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_selection_and_schedule_modules_import_no_provider",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_schedules_and_identity.py",
+            "test_function": "test_no_c3_scientific_generation_artifact_exists",
+            "node_id": "tests/c3/test_c3_schedules_and_identity.py::test_no_c3_scientific_generation_artifact_exists",
+            "executed": true,
+            "outcome": "PASSED"
+          },
+          {
+            "test_file": "tests/c3/test_c3_bank_lock.py",
+            "test_function": "test_no_c3_scientific_request_has_been_made",
+            "node_id": "tests/c3/test_c3_bank_lock.py::test_no_c3_scientific_request_has_been_made",
+            "executed": true,
+            "outcome": "PASSED"
+          }
+        ],
+        "test_count": 5,
+        "status": "PASS",
+        "evidence": "every listed node id was collected and reported PASSED in the recorded run"
+      }
+    ],
+    "total": 25,
+    "passing": 25,
+    "failing": [],
+    "all_pass": true
+  },
+  "focused_run": {
+    "command": "python -m pytest tests/c3 -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
+    "exit_code": 0,
+    "summary_line": "137 passed in 69.19s (0:01:09)",
+    "passed": 137,
+    "failed": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "errors": 0,
+    "duration_seconds": 70.0,
+    "failed_node_ids": []
+  },
+  "broad_run": {
+    "command": "python -m pytest -q --no-header -p no:cacheprovider -rA --tb=short --continue-on-collection-errors",
+    "exit_code": 1,
+    "summary_line": "7 failed, 1418 passed, 101 skipped, 1 warning in 392.07s (0:06:32)",
+    "passed": 1418,
+    "failed": 7,
+    "skipped": 101,
+    "xfailed": 0,
+    "errors": 0,
+    "duration_seconds": 396.1,
+    "failed_node_ids": [
+      "tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass",
+      "tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract",
+      "tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive",
+      "tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes",
+      "tests/test_m2_validation.py::test_status_reports_expected_counts",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields",
+      "tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed"
+    ]
+  },
+  "path_note": "§13 of the audit brief suggested reports/c3/v15_selection_contract/. It is written here instead, in the audit namespace §20 defines, so that the frozen selection-contract freeze evidence is not extended after the fact."
+}

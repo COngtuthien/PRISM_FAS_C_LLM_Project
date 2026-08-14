@@ -1,0 +1,127 @@
+{
+  "schema_version": "c3-identity-reproduction-v1",
+  "milestone": "C3",
+  "substage": "pre-live verification gate",
+  "artifact_kind": "VERIFICATION_EVIDENCE",
+  "not_scientific_generation_evidence": true,
+  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
+  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "identities": {
+    "method": "each identity recomputed both by the repository canonical utility and by an independent plain json.dumps+hashlib reimplementation; all witnesses must agree with the stored value",
+    "generation_contract_identity": {
+      "stored_in_preliminary_lock": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+      "expected": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+      "recomputed_from_components": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+      "recomputed_from_recorded_canonical_text": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+      "bound_in_superseding_lock": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+      "reproduces": true
+    },
+    "selection_contract_identity": {
+      "stored": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "expected": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "rebuilt_via_repo_utility": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "rebuilt_via_independent_json_sha256": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "stored_canonical_text_rehashes_to": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "rebuilt_material_equals_stored_material": true,
+      "reproduces": true
+    },
+    "bank_contract_identity": {
+      "formula": "SHA256(canonical_json({generation_contract_identity, selection_contract_identity}))",
+      "stored": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "expected": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "recomputed_independently": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "recomputed_via_repo_utility": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "bound_in_superseding_lock": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "canonical_text": "{\"generation_contract_identity\":\"884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85\",\"selection_contract_identity\":\"3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070\"}",
+      "reproduces": true
+    },
+    "superseding_lock_identity": {
+      "stored": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+      "expected": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+      "recomputed_via_repo_utility": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+      "recomputed_independently": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+      "reproduces": true
+    },
+    "end_to_end_assemble": {
+      "selection": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+      "bank": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+      "agrees": true
+    },
+    "identity_report_on_disk_agrees": true,
+    "all_reproduce": true,
+    "new_identity_created_by_this_audit": false,
+    "lock_rewritten_by_this_audit": false
+  },
+  "preliminary_lock": {
+    "path": "reports/c3/C3_BANK_LOCK.json",
+    "exists": true,
+    "representations": {
+      "note": "the file predates this repository's .gitattributes rules, so Git materializes it with platform line endings. The three hashes below are DIFFERENT representations of identical content and are reported separately rather than being claimed equal.",
+      "worktree_bytes_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+      "worktree_line_ending": "CRLF",
+      "lf_normalized_sha256": "db8466aa9089db6171438aa7418f2f84468faa324ea3593df982c7cf18b0e469",
+      "git_blob_content_sha256": "db8466aa9089db6171438aa7418f2f84468faa324ea3593df982c7cf18b0e469",
+      "git_blob_object_id": "e906034b2503199c36380e22cb6cf2dc67689b0a",
+      "lf_normalized_equals_git_blob": true
+    },
+    "canonical_body_identity": {
+      "recomputed": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+      "expected": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+      "recorded_in_file": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+      "reproduces": true,
+      "note": "computed over parsed JSON, so it is independent of line endings and formatting entirely. This is the authoritative immutability proof."
+    },
+    "commits_touching_this_file": [
+      "50514cef4b1105bfaf6b3a97c44d1e25588c6448"
+    ],
+    "contract_task_commits_that_touched_it": [],
+    "modified_by_contract_task": false,
+    "still_binds_no_selection_identity": true,
+    "modified_by_this_audit": false
+  },
+  "superseding_lock": {
+    "path": "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json",
+    "status": "PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK",
+    "status_correct": true,
+    "supersedes_bank_lock_identity": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+    "supersedes_correct": true,
+    "reason": "SELECTION_CONTRACT_WAS_REQUIRED_BY_GOVERNING_SPEC_BUT_NOT_IDENTITY_BOUND_BEFORE_C3_GENERATION",
+    "reason_correct": true,
+    "scientific_requests_before_supersession": 0,
+    "scientific_requests_zero": true,
+    "binds_required_elements": {
+      "generation_contract_identity": true,
+      "selection_contract_identity": true,
+      "bank_contract_identity": true,
+      "spec_identity": true,
+      "route_policy_identity": true,
+      "rnd_schedule_identity": true,
+      "det_schedule_identity": true,
+      "selector_implementation_identities": true,
+      "provenance": true
+    },
+    "binds_all_required": true,
+    "does_not_claim_generation_happened": {
+      "rnd_384_archive_exists": true,
+      "det_384_archive_exists": true,
+      "llm_384_archive_exists": true,
+      "final_256_bank_exists": true,
+      "recipe_bank_lock_exists": true,
+      "no_selected_shas_in_lock": true,
+      "no_recipes_key": true,
+      "schema_is_not_a_recipe_bank_lock": true
+    },
+    "no_false_completion_claim": true,
+    "state_at_freeze": {
+      "c3_scientific_logical_requests": 0,
+      "c3_scientific_candidate_slots": 0,
+      "raw_candidate_archives_created": 0,
+      "recipe_banks_selected": 0,
+      "recipe_bank_locks_created": 0,
+      "live_provider_calls_in_this_task": 0
+    }
+  }
+}

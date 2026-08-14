@@ -1,0 +1,113 @@
+{
+  "schema_version": "c3-schedule-audit-v1",
+  "milestone": "C3",
+  "substage": "pre-live verification gate",
+  "artifact_kind": "VERIFICATION_EVIDENCE",
+  "not_scientific_generation_evidence": true,
+  "generated_at_utc": "2026-08-14T07:13:12.253198Z",
+  "generator_code_commit": "e850e998ee4387dfd47558452069eff0e848e2df",
+  "execution_profile": "validate",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "governing_clause": "7.8.5",
+  "schedules": {
+    "RND": {
+      "schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+      "identity_stable_across_two_fresh_interpreters": true,
+      "fresh_run_1": {
+        "identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "slots": 384,
+        "manifest": "6bf34137f299d5bf17bad8ac476ba1937317e035cd51579efac8bef6a918d7f0",
+        "unique_slots": 384,
+        "route_ok": true
+      },
+      "fresh_run_2": {
+        "identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "slots": 384,
+        "manifest": "6bf34137f299d5bf17bad8ac476ba1937317e035cd51579efac8bef6a918d7f0",
+        "unique_slots": 384,
+        "route_ok": true
+      },
+      "manifest_identical_across_fresh_runs": true,
+      "exactly_384_slots": true,
+      "frozen_seed": 20260812,
+      "seed_family_source": "prism_fas.recipes.arm_schedules.SEED_FAMILY",
+      "route_declared_by_every_slot": true,
+      "shares_ontology_with_llm_arm": true,
+      "target_independent": true,
+      "llm_result_independent": true,
+      "source_independent": "the seed family and per-slot derivation are constants; no dataset, source-domain statistic or measured result enters the schedule",
+      "details": {
+        "identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "seed": 20260812,
+        "slots": 384,
+        "slot_id_count": 384,
+        "unique_slot_ids": 384,
+        "first_slot_id": "RND_SLOT_000",
+        "last_slot_id": "RND_SLOT_383",
+        "route": [
+          "physics",
+          "gpat"
+        ],
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "target_information_used": false,
+        "llm_output_used": false,
+        "derivation": "SHA-256(version|arm|seed|slot_id|field); per-slot, order-independent"
+      },
+      "reproducible": true
+    },
+    "DET": {
+      "schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+      "identity_stable_across_two_fresh_interpreters": true,
+      "fresh_run_1": {
+        "identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "slots": 384,
+        "manifest": "b020fb204f120c6dd06da1deca632436cb8a8a7af4f59dcda6e61814ee8b6147",
+        "unique_slots": 384,
+        "route_ok": true
+      },
+      "fresh_run_2": {
+        "identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "slots": 384,
+        "manifest": "b020fb204f120c6dd06da1deca632436cb8a8a7af4f59dcda6e61814ee8b6147",
+        "unique_slots": 384,
+        "route_ok": true
+      },
+      "manifest_identical_across_fresh_runs": true,
+      "exactly_384_slots": true,
+      "frozen_seed": 20260813,
+      "seed_family_source": "prism_fas.recipes.arm_schedules.SEED_FAMILY",
+      "route_declared_by_every_slot": true,
+      "shares_ontology_with_llm_arm": true,
+      "target_independent": true,
+      "llm_result_independent": true,
+      "source_independent": "the seed family and per-slot derivation are constants; no dataset, source-domain statistic or measured result enters the schedule",
+      "details": {
+        "identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "seed": 20260813,
+        "slots": 384,
+        "slot_id_count": 384,
+        "unique_slot_ids": 384,
+        "first_slot_id": "DET_SLOT_000",
+        "last_slot_id": "DET_SLOT_383",
+        "route": [
+          "physics",
+          "gpat"
+        ],
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "target_information_used": false,
+        "llm_output_used": false,
+        "derivation": "SHA-256(version|arm|seed|slot_id|field); per-slot, order-independent"
+      },
+      "reproducible": true
+    },
+    "schedules_are_distinct": true,
+    "strategies": {
+      "RND": "rule-valid random sampling, per-slot derived from the frozen seed family",
+      "DET": "deterministic structured enumeration over the ontology in fixed order"
+    },
+    "scientific_archive_created_by_this_audit": 0
+  },
+  "rnd_schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+  "det_schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2"
+}
