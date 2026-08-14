@@ -67,11 +67,64 @@ EXPECTED = {
     "version_b_head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
 }
 
-#: Every artifact that records a live provider request. The audit fingerprints
-#: these before and after running tests; the delta must be zero.
-PROVIDER_EVIDENCE = (
-    "reports/c1", "reports/c2", "reports/c2b", "reports/c2c", "reports/c3",
+#: This audit's own output directory. It is NEVER provider evidence.
+#:
+#: The fingerprint used to cover `reports/c1`..`reports/c3` wholesale. Because the
+#: audit writes into `reports/c3/v15_pre_live_audit/`, every run hashed the previous
+#: run's own artifacts, so the fingerprint changed between runs even though no
+#: provider call had occurred — a self-reference that made the number useless for
+#: comparing runs and easy to misread as evidence of provider activity.
+AUDIT_OUTPUT_DIR = "reports/c3/v15_pre_live_audit"
+
+#: Directories whose entire contents are raw provider payloads.
+PROVIDER_EVIDENCE_DIRS = (
+    "reports/c2/raw_responses",
+    "reports/c2b/raw_responses",
+    "reports/c2c/raw_responses",
+    "reports/c3/raw_responses",      # created by C3 generation; absent today
 )
+
+#: Individual artifacts that record a live provider request, its provenance, or
+#: its rate-limit/retry accounting. An explicit allowlist, so a newly added report
+#: cannot silently widen the fingerprint.
+PROVIDER_EVIDENCE_FILES = (
+    "reports/c1/C1_PROVIDER_AUDIT.json",
+    "reports/c1/C1_PROVENANCE_AUDIT.json",
+    "reports/c2/C2_SMOKE_RAW_ARCHIVE.json",
+    "reports/c2/C2_PILOT_RAW_ARCHIVE.json",
+    "reports/c2/C2_PILOT_PROVENANCE.json",
+    "reports/c2/C2_PILOT_STATE.json",
+    "reports/c2/C2_LIVE_SMOKE_AUDIT.json",
+    "reports/c2/C2_RATE_LIMIT_INCIDENTS.json",
+    "reports/c2/C2_RETRY_QUOTA_AUDIT.json",
+    "reports/c2b/C2B_RAW_ARCHIVE.json",
+    "reports/c2b/C2B_PROVENANCE.json",
+    "reports/c2b/C2B_BATCH_STATE.json",
+    "reports/c2b/C2B_LIVE_BATCH_AUDIT.json",
+    "reports/c2b/C2B_ENVELOPE_REJECTION.json",
+    "reports/c2c/C2C_RAW_ARCHIVE.json",
+    "reports/c2c/C2C_PROVENANCE.json",
+    "reports/c2c/C2C_BATCH_STATE.json",
+    "reports/c2c/C2C_LIVE_BATCH_AUDIT.json",
+)
+
+#: Provider evidence that C3 generation WILL create. Declared as patterns so the
+#: fingerprint starts covering each artifact the moment it appears, rather than
+#: silently ignoring the very calls this audit exists to detect.
+PROVIDER_EVIDENCE_PATTERNS = (
+    "reports/c3/C3_RAW_ARCHIVE*.json",
+    "reports/c3/C3_*_RAW_ARCHIVE*.json",
+    "reports/c3/C3_PROVENANCE*.json",
+    "reports/c3/C3_*_PROVENANCE*.json",
+    "reports/c3/C3_BATCH_STATE*.json",
+    "reports/c3/C3_LIVE_*_AUDIT*.json",
+    "reports/c3/C3_RATE_LIMIT*.json",
+    "reports/c3/C3_RETRY*.json",
+)
+
+#: Filename markers that would betray C3 generation having happened at all.
+GENERATION_SHAPED_MARKERS = ("C3_RAW_ARCHIVE", "C3_CANDIDATE", "RECIPE_BANK_LOCK",
+                             "C3_SELECTION_AUDIT", "C3_BATCH")
 
 
 def utc_now() -> str:
@@ -658,18 +711,63 @@ def audit_full_scale(ontology) -> dict[str, Any]:
 
 
 # ================================================== provider delta audit
+def is_audit_output(rel: str) -> bool:
+    """True for this audit's own generated artifacts, which are never evidence."""
+    return rel == AUDIT_OUTPUT_DIR or rel.startswith(AUDIT_OUTPUT_DIR + "/")
+
+
+def provider_evidence_paths() -> list[str]:
+    """The exact allowlisted provider-evidence files present on disk, sorted.
+
+    Self-generated audit output is excluded unconditionally, even if some future
+    allowlist entry were to overlap it.
+    """
+    found: set[str] = set()
+    for rel in PROVIDER_EVIDENCE_DIRS:
+        root = REPO / rel
+        if root.exists():
+            for path in root.rglob("*"):
+                if path.is_file():
+                    found.add(path.relative_to(REPO).as_posix())
+    for rel in PROVIDER_EVIDENCE_FILES:
+        if (REPO / rel).is_file():
+            found.add(rel)
+    for pattern in PROVIDER_EVIDENCE_PATTERNS:
+        for path in REPO.glob(pattern):
+            if path.is_file():
+                found.add(path.relative_to(REPO).as_posix())
+    return sorted(rel for rel in found if not is_audit_output(rel))
+
+
+def generation_shaped_artifacts() -> list[str]:
+    """Any file under reports/ whose name betrays C3 generation having happened.
+
+    Deliberately wider than the fingerprint allowlist: this is a tripwire, so it
+    must catch an artifact nobody predicted. Only the audit's own output is
+    exempt.
+    """
+    found: list[str] = []
+    root = REPO / "reports"
+    if root.exists():
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(REPO).as_posix()
+            if is_audit_output(rel):
+                continue
+            if any(marker in rel.upper() for marker in GENERATION_SHAPED_MARKERS):
+                found.append(rel)
+    return sorted(found)
+
+
 def provider_fingerprint() -> dict[str, Any]:
     """Content fingerprint of every artifact that could record a provider call."""
     files: list[dict[str, Any]] = []
-    for rel in PROVIDER_EVIDENCE:
-        root = REPO / rel
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*")):
-            if path.is_file():
-                files.append({"path": path.relative_to(REPO).as_posix(),
-                              "size": path.stat().st_size,
-                              "sha256": file_sha256(path)})
+    for rel in provider_evidence_paths():
+        path = REPO / rel
+        files.append({"path": rel,
+                      "size": path.stat().st_size,
+                      "sha256": file_sha256(path)})
     archives = {
         "reports/c2/C2_PILOT_RAW_ARCHIVE.json": "records",
         "reports/c2/C2_SMOKE_RAW_ARCHIVE.json": "records",
@@ -685,13 +783,20 @@ def provider_fingerprint() -> dict[str, Any]:
     return {
         "artifact_count": len(files),
         "fingerprint_sha256": digest,
+        "fingerprint_scope": {
+            "dirs": list(PROVIDER_EVIDENCE_DIRS),
+            "files": list(PROVIDER_EVIDENCE_FILES),
+            "patterns": list(PROVIDER_EVIDENCE_PATTERNS),
+            "excluded_audit_output_dir": AUDIT_OUTPUT_DIR,
+            "covers_audit_output": False,
+            "note": "an explicit allowlist of provider evidence; this audit's own "
+                    "output is excluded, so the fingerprint is stable across runs "
+                    "and moves only when provider evidence itself moves",
+        },
+        "fingerprinted_paths": [entry["path"] for entry in files],
         "archived_provider_records_by_milestone": counts,
         "archived_provider_records_total": sum(counts.values()),
-        "c3_generation_shaped_artifacts": [
-            entry["path"] for entry in files
-            if any(marker in entry["path"].upper() for marker in
-                   ("C3_RAW_ARCHIVE", "C3_CANDIDATE", "RECIPE_BANK_LOCK",
-                    "C3_SELECTION_AUDIT", "C3_BATCH"))],
+        "c3_generation_shaped_artifacts": generation_shaped_artifacts(),
     }
 
 
