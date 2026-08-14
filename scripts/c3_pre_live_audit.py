@@ -323,13 +323,15 @@ def audit_superseding_lock() -> dict[str, Any]:
         "provenance": bool(lock["generated_at_utc"]) and bool(lock["generator_code_commit"]),
     }
 
-    # It must NOT claim any archive or bank exists.
+    # It must NOT claim any archive or bank exists. Every key below is named for the
+    # condition that makes it true, so `true` always reads as "the check passed" and
+    # never as "this artifact exists".
     does_not_claim = {
-        "rnd_384_archive_exists": state["raw_candidate_archives_created"] == 0,
-        "det_384_archive_exists": state["raw_candidate_archives_created"] == 0,
-        "llm_384_archive_exists": state["raw_candidate_archives_created"] == 0,
-        "final_256_bank_exists": state["recipe_banks_selected"] == 0,
-        "recipe_bank_lock_exists": state["recipe_bank_locks_created"] == 0,
+        "rnd_384_archive_absent": state["raw_candidate_archives_created"] == 0,
+        "det_384_archive_absent": state["raw_candidate_archives_created"] == 0,
+        "llm_384_archive_absent": state["raw_candidate_archives_created"] == 0,
+        "final_256_bank_absent": state["recipe_banks_selected"] == 0,
+        "recipe_bank_lock_absent": state["recipe_bank_locks_created"] == 0,
         "no_selected_shas_in_lock": "selected_shas" not in text,
         "no_recipes_key": "recipes" not in lock,
         "schema_is_not_a_recipe_bank_lock":
