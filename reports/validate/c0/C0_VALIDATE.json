@@ -1,0 +1,88 @@
+{
+  "adapter_implemented": false,
+  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "checks": [
+    {
+      "check_id": "spec_sha256",
+      "detail": {
+        "actual": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+        "expected": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+        "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx"
+      },
+      "ok": true,
+      "stage_id": "C0",
+      "summary": "the spec on disk is the pinned v1.5 document"
+    },
+    {
+      "check_id": "version_b_integrity",
+      "detail": {
+        "clean": true,
+        "dirty_paths": [],
+        "expected_head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+        "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+        "head_matches": true,
+        "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+        "tag": "m10-blind-evaluation-checkpoint",
+        "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+        "tag_peels_to_expected": true
+      },
+      "ok": true,
+      "stage_id": "C0",
+      "summary": "Version B is at the frozen commit, tagged and clean"
+    },
+    {
+      "check_id": "environment",
+      "detail": {
+        "executable": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\.venv\\Scripts\\python.exe",
+        "implementation": "CPython",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "python": "3.13.11",
+        "repo_branch": "c3-v15-selection-contract",
+        "repo_commit": "03b88bb167ce88606655436a4118028c50ca73ff",
+        "repo_dirty_paths": []
+      },
+      "ok": true,
+      "stage_id": "C0",
+      "summary": "environment fingerprint recorded"
+    },
+    {
+      "check_id": "c0_acceptance_present",
+      "detail": {
+        "claimed_result": "PASS",
+        "note": "historical acceptance evidence; validate confirms it is readable and reports what it claims, and never re-judges or edits it",
+        "path": "reports/c0/C0_ACCEPTANCE.json",
+        "predates_dual_status_schema": true,
+        "sha256": "5521ea05ad37b327780b72d592fa2eb7dfcb94a430b94cf9966c8ff4e7fb8d8a"
+      },
+      "ok": true,
+      "stage_id": "C0",
+      "summary": "reports/c0/C0_ACCEPTANCE.json is present and readable"
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 4,
+  "checks_run": 4,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "validate",
+  "finished_at_utc": "2026-08-16T11:11:37.853516Z",
+  "mandatory_full_outputs": "spec/repo reconciliation, compliance and deviation matrix, environment and source-package identities, C0_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/validate.yaml",
+  "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
+  "profile_permits_scientific_evidence": false,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C0",
+  "started_at_utc": "2026-08-16T11:11:37.479709Z",
+  "title": "Spec and repository reconciliation",
+  "validate_checks": [
+    "spec_sha256",
+    "version_b_integrity",
+    "environment",
+    "c0_acceptance_present"
+  ],
+  "validate_gate": "PASS"
+}

@@ -1,0 +1,28 @@
+{
+  "adapter_implemented": false,
+  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "validate",
+  "finished_at_utc": "2026-08-16T11:11:38.208366Z",
+  "mandatory_full_outputs": "quality-gate search and audit where permitted, all candidate decisions and q values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
+  "notes": [
+    "no validate checks are declared for C6; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
+  ],
+  "phase": "scientific",
+  "profile_config": "configs/execution/validate.yaml",
+  "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
+  "profile_permits_scientific_evidence": false,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C6",
+  "started_at_utc": "2026-08-16T11:11:38.208363Z",
+  "title": "Quality gate and matched banks",
+  "validate_checks": [],
+  "validate_gate": "NOT_APPLICABLE"
+}

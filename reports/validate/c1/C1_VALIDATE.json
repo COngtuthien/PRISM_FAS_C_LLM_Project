@@ -1,0 +1,103 @@
+{
+  "adapter_implemented": false,
+  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "checks": [
+    {
+      "check_id": "contract_identities",
+      "detail": {
+        "components": [
+          {
+            "actual": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+            "component": "batch_envelope_schema_identity",
+            "expected": "f2c3bca706e8528455560d2682c2408c596edbeab220b90a8677914025295113",
+            "matches": true
+          },
+          {
+            "actual": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+            "component": "batch_generation_template_identity",
+            "expected": "e6dd98cf85b204b6a55709b79dee1588b11b72330d731db2b335bfc2588b6a20",
+            "matches": true
+          },
+          {
+            "actual": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+            "component": "coverage_quota_identity",
+            "expected": "89c3468436803c4d6187c716048117a4f4f02681c38d83c3885ce5ddbdb1ddd5",
+            "matches": true
+          },
+          {
+            "actual": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+            "component": "ontology_identity",
+            "expected": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+            "matches": true
+          },
+          {
+            "actual": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+            "component": "provider_config_identity",
+            "expected": "3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da",
+            "matches": true
+          },
+          {
+            "actual": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+            "component": "route_policy_identity",
+            "expected": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+            "matches": true
+          },
+          {
+            "actual": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+            "component": "single_recipe_schema_identity",
+            "expected": "1e3f050e129a0ee1305bf8af98e9b4e015373c54ff130763be49c82da56e3579",
+            "matches": true
+          },
+          {
+            "actual": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+            "component": "system_prompt_identity",
+            "expected": "e1bc86723ed8e84a25efdd7be879424c0abf0c7ee85720a5e0fb8f097c64c737",
+            "matches": true
+          }
+        ],
+        "drifted": [],
+        "expected_source": "reports/c3/C3_BANK_LOCK.json"
+      },
+      "ok": true,
+      "stage_id": "C1",
+      "summary": "all frozen contract identities reproduce from live code"
+    },
+    {
+      "check_id": "c1_acceptance_present",
+      "detail": {
+        "claimed_result": "PASS",
+        "note": "historical acceptance evidence; validate confirms it is readable and reports what it claims, and never re-judges or edits it",
+        "path": "reports/c1/C1_ACCEPTANCE.json",
+        "predates_dual_status_schema": true,
+        "sha256": "b9ec06a3640a204386a4ce91e1842570e98e4ba20b1d309958f0ccc3aab4437a"
+      },
+      "ok": true,
+      "stage_id": "C1",
+      "summary": "reports/c1/C1_ACCEPTANCE.json is present and readable"
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 2,
+  "checks_run": 2,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "validate",
+  "finished_at_utc": "2026-08-16T11:11:38.170784Z",
+  "mandatory_full_outputs": "provider/schema/prompt contracts, tests, provider and mock evidence, identities, C1_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/validate.yaml",
+  "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
+  "profile_permits_scientific_evidence": false,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C1",
+  "started_at_utc": "2026-08-16T11:11:37.853540Z",
+  "title": "Provider, schema and prompt contracts",
+  "validate_checks": [
+    "contract_identities",
+    "c1_acceptance_present"
+  ],
+  "validate_gate": "PASS"
+}

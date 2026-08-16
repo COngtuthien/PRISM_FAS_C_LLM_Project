@@ -1,0 +1,111 @@
+{
+  "adapter_implemented": false,
+  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "checks": [
+    {
+      "check_id": "c3_contract_identities",
+      "detail": {
+        "bank_contract_formula": "SHA256(canonical_json({generation_contract_identity, selection_contract_identity})) per §7.8.4",
+        "comparisons": [
+          {
+            "actual": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+            "expected": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+            "identity": "preliminary_lock_body",
+            "matches": true
+          },
+          {
+            "actual": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+            "expected": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+            "identity": "c3_selection_contract_identity",
+            "matches": true
+          },
+          {
+            "actual": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+            "expected": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+            "identity": "c3_bank_contract_identity",
+            "matches": true
+          },
+          {
+            "actual": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+            "expected": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+            "identity": "c3_generation_contract_identity",
+            "matches": true
+          }
+        ],
+        "drifted": []
+      },
+      "ok": true,
+      "stage_id": "C3",
+      "summary": "the C3 generation, selection and bank identities all re-derive"
+    },
+    {
+      "check_id": "c3_locks_verify",
+      "detail": {
+        "preliminary": {
+          "body_hash_reproduces": true,
+          "file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+          "identity_in_file": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+          "identity_recomputed": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+          "path": "reports/c3/C3_BANK_LOCK.json",
+          "status": "FROZEN"
+        },
+        "problems": [],
+        "superseding": {
+          "body_hash_reproduces": true,
+          "file_sha256": "8f92230bb6d57eb119eaabf8008bcf4bcb6b8f893a892cfe31503416d6b85db1",
+          "identity_in_file": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+          "identity_recomputed": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+          "path": "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json",
+          "status": "PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK"
+        }
+      },
+      "ok": true,
+      "stage_id": "C3",
+      "summary": "both C3 locks verify and the superseding lock is still pre-scientific"
+    },
+    {
+      "check_id": "c3_generation_not_started",
+      "detail": {
+        "c3_scientific_requests_expected": 0,
+        "found": [],
+        "patterns": [
+          "reports/c3/C3_RAW_ARCHIVE*.json",
+          "reports/c3/C3_*_RAW_ARCHIVE*.json",
+          "reports/c3/C3_PROVENANCE*.json",
+          "reports/c3/C3_*_PROVENANCE*.json",
+          "reports/c3/C3_BATCH_STATE*.json",
+          "reports/c3/C3_LIVE_*_AUDIT*.json",
+          "reports/c3/raw_responses/**/*"
+        ]
+      },
+      "ok": true,
+      "stage_id": "C3",
+      "summary": "no C3 generation evidence exists; the prohibition still holds"
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 3,
+  "checks_run": 3,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "validate",
+  "finished_at_utc": "2026-08-16T11:11:38.208314Z",
+  "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/validate.yaml",
+  "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
+  "profile_permits_scientific_evidence": false,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C3",
+  "started_at_utc": "2026-08-16T11:11:38.175057Z",
+  "title": "LLM recipe bank generation and selection",
+  "validate_checks": [
+    "c3_contract_identities",
+    "c3_locks_verify",
+    "c3_generation_not_started"
+  ],
+  "validate_gate": "PASS"
+}

@@ -1,0 +1,62 @@
+{
+  "adapter_implemented": false,
+  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "checks": [
+    {
+      "check_id": "c2_acceptance_present",
+      "detail": {
+        "claimed_result": "PASS",
+        "note": "historical acceptance evidence; validate confirms it is readable and reports what it claims, and never re-judges or edits it",
+        "path": "reports/c2/C2_ACCEPTANCE.json",
+        "predates_dual_status_schema": true,
+        "sha256": "b69ceab0e6de7d938ff050e48f998d01f8cb3be8ec72851e067c46428c5e99a0"
+      },
+      "ok": true,
+      "stage_id": "C2",
+      "summary": "reports/c2/C2_ACCEPTANCE.json is present and readable"
+    },
+    {
+      "check_id": "route_contract_exact",
+      "detail": {
+        "actual": [
+          "physics",
+          "gpat"
+        ],
+        "expected": [
+          "physics",
+          "gpat"
+        ],
+        "expected_source": "reports/c3/C3_BANK_LOCK.json",
+        "policy_config": "configs/version_c/llm/c2c_route_policy.yaml",
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+      },
+      "ok": true,
+      "stage_id": "C2",
+      "summary": "the generator route is exactly the frozen sequence"
+    }
+  ],
+  "checks_failed": 0,
+  "checks_passed": 2,
+  "checks_run": 2,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "validate",
+  "finished_at_utc": "2026-08-16T11:11:38.175040Z",
+  "mandatory_full_outputs": "disposable pilot archive and audit, validity/coverage/retry/quota evidence, C2_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/validate.yaml",
+  "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
+  "profile_permits_scientific_evidence": false,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C2",
+  "started_at_utc": "2026-08-16T11:11:38.170885Z",
+  "title": "Disposable generation pilot",
+  "validate_checks": [
+    "c2_acceptance_present",
+    "route_contract_exact"
+  ],
+  "validate_gate": "PASS"
+}
