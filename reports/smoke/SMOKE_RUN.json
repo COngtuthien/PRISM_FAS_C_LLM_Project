@@ -1,0 +1,138 @@
+{
+  "artifact_kind": "ENGINEERING_READINESS_EVIDENCE",
+  "artifacts": [
+    "reports/smoke/c0/C0_SMOKE.json",
+    "reports/smoke/c1/C1_SMOKE.json",
+    "reports/smoke/c2/C2_SMOKE.json",
+    "reports/smoke/c3/C3_SMOKE.json"
+  ],
+  "blockers": [],
+  "budget": {
+    "bounded": true,
+    "elapsed_seconds": 0.652,
+    "exceeded": [],
+    "limits": {
+      "max_epochs": 1,
+      "max_samples_per_split": 8,
+      "max_seeds": 1,
+      "max_steps_per_epoch": 2,
+      "max_wall_clock_seconds": 1800
+    },
+    "on_exhaustion": "CHECKPOINT_AND_STOP_CLEANLY",
+    "profile": "smoke",
+    "spent": {
+      "stages": 4.0
+    },
+    "treatment_factor": false
+  },
+  "checks_failed": 0,
+  "checks_run": 0,
+  "engineering_status_note": "L.3 fixes the engineering vocabulary at NOT_TESTED / RUNNING / SMOKE_PASS / SMOKE_FAIL / BLOCKED. None of those means 'validate passed', so a clean validate run leaves engineering_status=NOT_TESTED and reports on the separate validate_gate axis instead of borrowing SMOKE_PASS.",
+  "execution_profile": "smoke",
+  "failed_check_ids": [],
+  "finished_at_utc": "2026-08-16T12:25:06.007449Z",
+  "meaning": "This run measured static readiness only: identities, locks, contracts and environment. It executed no scientific work, and it is not evidence that any milestone can run, let alone that one is scientifically complete.",
+  "not_scientific_evidence": true,
+  "outcome": "PASS",
+  "per_stage_artifacts_note": "a blocked run executes no stage, so it writes no per-stage artifact; the blocked outcome is preserved here and in state/MASTER_RUN_INDEX.json (L.8)",
+  "per_stage_artifacts_written": true,
+  "phase": "preflight",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "profile_permits_scientific_evidence": false,
+  "run_id": "smoke-20260816T122505Z-46048f50",
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "stages": [
+    {
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "spec/repo reconciliation, compliance and deviation matrix, environment and source-package identities, C0_ACCEPTANCE",
+      "phase": "preflight",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C0",
+      "substages": [
+        "C0"
+      ],
+      "title": "Spec and repository reconciliation",
+      "validate_checks": [
+        "spec_sha256",
+        "version_b_integrity",
+        "environment",
+        "c0_acceptance_present"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "provider/schema/prompt contracts, tests, provider and mock evidence, identities, C1_ACCEPTANCE",
+      "phase": "preflight",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C1",
+      "substages": [
+        "C1"
+      ],
+      "title": "Provider, schema and prompt contracts",
+      "validate_checks": [
+        "contract_identities",
+        "c1_acceptance_present"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "disposable pilot archive and audit, validity/coverage/retry/quota evidence, C2_ACCEPTANCE",
+      "phase": "preflight",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C2",
+      "substages": [
+        "C2",
+        "C2B",
+        "C2C"
+      ],
+      "title": "Disposable generation pilot",
+      "validate_checks": [
+        "c2_acceptance_present",
+        "route_contract_exact"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+      "phase": "preflight",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C3",
+      "substages": [
+        "C3"
+      ],
+      "title": "LLM recipe bank generation and selection",
+      "validate_checks": [
+        "c3_contract_identities",
+        "c3_locks_verify",
+        "c3_generation_not_started"
+      ],
+      "validate_gate": "PASS"
+    }
+  ],
+  "stages_total": 4,
+  "stages_with_validate_checks": 4,
+  "stages_without_adapter": [],
+  "started_at_utc": "2026-08-16T12:25:05.360997Z",
+  "validate_gate_counts": {
+    "FAIL": 0,
+    "NOT_APPLICABLE": 0,
+    "PASS": 4
+  }
+}

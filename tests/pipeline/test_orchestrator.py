@@ -1,10 +1,11 @@
 """Orchestration behaviour (v1.5 Appendix L.4, L.5, L.8) and its honesty properties.
 
-The orchestrator's most valuable property right now is what it refuses to claim.
-Fourteen stages exist as declarations and none has an adapter, so the tests that
-matter most assert that a clean run does NOT read as a working pipeline: no
-stage reports an engineering pass, no unimplemented stage reports success, and
-no blocked run leaves artifacts that look like scientific evidence.
+The orchestrator's most valuable property is what it refuses to claim. C0-C3
+now have adapters and C4-C13 do not, so the tests that matter most assert that
+a clean run over the adapted range does NOT read as a working pipeline: a
+validate run reports no engineering pass on any stage, an unadapted stage is
+blocked rather than skipped, and no blocked run leaves artifacts that look like
+scientific evidence.
 """
 from __future__ import annotations
 
@@ -62,9 +63,10 @@ def test_stages_without_an_adapter_are_not_applicable_rather_than_passing(
         assert gates[stage_id] == "NOT_APPLICABLE"
 
 
-def test_every_stage_still_declares_no_adapter(validate_run: dict) -> None:
-    """If this fails, an adapter landed and these expectations need revisiting."""
-    assert all(not stage.adapter_implemented for stage in STAGES)
+def test_only_c0_to_c3_have_adapters(validate_run: dict) -> None:
+    """C0-C3 gained adapters; C4-C13 have none and must not pretend otherwise."""
+    adapted = {stage.stage_id for stage in STAGES if stage.adapter_implemented}
+    assert adapted == {"C0", "C1", "C2", "C3"}
 
 
 def test_the_summary_says_it_is_not_scientific_evidence(validate_run: dict) -> None:
@@ -74,7 +76,9 @@ def test_the_summary_says_it_is_not_scientific_evidence(validate_run: dict) -> N
     assert summary["not_scientific_evidence"] is True
     assert summary["artifact_kind"] == "ENGINEERING_READINESS_EVIDENCE"
     assert summary["scientific_eligible"] is False
-    assert len(summary["stages_without_adapter"]) == 14
+    # The ten that still have none. A validate run must keep saying so.
+    assert summary["stages_without_adapter"] == [
+        f"C{index}" for index in range(4, 14)]
 
 
 # --- what a validate run does establish -------------------------------------
@@ -133,21 +137,21 @@ def test_historical_acceptance_files_are_annotated_not_edited(validate_run: dict
 # --- profiles that cannot run yet -------------------------------------------
 
 @pytest.mark.parametrize("profile_name", ["smoke", "full"])
-def test_a_profile_needing_adapters_is_blocked_not_passed(
+def test_an_unadapted_stage_is_blocked_not_skipped(
         repo: Path, tmp_path: Path, profile_name: str) -> None:
-    import shutil
+    """A full-range run must not report success over the ten missing stages."""
+    from conftest_adapters import make_sandbox
 
-    for relative in ("configs", "docs", "reports", "src"):
-        if (repo / relative).exists():
-            shutil.copytree(repo / relative, tmp_path / relative,
-                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc",
-                                                          "raw_responses"))
-    result = run(repo=tmp_path, profile_name=profile_name)
+    sandbox = make_sandbox(tmp_path / f"range_{profile_name}")
+    result = run(repo=sandbox, profile_name=profile_name)
 
     assert result.outcome == "BLOCKED"
     assert not result.ok
-    assert any("none exists yet" in blocker for blocker in result.blockers)
-    assert all(outcome.status.engineering == "BLOCKED" for outcome in result.outcomes)
+    assert any("have none" in blocker for blocker in result.blockers)
+
+    blocked = {outcome.stage.stage_id for outcome in result.outcomes
+               if outcome.status.engineering == "BLOCKED"}
+    assert blocked == {f"C{index}" for index in range(4, 14)}
 
 
 def test_a_blocked_run_writes_no_per_stage_artifacts(repo: Path, tmp_path: Path) -> None:

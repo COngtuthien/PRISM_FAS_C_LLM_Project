@@ -1,6 +1,7 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
+  "adapter_results": [],
   "checks": [
     {
       "check_id": "c2_acceptance_present",
@@ -40,19 +41,25 @@
   "checks_run": 2,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T11:11:38.175040Z",
+  "finished_at_utc": "2026-08-16T12:25:03.896198Z",
   "mandatory_full_outputs": "disposable pilot archive and audit, validity/coverage/retry/quota evidence, C2_ACCEPTANCE",
   "notes": [],
   "phase": "preflight",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
   "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
   "schema_version": "prism-orchestrator-run-v1",
   "scientific_eligible": false,
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C2",
-  "started_at_utc": "2026-08-16T11:11:38.170885Z",
+  "started_at_utc": "2026-08-16T12:25:03.893466Z",
+  "substages": [
+    "C2",
+    "C2B",
+    "C2C"
+  ],
   "title": "Disposable generation pilot",
   "validate_checks": [
     "c2_acceptance_present",

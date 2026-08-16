@@ -1,0 +1,28 @@
+{
+  "artifact_kind": "OPERATIONAL_PROVENANCE_TEMPLATE",
+  "current_remaining_rpd": "UNKNOWN",
+  "how_to_materialize": [
+    "1. Open AI Studio for the project that owns the API key.",
+    "2. Read the tier, model, RPM/TPM/RPD limits and the usage panel verbatim.",
+    "3. Copy them in, set observed_by='user_observed' and observed_at_utc to the UTC time you read them, and set materialized=true.",
+    "4. If the usage panel shows no data, leave current_remaining_rpd as 'UNKNOWN'."
+  ],
+  "is_scientific_tuning_signal": false,
+  "materialized": false,
+  "model": "gemini-3.6-flash",
+  "notes": [
+    "TEMPLATE. Not an observation. The C3 live preflight rejects it until a human fills it in from the AI Studio dashboard and sets materialized=true.",
+    "current_remaining_rpd stays 'UNKNOWN' unless the dashboard actually shows a number. Do not compute it from the request count; an inferred value is refused.",
+    "No field here may influence a prompt, schedule, selection rule or bank."
+  ],
+  "observation_window": "UNKNOWN",
+  "observed_at_utc": "",
+  "observed_by": "not_available",
+  "project": "UNKNOWN",
+  "rpd_limit": "UNKNOWN",
+  "rpm_limit": "UNKNOWN",
+  "schema_version": "c3-quota-snapshot-v1",
+  "tier": "UNKNOWN",
+  "tpm_limit": "UNKNOWN",
+  "usage_dashboard": "UNKNOWN"
+}

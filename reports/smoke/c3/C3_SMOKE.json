@@ -1,0 +1,400 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+  "adapter_results": [
+    {
+      "artifacts": [],
+      "checks": [
+        {
+          "check_id": "c3_contract_identities",
+          "detail": {
+            "bank_contract_formula": "SHA256(canonical_json({generation_contract_identity, selection_contract_identity})) per §7.8.4",
+            "comparisons": [
+              {
+                "actual": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+                "expected": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+                "identity": "preliminary_lock_body",
+                "matches": true
+              },
+              {
+                "actual": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+                "expected": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+                "identity": "c3_selection_contract_identity",
+                "matches": true
+              },
+              {
+                "actual": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+                "expected": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+                "identity": "c3_bank_contract_identity",
+                "matches": true
+              },
+              {
+                "actual": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+                "expected": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+                "identity": "c3_generation_contract_identity",
+                "matches": true
+              }
+            ],
+            "drifted": []
+          },
+          "ok": true,
+          "summary": "the C3 generation, selection and bank identities all re-derive"
+        },
+        {
+          "check_id": "c3_locks_verify",
+          "detail": {
+            "preliminary": {
+              "body_hash_reproduces": true,
+              "file_sha256": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+              "identity_in_file": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+              "identity_recomputed": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+              "path": "reports/c3/C3_BANK_LOCK.json",
+              "status": "FROZEN"
+            },
+            "problems": [],
+            "superseding": {
+              "body_hash_reproduces": true,
+              "file_sha256": "8f92230bb6d57eb119eaabf8008bcf4bcb6b8f893a892cfe31503416d6b85db1",
+              "identity_in_file": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+              "identity_recomputed": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+              "path": "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json",
+              "status": "PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK"
+            }
+          },
+          "ok": true,
+          "summary": "both C3 locks verify and the superseding lock is still pre-scientific"
+        },
+        {
+          "check_id": "c3_ancestor_chain_accepted",
+          "detail": {
+            "ancestors": [
+              {
+                "artifact": "reports/c0/C0_ACCEPTANCE.json",
+                "present": true,
+                "stage": "C0"
+              },
+              {
+                "artifact": "reports/c1/C1_ACCEPTANCE.json",
+                "present": true,
+                "stage": "C1"
+              },
+              {
+                "artifact": "reports/c2/C2_ACCEPTANCE.json",
+                "present": true,
+                "stage": "C2"
+              },
+              {
+                "artifact": "reports/c2b/C2B_ACCEPTANCE.json",
+                "present": true,
+                "stage": "C2B"
+              },
+              {
+                "artifact": "reports/c2c/C2C_ACCEPTANCE.json",
+                "present": true,
+                "stage": "C2C"
+              }
+            ],
+            "missing": [],
+            "rule": "C3 live execution depends on accepted evidence from C0, C1, C2/C2B/C2C and the C3 pre-live gate"
+          },
+          "ok": true,
+          "summary": "every C0-C2C ancestor has its acceptance evidence on disk"
+        },
+        {
+          "check_id": "c3_frozen_schedule_exact",
+          "detail": {
+            "final_bank": 256,
+            "minimum_unique_pool": 320,
+            "objects_per_request": 32,
+            "raw_slots": 384,
+            "requests": 12,
+            "source": "scripts/c2c_common.py (canonical); not restated by the adapter"
+          },
+          "ok": true,
+          "summary": "12 logical requests x 32 objects = 384 raw slots"
+        },
+        {
+          "check_id": "c3_pool_and_bank_sizes",
+          "detail": {
+            "final_bank": 256,
+            "minimum_unique_pool": 320,
+            "rule": "below the minimum pool C3 FAILS for that arm; the validator is never weakened after seeing results"
+          },
+          "ok": true,
+          "summary": "minimum unique pool 320, final bank 256 per arm"
+        },
+        {
+          "check_id": "c3_control_arms_offline",
+          "detail": {
+            "arms": {
+              "DET": {
+                "provider_calls": 0,
+                "schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+                "slots": 384
+              },
+              "RND": {
+                "provider_calls": 0,
+                "schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+                "slots": 384
+              }
+            },
+            "provider_calls_total": 0,
+            "rule": "only the LLM arm obtains its 384 slots from the live 12x32 schedule"
+          },
+          "ok": true,
+          "summary": "RND and DET are distinct offline schedules and consume zero provider calls"
+        },
+        {
+          "check_id": "c3_generation_not_started",
+          "detail": {
+            "c3_scientific_requests_expected": 0,
+            "found": [],
+            "patterns": [
+              "reports/c3/C3_RAW_ARCHIVE*.json",
+              "reports/c3/C3_*_RAW_ARCHIVE*.json",
+              "reports/c3/C3_PROVENANCE*.json",
+              "reports/c3/C3_*_PROVENANCE*.json",
+              "reports/c3/C3_BATCH_STATE*.json",
+              "reports/c3/C3_LIVE_*_AUDIT*.json",
+              "reports/c3/raw_responses/**/*"
+            ]
+          },
+          "ok": true,
+          "summary": "no C3 generation evidence exists; the prohibition still holds"
+        },
+        {
+          "check_id": "c3_quota_snapshot",
+          "detail": {
+            "present": false,
+            "problem": "reports/c3/live/C3_QUOTA_SNAPSHOT.json does not exist. The C3 live preflight needs a quota snapshot, and it can only be produced by a human reading the AI Studio dashboard; nothing may generate it automatically.",
+            "required": false,
+            "usable": false
+          },
+          "ok": true,
+          "summary": "no quota snapshot yet, which is expected before live generation"
+        },
+        {
+          "check_id": "c3_credential_gate",
+          "detail": {
+            "credential": "PRESENT",
+            "required": false,
+            "rule": "presence is checked, never the value; no key is printed, logged or serialized"
+          },
+          "ok": true,
+          "summary": "a provider credential is PRESENT; not required offline"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 9,
+      "detail": {
+        "c3_scientific_candidate_slots": 0,
+        "c3_scientific_logical_requests": 0,
+        "live_generation_gated_on": [
+          "explicit user authorization",
+          "a full profile that permits a live binding for C3",
+          "a materialized quota snapshot",
+          "a present provider credential"
+        ]
+      },
+      "engineering_status": "NOT_TESTED",
+      "mode": "PRE_LIVE_VERIFY",
+      "notes": [
+        "verification only; this mode cannot issue a provider request"
+      ],
+      "parent_identities": {
+        "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+        "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+        "c3_selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+        "preliminary_lock_body": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba"
+      },
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C3",
+      "status": "PASS",
+      "substage": "C3",
+      "summary": "C3 pre-live verification passed; the frozen contract is intact"
+    },
+    {
+      "artifacts": [
+        "reports/smoke/c3/live/C3_LIVE_GENERATION_STATE.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c3_completed_requests_intact",
+          "detail": {
+            "rows": [
+              {
+                "actual_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-01",
+                "matches": true,
+                "recorded_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132"
+              },
+              {
+                "actual_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-02",
+                "matches": true,
+                "recorded_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130"
+              },
+              {
+                "actual_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-03",
+                "matches": true,
+                "recorded_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab"
+              },
+              {
+                "actual_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-04",
+                "matches": true,
+                "recorded_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7"
+              },
+              {
+                "actual_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-05",
+                "matches": true,
+                "recorded_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2"
+              },
+              {
+                "actual_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-06",
+                "matches": true,
+                "recorded_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615"
+              },
+              {
+                "actual_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-07",
+                "matches": true,
+                "recorded_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab"
+              },
+              {
+                "actual_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-08",
+                "matches": true,
+                "recorded_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833"
+              },
+              {
+                "actual_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-09",
+                "matches": true,
+                "recorded_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842"
+              },
+              {
+                "actual_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-10",
+                "matches": true,
+                "recorded_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b"
+              },
+              {
+                "actual_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-11",
+                "matches": true,
+                "recorded_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875"
+              },
+              {
+                "actual_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-12",
+                "matches": true,
+                "recorded_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a"
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "12 completed logical request(s) re-hashed and intact"
+        },
+        {
+          "check_id": "c3_logical_request_count_unchanged",
+          "detail": {
+            "frozen": 12,
+            "planned": 12
+          },
+          "ok": true,
+          "summary": "the plan still contains exactly 12 logical requests"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 2,
+      "detail": {
+        "c3_scientific_candidate_slots": 0,
+        "c3_scientific_logical_requests": 0,
+        "is_scientific_generation": false,
+        "logical_requests_executed_this_run": 0,
+        "provider_binding": "mock",
+        "provider_calls_this_run": 0,
+        "resume_cursor": {
+          "all_complete": true,
+          "arm": "LLM",
+          "blocked_reason": null,
+          "completed_requests": 12,
+          "next_logical_request_id": null,
+          "next_logical_request_index": null,
+          "next_permitted_action": "FINALIZE",
+          "next_slot_end": null,
+          "next_slot_start": null,
+          "total_requests": 12
+        },
+        "status_counts": {
+          "COMPLETED_VALID": 12,
+          "FAILED_BLOCKING": 0,
+          "FAILED_RETRYABLE": 0,
+          "IN_PROGRESS": 0,
+          "NOT_STARTED": 0
+        }
+      },
+      "engineering_status": "SMOKE_PASS",
+      "mode": "LIVE_GENERATE",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "mock",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C3",
+      "status": "PASS",
+      "substage": "C3",
+      "summary": "all 12 logical requests complete"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "smoke",
+  "finished_at_utc": "2026-08-16T12:25:06.007420Z",
+  "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+  "notes": [
+    "verification only; this mode cannot issue a provider request"
+  ],
+  "phase": "preflight",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C3",
+  "started_at_utc": "2026-08-16T12:25:05.651503Z",
+  "substages": [
+    "C3"
+  ],
+  "title": "LLM recipe bank generation and selection",
+  "validate_checks": [
+    "c3_contract_identities",
+    "c3_locks_verify",
+    "c3_generation_not_started"
+  ],
+  "validate_gate": "PASS"
+}

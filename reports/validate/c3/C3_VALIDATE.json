@@ -1,6 +1,7 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+  "adapter_results": [],
   "checks": [
     {
       "check_id": "c3_contract_identities",
@@ -88,19 +89,23 @@
   "checks_run": 3,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T11:11:38.208314Z",
+  "finished_at_utc": "2026-08-16T12:25:03.923301Z",
   "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
   "notes": [],
   "phase": "preflight",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
   "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
   "schema_version": "prism-orchestrator-run-v1",
   "scientific_eligible": false,
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C3",
-  "started_at_utc": "2026-08-16T11:11:38.175057Z",
+  "started_at_utc": "2026-08-16T12:25:03.896208Z",
+  "substages": [
+    "C3"
+  ],
   "title": "LLM recipe bank generation and selection",
   "validate_checks": [
     "c3_contract_identities",

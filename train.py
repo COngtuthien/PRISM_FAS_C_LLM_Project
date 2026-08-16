@@ -33,6 +33,7 @@ SRC = REPO / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from prism_fas.pipeline.adapters import AdapterError  # noqa: E402
 from prism_fas.pipeline.orchestrator import OrchestratorError, run  # noqa: E402
 from prism_fas.pipeline.profiles import PROFILE_NAMES, ProfileError  # noqa: E402
 from prism_fas.pipeline.stages import STAGE_IDS, StageError  # noqa: E402
@@ -59,6 +60,19 @@ def build_parser() -> argparse.ArgumentParser:
                         help="last stage to execute (debugging scope only)")
     parser.add_argument("--phase", metavar="PHASE",
                         help="restrict to one L.5 phase (debugging scope only)")
+    parser.add_argument("--mode", metavar="MODE",
+                        help="stage mode where the adapter has several (C3: "
+                             "PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, "
+                             "FINALIZE_BANKS)")
+    # Deliberately verbose and deliberately not a boolean shorthand. This flag is
+    # the human authorization that lets C3 spend live provider quota on the
+    # frozen 12x32 schedule; it must be impossible to type by accident and
+    # obvious in a shell history.
+    parser.add_argument("--i-authorize-live-scientific-generation",
+                        dest="authorized_live_generation", action="store_true",
+                        help="authorize LIVE provider calls for C3 scientific generation. "
+                             "Requires --profile full, a materialized quota snapshot and a "
+                             "present credential. Without it every run is offline.")
     return parser
 
 
@@ -68,8 +82,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run(repo=REPO, profile_name=args.profile, resume=args.resume,
                      first_stage=args.first_stage, last_stage=args.last_stage,
-                     phase=args.phase)
-    except (ProfileError, StageError, OrchestratorError) as error:
+                     phase=args.phase, mode=args.mode,
+                     authorized_live_generation=args.authorized_live_generation)
+    except (ProfileError, StageError, OrchestratorError, AdapterError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return EXIT_USAGE
 
@@ -88,6 +103,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {outcome.stage.stage_id:<4} {outcome.validate_gate:<15} "
               f"checks {counts:<7} {adapter:<11} "
               f"eng={outcome.status.engineering} sci={outcome.status.scientific}")
+        for adapter_result in outcome.adapter_results:
+            passed = len(adapter_result.checks) - len(adapter_result.failed_checks)
+            print(f"         {adapter_result.substage:<5} {adapter_result.mode:<22}"
+                  f" {adapter_result.status:<8} checks {passed}/{len(adapter_result.checks)}"
+                  f"  binding={adapter_result.provider_binding.value}"
+                  f"  provider_calls={adapter_result.provider_calls}")
+            for failure in adapter_result.failed_checks:
+                print(f"           FAILED {failure['check_id']}: {failure['summary']}")
         for failure in outcome.failed_checks:
             print(f"         FAILED {failure.check_id}: {failure.summary}")
 

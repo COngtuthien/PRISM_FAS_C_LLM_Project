@@ -18,6 +18,10 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO / "src") not in sys.path:
     sys.path.insert(0, str(REPO / "src"))
+# The tests/ tree carries no __init__.py by convention, so the shared adapter
+# helpers are imported by module name rather than as a package relative.
+if str(Path(__file__).parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).parent))
 
 
 @pytest.fixture(autouse=True)

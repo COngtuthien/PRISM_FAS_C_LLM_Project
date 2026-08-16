@@ -19,7 +19,7 @@
   "blockers": [],
   "budget": {
     "bounded": false,
-    "elapsed_seconds": 0.745,
+    "elapsed_seconds": 0.615,
     "exceeded": [],
     "limits": {},
     "on_exhaustion": "not applicable; the full profile has no operational cap",
@@ -34,7 +34,7 @@
   "engineering_status_note": "L.3 fixes the engineering vocabulary at NOT_TESTED / RUNNING / SMOKE_PASS / SMOKE_FAIL / BLOCKED. None of those means 'validate passed', so a clean validate run leaves engineering_status=NOT_TESTED and reports on the separate validate_gate axis instead of borrowing SMOKE_PASS.",
   "execution_profile": "validate",
   "failed_check_ids": [],
-  "finished_at_utc": "2026-08-16T11:11:38.208412Z",
+  "finished_at_utc": "2026-08-16T12:25:03.923396Z",
   "meaning": "This run measured static readiness only: identities, locks, contracts and environment. It executed no scientific work, and it is not evidence that any milestone can run, let alone that one is scientifically complete.",
   "not_scientific_evidence": true,
   "outcome": "PASS",
@@ -44,19 +44,22 @@
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
   "profile_permits_scientific_evidence": false,
-  "run_id": "validate-20260816T111137Z-73767cd7",
+  "run_id": "validate-20260816T122503Z-ed73d50b",
   "schema_version": "prism-orchestrator-run-v1",
   "scientific_eligible": false,
   "stages": [
     {
-      "adapter_implemented": false,
-      "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
       "checks_failed": 0,
       "engineering_status": "NOT_TESTED",
       "mandatory_full_outputs": "spec/repo reconciliation, compliance and deviation matrix, environment and source-package identities, C0_ACCEPTANCE",
       "phase": "preflight",
       "scientific_status": "NOT_RUN",
       "stage_id": "C0",
+      "substages": [
+        "C0"
+      ],
       "title": "Spec and repository reconciliation",
       "validate_checks": [
         "spec_sha256",
@@ -67,14 +70,17 @@
       "validate_gate": "PASS"
     },
     {
-      "adapter_implemented": false,
-      "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
       "checks_failed": 0,
       "engineering_status": "NOT_TESTED",
       "mandatory_full_outputs": "provider/schema/prompt contracts, tests, provider and mock evidence, identities, C1_ACCEPTANCE",
       "phase": "preflight",
       "scientific_status": "NOT_RUN",
       "stage_id": "C1",
+      "substages": [
+        "C1"
+      ],
       "title": "Provider, schema and prompt contracts",
       "validate_checks": [
         "contract_identities",
@@ -83,14 +89,19 @@
       "validate_gate": "PASS"
     },
     {
-      "adapter_implemented": false,
-      "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+      "adapter_implemented": true,
+      "adapter_note": "verification-only adapter over a completed milestone: it checks artifacts, identities and acceptance, and can never re-issue the milestone's archived provider calls",
       "checks_failed": 0,
       "engineering_status": "NOT_TESTED",
       "mandatory_full_outputs": "disposable pilot archive and audit, validity/coverage/retry/quota evidence, C2_ACCEPTANCE",
       "phase": "preflight",
       "scientific_status": "NOT_RUN",
       "stage_id": "C2",
+      "substages": [
+        "C2",
+        "C2B",
+        "C2C"
+      ],
       "title": "Disposable generation pilot",
       "validate_checks": [
         "c2_acceptance_present",
@@ -99,14 +110,17 @@
       "validate_gate": "PASS"
     },
     {
-      "adapter_implemented": false,
-      "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+      "adapter_implemented": true,
+      "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
       "checks_failed": 0,
       "engineering_status": "NOT_TESTED",
       "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
       "phase": "preflight",
       "scientific_status": "NOT_RUN",
       "stage_id": "C3",
+      "substages": [
+        "C3"
+      ],
       "title": "LLM recipe bank generation and selection",
       "validate_checks": [
         "c3_contract_identities",
@@ -124,6 +138,7 @@
       "phase": "source-search",
       "scientific_status": "NOT_RUN",
       "stage_id": "C4",
+      "substages": [],
       "title": "GPAT source search and final checkpoint",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -137,6 +152,7 @@
       "phase": "scientific",
       "scientific_status": "NOT_RUN",
       "stage_id": "C5",
+      "substages": [],
       "title": "Route rendering and synthetic candidates",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -150,6 +166,7 @@
       "phase": "scientific",
       "scientific_status": "NOT_RUN",
       "stage_id": "C6",
+      "substages": [],
       "title": "Quality gate and matched banks",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -163,6 +180,7 @@
       "phase": "source-search",
       "scientific_status": "NOT_RUN",
       "stage_id": "C7",
+      "substages": [],
       "title": "Detector readiness and configuration search",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -176,6 +194,7 @@
       "phase": "scientific",
       "scientific_status": "NOT_RUN",
       "stage_id": "C8",
+      "substages": [],
       "title": "Source matrix over arms, tracks, configs and seeds",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -189,6 +208,7 @@
       "phase": "source-freeze",
       "scientific_status": "NOT_RUN",
       "stage_id": "C9",
+      "substages": [],
       "title": "Source matrix freeze",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -202,6 +222,7 @@
       "phase": "target-eval",
       "scientific_status": "NOT_RUN",
       "stage_id": "C10",
+      "substages": [],
       "title": "Target package and label firewall",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -215,6 +236,7 @@
       "phase": "target-eval",
       "scientific_status": "NOT_RUN",
       "stage_id": "C11",
+      "substages": [],
       "title": "Label-isolated P3 prediction",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -228,6 +250,7 @@
       "phase": "target-eval",
       "scientific_status": "NOT_RUN",
       "stage_id": "C12",
+      "substages": [],
       "title": "Scoring, statistics and hypothesis tests",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -241,6 +264,7 @@
       "phase": "final-report",
       "scientific_status": "NOT_RUN",
       "stage_id": "C13",
+      "substages": [],
       "title": "Acceptance, evidence package and report",
       "validate_checks": [],
       "validate_gate": "NOT_APPLICABLE"
@@ -249,10 +273,6 @@
   "stages_total": 14,
   "stages_with_validate_checks": 4,
   "stages_without_adapter": [
-    "C0",
-    "C1",
-    "C2",
-    "C3",
     "C4",
     "C5",
     "C6",
@@ -264,7 +284,7 @@
     "C12",
     "C13"
   ],
-  "started_at_utc": "2026-08-16T11:11:37.479680Z",
+  "started_at_utc": "2026-08-16T12:25:03.326256Z",
   "validate_gate_counts": {
     "FAIL": 0,
     "NOT_APPLICABLE": 10,

@@ -13,7 +13,8 @@ authoritative_spec:
   canonical_location_per_spec_M1: docs/specs/   # deviation recorded; move planned
 
 repository:
-  branch: c3-v15-selection-contract
+  branch: c3-v15-execution-adapters
+  previous_branch: c3-v15-selection-contract   # execution-layer checkpoint at 5f77f0d
   branch_point: a876d5ffba410a867173c7ca719618b2b48a5144   # the accepted v1.5 reconciliation commit
   latest_accepted_checkpoint: c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5   # C2C = PASS
   origin: https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git
@@ -28,38 +29,90 @@ version_b:
   immutable_verified: true
 
 current_milestone: C3
-current_substage: v1.5 execution skeleton (restructure step 2) — COMPLETE
-execution_profile: validate
+current_substage: C0-C3 execution adapters (restructure step 4, partial) — COMPLETE
+execution_profile: smoke
 pipeline_phase: preflight
 
-# SCOPE WARNING. `engineering_status` below describes ONLY the C3 selection/bank
-# contract and its offline test suite. The execution layer now exists and its
-# validate profile has been run (see `execution_layer`), but a validate PASS means
-# the readiness checks passed — NOT that any stage executed, NOT that smoke or full
-# can run, and NOT that any milestone is scientifically complete.
-engineering_status_scope: c3_selection_contract_substage
-engineering_status: SMOKE_PASS      # contract + selector frozen and tested offline
+# SCOPE WARNING. `engineering_status: SMOKE_PASS` below is scoped to stages C0..C3
+# executing OFFLINE against fixtures. It does NOT mean C4-C13 were smoked (they have
+# no adapters), it does NOT mean any provider was called, and it does NOT mean any
+# milestone is scientifically complete. Scientific completion requires
+# scientific_status=PASS under --profile full, which has never run.
+engineering_status_scope: stages_c0_to_c3_offline_only
+engineering_status: SMOKE_PASS      # C0-C3 executed offline; 0 live provider calls
 scientific_status: NOT_RUN          # no C3 scientific generation has occurred
 
 # Machine-readable so no parser can infer these exist. Previously this fact lived
 # only in YAML comments beside real-looking paths, which a parser strips.
 execution_pipeline:
-  # The validate profile is implemented and has been executed. It performs the
-  # L.2 readiness checks only — identities, locks, contracts, environment — and
-  # executes NO stage. smoke and full require stage adapters, which do not exist.
+  # All three profiles are implemented, but only over the C0-C3 range. Outside it
+  # every stage is BLOCKED because no adapter exists.
   validate: IMPLEMENTED
-  smoke: NOT_IMPLEMENTED        # refuses to run: BLOCKED, exit 2
-  full: NOT_IMPLEMENTED         # refuses to run: BLOCKED, exit 2
+  smoke: IMPLEMENTED_C0_TO_C3
+  full: IMPLEMENTED_C0_TO_C3    # gated; live C3 generation additionally needs approval
   orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
   pipeline_state_exists: true   # state/PIPELINE_STATE.json
   master_run_index_exists: true # state/MASTER_RUN_INDEX.json
-  stage_adapters_exist: false   # all 14 stages declare adapter_implemented=false
+  stage_adapters_exist: C0_TO_C3_ONLY
   c0_to_c13_pipeline_ever_run: false
   note: >-
-    No stage has ever been EXECUTED. `validate: IMPLEMENTED` means the readiness
-    checks run and pass; it does not mean any milestone can execute. Under the smoke
-    or full profile the orchestrator stops with BLOCKED and names the missing
-    adapters. Nothing here is scientific evidence.
+    C0-C3 have adapters and have been executed offline under smoke. C4-C13 have
+    none: a smoke or full run covering them stops with BLOCKED and names them. No
+    stage beyond C3 has ever executed, and nothing here is scientific evidence.
+
+execution_adapters:
+  restructure_plan_step: 4 of 6 (partial — C0-C3 only)
+  authorized_by: user, in session, engineering-only adapter milestone
+  package: src/prism_fas/pipeline/adapters/
+  modules: [__init__, context, historical, c3, c3_live, quota, fixtures, registry]
+  design_rule: >-
+    adapters are THIN. Every one delegates to the canonical implementation —
+    RouteContext for the contract and request, RecipePlanner for retry and
+    validation, arm_schedules for RND/DET, recipes.selection for the selector,
+    pipeline.checks for identity verification. No scientific logic is duplicated.
+  c0_c1_c2_c2b_c2c: VERIFICATION_ONLY   # provider binding is NONE and cannot change
+  historical_provider_calls_repeated: 0
+  c3_modes: [PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS]
+  c4_to_c13: NOT_IMPLEMENTED
+
+  provider_binding_model: >-
+    mode (what the adapter does) is separate from binding (what it may talk to).
+    That separation is what lets smoke drive the entire live control path against
+    fixtures while remaining structurally unable to reach Gemini.
+  live_binding_requires_all_of:
+    - the profile's compute policy permits a live provider   # full only
+    - the stage is in live_provider_permitted_for_stages     # C3 only
+    - explicit human authorization for the run               # CLI flag
+    - a materialized quota snapshot
+    - a present GEMINI_API_KEY
+  live_binding_is_never_a_default: true   # omitting the choice yields MOCK, not LIVE
+
+  validate_c0_c3:
+    command: python train.py --profile validate --from C0 --to C3
+    outcome: PASS
+    checks_run: 11
+    checks_failed: 0
+    provider_calls: 0
+  smoke_c0_c3:
+    command: python train.py --profile smoke --from C0 --to C3
+    outcome: PASS
+    substages_executed: [C0, C1, C2, C2B, C2C, C3]
+    engineering_status: SMOKE_PASS        # scope: stages C0..C3 ONLY
+    scientific_status: NOT_RUN
+    provider_calls_live: 0
+    provider_calls_mock: 12               # the C3 fixture rehearsal
+    rehearsal_namespace: reports/smoke/c3/live/
+    scientific_namespace_untouched: true  # reports/c3/live/ holds only the quota template
+
+  c3_live_state_machine:
+    path_when_scientific: reports/c3/live/C3_LIVE_GENERATION_STATE.json
+    statuses: [NOT_STARTED, IN_PROGRESS, COMPLETED_VALID, FAILED_RETRYABLE,
+               FAILED_BLOCKING]
+    completed_valid_is_terminal: true     # never re-issued by restart or --resume
+    drifted_archive_action: FAIL_CLOSED   # never silently regenerated
+    scenarios_proven_offline: [A_crash_resume, B_retryable_same_request,
+                               C_quota_block_preserves, D_resume_continues,
+                               E_zero_calls_when_complete, F_corrupt_fails_closed]
 
 execution_layer:
   restructure_plan_step: 2 of 6   # docs/V15_PIPELINE_RESTRUCTURE_PLAN.md §4
@@ -127,6 +180,8 @@ c3:
   c3_scientific_candidate_slots: 0
   raw_candidate_archives_created: 0
   recipe_banks_selected: 0
+  live_wiring: READY_BUT_NOT_EXECUTED   # adapter + state machine exist and are tested
+  live_provider_calls_ever_made: 0
   status: CONTRACT_FROZEN_AWAITING_USER_APPROVAL_BEFORE_SCIENTIFIC_GENERATION
 
   pre_live_audit:
@@ -212,12 +267,12 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1568
+  passed: 1672
   failed: 7
   skipped: 101
-  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, pipeline: 131}
+  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, pipeline: 235}
   pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-  pipeline_suite: {passed: 131, failed: 0, skipped: 0}
+  pipeline_suite: {passed: 235, failed: 0, skipped: 0}
   pipeline_offline: >-
     sockets blocked and ambient credentials deleted by an autouse fixture; a static
     AST check asserts that no pipeline module and no train.py path imports a provider,
@@ -242,9 +297,11 @@ blockers:
     bank-contract lock. The §7.8.3 selector, the §7.8.2 quota table and the §7.8.5
     RND/DET schedules now exist and are identity-bound; what is missing is the decision,
     not the contract.
-  - Stage adapters do not exist. All 14 stages declare adapter_implemented=false, so the
-    smoke and full profiles stop with BLOCKED. This is restructure-plan step 4 and is
-    separately authorized. Until it lands, no milestone can be EXECUTED by train.py.
+  - C4-C13 have no adapters. A smoke or full run covering them stops with BLOCKED and
+    names them. Restructure-plan step 4 is complete only for C0-C3.
+  - The C3 live path has never been executed against a real provider. It is wired and
+    proven offline against mocks; the remaining gates are a materialized quota snapshot,
+    a credential, and explicit user authorization.
   - Steps 3, 5 and 6 of the restructure plan remain: dual-status stamping of newly written
     artifacts beyond the pipeline's own, the Appendix M.1 layout move with identity
     re-derivation, and the C4..C13 stages themselves.
@@ -261,13 +318,21 @@ deviations_recorded_this_session:
     and the run reports on a separate validate_gate axis. See execution_layer above.
   - .gitignore re-includes reports/{validate,smoke,full}/ so execution evidence is
     committable, matching the existing rationale for the reports/c0..c13 roots.
+  - C2B and C2C are modelled as SUBSTAGES of C2 rather than stages of their own. L.9
+    fixes the milestone sequence at C0..C13; inventing a C2B stage would change a
+    numbering the spec owns. Each substage still gets its own evidence row.
+  - A non-scientific profile writes its C3 live state under its own reports namespace
+    (reports/smoke/c3/live/) rather than reports/c3/live/, so a fixture rehearsal can
+    never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW of the C3 pre-live audit (reports/c3/v15_pre_live_audit/) and the superseding
-  bank-contract lock, before any live Gemini 12x32 C3 scientific generation. The pre-live
-  audit gate is verification evidence only; it does not authorize generation. Unchanged by
-  this session: the execution layer neither advanced nor weakened the C3 decision, and the
-  validate run confirmed all C3 identities and locks still reproduce.
+  USER REVIEW and authorization to (a) materialize the manual Gemini quota snapshot into
+  reports/c3/live/C3_QUOTA_SNAPSHOT.json from the AI Studio dashboard, and (b) execute the
+  frozen C3 live 12x32 scientific generation through the C3 adapter. The adapter, the
+  logical-request state machine and the crash/resume contract are implemented and proven
+  offline; what remains is the human decision plus the quota snapshot and credential.
+  Nothing in this session advanced or weakened that decision: the C3 identities, both
+  locks and the pre-live gate were re-derived unchanged, and zero provider calls were made.
 
-last_updated_utc: 2026-08-16
+last_updated_utc: 2026-08-16   # C0-C3 adapter milestone
 ```

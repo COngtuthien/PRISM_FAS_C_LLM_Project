@@ -43,6 +43,10 @@ class Stage:
     mandatory_full_outputs: str
     adapter_implemented: bool = False
     validate_checks: tuple[str, ...] = ()
+    #: Substages that carry their own evidence row. C2B and C2C are C2's later
+    #: batches, not stages of their own: L.9 fixes the sequence at C0..C13, and
+    #: inventing a C2B stage would change a numbering the spec owns.
+    substages: tuple[str, ...] = ()
     #: Why no adapter exists yet, so the artifact explains itself.
     adapter_note: str = ""
     metadata: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -50,6 +54,11 @@ class Stage:
     @property
     def index(self) -> int:
         return int(self.stage_id[1:])
+
+    @property
+    def evidence_units(self) -> tuple[str, ...]:
+        """The ids this stage produces evidence under — itself, or its substages."""
+        return self.substages or (self.stage_id,)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -59,12 +68,17 @@ class Stage:
             "mandatory_full_outputs": self.mandatory_full_outputs,
             "adapter_implemented": self.adapter_implemented,
             "validate_checks": list(self.validate_checks),
+            "substages": list(self.substages),
             "adapter_note": self.adapter_note,
         }
 
 
 _NO_ADAPTER = ("no stage adapter exists; adapters are step 4 of "
                "docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized")
+
+_VERIFY_ADAPTER = ("verification-only adapter over a completed milestone: it checks "
+                   "artifacts, identities and acceptance, and can never re-issue the "
+                   "milestone's archived provider calls")
 
 #: The L.9 table, transcribed as declarations. The "representative mandatory
 #: full outputs" column is kept verbatim in spirit so a future adapter has the
@@ -73,25 +87,36 @@ STAGES: tuple[Stage, ...] = (
     Stage("C0", "Spec and repository reconciliation", PREFLIGHT,
           "spec/repo reconciliation, compliance and deviation matrix, environment and "
           "source-package identities, C0_ACCEPTANCE",
+          adapter_implemented=True,
           validate_checks=("spec_sha256", "version_b_integrity", "environment",
                            "c0_acceptance_present"),
-          adapter_note=_NO_ADAPTER),
+          substages=("C0",),
+          adapter_note=_VERIFY_ADAPTER),
     Stage("C1", "Provider, schema and prompt contracts", PREFLIGHT,
           "provider/schema/prompt contracts, tests, provider and mock evidence, "
           "identities, C1_ACCEPTANCE",
+          adapter_implemented=True,
           validate_checks=("contract_identities", "c1_acceptance_present"),
-          adapter_note=_NO_ADAPTER),
+          substages=("C1",),
+          adapter_note=_VERIFY_ADAPTER),
     Stage("C2", "Disposable generation pilot", PREFLIGHT,
           "disposable pilot archive and audit, validity/coverage/retry/quota evidence, "
           "C2_ACCEPTANCE",
+          adapter_implemented=True,
           validate_checks=("c2_acceptance_present", "route_contract_exact"),
-          adapter_note=_NO_ADAPTER),
+          substages=("C2", "C2B", "C2C"),
+          adapter_note=_VERIFY_ADAPTER),
     Stage("C3", "LLM recipe bank generation and selection", PREFLIGHT,
           "all 384 raw slots per arm, selected and rejected manifests, selector audit, "
           "256 banks per arm, locks and identities, C3_ACCEPTANCE",
+          adapter_implemented=True,
           validate_checks=("c3_contract_identities", "c3_locks_verify",
                            "c3_generation_not_started"),
-          adapter_note=_NO_ADAPTER),
+          substages=("C3",),
+          adapter_note="adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, "
+                       "RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is "
+                       "reachable under validate; a live provider binding additionally "
+                       "requires explicit user authorization."),
     Stage("C4", "GPAT source search and final checkpoint", SOURCE_SEARCH,
           "every allowed GPAT source-search run, configs/metrics/checkpoints, winner "
           "selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",

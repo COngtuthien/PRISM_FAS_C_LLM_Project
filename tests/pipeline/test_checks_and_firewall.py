@@ -151,7 +151,13 @@ def test_the_c3_identities_re_derive_from_live_code(repo: Path) -> None:
 # --- firewall ---------------------------------------------------------------
 
 #: Modules that can reach a provider, a GPU job or the target labels. None of
-#: them may be reachable from the execution layer while no adapter exists.
+#: them may be imported by a TOP-LEVEL pipeline module: those run under every
+#: profile including validate, which L.2 defines as static readiness.
+#:
+#: `pipeline/adapters/` is deliberately out of scope here — an adapter is the
+#: layer that legitimately drives the planner and a mock or replay provider, and
+#: its stricter rules (module-level bans plus one named gated lazy import) are
+#: enforced in test_adapters_integration.py.
 FORBIDDEN_IMPORTS = (
     "prism_fas.llm.providers",
     "prism_fas.llm.pipeline",

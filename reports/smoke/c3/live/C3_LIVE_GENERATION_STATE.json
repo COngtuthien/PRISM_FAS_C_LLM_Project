@@ -1,0 +1,447 @@
+{
+  "arm": "LLM",
+  "bank_contract_identity": "",
+  "blocked_reason": null,
+  "created_utc": "2026-08-16T12:22:43.425112Z",
+  "execution_profile": "smoke",
+  "generation_contract_identity": "",
+  "history": [
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-01",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.432119Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-01",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.477112Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-02",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.484460Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-02",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.523856Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-03",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.531783Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-03",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.567641Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-04",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.576629Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-04",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.613189Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-05",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.621946Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-05",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.657111Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-06",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.666757Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-06",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.702944Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-07",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.710927Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-07",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.744583Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-08",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.753099Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-08",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.789391Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-09",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.798172Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-09",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.832651Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-10",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.840139Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-10",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.876047Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-11",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.884164Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-11",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.921389Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-12",
+      "note": "attempt 1 started",
+      "status": "IN_PROGRESS",
+      "utc": "2026-08-16T12:22:43.929974Z"
+    },
+    {
+      "attempt_count": 1,
+      "logical_request_id": "c3-llm-req-12",
+      "note": "all 32 candidates accepted",
+      "status": "COMPLETED_VALID",
+      "utc": "2026-08-16T12:22:43.963226Z"
+    }
+  ],
+  "logical_request_count": 12,
+  "objects_per_request": 32,
+  "provider_binding": "mock",
+  "provider_calls_total": 12,
+  "raw_slots": 384,
+  "requests": [
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.432102Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.477112Z",
+      "logical_request_id": "c3-llm-req-01",
+      "logical_request_index": 0,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
+      "request_identity": "071b921ca1e32a37808f395481796597c499534d2ef1de649c41e97582ceac5d",
+      "slot_end": 31,
+      "slot_start": 0,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.484437Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.523856Z",
+      "logical_request_id": "c3-llm-req-02",
+      "logical_request_index": 1,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
+      "request_identity": "708323d72b0013d061aa85a5fe8b6f001aad0c7cf5d0262d03933589967bb9c4",
+      "slot_end": 63,
+      "slot_start": 32,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.531747Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.567641Z",
+      "logical_request_id": "c3-llm-req-03",
+      "logical_request_index": 2,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
+      "request_identity": "a574d43acae7ea03292a4a45307c1acbb402f645d4b7a09a07118b65c18baec6",
+      "slot_end": 95,
+      "slot_start": 64,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.576593Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.613189Z",
+      "logical_request_id": "c3-llm-req-04",
+      "logical_request_index": 3,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
+      "request_identity": "995cf0a565923efb4713017821b429b44181b0015ce12ff7c7034e99481815b9",
+      "slot_end": 127,
+      "slot_start": 96,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.621892Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.657111Z",
+      "logical_request_id": "c3-llm-req-05",
+      "logical_request_index": 4,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
+      "request_identity": "0d9234a071c6285ecd1227ce260afd727cddad5f73da1527d903d868d07cf9fe",
+      "slot_end": 159,
+      "slot_start": 128,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.666702Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.702944Z",
+      "logical_request_id": "c3-llm-req-06",
+      "logical_request_index": 5,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
+      "request_identity": "ad745f9ea95be960f23fb3758b7c2b4f9b632c0a12ab2e6e7668b30833701a72",
+      "slot_end": 191,
+      "slot_start": 160,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.710879Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.744583Z",
+      "logical_request_id": "c3-llm-req-07",
+      "logical_request_index": 6,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
+      "request_identity": "d3209735f497177baa13ffa789ada5bf872bf25c91e43fab7de0fb43d0b5c533",
+      "slot_end": 223,
+      "slot_start": 192,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.753052Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.789391Z",
+      "logical_request_id": "c3-llm-req-08",
+      "logical_request_index": 7,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
+      "request_identity": "4bb3c4c8206dc47f6df9da08195ac5001edf2438703707306448787bd454cfcb",
+      "slot_end": 255,
+      "slot_start": 224,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.798130Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.832651Z",
+      "logical_request_id": "c3-llm-req-09",
+      "logical_request_index": 8,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
+      "request_identity": "79f2ebfb55010d5b8cfeb60d444a113022d95ca1f71e9567ea4a03dce20d98d1",
+      "slot_end": 287,
+      "slot_start": 256,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.840082Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.876047Z",
+      "logical_request_id": "c3-llm-req-10",
+      "logical_request_index": 9,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
+      "request_identity": "12e770de26ab48ed208ad1ef956ebba9af7e8abc2592ce60d15d705d9283f7ac",
+      "slot_end": 319,
+      "slot_start": 288,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.884133Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.921389Z",
+      "logical_request_id": "c3-llm-req-11",
+      "logical_request_index": 10,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
+      "request_identity": "31317aa4702ef7afd5217fee52ce692c196c0302e4e1ae7bd09ddba27e5d6a87",
+      "slot_end": 351,
+      "slot_start": 320,
+      "status": "COMPLETED_VALID"
+    },
+    {
+      "accepted_recipe_count": 32,
+      "archive_identity": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
+      "attempt_count": 1,
+      "first_started_utc": "2026-08-16T12:22:43.929929Z",
+      "last_provider_classification": "OK",
+      "last_transition_utc": "2026-08-16T12:22:43.963226Z",
+      "logical_request_id": "c3-llm-req-12",
+      "logical_request_index": 11,
+      "next_permitted_action": "NONE",
+      "notes": [
+        "attempt 1 started",
+        "all 32 candidates accepted"
+      ],
+      "raw_response_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
+      "request_identity": "54b708c3698efedc31b2912b0da149978e5ad9efef51866a6542050e3a8ef905",
+      "slot_end": 383,
+      "slot_start": 352,
+      "status": "COMPLETED_VALID"
+    }
+  ],
+  "resume_cursor": {
+    "all_complete": true,
+    "arm": "LLM",
+    "blocked_reason": null,
+    "completed_requests": 12,
+    "next_logical_request_id": null,
+    "next_logical_request_index": null,
+    "next_permitted_action": "FINALIZE",
+    "next_slot_end": null,
+    "next_slot_start": null,
+    "total_requests": 12
+  },
+  "schema_version": "c3-live-generation-state-v1",
+  "scientific_eligible": false,
+  "status_counts": {
+    "COMPLETED_VALID": 12,
+    "FAILED_BLOCKING": 0,
+    "FAILED_RETRYABLE": 0,
+    "IN_PROGRESS": 0,
+    "NOT_STARTED": 0
+  },
+  "updated_utc": "2026-08-16T12:25:06.005294Z"
+}

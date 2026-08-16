@@ -29,7 +29,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prism_fas.pipeline import checks as check_module
 from prism_fas.pipeline.budget import BudgetLedger, ledger_for
@@ -40,6 +40,9 @@ from prism_fas.pipeline.state import PipelineState, write_state
 from prism_fas.pipeline.status import (NEEDS_SCIENTIFIC_DECISION, DualStatus,
                                        assert_not_promoted, evidence_eligibility,
                                        scientifically_complete)
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard
+    from prism_fas.pipeline.adapters import AdapterRequest, ProviderBinding
 
 RUN_SCHEMA_VERSION = "prism-orchestrator-run-v1"
 
@@ -78,10 +81,18 @@ class StageOutcome:
     started_at_utc: str = ""
     finished_at_utc: str = ""
     notes: list[str] = field(default_factory=list)
+    #: Populated under smoke/full, where the stage runs through its adapter.
+    #: Empty under validate, which measures readiness rather than executing.
+    adapter_results: list[Any] = field(default_factory=list)
+    provider_calls: int = 0
 
     @property
     def failed_checks(self) -> list[check_module.CheckResult]:
         return [result for result in self.check_results if not result.ok]
+
+    @property
+    def failed_adapter_checks(self) -> list[dict[str, Any]]:
+        return [check for result in self.adapter_results for check in result.failed_checks]
 
     def as_dict(self, profile: ExecutionProfile) -> dict[str, Any]:
         payload = {
@@ -103,6 +114,8 @@ class StageOutcome:
             "checks_passed": len(self.check_results) - len(self.failed_checks),
             "checks_failed": len(self.failed_checks),
             "checks": [result.as_dict() for result in self.check_results],
+            "adapter_results": [result.as_dict() for result in self.adapter_results],
+            "provider_calls": self.provider_calls,
             "notes": list(self.notes),
         }
         assert_not_promoted(payload)
@@ -123,10 +136,61 @@ class RunResult:
     ledger: BudgetLedger
     blockers: list[str] = field(default_factory=list)
     written: list[str] = field(default_factory=list)
+    stage_range: tuple[str, str] | None = None
 
     @property
     def ok(self) -> bool:
         return self.outcome == "PASS"
+
+    @property
+    def provider_calls(self) -> int:
+        return sum(outcome.provider_calls for outcome in self.outcomes)
+
+
+def _execute_stage(stage: Stage, request: "AdapterRequest") -> StageOutcome:
+    """Run one stage through its adapter, under smoke or full.
+
+    An unadapted stage is BLOCKED, not skipped and not passed. Skipping it would
+    let `--from C0 --to C13` report success over ten stages that do not exist.
+    """
+    from prism_fas.pipeline.adapters import AdapterError
+    from prism_fas.pipeline.adapters.registry import build_registry
+
+    started = _utc()
+    adapter = build_registry().get(stage.stage_id)
+    if adapter is None:
+        return StageOutcome(
+            stage=stage,
+            status=DualStatus(engineering="BLOCKED", scientific="BLOCKED"),
+            validate_gate="NOT_APPLICABLE", started_at_utc=started, finished_at_utc=_utc(),
+            notes=[f"{stage.stage_id} has no adapter; {stage.adapter_note}"])
+
+    try:
+        results = adapter.run(request)
+    except AdapterError as error:
+        return StageOutcome(
+            stage=stage,
+            status=DualStatus(engineering="BLOCKED", scientific="BLOCKED"),
+            validate_gate="NOT_APPLICABLE", started_at_utc=started, finished_at_utc=_utc(),
+            notes=[f"{type(error).__name__}: {error}"])
+
+    failed = [item for item in results if not item.ok and item.status != "BLOCKED"]
+    blocked = [item for item in results if item.status == "BLOCKED"]
+    if failed:
+        gate, engineering = "FAIL", "SMOKE_FAIL" if request.profile.name == "smoke" else "BLOCKED"
+    elif blocked:
+        gate, engineering = "NOT_APPLICABLE", "BLOCKED"
+    else:
+        gate = "PASS"
+        engineering = "SMOKE_PASS" if request.profile.name == "smoke" else "NOT_TESTED"
+
+    return StageOutcome(
+        stage=stage,
+        status=DualStatus(engineering=engineering, scientific="NOT_RUN"),
+        validate_gate=gate, started_at_utc=started, finished_at_utc=_utc(),
+        adapter_results=results,
+        provider_calls=sum(item.provider_calls for item in results),
+        notes=[note for item in results for note in item.notes])
 
 
 def _validate_stage(stage: Stage, repo: Path) -> StageOutcome:
@@ -256,13 +320,21 @@ def _write_reports(repo: Path, result: RunResult) -> list[str]:
 
 def run(*, repo: Path, profile_name: str, resume: bool = False,
         first_stage: str | None = None, last_stage: str | None = None,
-        phase: str | None = None) -> RunResult:
+        phase: str | None = None, mode: str | None = None,
+        provider_binding: "ProviderBinding | None" = None,
+        authorized_live_generation: bool = False,
+        adapter_options: dict[str, Any] | None = None) -> RunResult:
     """Execute one orchestration run and return its result.
 
-    Smoke and full stop immediately while no stage adapter exists. That is not a
-    placeholder: running them would mean traversing the phase machine with
-    nothing to execute and writing artifacts that assert stages completed. A
-    BLOCKED result naming the missing adapters is the accurate outcome.
+    Under validate the stages report readiness. Under smoke and full they run
+    through their adapters, and a stage without one is BLOCKED rather than
+    skipped — so a range covering C0-C13 cannot report success over the ten
+    stages that do not exist.
+
+    `authorized_live_generation` is a separate argument from the profile on
+    purpose. L.2 lets the full profile do scientific work; it does not authorize
+    spending live provider quota on the frozen C3 schedule, and nothing in this
+    signature lets that authorization arrive implicitly.
     """
     repo = Path(repo).resolve()
     profile = load_profile(profile_name, repo=repo)
@@ -280,35 +352,61 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
     blockers: list[str] = []
     outcomes: list[StageOutcome] = []
 
-    missing_adapters = [stage.stage_id for stage in STAGES if not stage.adapter_implemented]
-    if profile.name in {"smoke", "full"}:
-        blockers.append(
-            f"profile {profile.name!r} executes stage adapters, and none exists yet "
-            f"(missing: {', '.join(missing_adapters)}). Stage adapters are step 4 of "
-            "docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized.")
-        if profile.name == "full":
-            blockers.append(
-                "C3 scientific generation additionally remains gated on user approval of "
-                "the superseding bank-contract lock; the full profile cannot start while "
-                f"that approval is outstanding ({NEEDS_SCIENTIFIC_DECISION}).")
-        outcomes = [_blocked_stage(stage, blockers[0]) for stage in selected]
-        outcome = "BLOCKED"
-    else:
+    unadapted = [stage.stage_id for stage in selected if not stage.adapter_implemented]
+
+    if profile.name == "validate":
         for stage in selected:
             outcomes.append(_validate_stage(stage, repo))
             ledger.spend("stages")
-        failed = [item for item in outcomes if item.validate_gate == "FAIL"]
-        outcome = "FAIL" if failed else "PASS"
-        if failed:
-            blockers.extend(
-                f"{item.stage.stage_id}: " + "; ".join(
-                    failure.summary for failure in item.failed_checks)
-                for item in failed)
+    else:
+        from prism_fas.pipeline.adapters import AdapterRequest, ProviderBinding
+
+        if unadapted:
+            blockers.append(
+                f"profile {profile.name!r} executes stage adapters, and the requested range "
+                f"includes stages that have none: {', '.join(unadapted)}. Those stages are "
+                "BLOCKED; the adapted ones still ran and their evidence is preserved.")
+        if profile.name == "full":
+            blockers.append(
+                "C3 live scientific generation remains gated on user approval of the "
+                "superseding bank-contract lock, a materialized quota snapshot and an "
+                f"explicit authorization flag ({NEEDS_SCIENTIFIC_DECISION}).")
+
+        binding = provider_binding
+        if binding is None and profile.name == "smoke":
+            # Smoke is offline by contract. It exercises the adapter control flow
+            # against fixtures, so the default binding is the one that cannot
+            # reach a network rather than the one that can.
+            binding = ProviderBinding.MOCK
+
+        for stage in selected:
+            request = AdapterRequest(
+                repo=repo, profile=profile, mode=mode, provider_binding=binding,
+                resume=resume, authorized_live_generation=authorized_live_generation,
+                options=dict(adapter_options or {}))
+            outcomes.append(_execute_stage(stage, request))
+            ledger.spend("stages")
+
+    failed = [item for item in outcomes if item.validate_gate == "FAIL"]
+    blocked = [item for item in outcomes if item.status.engineering == "BLOCKED"]
+    if failed:
+        outcome = "FAIL"
+        blockers.extend(
+            f"{item.stage.stage_id}: " + "; ".join(
+                [failure.summary for failure in item.failed_checks]
+                + [failure["summary"] for failure in item.failed_adapter_checks])
+            for item in failed)
+    elif blocked and profile.name != "validate":
+        outcome = "BLOCKED"
+    else:
+        outcome = "PASS"
 
     finished = _utc()
     result = RunResult(profile=profile, phase=phase or "preflight", outcomes=outcomes,
                        outcome=outcome, started_at_utc=started, finished_at_utc=finished,
-                       run_id=run_id, ledger=ledger, blockers=blockers)
+                       run_id=run_id, ledger=ledger, blockers=blockers,
+                       stage_range=(selected[0].stage_id, selected[-1].stage_id)
+                       if selected else None)
 
     result.written = _write_reports(repo, result)
 
@@ -318,26 +416,57 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
         return {"PASS": "PASS", "FAIL": "FAIL",
                 "NOT_APPLICABLE": "SKIPPED_VALID"}[item.validate_gate]
 
-    rows = [
-        RunRecord(
-            run_id=f"{run_id}:{item.stage.stage_id}",
-            stage_id=item.stage.stage_id,
-            execution_profile=profile.name,
-            scientific_eligible=evidence_eligibility(
-                profile_eligible=profile.scientific_eligible,
-                outcome=_row_status(item)),
-            status=_row_status(item),
-            started_at_utc=item.started_at_utc,
-            finished_at_utc=item.finished_at_utc,
-            paths=() if outcome == "BLOCKED" else
-                  (stage_artifact_path(profile, item.stage).as_posix(),),
-            notes="; ".join(item.notes),
-            extra={"validate_gate": item.validate_gate,
-                   "adapter_implemented": item.stage.adapter_implemented,
-                   **item.status.as_dict()},
-        )
-        for item in outcomes
-    ]
+    # One row per SUBSTAGE, not per stage. C2, C2B and C2C are separate pieces
+    # of evidence with separate acceptance artifacts, and collapsing them into a
+    # single C2 row would make the C2B negative result unaddressable from the
+    # index — exactly what L.8 forbids.
+    rows: list[RunRecord] = []
+    for item in outcomes:
+        if item.adapter_results:
+            for adapter_result in item.adapter_results:
+                status = adapter_result.status
+                rows.append(RunRecord(
+                    run_id=f"{run_id}:{adapter_result.substage}:{adapter_result.mode}",
+                    stage_id=item.stage.stage_id,
+                    execution_profile=profile.name,
+                    scientific_eligible=evidence_eligibility(
+                        profile_eligible=profile.scientific_eligible, outcome=status),
+                    status=status,
+                    started_at_utc=item.started_at_utc,
+                    finished_at_utc=item.finished_at_utc,
+                    method=adapter_result.detail.get("arm"),
+                    parent_identities=tuple(sorted(adapter_result.parent_identities.values())),
+                    paths=tuple(adapter_result.artifacts) or (
+                        stage_artifact_path(profile, item.stage).as_posix(),),
+                    notes="; ".join(adapter_result.notes) or adapter_result.summary,
+                    extra={
+                        "substage": adapter_result.substage,
+                        "mode": adapter_result.mode,
+                        "provider_binding": adapter_result.provider_binding.value,
+                        "provider_calls": adapter_result.provider_calls,
+                        "checks_failed": len(adapter_result.failed_checks),
+                        "adapter_implemented": True,
+                        **adapter_result.status_axes.as_dict(),
+                    }))
+        else:
+            status = _row_status(item)
+            rows.append(RunRecord(
+                run_id=f"{run_id}:{item.stage.stage_id}",
+                stage_id=item.stage.stage_id,
+                execution_profile=profile.name,
+                scientific_eligible=evidence_eligibility(
+                    profile_eligible=profile.scientific_eligible, outcome=status),
+                status=status,
+                started_at_utc=item.started_at_utc,
+                finished_at_utc=item.finished_at_utc,
+                paths=() if outcome == "BLOCKED" else
+                      (stage_artifact_path(profile, item.stage).as_posix(),),
+                notes="; ".join(item.notes),
+                extra={"substage": item.stage.stage_id,
+                       "validate_gate": item.validate_gate,
+                       "provider_calls": item.provider_calls,
+                       "adapter_implemented": item.stage.adapter_implemented,
+                       **item.status.as_dict()}))
     annotations = [
         annotate_historical(path, milestone=milestone,
                             reason="written before the L.9 dual-status artifact schema "
@@ -347,6 +476,19 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
     ]
     record(repo, rows, profile=profile, generated_at_utc=finished,
            historical_annotations=annotations)
+
+    # The C3 live cursor, if a C3 adapter ran one. Surfaced into PIPELINE_STATE
+    # so "where does a resume restart" is answerable without opening the C3
+    # state file, which is what L.10 asks the cursor to provide.
+    c3_cursor = next(
+        (adapter_result.detail["resume_cursor"]
+         for item in outcomes for adapter_result in item.adapter_results
+         if "resume_cursor" in adapter_result.detail), None)
+
+    last_substage = next(
+        (adapter_result.substage
+         for item in reversed(outcomes) for adapter_result in reversed(item.adapter_results)),
+        None)
 
     write_state(repo, PipelineState(
         profile=profile.name,
@@ -361,11 +503,31 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
         last_updated_utc=finished,
         outcome=outcome,
         notes=blockers,
-        extra={"resume_requested": resume,
-               "resume_note": "validate checks are measurements of current repository "
-                              "state and are always re-executed; there is no completed "
-                              "artifact for --resume to skip (L.11 applies to executed "
-                              "work, not to measurement)"},
+        extra={
+            "stage_range": list(result.stage_range) if result.stage_range else None,
+            "substage": last_substage,
+            "engineering_status_scope": (
+                f"stages {result.stage_range[0]}..{result.stage_range[1]} only"
+                if result.stage_range else "no stage"),
+            "provider_calls_this_run": result.provider_calls,
+            "resume_requested": resume,
+            "resume_token": run_id,
+            "authorized_live_generation": authorized_live_generation,
+            "ancestor_identity_verification": {
+                stage_id: identity
+                for item in outcomes for adapter_result in item.adapter_results
+                for stage_id, identity in adapter_result.parent_identities.items()},
+            "c3_logical_request_state": c3_cursor,
+            "next_logical_request_index":
+                (c3_cursor or {}).get("next_logical_request_index"),
+            "next_slot_range": [
+                (c3_cursor or {}).get("next_slot_start"),
+                (c3_cursor or {}).get("next_slot_end")] if c3_cursor else None,
+            "resume_note": (
+                "validate checks are measurements of current repository state and are "
+                "always re-executed. Adapter work IS identity-aware: a COMPLETED_VALID "
+                "C3 logical request is never re-issued (L.11)."),
+        },
     ), profile)
 
     return result
