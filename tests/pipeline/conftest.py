@@ -42,6 +42,32 @@ def no_ambient_credential(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def no_live_provider_construction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test may build a real provider, whatever the gates decide.
+
+    Blocked sockets already stop a request from leaving, but that is a backstop
+    that fires *after* the code has decided to go live. This fixture makes the
+    decision itself impossible to act on, so a test whose premise quietly stops
+    holding — an absent quota snapshot that later exists, say — fails loudly at
+    the construction point instead of silently exercising the live path.
+    """
+    import prism_fas.pipeline.adapters.c3 as c3
+
+    original = c3._build_provider
+
+    def guarded(binding, request):
+        from prism_fas.pipeline.adapters import ProviderBinding
+
+        if binding is ProviderBinding.LIVE:
+            raise AssertionError(
+                "a test reached live provider construction; every gate that should have "
+                "stopped it is either satisfied or bypassed, and that is the bug")
+        return original(binding, request)
+
+    monkeypatch.setattr(c3, "_build_provider", guarded)
+
+
 @pytest.fixture(scope="session")
 def repo() -> Path:
     return REPO

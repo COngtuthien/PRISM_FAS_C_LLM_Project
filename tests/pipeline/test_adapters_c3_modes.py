@@ -135,9 +135,21 @@ def test_an_unknown_mode_is_refused(sandbox: Path) -> None:
 
 # --- 10, 11. credential and quota gates --------------------------------------
 
-def test_live_binding_blocks_without_a_quota_snapshot(sandbox: Path, monkeypatch) -> None:
-    """Requirements 10 and 11 together: both gates hold before any call."""
+def test_live_binding_blocks_without_a_quota_snapshot(tmp_path: Path, monkeypatch) -> None:
+    """Requirements 10 and 11 together: both gates hold before any call.
+
+    The sandbox is built fresh and its quota snapshot removed, because the real
+    repository now carries a materialized one. Relying on the file merely being
+    absent would make this test silently stop testing the gate the moment the
+    snapshot was created — which is exactly what happened once already.
+    """
     from prism_fas.pipeline.adapters.c3 import _live_generate
+    from prism_fas.pipeline.adapters.quota import RELATIVE_PATH
+
+    sandbox = make_sandbox(tmp_path / "no_quota")
+    snapshot = sandbox / RELATIVE_PATH
+    assert snapshot.exists(), "the fixture repo should carry the real snapshot to remove"
+    snapshot.unlink()
 
     monkeypatch.setenv("GEMINI_API_KEY", "not-a-real-key")
     request = AdapterRequest(

@@ -80,9 +80,17 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
+        binding = None
+        if args.authorized_live_generation:
+            # The flag is the authorization; binding LIVE here makes the intent
+            # explicit rather than leaving it to a default.
+            from prism_fas.pipeline.adapters import ProviderBinding
+
+            binding = ProviderBinding.LIVE
+
         result = run(repo=REPO, profile_name=args.profile, resume=args.resume,
                      first_stage=args.first_stage, last_stage=args.last_stage,
-                     phase=args.phase, mode=args.mode,
+                     phase=args.phase, mode=args.mode, provider_binding=binding,
                      authorized_live_generation=args.authorized_live_generation)
     except (ProfileError, StageError, OrchestratorError, AdapterError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)

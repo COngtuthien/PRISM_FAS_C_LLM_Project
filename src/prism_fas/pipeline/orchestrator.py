@@ -373,6 +373,11 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
                 f"explicit authorization flag ({NEEDS_SCIENTIFIC_DECISION}).")
 
         binding = provider_binding
+        if binding is ProviderBinding.LIVE:
+            # Free-tier pacing, applied only when a real provider is on the other
+            # end. Transport timing only: it never touches request content.
+            adapter_options = {"min_seconds_between_requests": 15.0,
+                               **dict(adapter_options or {})}
         if binding is None and profile.name == "smoke":
             # Smoke is offline by contract. It exercises the adapter control flow
             # against fixtures, so the default binding is the one that cannot

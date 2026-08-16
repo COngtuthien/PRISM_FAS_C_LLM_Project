@@ -1,0 +1,25 @@
+{
+  "artifact_kind": "OPERATIONAL_PROVENANCE",
+  "current_remaining_rpd": "UNKNOWN",
+  "exact_dashboard_read_time_utc": "UNKNOWN",
+  "is_scientific_tuning_signal": false,
+  "materialized": true,
+  "model": "gemini-3.6-flash",
+  "notes": [
+    "Values transcribed from a manual Google AI Studio observation supplied by the user. Nothing here was contacted, queried or derived programmatically.",
+    "current_remaining_rpd is UNKNOWN because the usage panel reported 'No data available'. It was not inferred from rpd_limit or from the historical provider-call ledger.",
+    "observed_at_utc is the materialization time. The exact dashboard-read time could not be truthfully recovered and is recorded as UNKNOWN rather than invented.",
+    "Operational provenance only: this artifact may delay or stop a run; it may never change a prompt, schedule, selection rule, quota contract or bank."
+  ],
+  "observation_window": "1 Day",
+  "observed_at_utc": "2026-08-16T12:35:56.681411Z",
+  "observed_by": "user_observed",
+  "project": "Color classification",
+  "rpd_limit": 20,
+  "rpm_limit": 5,
+  "schema_version": "c3-quota-snapshot-v1",
+  "tier": "Free",
+  "timestamp_semantics": "materialization_time",
+  "tpm_limit": 250000,
+  "usage_dashboard": "No data available"
+}

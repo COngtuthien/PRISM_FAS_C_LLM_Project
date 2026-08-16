@@ -34,6 +34,7 @@ file sequences them and records what happened.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -416,12 +417,27 @@ def _live_generate(request: AdapterRequest, mode: C3Mode,
     executed = 0
     stopped_reason: str | None = None
 
+    # Inter-request pacing. Purely transport behaviour: it decides WHEN a request
+    # leaves, never what it contains, so the request identity, prompt, schema and
+    # slot assignment are untouched. It exists because the free tier allows 5
+    # requests per minute and firing 12 back to back would earn rate-limit errors
+    # that cost retries rather than time.
+    pace_seconds = float(request.options.get("min_seconds_between_requests", 0.0))
+    sleep = request.options.get("sleep") or time.sleep
+    last_request_at: float | None = None
+
     for record in state.requests:
         if record.complete:
             continue          # L.11: completed is terminal. Never re-issued.
         if record.state is RequestStatus.FAILED_BLOCKING and not request.resume:
             stopped_reason = f"{record.logical_request_id} is FAILED_BLOCKING"
             break
+
+        if pace_seconds and last_request_at is not None:
+            elapsed = time.monotonic() - last_request_at
+            if elapsed < pace_seconds:
+                sleep(pace_seconds - elapsed)
+        last_request_at = time.monotonic()
 
         generation_request = context.request(record.logical_request_id)
         state.mark_in_progress(record, request_identity=generation_request.request_sha256)
@@ -497,6 +513,8 @@ def _live_generate(request: AdapterRequest, mode: C3Mode,
             "logical_requests_executed_this_run": executed,
             "provider_calls_this_run": calls_made,
             "provider_binding": binding.value,
+            "min_seconds_between_requests": pace_seconds,
+            "pacing_is_transport_only": True,
             "is_scientific_generation": binding is ProviderBinding.LIVE,
             "c3_scientific_logical_requests":
                 len(state.completed) if binding is ProviderBinding.LIVE else 0,
