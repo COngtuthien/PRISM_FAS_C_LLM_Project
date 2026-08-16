@@ -1,6 +1,6 @@
 {
   "authority": "navigation aid only; scientific truth is the immutable artifact bytes and locks (L.10)",
-  "generated_at_utc": "2026-08-16T12:25:06.007449Z",
+  "generated_at_utc": "2026-08-16T12:56:42.946848Z",
   "historical_annotations": [
     {
       "bytes_modified": false,
@@ -57,9 +57,9 @@
       "scientific_eligible": false
     }
   ],
-  "last_writing_profile": "smoke",
+  "last_writing_profile": "full",
   "preservation_rule": "no winner-only cleanup: PASS, FAIL, DIVERGED, INTERRUPTED and BLOCKED rows are all retained and remain addressable (L.8)",
-  "run_count": 32,
+  "run_count": 33,
   "runs": [
     {
       "adapter_implemented": true,
@@ -928,6 +928,34 @@
       "seed": null,
       "stage_id": "C3",
       "started_at_utc": "2026-08-16T12:25:05.651503Z",
+      "status": "PASS",
+      "substage": "C3"
+    },
+    {
+      "adapter_implemented": true,
+      "checks_failed": 0,
+      "config_hash": null,
+      "config_id": null,
+      "content_hash": null,
+      "engineering_status": "NOT_TESTED",
+      "execution_profile": "full",
+      "finished_at_utc": "2026-08-16T12:56:42.946803Z",
+      "method": null,
+      "mode": "RESUME_LIVE_GENERATE",
+      "notes": "all 12 logical requests complete",
+      "parent_identities": [],
+      "paths": [
+        "reports/c3/live/C3_LIVE_GENERATION_STATE.json"
+      ],
+      "protocol": null,
+      "provider_binding": "live",
+      "provider_calls": 13,
+      "run_id": "full-20260816T124147Z-0c8de067:C3:RESUME_LIVE_GENERATE",
+      "scientific_eligible": true,
+      "scientific_status": "PASS",
+      "seed": null,
+      "stage_id": "C3",
+      "started_at_utc": "2026-08-16T12:41:47.315731Z",
       "status": "PASS",
       "substage": "C3"
     }

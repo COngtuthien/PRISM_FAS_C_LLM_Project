@@ -1,0 +1,127 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/c3/live/C3_LIVE_GENERATION_STATE.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c3_completed_requests_intact",
+          "detail": {
+            "rows": []
+          },
+          "ok": true,
+          "summary": "0 completed logical request(s) re-hashed and intact"
+        },
+        {
+          "check_id": "c3_quota_snapshot",
+          "detail": {
+            "current_remaining_rpd": "UNKNOWN",
+            "materialized": true,
+            "observed_at_utc": "2026-08-16T12:35:56.681411Z",
+            "observed_by": "user_observed",
+            "present": true,
+            "remaining_is_known": false,
+            "required": true,
+            "usable": true
+          },
+          "ok": true,
+          "summary": "a valid quota snapshot is present"
+        },
+        {
+          "check_id": "c3_credential_gate",
+          "detail": {
+            "credential": "PRESENT",
+            "required": true,
+            "rule": "presence is checked, never the value; no key is printed, logged or serialized"
+          },
+          "ok": true,
+          "summary": "a provider credential is PRESENT; live generation is gated on it"
+        },
+        {
+          "check_id": "c3_logical_request_count_unchanged",
+          "detail": {
+            "frozen": 12,
+            "planned": 12
+          },
+          "ok": true,
+          "summary": "the plan still contains exactly 12 logical requests"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {
+        "c3_scientific_candidate_slots": 384,
+        "c3_scientific_logical_requests": 12,
+        "is_scientific_generation": true,
+        "logical_requests_executed_this_run": 12,
+        "min_seconds_between_requests": 15.0,
+        "pacing_is_transport_only": true,
+        "provider_binding": "live",
+        "provider_calls_this_run": 13,
+        "resume_cursor": {
+          "all_complete": true,
+          "arm": "LLM",
+          "blocked_reason": null,
+          "completed_requests": 12,
+          "next_logical_request_id": null,
+          "next_logical_request_index": null,
+          "next_permitted_action": "FINALIZE",
+          "next_slot_end": null,
+          "next_slot_start": null,
+          "total_requests": 12
+        },
+        "status_counts": {
+          "COMPLETED_VALID": 12,
+          "FAILED_BLOCKING": 0,
+          "FAILED_RETRYABLE": 0,
+          "IN_PROGRESS": 0,
+          "NOT_STARTED": 0
+        }
+      },
+      "engineering_status": "NOT_TESTED",
+      "mode": "RESUME_LIVE_GENERATE",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "live",
+      "provider_calls": 13,
+      "scientific_status": "PASS",
+      "stage_id": "C3",
+      "status": "PASS",
+      "substage": "C3",
+      "summary": "all 12 logical requests complete"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "NOT_TESTED",
+  "execution_profile": "full",
+  "finished_at_utc": "2026-08-16T12:56:42.946803Z",
+  "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/full.yaml",
+  "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+  "profile_permits_scientific_evidence": true,
+  "provider_calls": 13,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": true,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C3",
+  "started_at_utc": "2026-08-16T12:41:47.315731Z",
+  "substages": [
+    "C3"
+  ],
+  "title": "LLM recipe bank generation and selection",
+  "validate_checks": [
+    "c3_contract_identities",
+    "c3_locks_verify",
+    "c3_generation_not_started"
+  ],
+  "validate_gate": "PASS"
+}

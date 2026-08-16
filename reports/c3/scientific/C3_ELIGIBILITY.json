@@ -1,0 +1,46 @@
+{
+  "all_arms_meet_minimum": true,
+  "arms": {
+    "DET": {
+      "eligible": 384,
+      "meets_minimum": true,
+      "minimum_required": 320,
+      "raw_slots": 384,
+      "rejected": 0,
+      "rejected_by_stage": {}
+    },
+    "LLM": {
+      "eligible": 384,
+      "meets_minimum": true,
+      "minimum_required": 320,
+      "raw_slots": 384,
+      "rejected": 0,
+      "rejected_by_stage": {}
+    },
+    "RND": {
+      "eligible": 384,
+      "meets_minimum": true,
+      "minimum_required": 320,
+      "raw_slots": 384,
+      "rejected": 0,
+      "rejected_by_stage": {}
+    }
+  },
+  "eligibility_order": [
+    "item_schema",
+    "ontology",
+    "scientific_route_policy",
+    "numeric_range",
+    "compatibility",
+    "canonicalization",
+    "deduplication",
+    "compiler",
+    "operator_graph",
+    "mask_policy",
+    "conditioning_41d"
+  ],
+  "execution_profile": "full",
+  "generated_at_utc": "2026-08-16T14:44:31.658265Z",
+  "schema_version": "c3-scientific-eligibility-v1",
+  "scientific_eligible": true
+}

@@ -1,0 +1,70 @@
+{
+  "artifact_kind": "ENGINEERING_READINESS_EVIDENCE",
+  "artifacts": [
+    "reports/full/c3/C3_FULL.json"
+  ],
+  "blockers": [
+    "C3 live scientific generation remains gated on user approval of the superseding bank-contract lock, a materialized quota snapshot and an explicit authorization flag (NEEDS_SCIENTIFIC_DECISION)."
+  ],
+  "budget": {
+    "bounded": false,
+    "elapsed_seconds": 895.844,
+    "exceeded": [],
+    "limits": {},
+    "on_exhaustion": "not applicable; the full profile has no operational cap",
+    "profile": "full",
+    "spent": {
+      "stages": 1.0
+    },
+    "treatment_factor": false
+  },
+  "checks_failed": 0,
+  "checks_run": 0,
+  "engineering_status_note": "L.3 fixes the engineering vocabulary at NOT_TESTED / RUNNING / SMOKE_PASS / SMOKE_FAIL / BLOCKED. None of those means 'validate passed', so a clean validate run leaves engineering_status=NOT_TESTED and reports on the separate validate_gate axis instead of borrowing SMOKE_PASS.",
+  "execution_profile": "full",
+  "failed_check_ids": [],
+  "finished_at_utc": "2026-08-16T12:56:42.946848Z",
+  "meaning": "This run measured static readiness only: identities, locks, contracts and environment. It executed no scientific work, and it is not evidence that any milestone can run, let alone that one is scientifically complete.",
+  "not_scientific_evidence": true,
+  "outcome": "PASS",
+  "per_stage_artifacts_note": "a blocked run executes no stage, so it writes no per-stage artifact; the blocked outcome is preserved here and in state/MASTER_RUN_INDEX.json (L.8)",
+  "per_stage_artifacts_written": true,
+  "phase": "preflight",
+  "profile_config": "configs/execution/full.yaml",
+  "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+  "profile_permits_scientific_evidence": true,
+  "run_id": "full-20260816T124147Z-0c8de067",
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": true,
+  "stages": [
+    {
+      "adapter_implemented": true,
+      "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+      "checks_failed": 0,
+      "engineering_status": "NOT_TESTED",
+      "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+      "phase": "preflight",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C3",
+      "substages": [
+        "C3"
+      ],
+      "title": "LLM recipe bank generation and selection",
+      "validate_checks": [
+        "c3_contract_identities",
+        "c3_locks_verify",
+        "c3_generation_not_started"
+      ],
+      "validate_gate": "PASS"
+    }
+  ],
+  "stages_total": 1,
+  "stages_with_validate_checks": 1,
+  "stages_without_adapter": [],
+  "started_at_utc": "2026-08-16T12:41:47.081661Z",
+  "validate_gate_counts": {
+    "FAIL": 0,
+    "NOT_APPLICABLE": 0,
+    "PASS": 1
+  }
+}

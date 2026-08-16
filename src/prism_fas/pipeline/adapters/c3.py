@@ -378,6 +378,15 @@ def _live_generate(request: AdapterRequest, mode: C3Mode,
         live_dir / LIVE_STATE_FILE, arm="LLM", schedule=schedule,
         execution_profile=profile.name, provider_binding=binding.value,
         resume=(mode is C3Mode.RESUME_LIVE_GENERATE or request.resume))
+    # Eligibility is a property of the evidence, not of the file's defaults: a
+    # complete live run under the full profile IS scientific evidence and has to
+    # say so, while anything else must not.
+    state.scientific_eligible = (profile.scientific_eligible
+                                 and binding is ProviderBinding.LIVE)
+    state.generation_contract_identity = (
+        state.generation_contract_identity
+        or json.loads((repo / "reports/c3/C3_BANK_LOCK.json").read_text(encoding="utf-8"))
+        ["composite"]["c3_generation_contract_identity"])
 
     checks: list[dict[str, Any]] = []
 
@@ -467,7 +476,8 @@ def _live_generate(request: AdapterRequest, mode: C3Mode,
                                  result_summary=result.as_dict())
             accepted = sum(1 for candidate in validation.candidates if candidate.accepted)
             state.mark_completed(record, archive_identity=sha, raw_response_sha256=sha,
-                                 accepted_recipe_count=accepted)
+                                 accepted_recipe_count=accepted,
+                                 provider_attempts=attempts)
             planner.mark_slot_completed(record.logical_request_id)
         elif status is RequestStatus.FAILED_RETRYABLE:
             state.mark_retryable(record, classification=classification, note=note)

@@ -1,12 +1,7 @@
 {
-  "ancestor_identity_verification": {
-    "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
-    "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
-    "c3_selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
-    "preliminary_lock_body": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba"
-  },
+  "ancestor_identity_verification": {},
   "authority": "navigation aid only; scientific truth is the immutable artifact bytes and locks (L.10)",
-  "authorized_live_generation": false,
+  "authorized_live_generation": true,
   "blocked_stages": [],
   "c3_logical_request_state": {
     "all_complete": true,
@@ -21,36 +16,35 @@
     "total_requests": 12
   },
   "completed_stages": [
-    "C0",
-    "C1",
-    "C2",
     "C3"
   ],
-  "engineering_status_scope": "stages C0..C3 only",
-  "execution_profile": "smoke",
-  "last_run_id": "smoke-20260816T122505Z-46048f50",
-  "last_updated_utc": "2026-08-16T12:25:06.007449Z",
+  "engineering_status_scope": "stages C3..C3 only",
+  "execution_profile": "full",
+  "last_run_id": "full-20260816T124147Z-0c8de067",
+  "last_updated_utc": "2026-08-16T12:56:42.946848Z",
   "next_logical_request_index": null,
   "next_slot_range": [
     null,
     null
   ],
-  "notes": [],
+  "notes": [
+    "C3 live scientific generation remains gated on user approval of the superseding bank-contract lock, a materialized quota snapshot and an explicit authorization flag (NEEDS_SCIENTIFIC_DECISION)."
+  ],
   "outcome": "PASS",
   "phase": "preflight",
-  "profile": "smoke",
-  "profile_config": "configs/execution/smoke.yaml",
-  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
-  "provider_calls_this_run": 0,
+  "profile": "full",
+  "profile_config": "configs/execution/full.yaml",
+  "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+  "provider_calls_this_run": 13,
   "resume_note": "validate checks are measurements of current repository state and are always re-executed. Adapter work IS identity-aware: a COMPLETED_VALID C3 logical request is never re-issued (L.11).",
-  "resume_requested": false,
-  "resume_token": "smoke-20260816T122505Z-46048f50",
+  "resume_requested": true,
+  "resume_token": "full-20260816T124147Z-0c8de067",
   "schema_version": "prism-pipeline-state-v1",
-  "scientific_eligible": false,
+  "scientific_eligible": true,
   "stage_id": "C3",
-  "stage_index": 4,
+  "stage_index": 1,
   "stage_range": [
-    "C0",
+    "C3",
     "C3"
   ],
   "substage": "C3"

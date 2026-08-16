@@ -1,0 +1,64 @@
+{
+  "arms": {
+    "DET": {
+      "bank_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "eligible": 384,
+      "eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+      "raw_slots": 384,
+      "selected": 256,
+      "selected_set_identity": "89761485332b94e9b5fe2756054da2286b74eb2fbcf08bf1b166163a75c772d9"
+    },
+    "LLM": {
+      "bank_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "eligible": 384,
+      "eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+      "raw_slots": 384,
+      "selected": 256,
+      "selected_set_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326"
+    },
+    "RND": {
+      "bank_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "eligible": 384,
+      "eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+      "raw_slots": 384,
+      "selected": 256,
+      "selected_set_identity": "5ab2375b6ccf28fdee795d7eaebd295be18b2b3a579da03bb1ef3736b0d0e7e3"
+    }
+  },
+  "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+  "c3_generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+  "c3_selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+  "execution_profile": "full",
+  "generated_at_utc": "2026-08-16T14:42:21.772880Z",
+  "immutability": {
+    "rewrite_permitted": false
+  },
+  "llm_schedule": {
+    "extra_logical_requests": 0,
+    "logical_requests": 12,
+    "objects_per_request": 32,
+    "provider_attempts": 13,
+    "raw_slots": 384
+  },
+  "lock_identity": "eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d",
+  "lock_identity_material": [
+    "arms",
+    "c3_generation_contract_identity",
+    "c3_selection_contract_identity",
+    "c3_bank_contract_identity",
+    "llm_schedule",
+    "quota_snapshot_sha256",
+    "supersedes"
+  ],
+  "milestone": "C3",
+  "project": "PRISM-FAS-C-LLM",
+  "quota_snapshot_sha256": "763674ea101e2ee3b97bea69405d57e567e78afdb8a56515ea322829561b9efe",
+  "schema_version": "c3-scientific-bank-lock-v1",
+  "scientific_eligible": true,
+  "status": "FROZEN_SCIENTIFIC_BANKS",
+  "supersedes": {
+    "pre_scientific_contract_lock": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+    "preliminary_bank_lock": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+    "rule": "both are historical evidence and are preserved unchanged; this lock records the ACTUAL scientific banks they governed"
+  }
+}

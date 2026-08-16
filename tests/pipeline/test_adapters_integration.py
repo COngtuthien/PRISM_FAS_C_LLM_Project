@@ -148,18 +148,27 @@ def test_running_every_profile_leaves_frozen_artifacts_byte_identical(
 
 def test_no_offline_profile_writes_c3_generation_state_or_archives(
         sandbox: Path) -> None:
-    """`reports/c3/live/` may hold the quota template; it must hold nothing else.
+    """An offline profile must not touch the scientific C3 live namespace.
 
-    The directory itself is not the assertion — the committed quota-snapshot
-    template lives there. What must never appear is generation output: a live
-    state file or a raw response archive under the scientific namespace.
+    Since the real C3 generation ran, that namespace now legitimately holds a
+    state file and 12 archives. So the assertion is not absence — it is that
+    validate and smoke leave those bytes exactly as they found them, and put
+    their own rehearsal state somewhere else entirely.
     """
+    import hashlib
+
+    live = sandbox / "reports/c3/live"
+
+    def fingerprint() -> dict[str, str]:
+        return {path.relative_to(live).as_posix():
+                hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in sorted(live.rglob("*")) if path.is_file()}
+
+    before = fingerprint()
     run(repo=sandbox, profile_name="validate", first_stage="C0", last_stage="C3")
     run(repo=sandbox, profile_name="smoke", first_stage="C0", last_stage="C3")
 
-    assert not (sandbox / "reports/c3/live/C3_LIVE_GENERATION_STATE.json").exists()
-    assert not (sandbox / "reports/c3/live/raw_responses").exists()
-
+    assert fingerprint() == before, "an offline profile modified the C3 scientific namespace"
     # The smoke rehearsal's own state went to the smoke namespace instead.
     assert (sandbox / "reports/smoke/c3/live/C3_LIVE_GENERATION_STATE.json").exists()
 

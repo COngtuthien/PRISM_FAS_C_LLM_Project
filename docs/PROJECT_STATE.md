@@ -13,7 +13,7 @@ authoritative_spec:
   canonical_location_per_spec_M1: docs/specs/   # deviation recorded; move planned
 
 repository:
-  branch: c3-v15-execution-adapters
+  branch: c3-live-scientific-generation
   previous_branch: c3-v15-selection-contract   # execution-layer checkpoint at 5f77f0d
   branch_point: a876d5ffba410a867173c7ca719618b2b48a5144   # the accepted v1.5 reconciliation commit
   latest_accepted_checkpoint: c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5   # C2C = PASS
@@ -29,18 +29,20 @@ version_b:
   immutable_verified: true
 
 current_milestone: C3
-current_substage: C0-C3 execution adapters (restructure step 4, partial) — COMPLETE
-execution_profile: smoke
+current_substage: C3 live scientific generation and bank freeze — COMPLETE
+execution_profile: full
 pipeline_phase: preflight
 
-# SCOPE WARNING. `engineering_status: SMOKE_PASS` below is scoped to stages C0..C3
-# executing OFFLINE against fixtures. It does NOT mean C4-C13 were smoked (they have
-# no adapters), it does NOT mean any provider was called, and it does NOT mean any
-# milestone is scientifically complete. Scientific completion requires
-# scientific_status=PASS under --profile full, which has never run.
-engineering_status_scope: stages_c0_to_c3_offline_only
-engineering_status: SMOKE_PASS      # C0-C3 executed offline; 0 live provider calls
-scientific_status: NOT_RUN          # no C3 scientific generation has occurred
+# SCOPE WARNING. Both statuses below are scoped to stages C0..C3 and to NOTHING else.
+# `scientific_status: PASS` means C3 completed its preregistered scientific workload
+# under --profile full and its hard acceptance criteria passed. It does NOT mean the
+# project is scientifically complete: C4-C13 have never run, have no adapters, and
+# remain NOT_RUN. Read `historical_milestones` and `execution_pipeline` before quoting
+# either field.
+engineering_status_scope: stages_c0_to_c3
+engineering_status: SMOKE_PASS      # C0-C3 offline; the C3 live run is the scientific axis
+scientific_status: PASS             # C3 ONLY. C4-C13 = NOT_RUN.
+scientific_status_scope: c3_only
 
 # Machine-readable so no parser can infer these exist. Previously this fact lived
 # only in YAML comments beside real-looking paths, which a parser strips.
@@ -49,16 +51,16 @@ execution_pipeline:
   # every stage is BLOCKED because no adapter exists.
   validate: IMPLEMENTED
   smoke: IMPLEMENTED_C0_TO_C3
-  full: IMPLEMENTED_C0_TO_C3    # gated; live C3 generation additionally needs approval
+  full: EXECUTED_C3             # live C3 generation ran 2026-08-16; C4-C13 blocked
   orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
   pipeline_state_exists: true   # state/PIPELINE_STATE.json
   master_run_index_exists: true # state/MASTER_RUN_INDEX.json
   stage_adapters_exist: C0_TO_C3_ONLY
   c0_to_c13_pipeline_ever_run: false
   note: >-
-    C0-C3 have adapters and have been executed offline under smoke. C4-C13 have
-    none: a smoke or full run covering them stops with BLOCKED and names them. No
-    stage beyond C3 has ever executed, and nothing here is scientific evidence.
+    C0-C3 have adapters. C3 additionally executed LIVE under --profile full and is
+    scientifically complete. C4-C13 have no adapters: a smoke or full run covering
+    them stops with BLOCKED and names them, and no stage beyond C3 has ever executed.
 
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
@@ -102,10 +104,11 @@ execution_adapters:
     provider_calls_live: 0
     provider_calls_mock: 12               # the C3 fixture rehearsal
     rehearsal_namespace: reports/smoke/c3/live/
-    scientific_namespace_untouched: true  # reports/c3/live/ holds only the quota template
+    scientific_namespace_untouched: true  # verified by hashing reports/c3/live/ before
+                                          # and after; the offline profiles change nothing
 
   c3_live_state_machine:
-    path_when_scientific: reports/c3/live/C3_LIVE_GENERATION_STATE.json
+    path_when_scientific: reports/c3/live/C3_LIVE_GENERATION_STATE.json   # now populated
     statuses: [NOT_STARTED, IN_PROGRESS, COMPLETED_VALID, FAILED_RETRYABLE,
                FAILED_BLOCKING]
     completed_valid_is_terminal: true     # never re-issued by restart or --resume
@@ -157,7 +160,7 @@ historical_milestones:
 c3:
   selection_implementation: COMPLETE        # prism_c3_selection_v1, §7.8.3
   contract_supersession: COMPLETE           # §7.8.4 superseding pre-scientific lock written
-  scientific_generation: NOT_RUN            # C3 itself is NOT scientifically complete
+  scientific_generation: COMPLETE           # executed live 2026-08-16, all 12 requests valid
 
   generation_contract_identity: 884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85
   selection_contract_identity: 3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070
@@ -176,13 +179,46 @@ c3:
     SELECTION_CONTRACT_WAS_REQUIRED_BY_GOVERNING_SPEC_BUT_NOT_IDENTITY_BOUND_BEFORE_C3_GENERATION
   scientific_requests_before_supersession: 0
 
-  c3_scientific_logical_requests: 0
-  c3_scientific_candidate_slots: 0
-  raw_candidate_archives_created: 0
-  recipe_banks_selected: 0
-  live_wiring: READY_BUT_NOT_EXECUTED   # adapter + state machine exist and are tested
-  live_provider_calls_ever_made: 0
-  status: CONTRACT_FROZEN_AWAITING_USER_APPROVAL_BEFORE_SCIENTIFIC_GENERATION
+  c3_scientific_logical_requests: 12
+  c3_scientific_candidate_slots: 384
+  raw_candidate_archives_created: 12        # reports/c3/live/raw_responses/
+  recipe_banks_selected: 3                  # LLM, RND, DET
+  live_wiring: EXECUTED
+  live_provider_attempts: 13                # 12 logical requests + 1 retry of req-03
+  status: SCIENTIFIC_BANKS_FROZEN
+
+  scientific_execution:
+    executed_at_utc: 2026-08-16
+    profile: full
+    provider_binding: live
+    model_id: gemini-3.6-flash              # provider-returned model_version matched
+    logical_requests: 12
+    objects_per_request: 32
+    llm_raw_slots: 384
+    provider_attempts: 13
+    extra_logical_requests: 0
+    retried_requests: [c3-llm-req-03]       # 2 attempts, same logical request (§7.6)
+    rate_limit_incidents: 0
+    quota_blocks: 0
+    pacing_seconds_between_requests: 15     # transport only; request bytes untouched
+    quota_snapshot_sha256: 763674ea101e2ee3b97bea69405d57e567e78afdb8a56515ea322829561b9efe
+
+  arms:
+    LLM: {raw: 384, eligible: 384, selected: 256,
+          bank_identity: f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59}
+    RND: {raw: 384, eligible: 384, selected: 256,
+          bank_identity: 07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136}
+    DET: {raw: 384, eligible: 384, selected: 256,
+          bank_identity: 2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9}
+    rejections_at_any_eligibility_stage: 0
+    cross_arm_content_overlap: 0
+    all_selected_routes: [physics, gpat]
+
+  scientific_bank_lock:
+    path: reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json
+    identity: eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d
+    banks: assets/recipe_banks/c3/{llm,rnd,det}/
+    supersedes_but_preserves: [7ee96d3a... preliminary, 1acdf68f... pre-scientific]
 
   pre_live_audit:
     gate: PASS
@@ -293,20 +329,15 @@ known_deviations:
   - Spec copied to docs/ per the bootstrap prompt; §M.1 canonical layout says docs/specs/.
 
 blockers:
-  - C3 scientific generation remains blocked on USER APPROVAL of the superseding
-    bank-contract lock. The §7.8.3 selector, the §7.8.2 quota table and the §7.8.5
-    RND/DET schedules now exist and are identity-bound; what is missing is the decision,
-    not the contract.
+  - C4-C13 are unstarted. C4 (GPAT source search) needs GPU compute and is not authorized.
   - C4-C13 have no adapters. A smoke or full run covering them stops with BLOCKED and
     names them. Restructure-plan step 4 is complete only for C0-C3.
-  - The C3 live path has never been executed against a real provider. It is wired and
-    proven offline against mocks; the remaining gates are a materialized quota snapshot,
-    a credential, and explicit user authorization.
   - Steps 3, 5 and 6 of the restructure plan remain: dual-status stamping of newly written
     artifacts beyond the pipeline's own, the Appendix M.1 layout move with identity
     re-derivation, and the C4..C13 stages themselves.
-  - Quota snapshot for gemini-3.6-flash (RPM/TPM/RPD) is still NOT_PROGRAMMATICALLY_AVAILABLE;
-    the manual AI Studio step recorded in reports/c3/C3_BANK_LOCK.json is still outstanding.
+  - Quota remains NOT_PROGRAMMATICALLY_AVAILABLE for this tier. The manual AI Studio step
+    is now DONE: reports/c3/live/C3_QUOTA_SNAPSHOT.json records the user's observation
+    with current_remaining_rpd=UNKNOWN. A future live run needs a fresh observation.
 
 deviations_recorded_this_session:
   - The v1.5 execution layer was built ahead of the recorded next_authorized_action. The
@@ -326,13 +357,11 @@ deviations_recorded_this_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW and authorization to (a) materialize the manual Gemini quota snapshot into
-  reports/c3/live/C3_QUOTA_SNAPSHOT.json from the AI Studio dashboard, and (b) execute the
-  frozen C3 live 12x32 scientific generation through the C3 adapter. The adapter, the
-  logical-request state machine and the crash/resume contract are implemented and proven
-  offline; what remains is the human decision plus the quota snapshot and credential.
-  Nothing in this session advanced or weakened that decision: the C3 identities, both
-  locks and the pre-live gate were re-derived unchanged, and zero provider calls were made.
+  USER REVIEW of the completed C3 scientific bank evidence — reports/c3/scientific/,
+  reports/c3/live/ and assets/recipe_banks/c3/ — before C4 or any further execution-layer
+  work. C3 is scientifically complete: 12/12 logical requests valid, 384 raw slots per arm,
+  384 eligible per arm, 256 selected per arm, all identities reproduced. No C4, GPAT,
+  synthesis, detector, Modal, GPU or target work has been started or is authorized.
 
-last_updated_utc: 2026-08-16   # C0-C3 adapter milestone
+last_updated_utc: 2026-08-16   # C3 live scientific generation + bank freeze
 ```

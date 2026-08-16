@@ -21,11 +21,25 @@ _IGNORED = shutil.ignore_patterns("__pycache__", "*.pyc", "raw_responses",
 
 
 def make_sandbox(target: Path) -> Path:
-    """A copy of the repository the adapters can safely write into."""
+    """A copy of the repository the adapters can safely write into.
+
+    `reports/c3/live/` is copied in full, raw archives included, even though
+    `raw_responses` is otherwise skipped as bulk. A sandbox holding the C3 live
+    state file without its archives is not a smaller repository — it is a
+    corrupt one, and the resume integrity check correctly refuses it. Copying
+    both keeps the sandbox coherent so tests exercise the gate they name rather
+    than the drift detector.
+    """
     for relative in _SANDBOX_TREES:
         source = REPO / relative
         if source.exists():
             shutil.copytree(source, target / relative, ignore=_IGNORED)
+
+    live = REPO / "reports" / "c3" / "live"
+    if live.exists():
+        shutil.copytree(live, target / "reports" / "c3" / "live", dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
     from prism_fas.pipeline.adapters.context import reset_cache
 
     reset_cache()

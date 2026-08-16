@@ -89,7 +89,15 @@ class LogicalRequestRecord:
     slot_start: int
     slot_end: int
     request_identity: str = ""
+    #: Adapter-level invocations: how many times this run loop handed the request
+    #: to the planner. One per resume that touched it.
     attempt_count: int = 0
+    #: Provider calls actually made for this logical request, including the
+    #: retries the planner spends internally under the frozen retry policy. These
+    #: two differ whenever a transport or semantic retry fires, and the ledger
+    #: has to show it — otherwise the per-request counts do not add up to the
+    #: run's total and the discrepancy looks like an unexplained extra request.
+    provider_attempts: int = 0
     status: str = RequestStatus.NOT_STARTED.value
     archive_identity: str | None = None
     raw_response_sha256: str | None = None
@@ -325,7 +333,8 @@ class LiveGenerationState:
                          note=f"attempt {record.attempt_count} started", action="AWAIT_RESULT")
 
     def mark_completed(self, record: LogicalRequestRecord, *, archive_identity: str,
-                       raw_response_sha256: str, accepted_recipe_count: int) -> None:
+                       raw_response_sha256: str, accepted_recipe_count: int,
+                       provider_attempts: int = 0) -> None:
         if accepted_recipe_count != self.objects_per_request:
             raise LiveStateError(
                 f"{record.logical_request_id} accepted {accepted_recipe_count} recipes but the "
@@ -334,6 +343,7 @@ class LiveGenerationState:
         record.archive_identity = archive_identity
         record.raw_response_sha256 = raw_response_sha256
         record.accepted_recipe_count = accepted_recipe_count
+        record.provider_attempts = provider_attempts or record.provider_attempts
         record.last_provider_classification = "OK"
         self._transition(record, RequestStatus.COMPLETED_VALID,
                          note="all 32 candidates accepted", action="NONE")
