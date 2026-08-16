@@ -28,14 +28,15 @@ version_b:
   immutable_verified: true
 
 current_milestone: C3
-current_substage: selection-contract freeze (pre-scientific) — COMPLETE
+current_substage: v1.5 execution skeleton (restructure step 2) — COMPLETE
 execution_profile: validate
 pipeline_phase: preflight
 
-# SCOPE WARNING. `engineering_status` below describes ONLY the current substage —
-# the C3 selection/bank contract and its offline test suite. It says nothing about
-# the v1.5 execution layer, which does not exist yet (see `execution_pipeline`).
-# It must never be read as "the validate/smoke/full pipeline has been run".
+# SCOPE WARNING. `engineering_status` below describes ONLY the C3 selection/bank
+# contract and its offline test suite. The execution layer now exists and its
+# validate profile has been run (see `execution_layer`), but a validate PASS means
+# the readiness checks passed — NOT that any stage executed, NOT that smoke or full
+# can run, and NOT that any milestone is scientifically complete.
 engineering_status_scope: c3_selection_contract_substage
 engineering_status: SMOKE_PASS      # contract + selector frozen and tested offline
 scientific_status: NOT_RUN          # no C3 scientific generation has occurred
@@ -43,16 +44,53 @@ scientific_status: NOT_RUN          # no C3 scientific generation has occurred
 # Machine-readable so no parser can infer these exist. Previously this fact lived
 # only in YAML comments beside real-looking paths, which a parser strips.
 execution_pipeline:
-  validate: NOT_IMPLEMENTED
-  smoke: NOT_IMPLEMENTED
-  full: NOT_IMPLEMENTED
-  orchestrator_exists: false
-  pipeline_state_exists: false
-  master_run_index_exists: false
+  # The validate profile is implemented and has been executed. It performs the
+  # L.2 readiness checks only — identities, locks, contracts, environment — and
+  # executes NO stage. smoke and full require stage adapters, which do not exist.
+  validate: IMPLEMENTED
+  smoke: NOT_IMPLEMENTED        # refuses to run: BLOCKED, exit 2
+  full: NOT_IMPLEMENTED         # refuses to run: BLOCKED, exit 2
+  orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
+  pipeline_state_exists: true   # state/PIPELINE_STATE.json
+  master_run_index_exists: true # state/MASTER_RUN_INDEX.json
+  stage_adapters_exist: false   # all 14 stages declare adapter_implemented=false
   c0_to_c13_pipeline_ever_run: false
   note: >-
-    No profile has ever been executed end to end. The only thing that has passed is
-    the offline C3 contract suite.
+    No stage has ever been EXECUTED. `validate: IMPLEMENTED` means the readiness
+    checks run and pass; it does not mean any milestone can execute. Under the smoke
+    or full profile the orchestrator stops with BLOCKED and names the missing
+    adapters. Nothing here is scientific evidence.
+
+execution_layer:
+  restructure_plan_step: 2 of 6   # docs/V15_PIPELINE_RESTRUCTURE_PLAN.md §4
+  authorized_by: user, in session, in place of the recorded next_authorized_action
+  entrypoint: train.py
+  package: src/prism_fas/pipeline/
+  modules: [profiles, status, stages, state, registry, resume, budget, checks,
+            orchestrator]
+  profile_configs: configs/execution/{validate,smoke,full}.yaml
+  profile_identities:
+    validate: b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31
+  validate_run:
+    outcome: PASS
+    stages_traversed: 14
+    stages_with_real_checks: 4      # C0, C1, C2, C3
+    stages_not_applicable: 10       # C4..C13 — no checks exist to run
+    checks_run: 11
+    checks_failed: 0
+    evidence: reports/validate/
+    engineering_status_axis: NOT_TESTED for every stage
+    why_not_smoke_pass: >-
+      L.3 fixes the engineering vocabulary at NOT_TESTED | RUNNING | SMOKE_PASS |
+      SMOKE_FAIL | BLOCKED. None of those means "validate passed". Borrowing
+      SMOKE_PASS would claim a smoke execution that never happened and inventing a
+      sixth value would edit a frozen vocabulary, so the run reports on a separate
+      validate_gate axis and leaves engineering_status at NOT_TESTED.
+  scientific_eligibility_rule: >-
+    an artifact is scientifically eligible only when the profile permits it AND the
+    run outcome is PASS. A BLOCKED full run permits eligibility and earns none,
+    because L.2 validates eligibility from the ancestor identity chain and a blocked
+    run has no ancestry. Zero rows in MASTER_RUN_INDEX.json claim eligibility.
 
 historical_milestones:
   C0: ACCEPTED_WITH_DOCUMENTED_DEVIATION   # froze against v1.1; v1.5 execution layer is new scope
@@ -126,11 +164,12 @@ execution:
   current_profile: validate
   engineering_status: NOT_TESTED   # the EXECUTION LAYER, not the C3 contract substage
   scientific_status: NOT_RUN
-  # Planned paths. `*_exists: false` is the authoritative fact; the path is only where
-  # the artifact WILL live. Nothing here has been created.
-  pipeline_state: {planned_path: state/PIPELINE_STATE.json, exists: false}
-  master_run_index: {planned_path: state/MASTER_RUN_INDEX.json, exists: false}
-  orchestrator: {planned_path: train.py, exists: false}
+  # These now exist and were written by a real `python train.py --profile validate`.
+  # They are navigation aids under L.10, never scientific authority.
+  pipeline_state: {path: state/PIPELINE_STATE.json, exists: true}
+  master_run_index: {path: state/MASTER_RUN_INDEX.json, exists: true, run_count: 14,
+                     rows_claiming_scientific_eligibility: 0}
+  orchestrator: {path: train.py, exists: true}
 
 source_search:
   active: false
@@ -173,10 +212,16 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1437
+  passed: 1568
   failed: 7
   skipped: 101
-  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156}
+  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, pipeline: 131}
+  pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
+  pipeline_suite: {passed: 131, failed: 0, skipped: 0}
+  pipeline_offline: >-
+    sockets blocked and ambient credentials deleted by an autouse fixture; a static
+    AST check asserts that no pipeline module and no train.py path imports a provider,
+    Modal, torch or target-evaluation module
   inherited_known_failures: 7   # exactly the set documented in reports/c0/C0_TEST_SUITE.json
   new_unexplained_failures: 0
   c3_suite_exact_command: python -m pytest tests/c3 -q --no-header -p no:cacheprovider
@@ -197,15 +242,32 @@ blockers:
     bank-contract lock. The §7.8.3 selector, the §7.8.2 quota table and the §7.8.5
     RND/DET schedules now exist and are identity-bound; what is missing is the decision,
     not the contract.
-  - The v1.5 execution layer (profiles, dual status, train.py, state files, run tree) does
-    not exist.
+  - Stage adapters do not exist. All 14 stages declare adapter_implemented=false, so the
+    smoke and full profiles stop with BLOCKED. This is restructure-plan step 4 and is
+    separately authorized. Until it lands, no milestone can be EXECUTED by train.py.
+  - Steps 3, 5 and 6 of the restructure plan remain: dual-status stamping of newly written
+    artifacts beyond the pipeline's own, the Appendix M.1 layout move with identity
+    re-derivation, and the C4..C13 stages themselves.
   - Quota snapshot for gemini-3.6-flash (RPM/TPM/RPD) is still NOT_PROGRAMMATICALLY_AVAILABLE;
     the manual AI Studio step recorded in reports/c3/C3_BANK_LOCK.json is still outstanding.
+
+deviations_recorded_this_session:
+  - The v1.5 execution layer was built ahead of the recorded next_authorized_action. The
+    user authorized it explicitly in session; the C3 review it displaced is unchanged and
+    is restored as the next authorized action below. No C3 artifact, lock or identity was
+    touched, and the validate run re-derived all of them unchanged.
+  - L.3 provides no engineering-status value meaning "validate passed". Recorded as an
+    interpretation rather than silently reconciled: engineering_status stays NOT_TESTED
+    and the run reports on a separate validate_gate axis. See execution_layer above.
+  - .gitignore re-includes reports/{validate,smoke,full}/ so execution evidence is
+    committable, matching the existing rationale for the reports/c0..c13 roots.
 
 next_authorized_action: >
   USER REVIEW of the C3 pre-live audit (reports/c3/v15_pre_live_audit/) and the superseding
   bank-contract lock, before any live Gemini 12x32 C3 scientific generation. The pre-live
-  audit gate is verification evidence only; it does not authorize generation.
+  audit gate is verification evidence only; it does not authorize generation. Unchanged by
+  this session: the execution layer neither advanced nor weakened the C3 decision, and the
+  validate run confirmed all C3 identities and locks still reproduce.
 
-last_updated_utc: 2026-08-14
+last_updated_utc: 2026-08-16
 ```

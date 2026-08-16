@@ -1,0 +1,63 @@
+# Execution profile: full  (v1.5 Appendix L.2, L.5, L.12)
+#
+# Scientific execution against the full frozen datasets, banks, search budgets,
+# seed matrix and target protocol. This is the only profile whose artifacts are
+# scientifically eligible, and eligibility is validated from the complete
+# ancestor identity chain rather than asserted by this file.
+#
+# Nothing in this file is a scientific constant. The frozen datasets, banks,
+# search budgets, seed family and selection rules live in the spec and in the
+# immutable locks; this file only declares which profile is running.
+profile: full
+spec_clause: "L.2"
+purpose: Scientific execution
+
+scientific_eligible: true
+may_select_scientific_winner: true
+# L.2, exactly: a winner may be chosen only this way. There is no other path.
+winner_selection_rule: >-
+  only through the frozen source-only selector, before source freeze, using the
+  metric tuple and tie-break declared in the corresponding SEARCH_PLAN (L.6)
+
+# L.2 output namespace: reports/full/ + runs/full/.
+reports_namespace: reports/full
+runs_namespace: runs/full
+
+compute_policy:
+  scientific_training: true
+  gpu: required
+  modal: allowed
+  # A live provider is reachable from exactly one stage, and only when that
+  # stage's own approved BANK_LOCK gates it. This flag does not authorize a
+  # call; the lock does.
+  live_provider: gated
+  live_provider_permitted_for_stages: [C3]
+  live_provider_requires_approved_bank_lock: true
+  # The target firewall in profile form. C11 may resolve label-free SiW
+  # features; C12 may resolve locked predictions plus labels but may not mutate
+  # any model, checkpoint or calibration artifact.
+  target_label_access: c12_scorer_only
+  target_metric_access: c12_scorer_only
+  target_feature_access_label_free: [C11]
+
+# L.12: FULL MUST NOT silently shrink a scientific budget because remaining
+# credit is low. There is therefore no budget to declare here. A run that
+# cannot finish becomes BLOCKED/INTERRUPTED and resumes on sufficient compute.
+engineering_budget: null
+budget_authority: frozen_scientific_contracts
+on_budget_exhaustion: checkpoint_and_stop_cleanly
+silent_scientific_shrink_permitted: false
+
+reduction_permitted: false
+preserved_under_reduction: []
+
+# L.5 phase machine. The orchestrator traverses these in order and stops with
+# NEEDS_SCIENTIFIC_DECISION rather than inventing a method at any gate that
+# needs a choice outside a preregistered envelope.
+phases:
+  - preflight
+  - source-search
+  - source-freeze
+  - scientific
+  - target-eval
+  - final-report

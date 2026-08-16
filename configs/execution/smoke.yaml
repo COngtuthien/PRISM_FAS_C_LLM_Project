@@ -1,0 +1,59 @@
+# Execution profile: smoke  (v1.5 Appendix L.2, L.12)
+#
+# End-to-end engineering execution of the C0-C13 code paths on tiny fixtures.
+# Its purpose is to find engineering defects before GPU compute is spent, and
+# that is the ONLY thing a smoke number may be used for. L.1: a smoke result
+# must never be the numeric basis for selecting a scientific winner, changing a
+# hypothesis, changing P3 or claiming method superiority.
+#
+# Nothing in this file is a scientific constant. The budgets below are
+# engineering caps under L.12, which states explicitly that operational compute
+# budget is not a treatment factor and is not hard-coded into the method.
+profile: smoke
+spec_clause: "L.2"
+purpose: End-to-end engineering execution of C0-C13 code paths
+
+scientific_eligible: false
+may_select_scientific_winner: false
+winner_selection_rule: null
+
+# L.2 gives smoke the reports/smoke namespace. It also executes runs, so it
+# needs a run tree; it is kept disjoint from runs/full so no smoke run can ever
+# be mistaken for, or resumed as, a scientific run.
+reports_namespace: reports/smoke
+runs_namespace: runs/smoke
+
+compute_policy:
+  scientific_training: false
+  gpu: fixture_only
+  modal: false
+  live_provider: false
+  live_provider_permitted_for_stages: []
+  target_label_access: false
+  target_metric_access: false
+  # L.2: "no P3 scientific scoring".
+  target_scientific_scoring: false
+
+# L.12: SMOKE may reduce samples, steps, epochs and seed count only through
+# profile-specific engineering budgets. These are the knobs, not the science.
+# A stage that has no adapter yet reads none of them.
+engineering_budget:
+  max_samples_per_split: 8
+  max_steps_per_epoch: 2
+  max_epochs: 1
+  max_seeds: 1
+  max_wall_clock_seconds: 1800
+budget_authority: operational_only
+
+# L.12 reduction contract: what a reduced budget may touch, and what it may
+# never touch. The orchestrator refuses a stage that reports it changed any of
+# the preserved properties.
+reduction_permitted: true
+reducible_dimensions: [samples, steps, epochs, seeds]
+preserved_under_reduction:
+  - code_paths
+  - tensor_semantics
+  - model_topology
+  - active_loss_semantics
+  - target_firewall
+  - artifact_schemas

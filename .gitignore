@@ -47,6 +47,13 @@ reports/*
 !reports/c13/
 !reports/final/
 !reports/v15_reconciliation/
+# The v1.5 execution-profile namespaces (Appendix L.2). Same reasoning as the
+# milestone roots above: the per-stage status artifacts and the run summary are
+# small and hand-auditable, and a blocked or failing run is evidence that must
+# survive in Git rather than only on the machine that produced it.
+!reports/validate/
+!reports/smoke/
+!reports/full/
 # Inside a Version-C report root, large or generated artifacts stay out. Raw LLM
 # response archives, prediction tables, checkpoints and logs are provenance held on
 # disk and referenced by hash, not Git payload.
@@ -55,6 +62,25 @@ reports/c*/**/*.parquet
 reports/c*/**/*.tar
 reports/c*/**/*.npz
 reports/c*/**/*.png
+# The same exclusions inside the profile namespaces, where a full scientific run
+# will eventually write far more than status JSON. Written out per profile
+# because .gitignore matches with fnmatch globs and treats brace expansion as
+# literal characters.
+reports/validate/**/raw_responses/
+reports/smoke/**/raw_responses/
+reports/full/**/raw_responses/
+reports/validate/**/logs/
+reports/smoke/**/logs/
+reports/full/**/logs/
+reports/validate/**/*.parquet
+reports/smoke/**/*.parquet
+reports/full/**/*.parquet
+reports/validate/**/*.npz
+reports/smoke/**/*.npz
+reports/full/**/*.npz
+reports/validate/**/*.png
+reports/smoke/**/*.png
+reports/full/**/*.png
 
 # ---------------------------------------------------------------------------
 # Local configuration and secrets

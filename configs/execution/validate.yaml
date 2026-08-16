@@ -1,0 +1,46 @@
+# Execution profile: validate  (v1.5 Appendix L.2)
+#
+# Static/unit/integration readiness. This profile proves that the frozen
+# contracts, identities, locks and environment are what they claim to be. It
+# runs no scientific training, calls no provider and reads no target label, so
+# nothing it produces can ever be scientific evidence.
+#
+# Nothing in this file is a scientific constant. Every threshold, quota,
+# schedule and selection rule lives in the spec or in an immutable lock.
+profile: validate
+spec_clause: "L.2"
+purpose: Static/unit/integration readiness
+
+# L.2, verbatim in effect: validate is never scientifically eligible and may
+# never choose a winner. Both flags are serialized into every artifact this
+# profile writes.
+scientific_eligible: false
+may_select_scientific_winner: false
+winner_selection_rule: null
+
+# L.2 output namespace. validate produces reports only; it executes no run, so
+# it claims no runs/ namespace.
+reports_namespace: reports/validate
+runs_namespace: null
+
+# What the profile is permitted to touch. The orchestrator asserts each of these
+# before a stage executes, so a check that tried to reach a provider or a label
+# would fail closed rather than succeed quietly.
+compute_policy:
+  scientific_training: false
+  gpu: none
+  modal: false
+  live_provider: false
+  live_provider_permitted_for_stages: []
+  target_label_access: false
+  target_metric_access: false
+
+# L.12: an operational budget is not a treatment factor. validate has no
+# scientific work to bound, so there is nothing to cap.
+engineering_budget: null
+budget_authority: operational_only
+
+# L.12 reduction contract. validate reduces nothing because it executes no
+# scientific work path in the first place.
+reduction_permitted: false
+preserved_under_reduction: []
