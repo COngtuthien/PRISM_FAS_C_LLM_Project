@@ -13,8 +13,8 @@ authoritative_spec:
   canonical_location_per_spec_M1: docs/specs/   # deviation recorded; move planned
 
 repository:
-  branch: c4-c13-engineering-readiness
-  previous_branch: c3-live-scientific-generation   # C3 scientific freeze at 36f10fd
+  branch: pre-gpu-scientific-decision
+  previous_branch: c4-c13-engineering-readiness    # engineering readiness at f8d5a5f
   branch_point: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # the accepted C3 scientific checkpoint
   latest_accepted_checkpoint: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # C3 banks frozen
   origin: https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git
@@ -28,9 +28,9 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C4_TO_C13_ENGINEERING_READINESS
-current_substage: C0-C13 engineering readiness closure — COMPLETE
-execution_profile: smoke
+current_milestone: PRE_GPU_SCIENTIFIC_DECISION_CLOSURE
+current_substage: learning-rate anchor audit and external-GPU handoff — COMPLETE
+execution_profile: none   # this milestone ran no execution profile; it is an audit
 pipeline_phase: engineering-readiness
 
 # SCOPE WARNING. The two axes below say different things and are easy to conflate.
@@ -127,6 +127,70 @@ c4_to_c13_engineering_readiness:
   gemini_calls_this_milestone: 0
   real_target_package_resolved: false
   target_labels_opened: 0
+
+# --- pre-GPU scientific decision closure (this milestone) --------------------
+pre_gpu_scientific_decision:
+  status: DOSSIER_COMPLETE_AWAITING_USER_APPROVAL
+  is_scientific_execution: false
+  branch: pre-gpu-scientific-decision
+  branched_from: f8d5a5fab9f253c61399cda5f4031f4b4af0e68c
+  dossier: reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json
+  dossier_identity: 5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1
+  dossier_markdown: reports/handoff/LR_ANCHOR_DECISION_DOSSIER.md
+
+  learning_rate_decision: AWAITING_USER_APPROVAL
+
+  # What the forensic audit established, from code and byte-comparison rather
+  # than from config names.
+  findings:
+    - "No scalar named `learning_rate` exists anywhere. C4 has three per-group LRs
+      (encoder 2e-4, recipe 1e-4, generator 2e-4) and C7 has two (backbone 1e-5,
+      heads 1e-4). All are consumed by ONE AdamW per component, as disjoint
+      parameter groups."
+    - "The three C4 groups are all non-empty and together cover 100% of the GPAT
+      model's 910,538 trainable parameters. None is historical, inactive, or a
+      superset of the others, so no scalar is uniquely applicable."
+    - "TRACK G RESOLVES WITHOUT USER INPUT. §13.4.1 forbids Track G from
+      instantiating ConvNeXt, PRISMDetector.parameter_groups omits an empty group,
+      and backbone_lr therefore controls ZERO parameters under Track G. head_lr is
+      the unique inherited anchor — ALREADY_IMPLIED_BY_FROZEN_SPEC, not a choice.
+      Version-B M10 row B01 recorded optimizer_groups==['heads'] for the same
+      structural reason."
+    - "All three LR-bearing configs are byte-identical to Version B, and Version B
+      recorded NO learning-rate sweep. Every value is a single inherited setting,
+      never a search winner, so nothing elevates one scalar above the others."
+    - "The inherited schedulers already treat the LR as a common multiplier over
+      grouped anchors: the detector's _lr_lambda returns ONE scalar that LambdaLR
+      applies to every group, and GPAT's cosine schedule anchors each group on its
+      own base under one shared shape."
+
+  # Trial counts computed by the real SearchPlan, not by hand.
+  interpretation_costs:
+    c4_gpat:      {D_skip: "3 coords / 9 trials", A_single: "4 / 12", B_multiplier: "4 / 12", C_per_group: "6 / 18"}
+    c7_track_r:   {D_skip: "7 coords / 21 trials", A_single: "8 / 24", B_multiplier: "8 / 24", C_per_group: "9 / 27"}
+    c7_track_g:   {resolved: "5 coords / 15 trials with head_lr"}
+  compliance_classes:
+    A_single_scalar: COMPATIBLE_BUT_USER_APPROVAL_REQUIRED
+    B_common_multiplier: COMPATIBLE_BUT_USER_APPROVAL_REQUIRED
+    C_independent_per_group: SEARCH_ENVELOPE_EXPANSION
+    D_skip: NOT_APPLICABLE
+    track_g: ALREADY_IMPLIED_BY_FROZEN_SPEC
+
+  recommendation: B_common_multiplier   # for C4 and C7 Track R; RECOMMENDATION_ONLY
+  recommendation_implemented: false
+  search_plans_unchanged: true
+  consequence_if_approved: >-
+    both frozen plan identities change. c4_gpat_coordinate_v1 ab77e964... and
+    c7_detector_coordinate_v1 62d00225... were built with learning_rate AMBIGUOUS
+    and skipped; any approved interpretation supersedes them, and the new identity
+    is what a later full run must execute against.
+
+  modal_gpu_seconds: 0
+  scientific_training_runs: 0
+  gemini_calls: 0
+  real_target_access: 0
+  datasets_opened: 0
+  weights_hashed_not_loaded: 5
 
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
@@ -402,23 +466,26 @@ known_deviations:
 blockers:
   - "C4-C13 are ENGINEERING_READY and SCIENTIFICALLY NOT_RUN. Every one of them BLOCKS
     under --profile full on this machine and names the input it lacks."
-  - "Missing scientific inputs for C4-C9 — preprocessed source data (data/processed),
-    built source packages (data/packages), the pinned SigLIP2 and ConvNeXt weights, the
-    frozen AdaFace identity backbone, and a real GPU. The engineering smoke substitutes
-    a shape-exact fixture tower and a deterministic identity stand-in; the full profile
-    refuses both."
+  - "CORRECTED by the pre-GPU audit. The previous milestone listed the pinned weights and
+    AdaFace as missing; they are PRESENT and now verified by hash against their frozen
+    pins — SigLIP2 (all 7 files), ConvNeXt V2 Atto, AdaFace ir50, SCRFD and FaceXFormer,
+    ~2.8 GB in the declared model cache. That inventory looked under
+    data/packages/pretrained and hard-coded present=false for AdaFace instead of
+    resolving the cache; the resolver is fixed. The genuine C4 gap is DERIVED data:
+    data/processed, data/packages and data/packages/gpat_pairs are absent, plus a real
+    GPU. The raw CASIA/MSU/SiW roots are present, so the derived trees are rebuildable
+    on the GPU host."
   - "Missing scientific inputs for C10-C12 — the SiW-Mv2 v2 feature package under its
     declared read-only policy, and the evaluation-only label artifact for the isolated
     C-G8 scorer. Neither was resolved, opened or hashed by this milestone."
-  - "NEEDS_SCIENTIFIC_DECISION before C4 or C7 may execute under --profile full. The
-    inherited configurations declare more than one learning rate per component
-    (gpat_m8.yaml has encoder_lr / recipe_lr / generator_lr; m9_reference.yaml has
-    backbone_lr / head_lr). §15.2.2 requires a UNIQUELY inherited anchor and classifies a
-    non-unique one as USER_APPROVAL_REQUIRED, so `learning_rate` is recorded as AMBIGUOUS
-    in both search plans and contributes no trials. The user must bind it to a named
-    scalar, or authorize a per-component tuple, before either envelope is scientifically
-    executable. Engineering readiness does not require that decision; scientific
-    execution does."
+  - "NEEDS_SCIENTIFIC_DECISION before C4 or C7 Track R may execute under --profile full.
+    The forensic audit is now COMPLETE and the options are costed in
+    reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json — three legal interpretations for
+    C4 and Track R, with B (a single coordinate scaling every active LR group and
+    preserving inherited ratios) recommended. Track G needed no decision: backbone_lr
+    controls zero parameters there, so head_lr is already the unique anchor. Approving
+    an interpretation changes both frozen search-plan identities, which is why it must
+    land before the external-GPU plans are frozen."
   - "Steps 3, 5 and 6 of the restructure plan remain — dual-status stamping of newly
     written artifacts beyond the pipeline's own, the Appendix M.1 layout move with
     identity re-derivation, and moving the stage adapters into
@@ -495,14 +562,14 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW of the C0-C13 engineering-ready GPU-handoff checkpoint —
-  reports/handoff/C0_C13_ENGINEERING_HANDOFF.json, reports/validate/ and reports/smoke/ —
-  before starting C4 FULL scientific execution on a sufficiently resourced external GPU.
-  The review must also settle the one NEEDS_SCIENTIFIC_DECISION this milestone surfaced:
-  `learning_rate` has no uniquely inherited anchor in either the GPAT or the detector
-  configuration, so §15.2.2 classifies it as USER_APPROVAL_REQUIRED and neither bounded
-  envelope is scientifically executable until the user binds it. No C4-C13 scientific
+  USER APPROVAL of the C4 and C7 learning-rate anchor interpretation, from
+  reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json (identity
+  5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1), before the
+  external-GPU scientific search plans are frozen. Three legal interpretations are costed
+  for C4 and for C7 Track R; B_common_multiplier is recommended for both, and Track G
+  needs no decision because head_lr is already its unique inherited anchor. Approving any
+  interpretation supersedes both current search-plan identities. No C4-C13 scientific
   execution, GPU allocation, Modal spend, target access or Gemini call is authorized.
 
-last_updated_utc: 2026-08-17   # C0-C13 engineering-readiness closure and GPU handoff
+last_updated_utc: 2026-08-17   # pre-GPU learning-rate anchor audit and handoff preparation
 ```

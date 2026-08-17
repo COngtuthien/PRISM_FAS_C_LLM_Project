@@ -1,0 +1,1478 @@
+{
+  "activity": {
+    "datasets_opened": 0,
+    "gemini_calls": 0,
+    "gpu_allocated": false,
+    "modal_gpu_seconds": 0,
+    "real_target_access": 0,
+    "scientific_training_runs": 0,
+    "weights_hashed_not_loaded": 5
+  },
+  "c4_handoff_set": {
+    "can_be_fetched_on_gpu_host": [
+      {
+        "detail": "reproducible from the raw roots by the documented preprocessing CLI; identity is pinned by the resulting manifest",
+        "item": "preprocessed source data"
+      },
+      {
+        "detail": "SigLIP2 and ConvNeXt are needed from C7 onward, not for C4, and are re-downloadable at their pinned revision and sha256",
+        "item": "pinned backbone weights"
+      }
+    ],
+    "disk_space": {
+      "model_cache": "~2.8 GB for the five pinned weights measured here",
+      "preprocessed_and_packages": "NOT CALCULABLE from this machine — the trees have never been built here",
+      "repository_clone": "small; the banks and configs are the only scientific payload in Git"
+    },
+    "must_have_before_c4": [
+      {
+        "detail": "branch pre-gpu-scientific-decision (or its successor) at the accepted commit",
+        "item": "git checkout"
+      },
+      {
+        "detail": "C4 cannot execute its bounded envelope until the anchor decision in this dossier is approved",
+        "item": "approved learning-rate interpretation"
+      },
+      {
+        "detail": "the project venv with the .[llm] extra AND the inherited dependencies; `.[llm]` alone leaves the inherited suite uncollectable",
+        "item": "python environment"
+      },
+      {
+        "detail": "CASIA-FASD and MSU-MFSD roots",
+        "item": "raw source datasets"
+      },
+      {
+        "detail": "data/processed and data/packages, rebuilt on the host from the raw roots or transferred; ABSENT here",
+        "item": "preprocessed source data + source packages"
+      },
+      {
+        "detail": "data/packages/gpat_pairs",
+        "item": "gpat pair plan"
+      },
+      {
+        "detail": "sha256 43bd2d57…, verified present in the declared model cache",
+        "item": "adaface identity backbone"
+      },
+      {
+        "detail": "assets/recipe_banks/c3, arrives with the clone",
+        "item": "c3 scientific recipe banks"
+      },
+      {
+        "detail": "the full profile declares gpu: required",
+        "item": "cuda accelerator"
+      }
+    ],
+    "not_needed_until_later": [
+      {
+        "from_stage": "C7",
+        "item": "siglip2 / convnext"
+      },
+      {
+        "from_stage": "C6",
+        "item": "scrfd + facexformer quality models"
+      },
+      {
+        "from_stage": "C10",
+        "item": "siw-mv2 feature package"
+      },
+      {
+        "from_stage": "C12",
+        "item": "evaluation-only target labels"
+      }
+    ],
+    "resume_state": "identity-aware. A completed trial is reused only when its config identity matches; a valid GPAT checkpoint is never retrained while its ancestor and search identities still match (L.11)",
+    "writable_destinations": {
+      "checkpoints_and_run_manifests": "runs/full/c4/",
+      "master_run_index": "state/MASTER_RUN_INDEX.json",
+      "pipeline_state": "state/PIPELINE_STATE.json",
+      "search_state": "reports/full/c4/C4_SEARCH_STATE.json",
+      "stage_evidence": "reports/full/c4/"
+    }
+  },
+  "decision_status": "AWAITING_USER_APPROVAL",
+  "external_artifacts": {
+    "blocking_c4_full": [
+      "preprocessed_source_data",
+      "source_packages",
+      "gpat_pair_plan",
+      "cuda_accelerator"
+    ],
+    "by_status": {
+      "AVAILABLE_IN_GIT": 4,
+      "AVAILABLE_LOCAL": 8,
+      "MISSING": 5
+    },
+    "correction_to_previous_milestone": "the C0-C13 readiness handoff listed 'pinned weights' and 'gpat_identity_model_adaface' as absent. They are present and now verified by hash. That inventory looked under data/packages/pretrained and hard-coded present=false for AdaFace instead of resolving the declared model cache. The real C4 gap is the derived data, not the weights",
+    "items": [
+      {
+        "bytes": 1539453393,
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\pretrained\\m9\\siglip2",
+        "files": [
+          {
+            "actual_sha256": "fe8b5fe6d5734360678fd71c11c21e1ea3364bd8598d34295d9206335973ffd7",
+            "bytes": 253,
+            "expected_sha256": "fe8b5fe6d5734360678fd71c11c21e1ea3364bd8598d34295d9206335973ffd7",
+            "file": "config.json",
+            "matches": true
+          },
+          {
+            "actual_sha256": "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b",
+            "bytes": 1500800904,
+            "expected_sha256": "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b",
+            "file": "model.safetensors",
+            "matches": true
+          },
+          {
+            "actual_sha256": "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc",
+            "bytes": 394,
+            "expected_sha256": "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc",
+            "file": "preprocessor_config.json",
+            "matches": true
+          },
+          {
+            "actual_sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351",
+            "bytes": 636,
+            "expected_sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351",
+            "file": "special_tokens_map.json",
+            "matches": true
+          },
+          {
+            "actual_sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322",
+            "bytes": 34363039,
+            "expected_sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322",
+            "file": "tokenizer.json",
+            "matches": true
+          },
+          {
+            "actual_sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2",
+            "bytes": 4241003,
+            "expected_sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2",
+            "file": "tokenizer.model",
+            "matches": true
+          },
+          {
+            "actual_sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8",
+            "bytes": 47164,
+            "expected_sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8",
+            "file": "tokenizer_config.json",
+            "matches": true
+          }
+        ],
+        "identity_verified": true,
+        "in_git": false,
+        "logical_name": "siglip2_frozen_global_tower",
+        "model_id": "google/siglip2-base-patch16-224",
+        "needed_for_c4_full": false,
+        "note": "outside both repositories, licensed/large. Verified here by hash, not copied",
+        "required_by": [
+          "C7",
+          "C8",
+          "C11"
+        ],
+        "revision": "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2",
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "actual_sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+        "bytes": 14847232,
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\backbones\\model.safetensors",
+        "expected_sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+        "identity_verified": true,
+        "in_git": false,
+        "logical_name": "convnextv2_atto_local_branch",
+        "needed_for_c4_full": false,
+        "note": "Track R only; Track G instantiates no local backbone",
+        "required_by": [
+          "C7",
+          "C8",
+          "C11"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "actual_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+        "bytes": 174611121,
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\face_identity\\pretrained_model\\model.pt",
+        "expected_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+        "identity_verified": true,
+        "in_git": false,
+        "logical_name": "adaface_identity_backbone",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C4",
+          "C6"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "actual_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+        "bytes": 16923827,
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\face_detectors\\scrfd_10g_bnkps.onnx",
+        "expected_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+        "identity_verified": true,
+        "in_git": false,
+        "logical_name": "scrfd_face_detector",
+        "needed_for_c4_full": false,
+        "required_by": [
+          "C6"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "actual_sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d",
+        "bytes": 1104869851,
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\face_geometry\\ckpts\\model.pt",
+        "expected_sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d",
+        "identity_verified": true,
+        "in_git": false,
+        "logical_name": "facexformer_parsing",
+        "needed_for_c4_full": false,
+        "required_by": [
+          "C6"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\casia-fasd",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "raw_dataset_casia_fasd",
+        "needed_for_c4_full": true,
+        "note": "raw source; never copied into either repository. Verified by the preprocessing manifest identity, not by raw bytes",
+        "required_by": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\MSU-MFSD",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "raw_dataset_msu_mfsd",
+        "needed_for_c4_full": true,
+        "note": "raw source; never copied into either repository. Verified by the preprocessing manifest identity, not by raw bytes",
+        "required_by": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "access_policy": "EVALUATION_ONLY. Label-free features may be mounted read-only for C11; label files may never be mounted on a training process. Not resolved, opened or hashed by this audit",
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\SiW-Mv2",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "raw_dataset_siw_mv2",
+        "needed_for_c4_full": false,
+        "not_needed_until_stage": "C10",
+        "required_by": [
+          "C10",
+          "C11",
+          "C12"
+        ],
+        "status": "AVAILABLE_LOCAL"
+      },
+      {
+        "expected_path": "data/processed",
+        "how_to_obtain": "rebuild on the GPU host from the raw roots with the documented M2 preprocessing CLI, or transfer out of band",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "preprocessed_source_data",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "status": "MISSING"
+      },
+      {
+        "expected_path": "data/packages",
+        "how_to_obtain": "built from the preprocessed tree by the M3 packaging step",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "source_packages",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C4",
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "status": "MISSING"
+      },
+      {
+        "expected_path": "data/packages/gpat_pairs",
+        "how_to_obtain": "produced by the frozen source-only pair plan; depends on source_packages",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "gpat_pair_plan",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C4"
+        ],
+        "status": "MISSING"
+      },
+      {
+        "expected_path": "data/evaluation_only/prism_target_v2_labels",
+        "how_to_obtain": "evaluation-only; readable by the isolated C-G8 scorer alone",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "target_label_artifact",
+        "needed_for_c4_full": false,
+        "not_needed_until_stage": "C12",
+        "required_by": [
+          "C12"
+        ],
+        "status": "MISSING"
+      },
+      {
+        "expected_path": "assets/recipe_banks/c3",
+        "identity_verified": true,
+        "in_git": true,
+        "logical_name": "c3_scientific_recipe_banks",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C4",
+          "C5",
+          "C6"
+        ],
+        "sha256": null,
+        "status": "AVAILABLE_IN_GIT"
+      },
+      {
+        "expected_path": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+        "identity_verified": true,
+        "in_git": true,
+        "logical_name": "c3_scientific_bank_lock",
+        "needed_for_c4_full": false,
+        "required_by": [
+          "C5"
+        ],
+        "sha256": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3",
+        "status": "AVAILABLE_IN_GIT"
+      },
+      {
+        "expected_path": "configs/synthesis/gpat_m8.yaml",
+        "identity_verified": true,
+        "in_git": true,
+        "logical_name": "gpat_training_config",
+        "needed_for_c4_full": true,
+        "required_by": [
+          "C4"
+        ],
+        "sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "status": "AVAILABLE_IN_GIT"
+      },
+      {
+        "expected_path": "configs/train/m9_reference.yaml",
+        "identity_verified": true,
+        "in_git": true,
+        "logical_name": "detector_training_config",
+        "needed_for_c4_full": false,
+        "required_by": [
+          "C7",
+          "C8"
+        ],
+        "sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+        "status": "AVAILABLE_IN_GIT"
+      },
+      {
+        "expected_path": "<the collaborator GPU host>",
+        "identity_verified": null,
+        "in_git": false,
+        "logical_name": "cuda_accelerator",
+        "needed_for_c4_full": true,
+        "note": "torch reports cuda_available=False on this machine. Every GPU-dependent check is DEFERRED_TO_EXTERNAL_GPU_PREFLIGHT",
+        "required_by": [
+          "C4",
+          "C5",
+          "C7",
+          "C8",
+          "C11"
+        ],
+        "status": "MISSING"
+      }
+    ],
+    "nothing_downloaded": true,
+    "nothing_substituted": true
+  },
+  "future_command": {
+    "backend_and_device_selection": {
+      "how": "the profile's compute_policy declares the ceiling (full: gpu required); the device itself is resolved at run time by the canonical trainers — prism_fas.synthesis.gpat_trainer.resolve_device and prism_fas.detector.trainer.resolve_device",
+      "modal_specific_paths_in_scientific_config": 0,
+      "no_backend_flag_today": "train.py exposes no --backend flag. L.4 lists one as optional; it does not exist yet, and reporting the flag as available would be inventing CLI"
+    },
+    "canonical_command": "python train.py --profile full --from C4 --to C4 --resume",
+    "exit_codes": {
+      "0": "PASS",
+      "1": "FAIL",
+      "2": "BLOCKED",
+      "3": "usage/config error"
+    },
+    "not_executed": true,
+    "supported_options": [
+      {
+        "choices": null,
+        "dest": "help",
+        "flags": [
+          "-h",
+          "--help"
+        ]
+      },
+      {
+        "choices": [
+          "validate",
+          "smoke",
+          "full"
+        ],
+        "dest": "profile",
+        "flags": [
+          "--profile"
+        ]
+      },
+      {
+        "choices": null,
+        "dest": "resume",
+        "flags": [
+          "--resume"
+        ]
+      },
+      {
+        "choices": [
+          "C0",
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "C10",
+          "C11",
+          "C12",
+          "C13"
+        ],
+        "dest": "first_stage",
+        "flags": [
+          "--from"
+        ]
+      },
+      {
+        "choices": [
+          "C0",
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6",
+          "C7",
+          "C8",
+          "C9",
+          "C10",
+          "C11",
+          "C12",
+          "C13"
+        ],
+        "dest": "last_stage",
+        "flags": [
+          "--to"
+        ]
+      },
+      {
+        "choices": null,
+        "dest": "phase",
+        "flags": [
+          "--phase"
+        ]
+      },
+      {
+        "choices": null,
+        "dest": "mode",
+        "flags": [
+          "--mode"
+        ]
+      },
+      {
+        "choices": null,
+        "dest": "authorized_live_generation",
+        "flags": [
+          "--i-authorize-live-scientific-generation"
+        ]
+      }
+    ],
+    "verified_against_parser": true
+  },
+  "generated_at_utc": "2026-08-17T07:10:04.519707Z",
+  "git": {
+    "accepted_engineering_checkpoint": "f8d5a5fab9f253c61399cda5f4031f4b4af0e68c",
+    "branch": "pre-gpu-scientific-decision",
+    "commit": "f8d5a5fab9f253c61399cda5f4031f4b4af0e68c",
+    "worktree_clean": false
+  },
+  "governing_spec": {
+    "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "sections": [
+      "§15.2.2",
+      "§15.2.3",
+      "§13.4.1",
+      "§18",
+      "Appendix J",
+      "Appendix L"
+    ],
+    "sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+  },
+  "implemented": false,
+  "interpretations": {
+    "candidate_values_per_coordinate": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "current_plan_identities": {
+      "c4_gpat_coordinate_v1": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
+      "c7_detector_coordinate_v1": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "note": "both were built with learning_rate AMBIGUOUS and therefore skipped. Any approved interpretation changes these identities, and the changed identity is what a later full run must execute against"
+    },
+    "frozen_order_declares_one_learning_rate_coordinate": true,
+    "frozen_search_order": [
+      "learning rate",
+      "weight decay",
+      "warm-up",
+      "lambda_syn",
+      "lambda_local",
+      "lambda_MIL",
+      "lambda_P",
+      "lambda_risk",
+      "active K=4-only scalar weights"
+    ],
+    "interpretations": [
+      {
+        "applies_to": [
+          "C4",
+          "C7 Track R"
+        ],
+        "c4": {
+          "active_coordinate_count": 3,
+          "active_coordinates": [
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight",
+            "geometry_preservation_weight"
+          ],
+          "max_trials": 9
+        },
+        "c7_track_r": {
+          "active_coordinate_count": 7,
+          "active_coordinates": [
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk",
+            "lambda_M",
+            "lambda_out",
+            "lambda_clean"
+          ],
+          "max_trials": 21
+        },
+        "compliance": {
+          "C4": "NOT_APPLICABLE",
+          "C7_track_r": "NOT_APPLICABLE"
+        },
+        "id": "D_skip",
+        "title": "Skip the learning-rate coordinate entirely",
+        "why": "§15.2.3 skips a scalar that is ABSENT or NON-APPLICABLE. For C4 and Track R no LR scalar is absent — three and two respectively are present and active — so the skip rule does not reach this case. It is what the search plan does TODAY only because the ambiguity is unresolved, which is a holding position rather than an interpretation"
+      },
+      {
+        "applies_to": [
+          "C4",
+          "C7 Track R"
+        ],
+        "c4": {
+          "active_coordinate_count": 4,
+          "active_coordinates": [
+            "learning_rate",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "learning_rate",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight",
+            "geometry_preservation_weight"
+          ],
+          "max_trials": 12
+        },
+        "c7_track_r": {
+          "active_coordinate_count": 8,
+          "active_coordinates": [
+            "learning_rate",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "learning_rate",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk",
+            "lambda_M",
+            "lambda_out",
+            "lambda_clean"
+          ],
+          "max_trials": 24
+        },
+        "compliance": {
+          "C4": "COMPATIBLE_BUT_USER_APPROVAL_REQUIRED",
+          "C7_track_r": "COMPATIBLE_BUT_USER_APPROVAL_REQUIRED"
+        },
+        "consequence": "the unelected groups are never searched; their LR stays at the inherited value for the whole envelope",
+        "id": "A_single_scalar",
+        "title": "Elect one existing scalar as the learning-rate coordinate",
+        "why": "keeps exactly one coordinate, matching the frozen search order, and leaves the other groups at their inherited anchors — which is what 'all other coordinates remain at the current best' already does for anything unsearched. But nothing in the inheritance elevates one scalar above the others, so ELECTING one is an act of scientific discretion with no evidential basis. Appendix J places an unforced result-affecting choice in USER_APPROVAL_REQUIRED"
+      },
+      {
+        "applies_to": [
+          "C4",
+          "C7 Track R"
+        ],
+        "c4": {
+          "active_coordinate_count": 4,
+          "active_coordinates": [
+            "learning_rate_multiplier",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "learning_rate_multiplier",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight",
+            "geometry_preservation_weight"
+          ],
+          "max_trials": 12
+        },
+        "c7_track_r": {
+          "active_coordinate_count": 8,
+          "active_coordinates": [
+            "learning_rate_multiplier",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "learning_rate_multiplier",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk",
+            "lambda_M",
+            "lambda_out",
+            "lambda_clean"
+          ],
+          "max_trials": 24
+        },
+        "compliance": {
+          "C4": "COMPATIBLE_BUT_USER_APPROVAL_REQUIRED",
+          "C7_track_r": "COMPATIBLE_BUT_USER_APPROVAL_REQUIRED"
+        },
+        "consequence": "m=1.0 reproduces the inherited configuration exactly, so the anchor trial is unchanged from Version B",
+        "id": "B_common_multiplier",
+        "inheritance_support": "Version B's own schedules already behave this way. The detector's _lr_lambda returns ONE multiplier that LambdaLR applies to every group; GPAT's cosine schedule anchors each group on its own base under one shared shape. Treating the LR as a common multiplier over grouped anchors is the inherited semantics, not a new one",
+        "title": "One coordinate that scales every active LR group, preserving inherited ratios",
+        "why": "keeps exactly one coordinate and the same trial count as A, searches every active group, and changes no inherited ratio: the candidate is a multiplier m in {0.5, 1.0, 2.0} applied to every group's own anchor. It is the narrowest reading of a single 'learning rate' coordinate over a component whose inherited anchor is a vector. It is an INTERPRETATION of 'around inherited anchor x0.5/x1.0/x2.0' rather than the literal text, so it still needs approval"
+      },
+      {
+        "applies_to": [
+          "C4",
+          "C7 Track R"
+        ],
+        "c4": {
+          "active_coordinate_count": 6,
+          "active_coordinates": [
+            "encoder_lr",
+            "recipe_lr",
+            "generator_lr",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "encoder_lr",
+            "recipe_lr",
+            "generator_lr",
+            "weight_decay",
+            "residual_loss_weight",
+            "identity_preservation_weight",
+            "geometry_preservation_weight"
+          ],
+          "max_trials": 18
+        },
+        "c7_track_r": {
+          "active_coordinate_count": 9,
+          "active_coordinates": [
+            "backbone_lr",
+            "head_lr",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk"
+          ],
+          "candidate_values_per_coordinate": 3,
+          "coordinates_in_frozen_order": [
+            "backbone_lr",
+            "head_lr",
+            "weight_decay",
+            "warmup",
+            "lambda_syn",
+            "lambda_local",
+            "lambda_MIL",
+            "lambda_P",
+            "lambda_risk",
+            "lambda_M",
+            "lambda_out",
+            "lambda_clean"
+          ],
+          "max_trials": 27
+        },
+        "compliance": {
+          "C4": "SEARCH_ENVELOPE_EXPANSION",
+          "C7_track_r": "SEARCH_ENVELOPE_EXPANSION"
+        },
+        "consequence": "C4 grows from 1 to 3 LR coordinates (+6 trials); Track R grows from 1 to 2 (+3 trials). Inherited LR ratios are no longer preserved",
+        "id": "C_independent_per_group",
+        "title": "Search each active LR group as its own coordinate",
+        "why": "the §15.2.2 search order names ONE 'learning rate' step. Giving each group its own coordinate inserts steps the frozen order does not declare — two extra for C4, one extra for Track R — and enlarges the search. §15.2.2 already classifies expanding a candidate set or starting a second pass as USER_APPROVAL_REQUIRED; adding coordinates is a larger change than either, and it also breaks the inherited ratios by construction"
+      }
+    ],
+    "track_g": {
+      "anchor": {
+        "scalar": "head_lr",
+        "value": 0.0001
+      },
+      "c7_track_g": {
+        "active_coordinate_count": 5,
+        "active_coordinates": [
+          "learning_rate",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_risk"
+        ],
+        "candidate_values_per_coordinate": 3,
+        "coordinates_in_frozen_order": [
+          "learning_rate",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_local",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_risk",
+          "lambda_M",
+          "lambda_out",
+          "lambda_clean"
+        ],
+        "max_trials": 15
+      },
+      "c7_track_g_if_lr_skipped": {
+        "active_coordinate_count": 4,
+        "active_coordinates": [
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_risk"
+        ],
+        "candidate_values_per_coordinate": 3,
+        "coordinates_in_frozen_order": [
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_local",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_risk",
+          "lambda_M",
+          "lambda_out",
+          "lambda_clean"
+        ],
+        "max_trials": 12
+      },
+      "compliance": {
+        "C7_track_g": "ALREADY_IMPLIED_BY_FROZEN_SPEC"
+      },
+      "id": "TRACK_G_RESOLVED",
+      "title": "Track G has exactly one applicable LR scalar",
+      "why": "not an interpretation and not a user choice. Track G instantiates no ConvNeXt, its backbone optimizer group is empty and is omitted, and backbone_lr controls zero parameters. head_lr is the unique inherited anchor, which is exactly what the frozen rules require"
+    },
+    "warmup_multipliers": [
+      0.5,
+      1.0,
+      1.5
+    ]
+  },
+  "lr_evidence": {
+    "coupling": {
+      "c4_gpat": {
+        "groups": [
+          "artifact_encoder",
+          "recipe_encoder",
+          "generator"
+        ],
+        "inherited_ratio_encoder_recipe_generator": [
+          2.0,
+          1.0,
+          2.0
+        ],
+        "ratio_is_meaningful": true,
+        "scheduler": "src/prism_fas/synthesis/gpat_trainer.py:40-53, per-group lambda anchored on each group's base",
+        "single_optimizer": true,
+        "why": "all three groups are optimized by one AdamW under one cosine schedule. cosine_schedule anchors each group's decay on that group's own base LR, so the 2:1:2 ratio is preserved for the whole run except at the shared absolute min_lr floor"
+      },
+      "c7_detector": {
+        "groups": [
+          "backbone",
+          "heads"
+        ],
+        "inherited_ratio_backbone_to_heads": 0.1,
+        "ratio_is_meaningful": true,
+        "scheduler": "src/prism_fas/detector/trainer.py:342-348 (_lr_lambda), applied to all groups by LambdaLR",
+        "single_optimizer": true,
+        "why": "one AdamW, and _lr_lambda returns ONE scalar multiplier that LambdaLR applies to EVERY parameter group. Version B's own detector schedule therefore already treats 'the learning rate' as a single shape scaled across grouped anchors, holding the 1:10 backbone:heads ratio fixed for the entire run"
+      }
+    },
+    "no_scalar_literally_named_learning_rate": true,
+    "scalars": [
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "D_controls_an_active_component",
+        "config_path": "configs/synthesis/gpat_m8.yaml",
+        "consumed_at": "src/prism_fas/synthesis/gpat_model.py:119 (GPATResidualModel.parameter_groups)",
+        "modules": [
+          "ArtifactEncoder"
+        ],
+        "name": "encoder_lr",
+        "note": "encodes the spoof source's artifact appearance into z_a; a live component of the frozen C4 architecture, not a historical one",
+        "optimizer": "AdamW (single optimizer, three groups)",
+        "owner": "C4 / GPAT",
+        "parameter_group": "artifact_encoder",
+        "trainable_parameters": 422272,
+        "training_only": true,
+        "value": 0.0002,
+        "version_b_last_commit": "6afadfecb8cdf550d2430472976aaf5b5e13e486",
+        "version_b_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "version_c_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1"
+      },
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "C_controls_an_auxiliary_but_active_module",
+        "config_path": "configs/synthesis/gpat_m8.yaml",
+        "consumed_at": "src/prism_fas/synthesis/gpat_model.py:120",
+        "modules": [
+          "RecipeEncoder"
+        ],
+        "name": "recipe_lr",
+        "note": "maps the frozen 41-D conditioning vector to z_recipe. It is the only path by which a C3 recipe reaches the generator, so it is auxiliary in size but not in function",
+        "optimizer": "AdamW (single optimizer, three groups)",
+        "owner": "C4 / GPAT",
+        "parameter_group": "recipe_encoder",
+        "trainable_parameters": 13632,
+        "training_only": true,
+        "value": 0.0001,
+        "version_b_last_commit": "6afadfecb8cdf550d2430472976aaf5b5e13e486",
+        "version_b_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "version_c_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1"
+      },
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "D_controls_the_actual_gpat_generator",
+        "config_path": "configs/synthesis/gpat_m8.yaml",
+        "consumed_at": "src/prism_fas/synthesis/gpat_model.py:121-123",
+        "modules": [
+          "stem",
+          "blocks (FiLMResidualBlock x4)",
+          "delta_head",
+          "artifact_map_head"
+        ],
+        "name": "generator_lr",
+        "note": "the residual generator itself: the component that produces delta_high and the artifact map",
+        "optimizer": "AdamW (single optimizer, three groups)",
+        "owner": "C4 / GPAT",
+        "parameter_group": "generator",
+        "trainable_parameters": 474634,
+        "training_only": true,
+        "value": 0.0002,
+        "version_b_last_commit": "6afadfecb8cdf550d2430472976aaf5b5e13e486",
+        "version_b_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "version_c_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1"
+      },
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "E_not_an_lr_anchor",
+        "config_path": "configs/synthesis/gpat_m8.yaml",
+        "consumed_at": "src/prism_fas/synthesis/gpat_trainer.py:40-53 (cosine_schedule)",
+        "modules": [],
+        "name": "min_lr",
+        "note": "an absolute schedule FLOOR, not a base learning rate. §15.2.2 names the learning rate and the warm-up fraction as coordinates; a decay floor is neither, and searching it would add a coordinate the frozen order does not declare",
+        "optimizer": "cosine LambdaLR floor",
+        "owner": "C4 / GPAT",
+        "parameter_group": null,
+        "trainable_parameters": 0,
+        "training_only": true,
+        "value": 1e-06,
+        "version_b_last_commit": "6afadfecb8cdf550d2430472976aaf5b5e13e486",
+        "version_b_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "version_c_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1"
+      },
+      {
+        "active_under_version_c": "TRACK_R_ONLY",
+        "byte_identical_to_version_b": true,
+        "classification": "A_active_for_track_r__E_non_applicable_for_track_g",
+        "config_path": "configs/train/m9_reference.yaml",
+        "consumed_at": "src/prism_fas/detector/prism_detector.py:643 (PRISMDetector.parameter_groups); src/prism_fas/detector/trainer.py:291",
+        "modules": [
+          "local_backbone (ConvNeXt V2 Atto)",
+          "highpass_stem (when enabled)"
+        ],
+        "name": "backbone_lr",
+        "note": "the group is built from local_backbone.parameters(). Track G declares local_branch=off, so the group is EMPTY and parameter_groups omits it — backbone_lr then controls zero parameters",
+        "optimizer": "AdamW (single optimizer, up to two groups)",
+        "owner": "C7 / detector",
+        "parameter_group": "backbone",
+        "trainable_parameters": 3386760,
+        "training_only": true,
+        "value": 1e-05,
+        "version_b_last_commit": "83412458834c47b723bf27cbef43116e3cb6ce9f",
+        "version_b_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+        "version_c_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315"
+      },
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "A_active_for_both_tracks",
+        "config_path": "configs/train/m9_reference.yaml",
+        "consumed_at": "src/prism_fas/detector/prism_detector.py:644",
+        "modules": [
+          "every trainable module that is not the local backbone: global_projection, fusion head, region fusion, prompt head, manifold projections, local_head"
+        ],
+        "name": "head_lr",
+        "note": "the only LR group that exists under Track G, and one of two under Track R",
+        "optimizer": "AdamW (single optimizer, up to two groups)",
+        "owner": "C7 / detector",
+        "parameter_group": "heads",
+        "trainable_parameters": {
+          "track_g": 12353,
+          "track_r": 32654
+        },
+        "training_only": true,
+        "value": 0.0001,
+        "version_b_last_commit": "83412458834c47b723bf27cbef43116e3cb6ce9f",
+        "version_b_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+        "version_c_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315"
+      },
+      {
+        "active_under_version_c": true,
+        "byte_identical_to_version_b": true,
+        "classification": "E_not_an_lr_anchor",
+        "config_path": "configs/train/m9_reference.yaml",
+        "consumed_at": "src/prism_fas/detector/trainer.py:348 (_lr_lambda)",
+        "modules": [],
+        "name": "min_lr_scale",
+        "note": "a relative floor on the shared cosine multiplier, value 0.0",
+        "optimizer": "cosine LambdaLR floor (relative)",
+        "owner": "C7 / detector",
+        "parameter_group": null,
+        "trainable_parameters": 0,
+        "training_only": true,
+        "value": 0.0,
+        "version_b_last_commit": "83412458834c47b723bf27cbef43116e3cb6ce9f",
+        "version_b_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+        "version_c_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315"
+      },
+      {
+        "active_under_version_c": false,
+        "byte_identical_to_version_b": true,
+        "classification": "E_irrelevant_to_version_c_c4_and_c7",
+        "config_path": "configs/train/b00_local.yaml",
+        "consumed_at": "src/prism_fas/train/models/b00_convnext.py:41",
+        "modules": [
+          "B00ConvNeXtBinaryClassifier.backbone"
+        ],
+        "name": "backbone_lr (B00)",
+        "note": "B00 is the inherited Version-B ConvNeXt-only baseline. It is not a Version-C track and no C4/C7/C8 row runs it. Listed so the audit is complete, and so its 1.0e-4/5.0e-4 values are not mistaken for the M9 detector anchors",
+        "optimizer": "AdamW",
+        "owner": "B00 baseline (NOT C4 or C7)",
+        "parameter_group": "backbone",
+        "trainable_parameters": null,
+        "training_only": true,
+        "value": 0.0001,
+        "version_b_last_commit": "6ad5b228e46cb2e75d53456268083ff9b02a97b9",
+        "version_b_sha256": "f3bad20f36fe55b1dbc0480e75af2dc7a6b621498dcaaca2d6b14a602742b303",
+        "version_c_sha256": "f3bad20f36fe55b1dbc0480e75af2dc7a6b621498dcaaca2d6b14a602742b303"
+      },
+      {
+        "active_under_version_c": false,
+        "byte_identical_to_version_b": true,
+        "classification": "E_irrelevant_to_version_c_c4_and_c7",
+        "config_path": "configs/train/b00_local.yaml",
+        "consumed_at": "src/prism_fas/train/models/b00_convnext.py:42",
+        "modules": [
+          "B00ConvNeXtBinaryClassifier.head"
+        ],
+        "name": "head_lr (B00)",
+        "note": "see backbone_lr (B00)",
+        "optimizer": "AdamW",
+        "owner": "B00 baseline (NOT C4 or C7)",
+        "parameter_group": "head",
+        "trainable_parameters": null,
+        "training_only": true,
+        "value": 0.0005,
+        "version_b_last_commit": "6ad5b228e46cb2e75d53456268083ff9b02a97b9",
+        "version_b_sha256": "f3bad20f36fe55b1dbc0480e75af2dc7a6b621498dcaaca2d6b14a602742b303",
+        "version_c_sha256": "f3bad20f36fe55b1dbc0480e75af2dc7a6b621498dcaaca2d6b14a602742b303"
+      }
+    ],
+    "search_method": "grep for every field matching [a-z_]*(lr|learning_rate)[a-z_]* across configs/, then trace each to the code that consumes it. Names were not trusted to imply semantics",
+    "version_b_tuning_evidence": {
+      "conclusion": "Version B recorded no learning-rate sweep. Every LR value is a single inherited setting, never a search winner, so there is no Version-B precedent that elevates one scalar above the others",
+      "lr_sweep_artifacts_found": 0,
+      "m10_optimizer_group_shapes": {
+        "meaning": "Version B's own M10 evidence shows the backbone group being OMITTED for the local-branch-off row. The Track G case is not a new situation; it is the inherited behaviour",
+        "one_group_heads_only": 1,
+        "one_group_row": "B01",
+        "two_groups_backbone_and_heads": 35
+      },
+      "m9_reference_run_recorded": {
+        "backbone_lr": 1e-05,
+        "head_lr": 0.0001
+      },
+      "searched": [
+        "reports/",
+        "docs/",
+        "configs/"
+      ]
+    }
+  },
+  "portability": {
+    "backends_probed": [
+      "collaborator_gpu",
+      "local_cpu",
+      "modal",
+      "ssh_lab"
+    ],
+    "distinct_identities_across_backends": 1,
+    "frozen_effective_composition": {
+      "real_live": 12,
+      "real_spoof": 12,
+      "synthetic": 8
+    },
+    "independent_of": [
+      "hostname",
+      "gpu_uuid",
+      "modal_workspace",
+      "absolute_filesystem_root"
+    ],
+    "microbatch_plans_by_vram": {
+      "12GB": {
+        "effective_batch": 32,
+        "gradient_accumulation_steps": 4,
+        "physical_microbatch": 8,
+        "preserves_effective_batch": true
+      },
+      "24GB": {
+        "effective_batch": 32,
+        "gradient_accumulation_steps": 2,
+        "physical_microbatch": 16,
+        "preserves_effective_batch": true
+      },
+      "6GB": {
+        "effective_batch": 32,
+        "gradient_accumulation_steps": 8,
+        "physical_microbatch": 4,
+        "preserves_effective_batch": true
+      },
+      "80GB": {
+        "effective_batch": 32,
+        "gradient_accumulation_steps": 1,
+        "physical_microbatch": 32,
+        "preserves_effective_batch": true
+      }
+    },
+    "nothing_changed_by_this_audit": true,
+    "operational_fields_excluded_from_identity": [
+      "operational_provenance",
+      "backend_profile",
+      "backend",
+      "backend_name",
+      "device",
+      "device_name",
+      "gpu_model",
+      "gpu_uuid",
+      "gpu_vendor",
+      "vram_gb",
+      "supports_amp",
+      "workspace",
+      "modal_workspace",
+      "modal_account",
+      "hostname",
+      "host",
+      "filesystem_root",
+      "repo_root",
+      "num_workers",
+      "workers",
+      "physical_microbatch",
+      "microbatch",
+      "gradient_accumulation_steps",
+      "pin_memory",
+      "prefetch_factor",
+      "io_threads",
+      "cuda_version",
+      "driver_version",
+      "wall_clock_seconds",
+      "cost_usd",
+      "started_at_utc",
+      "finished_at_utc"
+    ],
+    "permitted_engineering_adaptation": [
+      "physical microbatch",
+      "gradient accumulation steps",
+      "dataloader workers",
+      "I/O tuning"
+    ],
+    "provenance_namespace": "operational_provenance",
+    "scientific_identity_backend_invariant": true
+  },
+  "recommendation": {
+    "c4": {
+      "anchor_vector": {
+        "encoder_lr": 0.0002,
+        "generator_lr": 0.0002,
+        "recipe_lr": 0.0001
+      },
+      "candidates": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "rationale": [
+        "minimum deviation: keeps exactly one learning-rate coordinate, which is what the frozen §15.2.2 order declares, and the same 12 trials as A",
+        "strongest inheritance: all three anchors are byte-identical to Version B and all three groups are live; B is the only option that searches the learning rate of the whole component as Version B configured it",
+        "least added discretion: A requires electing one scalar over two equally inherited ones with no evidence to justify the choice; B requires no election at all",
+        "preserves optimizer-group relationships: the 2:1:2 ratio is held fixed, matching what the inherited cosine schedule already does",
+        "no envelope enlargement: unlike C, no coordinate is added"
+      ],
+      "recommended": "B_common_multiplier",
+      "what_the_user_is_accepting": "that 'the inherited anchor' for a component with grouped learning rates means the anchor VECTOR, scaled as a unit"
+    },
+    "c7": {
+      "track_g": {
+        "anchor": {
+          "head_lr": 0.0001
+        },
+        "compliance": "ALREADY_IMPLIED_BY_FROZEN_SPEC",
+        "rationale": [
+          "backbone_lr controls zero parameters under Track G, so the inherited anchor is already unique. Recording this as a user choice would invent a decision the frozen architecture already makes"
+        ],
+        "recommended": "no decision required"
+      },
+      "track_r": {
+        "anchor_vector": {
+          "backbone_lr": 1e-05,
+          "head_lr": 0.0001
+        },
+        "candidates": [
+          0.5,
+          1.0,
+          2.0
+        ],
+        "rationale": [
+          "the same five criteria as C4",
+          "additionally: the inherited detector scheduler ALREADY applies one multiplier to every group, so a common multiplier is the inherited semantics rather than a new construct",
+          "the 1:10 backbone:heads ratio is a deliberate frozen setting — a frozen-then-finetuned backbone at 1e-5 with fresh heads at 1e-4 — and B is the only option that does not disturb it"
+        ],
+        "recommended": "B_common_multiplier"
+      }
+    },
+    "consistency_note": "recommending B for both C4 and Track R keeps one meaning of 'the learning-rate coordinate' across the whole pipeline. Approving different interpretations per milestone is legal but would make the two search plans mean different things by the same word",
+    "decision_status": "AWAITING_USER_APPROVAL",
+    "if_the_user_declines_all": "the envelopes stay as they are today, with the learning-rate coordinate skipped. C4 and C7 remain scientifically blocked and NEEDS_SCIENTIFIC_DECISION stands",
+    "implemented": false,
+    "status": "RECOMMENDATION_ONLY"
+  },
+  "schema_version": "prism-lr-anchor-decision-dossier-v1",
+  "semantic_mapping": {
+    "c4_gpat": {
+      "all_groups_non_empty": true,
+      "applicable_lr_scalars": [
+        "encoder_lr",
+        "recipe_lr",
+        "generator_lr"
+      ],
+      "groups_cover_all_trainable_parameters": true,
+      "lr_anchor_uniquely_resolvable": false,
+      "model_parameter_count": 910538,
+      "no_scalar_is_class_B_or_E": true,
+      "optimizer_groups": [
+        {
+          "empty": false,
+          "lr": 0.0002,
+          "name": "artifact_encoder",
+          "parameters": 422272
+        },
+        {
+          "empty": false,
+          "lr": 0.0001,
+          "name": "recipe_encoder",
+          "parameters": 13632
+        },
+        {
+          "empty": false,
+          "lr": 0.0002,
+          "name": "generator",
+          "parameters": 474634
+        }
+      ],
+      "per_scalar_classification": {
+        "encoder_lr": "D — controls a live component of the frozen C4 architecture (the artifact encoder)",
+        "generator_lr": "D — controls the actual GPAT residual generator",
+        "recipe_lr": "C/D — controls the recipe encoder, an active module and the only route from a C3 recipe into the generator"
+      },
+      "trained_components": [
+        "artifact_encoder",
+        "recipe_encoder",
+        "generator"
+      ],
+      "why_not_unique": "all three scalars control non-empty, simultaneously optimized groups of the frozen architecture, and together they cover 100% of trainable parameters. None is historical, none is inactive, and none is a superset of the others"
+    },
+    "c7_detector": {
+      "track_g": {
+        "active_loss_terms": {
+          "L_MIL": false,
+          "L_clean": false,
+          "L_cls_real": true,
+          "L_cls_syn": true,
+          "L_cons": false,
+          "L_local": false,
+          "L_out": false,
+          "L_prompt": false,
+          "L_real": false,
+          "L_risk": true
+        },
+        "applicable_lr_scalars": [
+          "head_lr"
+        ],
+        "backbone_group_exists": false,
+        "backbone_lr_controls_parameters": false,
+        "decision_head_type": "single_branch_logit_v1",
+        "flags": {
+          "frames_per_video": 4,
+          "fusion": "single_logit",
+          "global_branch": "siglip2_frozen",
+          "local_branch": "off",
+          "manifold": "off",
+          "outlier_loss": "off",
+          "prompt": "off",
+          "prototype_k": 0,
+          "quality_weighting": "q_weighted",
+          "recipe_conditioning": "structured",
+          "region": "off",
+          "sampler": "domain_class_balanced",
+          "synthetic": "bank_physics_gpat"
+        },
+        "group_names": [
+          "heads"
+        ],
+        "lr_anchor_uniquely_resolvable": true,
+        "optimizer_groups": [
+          {
+            "lr": 0.0001,
+            "name": "heads",
+            "parameters": 12353
+          }
+        ]
+      },
+      "track_r_k4_secondary": {
+        "active_loss_terms": {
+          "L_MIL": true,
+          "L_clean": true,
+          "L_cls_real": true,
+          "L_cls_syn": true,
+          "L_cons": false,
+          "L_local": true,
+          "L_out": true,
+          "L_prompt": true,
+          "L_real": true,
+          "L_risk": true
+        },
+        "applicable_lr_scalars": [
+          "backbone_lr",
+          "head_lr"
+        ],
+        "backbone_group_exists": true,
+        "backbone_lr_controls_parameters": true,
+        "decision_head_type": "track_r_glr_concat_v1",
+        "flags": {
+          "frames_per_video": 4,
+          "fusion": "glr_concat",
+          "global_branch": "siglip2_frozen",
+          "local_branch": "convnext",
+          "manifold": "multi_prototype",
+          "outlier_loss": "mask_aware",
+          "prompt": "frozen_prompt",
+          "prototype_k": 4,
+          "quality_weighting": "q_weighted",
+          "recipe_conditioning": "structured",
+          "region": "on",
+          "sampler": "domain_class_balanced",
+          "synthetic": "bank_physics_gpat"
+        },
+        "group_names": [
+          "backbone",
+          "heads"
+        ],
+        "lr_anchor_uniquely_resolvable": false,
+        "optimizer_groups": [
+          {
+            "lr": 1e-05,
+            "name": "backbone",
+            "parameters": 3386760
+          },
+          {
+            "lr": 0.0001,
+            "name": "heads",
+            "parameters": 32654
+          }
+        ]
+      },
+      "track_r_primary": {
+        "active_loss_terms": {
+          "L_MIL": true,
+          "L_clean": false,
+          "L_cls_real": true,
+          "L_cls_syn": true,
+          "L_cons": false,
+          "L_local": true,
+          "L_out": false,
+          "L_prompt": true,
+          "L_real": false,
+          "L_risk": true
+        },
+        "applicable_lr_scalars": [
+          "backbone_lr",
+          "head_lr"
+        ],
+        "backbone_group_exists": true,
+        "backbone_lr_controls_parameters": true,
+        "decision_head_type": "track_r_glr_concat_v1",
+        "flags": {
+          "frames_per_video": 4,
+          "fusion": "glr_concat",
+          "global_branch": "siglip2_frozen",
+          "local_branch": "convnext",
+          "manifold": "off",
+          "outlier_loss": "off",
+          "prompt": "frozen_prompt",
+          "prototype_k": 0,
+          "quality_weighting": "q_weighted",
+          "recipe_conditioning": "structured",
+          "region": "on",
+          "sampler": "domain_class_balanced",
+          "synthetic": "bank_physics_gpat"
+        },
+        "group_names": [
+          "backbone",
+          "heads"
+        ],
+        "lr_anchor_uniquely_resolvable": false,
+        "optimizer_groups": [
+          {
+            "lr": 1e-05,
+            "name": "backbone",
+            "parameters": 3386760
+          },
+          {
+            "lr": 0.0001,
+            "name": "heads",
+            "parameters": 32654
+          }
+        ]
+      }
+    },
+    "track_g_resolution": {
+      "reason": "§13.4.1 makes Track G global-only and forbids instantiating ConvNeXt. PRISMDetector.parameter_groups omits an empty group, so the backbone group does not exist and backbone_lr controls zero parameters. Exactly one LR scalar is applicable, which is what a uniquely inherited anchor means",
+      "resolved_without_user_input": true,
+      "supporting_rule": "§15.2.3 'absent/non-applicable scalars are skipped, not invented'; §15.2.2 'Skip inactive terms'",
+      "unique_applicable_scalar": "head_lr",
+      "value": 0.0001,
+      "version_b_precedent": "M10 row B01 recorded optimizer_groups == ['heads'] for the same structural reason"
+    }
+  },
+  "title": "Learning-rate anchor decision dossier — C4 and C7",
+  "version_b": {
+    "clean": true,
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+    "tag_peeled": "7799f7decd35db6987ce4578824e5bd8d9eab4ae"
+  },
+  "what_this_artifact_does_not_do": [
+    "it approves nothing",
+    "it changes no search plan, lock or scientific status",
+    "it selects no GPAT or detector winner",
+    "it executes no trial"
+  ]
+}

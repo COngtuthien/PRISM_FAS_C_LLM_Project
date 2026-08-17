@@ -260,27 +260,67 @@ def build_inventory(repo: Path) -> list[InventoryItem]:
                "label files MUST NOT be mounted on any training process or volume, and no "
                "stage before C10 may resolve this root at all",
                "not required for engineering readiness; needed only from C10 onward")))
+    # The pinned backbones, resolved through their canonical pin declarations and
+    # verified file by file. Reporting the cache root's existence alone would say
+    # "present" for a cache holding the wrong revision.
+    cache_root = Path(str(paths.get("model_cache", "")))
+    backbones: list[dict[str, Any]] = []
+    try:
+        from prism_fas.detector.pretrained import CONVNEXT_PIN, SIGLIP2_PIN
+
+        siglip_root = cache_root / SIGLIP2_PIN["local_relpath"]
+        siglip_files = {
+            name: _sha256_file(siglip_root / name) == spec["sha256"]
+            for name, spec in SIGLIP2_PIN["files"].items()}
+        backbones.append({"name": "siglip2", "verified": all(siglip_files.values()),
+                          "files": siglip_files, "root": str(siglip_root)})
+        convnext = next((cache_root / rel for rel in
+                         (CONVNEXT_PIN["local_relpath"], *CONVNEXT_PIN["alternate_relpaths"])
+                         if (cache_root / rel).exists()), None)
+        backbones.append({
+            "name": "convnextv2_atto",
+            "verified": bool(convnext) and _sha256_file(convnext) == CONVNEXT_PIN["weight_sha256"],
+            "root": str(convnext) if convnext else None})
+    except Exception as error:  # a pin that cannot be read is itself the finding
+        backbones.append({"name": "resolution_failed", "verified": False,
+                          "error": f"{type(error).__name__}: {error}"})
+
     items.append(_external_item(
-        logical_name="model_cache", expected_path=str(paths.get("model_cache", "<model cache>")),
+        logical_name="model_cache", expected_path=str(cache_root or "<model cache>"),
         access=READ_ONLY, stages=("C7", "C8", "C11"),
         description="pinned backbone weights: frozen SigLIP2 image tower and ConvNeXt V2 Atto",
-        present=bool(paths.get("model_cache")) and Path(str(paths["model_cache"])).exists(),
-        verification="model id + revision + weight sha256 are pinned in the detector config "
-                     "and enter run identity; a mismatch is a hard error, not a warning",
+        present=bool(backbones) and all(item.get("verified") for item in backbones),
+        verification="every pinned file is hashed against the sha256 in its pin "
+                     "declaration; a mismatch is a hard error, not a warning",
         notes=("the engineering smoke substitutes a fixture tower and therefore does NOT "
-               "verify these weights; the full profile requires the pinned identities",)))
+               "exercise these weights; the full profile requires the pinned identities",
+               *(f"{item['name']}: verified={item.get('verified')}" for item in backbones))))
 
     identity_model = _read_yaml(repo / "configs/synthesis/gpat_m8.yaml").get("identity_model", {})
     if identity_model:
+        # Resolved against the declared model cache and verified by hash rather
+        # than assumed absent. An inventory that reports a present, verified
+        # dependency as missing sends the operator to re-download 174 MB they
+        # already have, and — worse — casts doubt on the entries that really are
+        # missing.
+        expected = str(identity_model.get("weight_sha256", ""))
+        cache = Path(str(paths.get("model_cache", "")))
+        candidates = ("face_identity/pretrained_model/model.pt",
+                      "adaface_ir50/model.pt", "face_identity/model.pt")
+        resolved = next((cache / name for name in candidates if (cache / name).exists()),
+                        None)
+        actual = _sha256_file(resolved) if resolved else None
         items.append(_external_item(
             logical_name="gpat_identity_model_adaface",
-            expected_path="<model cache>/adaface_ir50",
-            access=READ_ONLY, stages=("C4",),
+            expected_path=str(resolved) if resolved else f"{cache}/{candidates[0]}",
+            access=READ_ONLY, stages=("C4", "C6"),
             description="frozen AdaFace identity backbone used by the GPAT identity loss",
-            present=False,
-            verification=f"weight sha256 {identity_model.get('weight_sha256', 'unpinned')} "
-                         f"at revision {identity_model.get('revision', 'unpinned')}",
-            notes=("resolved from the model cache at run time; never trained",)))
+            present=bool(actual) and actual == expected,
+            verification=f"weight sha256 {expected or 'unpinned'} at revision "
+                         f"{identity_model.get('revision', 'unpinned')}; "
+                         f"{'VERIFIED on this machine' if actual == expected else 'not verified here'}",
+            notes=("resolved from the declared model cache; never trained",
+                   f"measured sha256: {actual or 'file not found'}")))
 
     # --- pipeline-produced inputs and destinations ---------------------------
     for name, relative, stages, description in (

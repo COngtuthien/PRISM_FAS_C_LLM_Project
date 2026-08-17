@@ -1,79 +1,12 @@
 {
   "accepted_git": {
-    "branch": "c4-c13-engineering-readiness",
-    "commit": "36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572",
+    "branch": "pre-gpu-scientific-decision",
+    "commit": "f8d5a5fab9f253c61399cda5f4031f4b4af0e68c",
     "dirty_paths": [
-      "M .gitignore",
-      " M configs/experiments/m10_matrix.yaml",
-      " M docs/PROJECT_STATE.md",
-      " M reports/smoke/SMOKE_RUN.json",
-      " M reports/smoke/c0/C0_SMOKE.json",
-      " M reports/smoke/c1/C1_SMOKE.json",
-      " M reports/smoke/c2/C2_SMOKE.json",
-      " M reports/smoke/c3/C3_SMOKE.json",
-      " M reports/smoke/c3/live/C3_LIVE_GENERATION_STATE.json",
-      " M reports/validate/VALIDATE_RUN.json",
-      " M reports/validate/c0/C0_VALIDATE.json",
-      " M reports/validate/c1/C1_VALIDATE.json",
-      " M reports/validate/c10/C10_VALIDATE.json",
-      " M reports/validate/c11/C11_VALIDATE.json",
-      " M reports/validate/c12/C12_VALIDATE.json",
-      " M reports/validate/c13/C13_VALIDATE.json",
-      " M reports/validate/c2/C2_VALIDATE.json",
-      " M reports/validate/c3/C3_VALIDATE.json",
-      " M reports/validate/c4/C4_VALIDATE.json",
-      " M reports/validate/c5/C5_VALIDATE.json",
-      " M reports/validate/c6/C6_VALIDATE.json",
-      " M reports/validate/c7/C7_VALIDATE.json",
-      " M reports/validate/c8/C8_VALIDATE.json",
-      " M reports/validate/c9/C9_VALIDATE.json",
-      " M src/prism_fas/detector/prism_detector.py",
-      " M src/prism_fas/detector/variant.py",
-      " M src/prism_fas/pipeline/adapters/c3.py",
-      " M src/prism_fas/pipeline/adapters/registry.py",
-      " M src/prism_fas/pipeline/checks.py",
-      " M src/prism_fas/pipeline/stages.py",
-      " M state/MASTER_RUN_INDEX.json",
-      " M state/PIPELINE_STATE.json",
-      " M tests/pipeline/conftest_adapters.py",
-      " M tests/pipeline/test_adapters_c0_c2c.py",
-      " M tests/pipeline/test_adapters_integration.py",
-      " M tests/pipeline/test_checks_and_firewall.py",
-      " M tests/pipeline/test_orchestrator.py",
-      "?? reports/handoff/",
-      "?? reports/smoke/c10/",
-      "?? reports/smoke/c11/",
-      "?? reports/smoke/c12/",
-      "?? reports/smoke/c13/",
-      "?? reports/smoke/c4/",
-      "?? reports/smoke/c5/",
-      "?? reports/smoke/c6/",
-      "?? reports/smoke/c7/",
-      "?? reports/smoke/c8/",
-      "?? reports/smoke/c9/",
-      "?? scripts/c4_c13_engineering_handoff.py",
-      "?? src/prism_fas/detector/decision_audit.py",
-      "?? src/prism_fas/evaluation/source_lock.py",
-      "?? src/prism_fas/evaluation/source_matrix.py",
-      "?? src/prism_fas/pipeline/adapters/c10.py",
-      "?? src/prism_fas/pipeline/adapters/c11.py",
-      "?? src/prism_fas/pipeline/adapters/c12.py",
-      "?? src/prism_fas/pipeline/adapters/c13.py",
-      "?? src/prism_fas/pipeline/adapters/c4.py",
-      "?? src/prism_fas/pipeline/adapters/c5.py",
-      "?? src/prism_fas/pipeline/adapters/c6.py",
-      "?? src/prism_fas/pipeline/adapters/c7.py",
-      "?? src/prism_fas/pipeline/adapters/c8.py",
-      "?? src/prism_fas/pipeline/adapters/c9.py",
-      "?? src/prism_fas/pipeline/adapters/common.py",
-      "?? src/prism_fas/pipeline/adapters/tiny.py",
-      "?? src/prism_fas/pipeline/handoff.py",
-      "?? src/prism_fas/pipeline/portability.py",
-      "?? src/prism_fas/search/",
-      "?? src/prism_fas/synthesis/gate_profiles.py",
-      "?? tests/c7/",
-      "?? tests/pipeline/test_portability_and_contracts.py",
-      "?? tests/pipeline/test_search_engine.py"
+      "M src/prism_fas/pipeline/handoff.py",
+      "?? reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json",
+      "?? reports/handoff/LR_ANCHOR_DECISION_DOSSIER.md",
+      "?? scripts/lr_anchor_decision_dossier.py"
     ],
     "worktree_clean": false
   },
@@ -621,12 +554,11 @@
       "MODAL_TOKEN_SECRET": "MISSING"
     },
     "external_inputs_absent_here": [
-      "gpat_identity_model_adaface",
       "preprocessed_source_data",
       "source_packages"
     ],
-    "generated_at_utc": "2026-08-17T04:31:09.589659Z",
-    "inventory_identity": "13720f9cd8c670ad401ed07567cdb19ddb3bf448f05e863e431b61f23bc17581",
+    "generated_at_utc": "2026-08-17T07:15:22.584340Z",
+    "inventory_identity": "92f4bc117f0e756c83c94c90fac46e0fdae3cd5a5ffdd2bd51124074fce71d57",
     "item_count": 25,
     "items": [
       {
@@ -1023,13 +955,15 @@
         "access": "READ_ONLY",
         "blocks_future_full_run": false,
         "description": "pinned backbone weights: frozen SigLIP2 image tower and ConvNeXt V2 Atto",
-        "expected_path": "D:/AI on IOT/Anti_spoofing/model_cache",
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache",
         "file_count": null,
         "identity": null,
         "identity_kind": "",
         "logical_name": "model_cache",
         "notes": [
-          "the engineering smoke substitutes a fixture tower and therefore does NOT verify these weights; the full profile requires the pinned identities"
+          "the engineering smoke substitutes a fixture tower and therefore does NOT exercise these weights; the full profile requires the pinned identities",
+          "siglip2: verified=True",
+          "convnextv2_atto: verified=True"
         ],
         "origin": "EXTERNAL_REQUIRED",
         "present_on_this_machine": true,
@@ -1041,29 +975,31 @@
         "size_bytes": null,
         "stored_externally": true,
         "stored_in_git": false,
-        "verification": "model id + revision + weight sha256 are pinned in the detector config and enter run identity; a mismatch is a hard error, not a warning"
+        "verification": "every pinned file is hashed against the sha256 in its pin declaration; a mismatch is a hard error, not a warning"
       },
       {
         "access": "READ_ONLY",
-        "blocks_future_full_run": true,
+        "blocks_future_full_run": false,
         "description": "frozen AdaFace identity backbone used by the GPAT identity loss",
-        "expected_path": "<model cache>/adaface_ir50",
+        "expected_path": "D:\\AI on IOT\\Anti_spoofing\\model_cache\\face_identity\\pretrained_model\\model.pt",
         "file_count": null,
         "identity": null,
         "identity_kind": "",
         "logical_name": "gpat_identity_model_adaface",
         "notes": [
-          "resolved from the model cache at run time; never trained"
+          "resolved from the declared model cache; never trained",
+          "measured sha256: 43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
         ],
         "origin": "EXTERNAL_REQUIRED",
-        "present_on_this_machine": false,
+        "present_on_this_machine": true,
         "required_by_stages": [
-          "C4"
+          "C4",
+          "C6"
         ],
         "size_bytes": null,
         "stored_externally": true,
         "stored_in_git": false,
-        "verification": "weight sha256 43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496 at revision 60a65befbcf7"
+        "verification": "weight sha256 43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496 at revision 60a65befbcf7; VERIFIED on this machine"
       },
       {
         "access": "READ_ONLY",
@@ -1293,7 +1229,7 @@
       }
     }
   },
-  "generated_at_utc": "2026-08-17T04:31:09.589993Z",
+  "generated_at_utc": "2026-08-17T07:15:22.584948Z",
   "master_run_index": {
     "duplicate_run_ids": 0,
     "eligible_rows": [
