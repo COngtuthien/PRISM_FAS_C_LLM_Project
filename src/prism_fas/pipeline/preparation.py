@@ -63,16 +63,44 @@ class StepOutcome:
                 "seconds": round(self.seconds, 2), **self.detail}
 
 
+#: The file each derived package writes last. Its absence means the build was
+#: interrupted, which a directory listing cannot distinguish from a finished one.
+COMPLETION_MARKERS = {
+    "packages": ("prism_data_v1_m3a/PACKAGE_LOCK.json",
+                 "prism_data_v1_m3b/PACKAGE_LOCK.json"),
+    "gpat_pairs": ("PAIR_PLAN_LOCK.json",),
+}
+
+
+def _incomplete(repo: Path, name: str) -> bool:
+    """True when a derived tree exists but never finished.
+
+    Presence used to be `the directory has something in it`, which is true of a
+    package that died halfway through writing. Preparation would then report
+    NOTHING_TO_DO and C4 would train against the half-written tree. A tree counts
+    as present only once the marker its builder writes last is there.
+    """
+    from prism_fas.pipeline import portable_paths
+
+    root = repo / portable_paths.DERIVED_ROOTS[name]
+    if not root.is_dir():
+        return False
+    return any(not (root / marker).is_file()
+               for marker in COMPLETION_MARKERS.get(name, ()))
+
+
 def what_is_needed(repo: Path) -> dict[str, Any]:
-    """Which derived trees are absent, and whether they can be rebuilt.
+    """Which derived trees are absent or unfinished, and whether they can be rebuilt.
 
     Reported without building anything, so the preflight can print it before a
     long run rather than discovering it at C4.
     """
     from prism_fas.pipeline import portable_paths
 
+    repo = Path(repo)
     resolution = portable_paths.resolve(repo)
-    missing = [name for name, root in resolution.derived.items() if not root.present]
+    missing = [name for name, root in resolution.derived.items()
+               if not root.present or _incomplete(repo, name)]
     raw_present = {name: root.present for name, root in resolution.raw.items()}
     # SiW is the held-out target and is not an input to any derived source tree.
     buildable = raw_present.get("casia_fasd", False) and raw_present.get("msu_mfsd", False)
@@ -117,6 +145,12 @@ def prepare(repo: Path, *, resume: bool = True,
         return _report(started, outcomes, needed, outcome="WOULD_BUILD",
                        summary=f"would build {', '.join(needed['missing_derived'])}")
 
+    # Done once, before the first builder, so the report records which config the
+    # builders were handed rather than leaving it implicit.
+    from prism_fas.pipeline import portable_paths
+
+    paths_config = portable_paths.ensure_local_paths(repo)
+
     for step in STEPS:
         try:
             outcome = _run_step(repo, step, resume=resume)
@@ -141,7 +175,9 @@ def prepare(repo: Path, *, resume: bool = True,
     return _report(started, outcomes, needed, outcome="PREPARED",
                    summary=f"{len([o for o in outcomes if o.action == 'BUILT'])} tree(s) "
                            f"built, {len([o for o in outcomes if o.action == 'REUSED_VALID'])} "
-                           "reused")
+                           "reused",
+                   paths_config={"action": paths_config["action"],
+                                 "reason": paths_config["reason"]})
 
 
 def _run_step(repo: Path, step: str, *, resume: bool) -> StepOutcome:
@@ -158,10 +194,24 @@ def _run_step(repo: Path, step: str, *, resume: bool) -> StepOutcome:
     return outcome
 
 
+def _paths_config(repo: Path) -> Path:
+    """The paths config the canonical builders take, guaranteed to describe this folder.
+
+    Every builder below is handed this path rather than a hard-coded
+    `configs/paths.local.yaml`. That file is Git-ignored, so a clone has none, and
+    a copied folder carries one naming the machine it left — both of which used to
+    fail here rather than at the operator, which is exactly the one-folder promise
+    this module exists to keep.
+    """
+    from prism_fas.pipeline import portable_paths
+
+    return Path(portable_paths.ensure_local_paths(repo)["path"])
+
+
 def _paths(repo: Path) -> Any:
     from prism_fas.config.models import load_paths
 
-    return load_paths(repo / "configs" / "paths.local.yaml")
+    return load_paths(_paths_config(repo))
 
 
 def _record_count(repo: Path, dataset: str) -> int:
@@ -176,7 +226,7 @@ def _record_count(repo: Path, dataset: str) -> int:
     from prism_fas.config.models import load_paths
     from prism_fas.data.m2_runner import DatasetDefinition, adapter_for
 
-    paths = load_paths(repo / "configs" / "paths.local.yaml")
+    paths = load_paths(_paths_config(repo))
     definition = DatasetDefinition.model_validate(
         yaml.safe_load((repo / "configs" / "data" / f"{dataset}.yaml").read_text(
             encoding="utf-8")))
@@ -193,7 +243,7 @@ def _step_m2(repo: Path, *, resume: bool) -> StepOutcome:
 
     from prism_fas.data import m2_runner
 
-    config_path = repo / "configs" / "paths.local.yaml"
+    config_path = _paths_config(repo)
     preprocess_path = repo / "configs" / "data" / "preprocess_m2.yaml"
     results: dict[str, Any] = {}
     for dataset in ("casia_fasd", "msu_mfsd"):
@@ -233,7 +283,10 @@ def _step_m3a(repo: Path, *, resume: bool) -> StepOutcome:
             PREPARATION_FAILED,
             "the M3A package was built but did not validate",
             {"validation": report})
-    lock = finalize_lock(root, config, report)
+    # finalize_lock(package_root, report). The third argument this used to pass
+    # was a TypeError on every real M3A build; nothing exercised it because the
+    # laptop only ever took the dry-run branch.
+    lock = finalize_lock(root, report)
     return StepOutcome("m3a_package", "BUILT",
                        "built and validated the M3A source package",
                        {"status": lock.get("status"),
@@ -287,8 +340,8 @@ def _step_pairs(repo: Path, *, resume: bool) -> StepOutcome:
 
 
 def _report(started: float, outcomes: list[StepOutcome], needed: dict[str, Any], *,
-            outcome: str, summary: str,
-            reason_code: str | None = None) -> dict[str, Any]:
+            outcome: str, summary: str, reason_code: str | None = None,
+            paths_config: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "outcome": outcome,
@@ -296,6 +349,10 @@ def _report(started: float, outcomes: list[StepOutcome], needed: dict[str, Any],
         "reason_code": reason_code,
         "steps": [item.as_dict() for item in outcomes],
         "needed": needed,
+        # Operational provenance: which paths config the builders were handed, and
+        # whether it had to be derived from this folder's location. Never an input
+        # to a scientific identity.
+        "paths_config": paths_config,
         "elapsed_seconds": round(time.time() - started, 2),
         "scientific_eligible": False,
         "meaning": "derived data preparation is deterministic engineering. It "

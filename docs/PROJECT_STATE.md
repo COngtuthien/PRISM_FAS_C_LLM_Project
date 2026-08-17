@@ -28,9 +28,10 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: FINAL_FULL_PATH_CUDA_PORTABILITY_ONE_FOLDER_DATA_CLOSURE
-current_substage: C4-C13 production FULL path, CUDA portability and derived-data
-                  auto-preparation — COMPLETE
+current_milestone: PREPARATION_PIPELINE_COVERAGE_CLOSURE
+current_substage: derived-data preparation unit/integration coverage, and the three
+                  production defects it exposed — COMPLETE
+previous_milestone: FINAL_FULL_PATH_CUDA_PORTABILITY_ONE_FOLDER_DATA_CLOSURE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -495,12 +496,14 @@ final_full_path_closure:
                                  m3b, prism_fas.synthesis.pair_plan]
     derived_build_blocks_rather_than_fabricates: MISSING_RAW_DATA
     rehearsal_only_reports_what_science_would_build: true   # dry_run, no wasted hours
-    derived_build_evidence_class: READY_BY_CONSTRUCTION_NOT_EXERCISED
-    derived_build_test_coverage: 0        # no test in the repository imports this module
-    derived_build_real_path_ever_run: false   # every run here took the dry_run branch
-    derived_build_risk: >-
-      this is the one component of the closure that is neither tested nor executed, and
-      it runs before C4 on the external host. See the matching entry in `blockers`.
+    # SUPERSEDED by preparation_coverage_closure below. The classification was
+    # READY_BY_CONSTRUCTION_NOT_EXERCISED with zero test coverage; the real
+    # orchestration is now exercised against fixtures and three defects that were
+    # hiding in it are fixed.
+    derived_build_evidence_class: ENGINEERING_EXERCISED_WITH_FIXTURES
+    derived_build_test_coverage: 50       # tests/pipeline/test_preparation.py
+    derived_build_real_path_ever_run: ENGINEERING_ONLY_WITH_STUB_BUILDERS
+    derived_build_real_full_data_run: false   # still NOT_RUN; needs the raw corpora
     relocatable_logical_roots:
       - data/raw/casia_fasd
       - data/raw/msu_mfsd
@@ -554,7 +557,8 @@ final_full_path_closure:
     closure_suite: {passed: 41, failed: 0, skipped: 0}
     pipeline_suite_exact_command: >-
       python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-    pipeline_suite: {passed: 421, failed: 0, skipped: 0}
+    pipeline_suite: {passed: 421, failed: 0, skipped: 0}   # as measured AT that
+                                                           # milestone; 471 now
     relocation_test: PASS          # completed before the interruption; not redone
     three_run_idempotency: PASS    # idem_1/2/3 byte-identical; schedules differ only
                                    # in generated_at_utc; no counter drift
@@ -571,6 +575,158 @@ final_full_path_closure:
   scientific_training_runs: 0
   target_labels_opened: 0
   datasets_opened: 0
+
+# --- preparation pipeline coverage closure (this milestone) ------------------
+preparation_coverage_closure:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as a unit/integration test milestone
+  scope: tests, plus the minimal production fixes those tests exposed
+
+  gap_that_was_closed: >-
+    src/prism_fas/pipeline/preparation.py had zero test coverage and its real
+    orchestration had never executed. train.py calls it with
+    dry_run=not plan.is_scientific, so every laptop rehearsal took the dry branch
+    and the branch that runs FIRST on the collaborator's GPU host had never run
+    anywhere.
+
+  new_test_module: tests/pipeline/test_preparation.py
+  tests_added: 50
+  tests_drive_the_public_entrypoint: true   # preparation.prepare(), not private helpers
+  what_is_stubbed: the four canonical builders, and nothing else
+  why_stubs_still_prove_something: >-
+    each stub creates the tree its real counterpart creates, so the post-build
+    completeness check still bites. Step order, dependency chaining, resume
+    decisions, validation, failure handling, path resolution and the report are
+    all shipping code under test. The stubs mirror the canonical signatures
+    exactly, which is how the arity defect below was caught.
+  mutation_checked: true
+  mutation_result: >-
+    reverting either fixed defect fails 32 of the 50 tests, so the suite bites
+    rather than merely passing.
+
+  # --- three production defects the tests exposed ---------------------------
+  defects_found_and_fixed: 3
+  defects:
+    - id: finalize_lock_arity
+      severity: CRASH_ON_EVERY_REAL_BUILD
+      was: "preparation called finalize_lock(root, config, report)"
+      truth: "prism_fas.data.package.finalize_lock(package_root, report) takes TWO"
+      consequence: >-
+        every genuine M3A build died with a TypeError, wrapped as
+        PREPARATION_FAILED at m3a_package. `python train.py` on the collaborator's
+        machine would have aborted before C4, after the trip was already made.
+      fix: dropped the third argument
+      guarded_by: test_finalize_lock_is_called_with_the_two_arguments_it_declares
+    - id: paths_config_not_portable
+      severity: BREAKS_THE_ONE_FOLDER_PROMISE
+      was: >-
+        every builder was handed configs/paths.local.yaml directly. That file is
+        Git-ignored, so a clone has none and load_paths raises FileNotFoundError;
+        and a copied folder carries one whose roots still name the machine it left,
+        so the builders would write to a D: path that does not exist there.
+      fix: >-
+        portable_paths.ensure_local_paths(repo) derives a config from THIS folder's
+        location when the existing one is absent or names a different project_root,
+        and leaves an operator's deliberate config alone when it names this folder.
+      verified_non_destructive: true   # this laptop's config hashed identical after
+      guarded_by: [test_a_folder_with_no_paths_config_gets_one_describing_itself,
+                   test_a_config_naming_another_machine_is_replaced,
+                   test_a_config_that_already_names_this_folder_is_left_alone]
+    - id: interrupted_tree_looked_complete
+      severity: SILENT_CORRUPT_INPUT_TO_C4
+      was: >-
+        a derived tree counted as present when its directory was non-empty, which
+        is equally true of a build that died mid-write. Preparation reported
+        NOTHING_TO_DO and C4 would have trained against the half-written package.
+      fix: >-
+        COMPLETION_MARKERS — a tree is present only once the file its builder
+        writes last exists (PACKAGE_LOCK.json for M3A and M3B, PAIR_PLAN_LOCK.json
+        for the pair plan).
+      guarded_by: [test_a_package_without_its_lock_is_not_reported_as_nothing_to_do,
+                   test_a_pair_plan_without_its_lock_is_rebuilt,
+                   test_a_finished_tree_is_still_nothing_to_do]
+
+  # --- what the tests establish --------------------------------------------
+  verified_step_order: [m2_preprocess, m3a_package, m3b_priors, gpat_pairs]
+  verified_step_order_source: read from preparation.STEPS, not from prose
+  builders_delegated_to:
+    m2_preprocess: prism_fas.data.m2_runner.run
+    m3a_package: prism_fas.data.package.{load_package_config,build_package,
+                                         validate_package,finalize_lock}
+    m3b_priors: prism_fas.data.package.m3b.build_m3b_package
+    gpat_pairs: prism_fas.synthesis.pair_plan.{write_pair_plan,pair_plan_identity}
+  scientific_semantics_unchanged: true
+  no_scientific_constant_contract_or_search_plan_changed: true
+  corpus_truncation_guard: >-
+    m2_runner.run defaults limit_records=3, a smoke default that would silently
+    truncate the scientific corpus. A test asserts the real record count reaches
+    the builder and that the value is never 3.
+
+  resume_scenarios_proven: [A_fresh_build, B_all_valid_nothing_to_do,
+                            C_partial_reuses_what_is_valid, D_interrupted_rebuilds,
+                            E_stale_fails_closed, F_failed_builder_raises]
+  rerun_report_identical_except_timing: true
+  failure_atomicity: >-
+    a failing step raises PreparationError naming the step and the completed ones;
+    later steps do not run, nothing is marked complete, and a rerun resumes from
+    the failed step rather than rebuilding what succeeded.
+  no_silent_success: >-
+    a builder that returns success without producing its tree is caught by the
+    post-loop re-check and raises with the tree named.
+
+  relocation_verified: true
+  relocation_method: the same fixture built under two different absolute roots
+  identities_survive_relocation: true
+  absolute_host_paths_identity_relevant: false
+
+  target_firewall:
+    preparation_needs_target_labels: false
+    target_dataset_preprocessed: false          # siw_mv2 is never passed to m2
+    absent_target_blocks_preparation: false
+    reads_inside_the_target_raw_root: 0         # asserted by a patched Path.open
+    real_siw_files_used_in_tests: 0
+
+  fixture_outputs_can_be_scientific_ancestors: false
+  ancestry_check: >-
+    every C4-C13 inherited input still resolves under reports/full or runs/full, and
+    none of them names anything preparation writes.
+
+  tests:
+    preparation_suite_exact_command: >-
+      python -m pytest tests/pipeline/test_preparation.py -q --no-header
+      -p no:cacheprovider
+    preparation_suite: {passed: 50, failed: 0, skipped: 0}
+    focused_groups_exact_command: >-
+      python -m pytest tests/pipeline/test_preparation.py
+      tests/pipeline/test_portable_runner.py
+      tests/pipeline/test_full_path_and_ancestry.py -q --no-header -p no:cacheprovider
+    focused_groups: {passed: 145, failed: 0, skipped: 0}
+    pipeline_suite: {passed: 471, failed: 0, skipped: 0}
+    broad_regression_exact_command: >-
+      python -m pytest -q --no-header -p no:cacheprovider
+      --continue-on-collection-errors
+    broad_regression: {passed: 1927, failed: 7, skipped: 101, seconds: 510.57}
+    previous_broad_regression: {passed: 1877, failed: 7, skipped: 101}
+    net_new_passing_tests: 50
+    inherited_failure_set_identical: true   # test-id by test-id
+    new_unexplained_failures: 0
+    documented_failures_now_passing: 0
+    skipped_drift: 0
+    tests_weakened_to_obtain_green: 0
+
+  coverage:
+    tool: stdlib sys.settrace   # the repository declares no coverage dependency
+    preparation_py: {covered: 207, executable: 215, percent: 96.3}
+    untested_lines: 8
+    untested_region: _record_count body
+    untested_reason: >-
+      it delegates to the canonical dataset adapter over a real dataset root, which
+      a fixture has no copy of. It has no branches, so its only failure mode is a
+      moved signature — which is asserted directly against load_paths, adapter_for
+      and DatasetDefinition instead.
+    every_result_affecting_branch_tested: true
 
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
@@ -808,16 +964,16 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1877
+  passed: 1927
   failed: 7
   skipped: 101
-  measured_at_utc: 2026-08-17   # the rerun after the 529 interruption
+  measured_at_utc: 2026-08-17   # after the preparation coverage closure
   milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, C7: 19,
                      pipeline: 313}
   new_tests_this_milestone: 97   # 26 search engine + 35 portability/contracts +
                                  # 19 decision contract + 17 pipeline
   pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-  pipeline_suite: {passed: 421, failed: 0, skipped: 0}
+  pipeline_suite: {passed: 471, failed: 0, skipped: 0}
   c7_suite_exact_command: python -m pytest tests/c7 -q --no-header -p no:cacheprovider
   c7_suite: {passed: 19, failed: 0, skipped: 0}
   pipeline_offline: >-
@@ -859,16 +1015,18 @@ blockers:
   - "The production FULL output audit is STRUCTURAL, not observed. No
     reports/full/c4..c13 artifact set has ever existed. The audit is sound only because
     the writers are the same code under both contexts; it is not a record of a full run."
-  - "HIGHEST-RISK COMPONENT OF THE FIRST GPU RUN: src/prism_fas/pipeline/preparation.py
-    (315 lines) has ZERO test coverage — no test in the repository imports it — and its
-    real build path has never executed. train.py calls it with dry_run=not
-    plan.is_scientific, so every run on this laptop took the dry-run branch and only
-    REPORTED what a scientific run would build. `_run_step` and its four delegations to
-    m2_runner, package, m3b and pair_plan are therefore READY_BY_CONSTRUCTION rather
-    than exercised. Everything else in this closure is either tested or was run; this
-    one thing is neither, and it runs early, before C4, on the collaborator's machine.
-    Closing it needs either unit tests over _run_step with stubbed builders, or one
-    authorized non-dry-run preparation on a small subset here."
+  - "RESOLVED — was: preparation.py has ZERO test coverage and its real build path has
+    never executed. Closed by preparation_coverage_closure below: 50 focused tests now
+    drive the real `prepare()` entrypoint with the four canonical builders stubbed, and
+    THREE production defects that were hiding behind the gap are fixed. What remains is
+    narrower and is stated as its own blocker: preparation has still never run against
+    the real corpora."
+  - "Preparation has never run against REAL data. The orchestration, ordering, resume,
+    validation, failure handling and path resolution are exercised; what the stubs stand
+    in for — the actual m2/m3a/m3b/pair-plan builds over CASIA and MSU — has not run
+    here and cannot without the raw corpora and hours of compute. Those builders are
+    themselves inherited and separately tested, so the untested surface is their
+    interaction with real data volume, not their logic."
   - "CORRECTED by the pre-GPU audit. The previous milestone listed the pinned weights and
     AdaFace as missing; they are PRESENT and now verified by hash against their frozen
     pins — SigLIP2 (all 7 files), ConvNeXt V2 Atto, AdaFace ir50, SCRFD and FaceXFormer,
@@ -977,9 +1135,17 @@ next_authorized_action: >
   train.py argument.
 
   What review must NOT read into it: no CUDA hardware has ever been validated, no
-  reports/full/c4..c13 artifact has ever been written, and the production output
-  audit is structural rather than observed. The first external-GPU run is therefore
-  the first execution of that path, and it should be watched rather than left alone.
+  reports/full/c4..c13 artifact has ever been written, the production output audit
+  is structural rather than observed, and derived-data preparation has been
+  exercised only against stub builders — never against the real corpora. The first
+  external-GPU run is therefore the first execution of that path, and it should be
+  watched rather than left alone.
+
+  What changed since the last review: the preparation coverage gap is closed, and
+  closing it found three real defects — a TypeError that would have aborted every
+  genuine M3A build, a paths config that could not survive the folder being copied,
+  and an interrupted package that looked complete to C4. All three would have
+  fired on the collaborator's machine rather than here.
 
   No C4-C13 scientific execution, GPU allocation, Modal spend, target access or
   Gemini call has been performed or is authorized.
