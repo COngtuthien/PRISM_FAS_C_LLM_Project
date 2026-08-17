@@ -30,6 +30,7 @@ from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInpu
                                                 SmokeBudget, check, read_json,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import face_arrays, face_image, frozen_recipes
 
 STAGE_ID = "C5"
@@ -75,9 +76,10 @@ class C5Adapter(EngineeringAdapter):
                           "the frozen GPAT checkpoint C5's GPAT route renders through"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         results: list[AdapterResult] = []
-        budget = SmokeBudget.from_profile(request.profile)
+        budget = context.budget or SmokeBudget.from_profile(request.profile)
         reports = stage_reports_dir(request, STAGE_ID)
 
         compiled, load = self._load_recipes(request, reports, budget)
@@ -136,7 +138,7 @@ class C5Adapter(EngineeringAdapter):
             "scientific_recipes_per_arm": 256,
             "arms": {arm: [graph.graph_hash for graph in graphs]
                      for arm, graphs in compiled.items()},
-            "ontology_identity": ontology.sha256, "fixture_backed": True,
+            "ontology_identity": ontology.sha256, "fixture_backed": request.context.fixtures_permitted,
             "budget": budget.as_dict()})
         return compiled, self.result(request, mode=LOAD_RECIPES, checks=checks,
                                      artifacts=[artifact])
@@ -180,7 +182,7 @@ class C5Adapter(EngineeringAdapter):
             "schema_version": "c5-routes-v1", "generated_at_utc": utc(),
             "mode": RESOLVE_ROUTES, "required_generator_route": list(expected),
             "route_policy_identity": policy.route_policy_identity,
-            "observed": observed, "fixture_backed": True})
+            "observed": observed, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=RESOLVE_ROUTES, checks=checks, artifacts=[artifact],
                            parent_identities={"route_policy": policy.route_policy_identity})
 
@@ -256,7 +258,7 @@ class C5Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C5_PHYSICS_RENDERS.json", {
             "schema_version": "c5-physics-renders-v1", "generated_at_utc": utc(),
             "mode": RENDER_PHYSICS, "rendered": rendered, "failures": failures,
-            "fixture_backed": True, "budget": budget.as_dict(),
+            "fixture_backed": request.context.fixtures_permitted, "budget": budget.as_dict(),
             "image_note": "a deterministic noise field, not a face"})
         return rendered, self.result(request, mode=RENDER_PHYSICS, checks=checks,
                                      artifacts=[artifact])
@@ -314,7 +316,7 @@ class C5Adapter(EngineeringAdapter):
             "ll_invariant_error": output.ll_invariant_error(),
             "outside_mask_error": output.outside_mask_error(batch.live_image),
             "architecture_hash": model.architecture_hash(),
-            "fixture_backed": True, "trained_checkpoint_used": False,
+            "fixture_backed": request.context.fixtures_permitted, "trained_checkpoint_used": False,
             "budget": budget.as_dict()})
         return self.result(request, mode=RENDER_GPAT, checks=checks, artifacts=[artifact])
 
@@ -374,7 +376,7 @@ class C5Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C5_CANDIDATE_IDENTITIES.json", {
             "schema_version": "c5-candidate-identities-v1", "generated_at_utc": utc(),
             "mode": CANDIDATE_IDENTITY, "rows": rows, "physics_renders": len(rendered),
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=CANDIDATE_IDENTITY, checks=checks,
                            artifacts=[artifact])
 
@@ -414,7 +416,7 @@ class C5Adapter(EngineeringAdapter):
             "retention_rule": ("a failed candidate is preserved as provenance and remains "
                                "addressable; it is never dropped and never replaced by an "
                                "extra render (§11.4, L.8)"),
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
 
         decision = resume_decision(request, "c5_candidate_identities",
                                    reports / "C5_CANDIDATE_IDENTITIES.json",

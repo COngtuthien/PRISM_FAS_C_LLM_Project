@@ -44,6 +44,7 @@ from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInpu
                                                 read_json, resume_decision,
                                                 stage_reports_dir, stage_runs_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C4"
 
@@ -176,9 +177,10 @@ class C4Adapter(EngineeringAdapter):
                           "the frozen source-only GPAT pair plan"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         results: list[AdapterResult] = []
-        budget = SmokeBudget.from_profile(request.profile)
+        budget = context.budget or SmokeBudget.from_profile(request.profile)
         reports = stage_reports_dir(request, STAGE_ID)
         runs = stage_runs_dir(request, STAGE_ID)
 
@@ -199,14 +201,23 @@ class C4Adapter(EngineeringAdapter):
 
     def _prepare_support(self, request: AdapterRequest, reports: Path,
                          budget: SmokeBudget) -> tuple[Any, AdapterResult]:
-        size = min(SMOKE_BATCH, budget.samples)
+        from prism_fas.pipeline.adapters import sources
+
+        context = request.context
+        # Under science the size is the configured GPAT batch; a rehearsal takes
+        # the smaller of that and its declared budget. `budget_or` is what makes
+        # the reduction auditable rather than hidden in this expression.
+        declared = int(_load_config(request.repo)["batch_size"])
+        size = declared if context.is_scientific else min(SMOKE_BATCH, budget.samples)
         checks: list[dict[str, Any]] = []
         try:
-            batch = _fixture_batch(request.repo, size)
+            batch, provenance = sources.support_batch(request.repo, size, context)
         except Exception as error:
             checks.append(check("c4_support_built", False,
                                 f"the support batch could not be built: {type(error).__name__}",
-                                error=str(error)))
+                                error=str(error),
+                                context=context.name,
+                                reason_code=getattr(error, "reason_code", "BUILD_FAILED")))
             return None, self.result(request, mode=PREPARE_SUPPORT, checks=checks,
                                      summary="C4 support preparation failed")
 
@@ -231,14 +242,16 @@ class C4Adapter(EngineeringAdapter):
             "support_bank_identity": _support_identity(batch),
             "recipe_ids": list(batch.recipe_ids),
             "conditioning_dim": int(batch.recipe_conditioning.shape[1]),
-            "fixture_backed": True,
+            **context.stamp(),
+            "fixture_backed": context.fixtures_permitted,
+            "support_provenance": provenance,
             "substituted_components": {
                 "images": "deterministic noise fields, not faces",
                 "identity_embedding": "deterministic stand-in; the frozen AdaFace tower is "
                                       "not resolvable on this machine",
                 "pairs": "drawn from the frozen C3 recipe banks rather than from "
-                         "preprocessed source imagery"},
-            "budget": budget.as_dict()})
+                         "preprocessed source imagery"} if context.fixtures_permitted else {},
+            "budget": None if context.is_scientific else budget.as_dict()})
         return batch, self.result(request, mode=PREPARE_SUPPORT, checks=checks,
                                   artifacts=[artifact],
                                   summary=f"C4 support prepared for {size} pair(s)")
@@ -277,7 +290,7 @@ class C4Adapter(EngineeringAdapter):
 
         artifact = write_artifact(request, reports / "C4_SUPPORT_VALIDATION.json", {
             "schema_version": "c4-support-validation-v1", "generated_at_utc": utc(),
-            "mode": VALIDATE_SUPPORT, "checks": checks, "fixture_backed": True})
+            "mode": VALIDATE_SUPPORT, "checks": checks, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=VALIDATE_SUPPORT, checks=checks,
                            artifacts=[artifact])
 
@@ -477,7 +490,7 @@ class C4Adapter(EngineeringAdapter):
             "outside_mask_metric": {"error": outside_error, "tolerance": outside_tolerance},
             "checkpoint": {"sha256": checkpoint_sha,
                            "path": checkpoint_path.relative_to(request.repo).as_posix()},
-            "budget": budget.as_dict(), "fixture_backed": True,
+            "budget": budget.as_dict(), "fixture_backed": request.context.fixtures_permitted,
             "checks": checks})
         return self.result(request, mode=SMOKE_GPAT, checks=checks, artifacts=[artifact],
                            parent_identities={"gpat_architecture": model.architecture_hash()})
@@ -590,8 +603,8 @@ class C4Adapter(EngineeringAdapter):
 
         artifact = write_artifact(request, reports / "C4_SOURCE_SEARCH.json", {
             **payload, "generated_at_utc": utc(), "mode": SOURCE_SEARCH,
-            "anchor_resolution": report, "fixture_backed": True,
-            "engineering_only": True, "budget": budget.as_dict()})
+            "anchor_resolution": report, "fixture_backed": request.context.fixtures_permitted,
+            "engineering_only": not request.context.is_scientific, "budget": budget.as_dict()})
         return outcome, self.result(
             request, mode=SOURCE_SEARCH, checks=checks,
             artifacts=[artifact, state_path.relative_to(request.repo).as_posix()],
@@ -647,7 +660,7 @@ class C4Adapter(EngineeringAdapter):
             "tie_break_trace": payload["tie_break_trace"],
             "no_target_capability_proof": {"target_roots_mounted": [],
                                            "target_labels_resolved": 0},
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=FINALIZE_GPAT, checks=checks, artifacts=[artifact])
 
     def _verify_lock(self, request: AdapterRequest, reports: Path) -> AdapterResult:

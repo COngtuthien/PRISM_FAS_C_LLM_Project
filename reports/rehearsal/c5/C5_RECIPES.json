@@ -38,7 +38,7 @@
   },
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:50:29.710492Z",
+  "generated_at_utc": "2026-08-17T13:29:05.537989Z",
   "mode": "LOAD_RECIPES",
   "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
   "profile_config": "configs/execution/rehearsal.yaml",

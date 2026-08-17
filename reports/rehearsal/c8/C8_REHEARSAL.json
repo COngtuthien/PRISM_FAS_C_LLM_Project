@@ -123,7 +123,7 @@
           "summary": "each protocol/method/config/seed is its own resumable unit"
         },
         {
-          "check_id": "c8_rehearsal_sample_is_stable",
+          "check_id": "c8_sample_is_stable",
           "detail": {
             "rule": "a sample drawn from the pending remainder would slide forward on every rerun and eventually execute nothing while reporting PASS",
             "sampled": [
@@ -132,11 +132,23 @@
             ]
           },
           "ok": true,
-          "summary": "the rehearsed rows are the first rows of the plan, so a rerun of the same command exercises the same arms"
+          "summary": "the scheduled rows are the first rows of the plan, so a rerun of the same command exercises the same arms"
+        },
+        {
+          "check_id": "c8_scientific_cardinality_is_the_complete_matrix",
+          "detail": {
+            "cardinality_rule": "SAMPLED_TO_BUDGET",
+            "context": "rehearsal",
+            "declared": 42,
+            "rule": "§8: no SMOKE_ROWS, first-N, pending-prefix or fixture cardinality may affect a full run",
+            "scheduled": 2
+          },
+          "ok": true,
+          "summary": "a rehearsal samples the matrix; the scientific path does not"
         }
       ],
       "checks_failed": 0,
-      "checks_run": 3,
+      "checks_run": 4,
       "detail": {},
       "engineering_status": "SMOKE_PASS",
       "mode": "SCHEDULE",
@@ -148,7 +160,7 @@
       "stage_id": "C8",
       "status": "PASS",
       "substage": "C8",
-      "summary": "C8 schedule — 3/3 checks passed"
+      "summary": "C8 schedule — 4/4 checks passed"
     },
     {
       "artifacts": [
@@ -393,7 +405,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:51:46.411217Z",
+  "finished_at_utc": "2026-08-17T13:30:14.729035Z",
   "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
   "notes": [],
   "phase": "scientific",
@@ -406,7 +418,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C8",
-  "started_at_utc": "2026-08-17T11:51:46.296446Z",
+  "started_at_utc": "2026-08-17T13:30:14.627010Z",
   "substages": [],
   "title": "Source matrix over arms, tracks, configs and seeds",
   "validate_checks": [

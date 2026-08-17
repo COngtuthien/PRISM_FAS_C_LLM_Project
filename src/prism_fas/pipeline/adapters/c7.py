@@ -40,6 +40,7 @@ from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInpu
                                                 SmokeBudget, check, resume_decision,
                                                 stage_reports_dir, stage_runs_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C7"
 
@@ -112,9 +113,10 @@ class C7Adapter(EngineeringAdapter):
                           "the matched 1024-per-arm synthetic banks C7 trains against"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
-        budget = SmokeBudget.from_profile(request.profile)
+        budget = context.budget or SmokeBudget.from_profile(request.profile)
         return [
             self._track_readiness(request, TRACK_G_FLAGS, "G", TRACK_G_READINESS, reports),
             self._track_readiness(request, TRACK_R_FLAGS, "R", TRACK_R_READINESS, reports),
@@ -233,7 +235,7 @@ class C7Adapter(EngineeringAdapter):
             "mode": mode, "track": track, "flags": variant.flags(),
             "variant_identity": variant.identity(),
             "architecture_identity": report.get("architecture_identity"),
-            "audit": report, "fixture_backed": True,
+            "audit": report, "fixture_backed": request.context.fixtures_permitted,
             "global_tower": "shape-exact stub; the pinned SigLIP2 weights are not resolved "
                             "on this machine and the full profile requires them"})
         return self.result(request, mode=mode, checks=checks, artifacts=[artifact],
@@ -306,7 +308,7 @@ class C7Adapter(EngineeringAdapter):
             "schema_version": "c7-decision-audit-v1", "generated_at_utc": utc(),
             "mode": DECISION_DEPENDENCY_AUDIT,
             "track_g": g_report, "track_r": r_report,
-            "gate": "§13.5 failure blocks C8", "fixture_backed": True})
+            "gate": "§13.5 failure blocks C8", "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=DECISION_DEPENDENCY_AUDIT, checks=checks,
                            artifacts=[artifact],
                            parent_identities={"c7_decision_graph":
@@ -368,7 +370,7 @@ class C7Adapter(EngineeringAdapter):
                             "video_aggregation": "trimmed mean, trim=0.10"},
                 "Track R": {"calibration_logit": "fused_logit_R", "score": "p_R",
                             "video_aggregation": "trimmed mean, trim=0.10"}},
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=CALIBRATION_GUARDS, checks=checks,
                            artifacts=[artifact])
 
@@ -411,7 +413,7 @@ class C7Adapter(EngineeringAdapter):
                ("m10_matrix_identity", "logical_rows", "audited_rows",
                 "unique_variant_configs", "implementable_rows", "not_implementable",
                 "blocked_rows", "all_executable_rows_implementable")},
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=VARIANT_MATRIX_AUDIT, checks=checks,
                            artifacts=[artifact],
                            parent_identities={"m10_matrix": plan["m10_matrix_identity"]})
@@ -542,9 +544,9 @@ class C7Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C7_SOURCE_SEARCH.json", {
             **payload, "generated_at_utc": utc(), "mode": SOURCE_SEARCH,
             "anchor_resolution": report, "variant_flags": variant.flags(),
-            "active_loss_terms": active, "engineering_only": True,
+            "active_loss_terms": active, "engineering_only": not request.context.is_scientific,
             "metrics_source": "deterministic analytic objective",
-            "fixture_backed": True, "budget": budget.as_dict()})
+            "fixture_backed": request.context.fixtures_permitted, "budget": budget.as_dict()})
 
         decision = resume_decision(request, "c7_source_search",
                                    reports / "C7_SOURCE_SEARCH.json",

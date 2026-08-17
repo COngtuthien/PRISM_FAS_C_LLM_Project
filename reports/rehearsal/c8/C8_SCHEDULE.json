@@ -1,5 +1,10 @@
 {
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "context_cardinality_rule": "SAMPLED_TO_BUDGET",
+  "context_fixtures_permitted": true,
+  "context_scientific_eligible": false,
+  "context_target_capability": "fixture_only",
+  "context_writes_governing_locks": false,
   "decisions": [
     {
       "action": "SKIP_VALID_COMPLETE",
@@ -506,15 +511,17 @@
       "unit_id": "C-R-NOPROMPT-P3READY-s20260808"
     }
   ],
+  "execution_context": "rehearsal",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:51:46.315983Z",
+  "generated_at_utc": "2026-08-17T13:30:14.644215Z",
   "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
   "mode": "SCHEDULE",
   "pending": 40,
   "planned": 42,
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "rows_declared": 42,
   "rows_executed_here": 2,
   "sample_rule": "first rows of the plan, in plan order",
   "sampled_rows": [

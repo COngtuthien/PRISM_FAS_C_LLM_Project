@@ -28,8 +28,9 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: PORTABLE_ONE_COMMAND_EXECUTION_CLOSURE
-current_substage: portable one-folder runner, bootstrap and reporting — COMPLETE
+current_milestone: FINAL_FULL_PATH_CUDA_PORTABILITY_ONE_FOLDER_DATA_CLOSURE
+current_substage: C4-C13 production FULL path, CUDA portability and derived-data
+                  auto-preparation — COMPLETE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -54,6 +55,14 @@ execution_pipeline:
   validate: IMPLEMENTED_C0_TO_C13   # 14 stages, 21 checks, 0 failed
   smoke: IMPLEMENTED_C0_TO_C13      # 14 stages, 62 substage modes, 242 checks, 0 failed
   full: EXECUTED_C3_ONLY            # live C3 generation ran 2026-08-16; C4-C13 BLOCKED
+  # Separate axis, deliberately not folded into `full` above. The scientific CODE
+  # PATH for C4-C13 now exists; that is not a claim that it ran. The refusing
+  # `run_full` is GONE — one `workflow()` per stage, driven by an ExecutionContext,
+  # with no placeholder to fall back to. On this laptop every stage still BLOCKS on
+  # a named missing input, never on missing code.
+  full_path_implemented_c4_to_c13: true
+  full_path_placeholders_remaining: 0
+  full_path_ever_executed_c4_to_c13: false
   orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
   pipeline_state_exists: true   # state/PIPELINE_STATE.json
   master_run_index_exists: true # state/MASTER_RUN_INDEX.json
@@ -350,6 +359,213 @@ portable_execution:
   real_target_access: 0
   scientific_training_runs: 0
 
+# --- final full-path / CUDA-portability / one-folder closure (this milestone) ---
+final_full_path_closure:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  audited_from_head: 77554ee7f1f49121a15d4121320e645610e7c939
+  is_scientific_execution: false
+  authorized_by: user, in session, as one engineering-closure milestone
+  interrupted_and_resumed: >-
+    the first attempt was interrupted by a provider 529 exactly while the broad
+    regression was running. The regression result was NOT recoverable — no output
+    file survived and the suite runs with `-p no:cacheprovider`, so .pytest_cache
+    was stale — and it was rerun. Implementation, focused tests, the relocation
+    test and the three-run idempotency test were NOT redone; their evidence was
+    re-verified intact (idem_1/2/3 byte-identical, schedules differing only in
+    generated_at_utc).
+
+  # --- what changed structurally -------------------------------------------
+  the_defect_this_milestone_closed: >-
+    every C4-C13 adapter had a `run_smoke` and inherited a `run_full` that refused
+    with SCIENTIFIC_PATH_NOT_EXERCISED. The rehearsal therefore exercised code the
+    scientific run would never reach: the two paths could not drift apart because
+    they were never together. They are now ONE `workflow()` per stage,
+    parameterized by an ExecutionContext, so rehearsing the path is evidence about
+    the scientific path rather than about a parallel one.
+  new_canonical_modules:
+    - src/prism_fas/pipeline/execution.py        # ExecutionContext: the one place a
+                                                 # profile becomes a policy
+    - src/prism_fas/pipeline/adapters/sources.py # the single fixture-vs-real seam
+    - src/prism_fas/pipeline/gpu_preflight.py    # pre-C4 GPU proof-of-work
+    - src/prism_fas/pipeline/preparation.py      # derived-data auto-build
+    - src/prism_fas/pipeline/portable_paths.py   # project-relative logical roots
+  removed_everywhere: [run_full, run_smoke]
+
+  # --- C4-C13 production FULL path, audited stage by stage ------------------
+  c4_to_c13_full_path:
+    implemented: true
+    placeholder_tokens_remaining: 0   # SCIENTIFIC_PATH_NOT_EXERCISED, NOT_IMPLEMENTED,
+                                      # FULL_MODE_PLACEHOLDER, SMOKE_ONLY, TODO
+    audit_method: >-
+      AST over all ten adapter modules: each defines `workflow`, none defines
+      `run_full` or `run_smoke`, none contains a placeholder token. The single
+      NotImplementedError in the codebase is the abstract-base guard in
+      adapters/common.py, which exists precisely so that there is no placeholder to
+      inherit.
+    every_stage_blocks_on_data_never_on_code: true
+    blocking_inputs_on_this_laptop:
+      C4:  [source_packages, gpat_pair_plan, accelerator]
+      C5:  [source_packages, gpat_checkpoint_lock, accelerator]
+      C6:  [quality_calibration, c5_candidates]
+      C7:  [pretrained_weights, c6_matched_banks]
+      C8:  [c6_matched_banks, c7_config_lock, source_packages, pretrained_weights,
+            accelerator]
+      C9:  [c8_runs, c8_acceptance]
+      C10: [c9_source_lock, target_feature_package]
+      C11: [c9_source_lock, c10_target_lock, target_feature_package, accelerator]
+      C12: [c11_lockset, target_labels]
+      C13: [c12_statistics]
+
+  # --- C8 FULL matrix contract ---------------------------------------------
+  c8_full_contract:
+    matrix_identity: a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8
+    rows_declared: 42
+    scientific_rows_scheduled: 42     # ExecutionContext.limit(42, sample=2) == 42
+    rehearsal_rows_scheduled: 2       # SAMPLED_TO_BUDGET
+    smoke_rows_reachable_from_full: false
+    why: >-
+      the scientific branch of `limit()` returns the declared count and never reads
+      its `sample` argument, so SMOKE_ROWS is not reachable from the scientific path
+      even by mistake. A check named
+      c8_scientific_cardinality_is_the_complete_matrix asserts it at run time.
+    pending_prefix_sampling_affects_full: false
+    row_identities_contract_checked: true   # seed family closed, §18.3 replication
+                                            # policy, per-row run_identity
+
+  # --- rehearsal / science ancestry isolation ------------------------------
+  ancestry_isolation:
+    verified: true
+    barriers: 4
+    barrier_1_namespace: >-
+      every inherited input a C4-C13 stage declares resolves under reports/full or
+      runs/full. Not one resolves under reports/rehearsal, runs/rehearsal or
+      reports/smoke.
+    barrier_2_lock_filename: >-
+      a rehearsal writes SOURCE_MATRIX_LOCK_C_REHEARSAL.json, not
+      SOURCE_MATRIX_LOCK_C.json, so a rehearsal artifact copied into a scientific
+      tree would not answer to the name later stages look for.
+    barrier_3_eligibility_stamp: >-
+      every rehearsal artifact on disk carries scientific_eligible=false and an
+      execution_profile of rehearsal or smoke; a test walks the tree and asserts it.
+    barrier_4_reporting_scope: >-
+      the reporting layer evaluates no rehearsal or smoke string literal; it reads
+      only the namespace it is handed, so a full report cannot absorb a rehearsal.
+    gpu_execution_must_begin_from: scientific C4 state, never a laptop rehearsal
+                                   checkpoint or result
+
+  # --- generic NVIDIA CUDA readiness ---------------------------------------
+  cuda_portability:
+    hard_coded_to_rtx_5090: false
+    model_name_is_a_gate: false      # name is provenance only
+    selection_keys: [compute_capability, driver_version]
+    categories: [VALIDATED_PROFILE, COMPATIBLE_DECLARED_PROFILE,
+                 UNVALIDATED_COMPATIBLE_CANDIDATE, INCOMPATIBLE]
+    declared_profiles: [cuda-cu129, cuda-cu126]
+    cpu_fallback_for_science: false
+    unreported_capability_is_never_graded_upward: true
+    classifier_exercised_on: 10 synthetic hosts, no GPU allocated
+    classifier_results:
+      RTX_5090_cc12.0_drv580:      {profile: cuda-cu129, grade: COMPATIBLE_DECLARED_PROFILE}
+      H100_cc9.0_drv560:           {profile: cuda-cu126, grade: COMPATIBLE_DECLARED_PROFILE}
+      RTX_4090_cc8.9_drv550:       {profile: cuda-cu126, grade: COMPATIBLE_DECLARED_PROFILE}
+      A100_cc8.0_drv535:           {profile: cuda-cu126, grade: COMPATIBLE_DECLARED_PROFILE}
+      T4_cc7.5_drv525:             {profile: cuda-cu126, grade: COMPATIBLE_DECLARED_PROFILE}
+      RTX_3090_cc8.6_drv550:       {profile: cuda-cu126, grade: COMPATIBLE_DECLARED_PROFILE}
+      unlisted_card_cc10.0_drv580: {profile: cuda-cu129, grade: COMPATIBLE_DECLARED_PROFILE}
+      RTX_3090_cc8.6_drv470:       {grade: INCOMPATIBLE, why: driver below floor}
+      GTX_1080Ti_cc6.1_drv525:     {grade: INCOMPATIBLE, why: capability outside range}
+      RTX_5090_capability_unreported: {grade: INCOMPATIBLE, why: never graded upward}
+    an_unlisted_card_is_accepted_on_capability: true   # proven by the cc10.0 case
+    hardware_validation_status: NOT_YET_EXECUTED       # no real CUDA host here
+    gpu_preflight_runs_before_c4: true
+    gpu_preflight_probes: [allocate, matmul, build detector, forward, backward,
+                           checkpoint save, checkpoint reload, synchronize,
+                           memory counters]
+
+  # --- one-folder portability ----------------------------------------------
+  one_folder:
+    separate_dataset_preparation_command_required: false
+    separate_pip_command_required: false
+    train_py_arguments_required_for_normal_workflow: 0
+    derived_trees_built_automatically: true
+    derived_build_steps: [m2_preprocess, m3a_package, m3b_priors, gpat_pairs]
+    derived_build_is_resumable: true
+    derived_build_delegates_to: [prism_fas.data.m2_runner, prism_fas.data.package,
+                                 m3b, prism_fas.synthesis.pair_plan]
+    derived_build_blocks_rather_than_fabricates: MISSING_RAW_DATA
+    rehearsal_only_reports_what_science_would_build: true   # dry_run, no wasted hours
+    relocatable_logical_roots:
+      - data/raw/casia_fasd
+      - data/raw/msu_mfsd
+      - data/raw/siw_mv2        # target; not opened before C10
+      - weights                 # the pinned model cache
+    resolution_order: in_folder wins, else the absolute root in configs/paths.local.yaml
+    which_location_was_used_enters_a_scientific_identity: false
+    bundle_manifest: PORTABLE_BUNDLE_MANIFEST.json
+    bundle_ready_for_full: "YES"     # on this machine; raw roots and weights present
+    bundle_blockers: []
+
+  # --- production FULL output audit ----------------------------------------
+  production_output_audit:
+    writers_are_the_same_code_under_both_contexts: true
+    what_the_context_changes: [namespace, cardinality, lock filename, target
+                               capability, fixture permission]
+    per_stage_summary_naming: "{stage_id}_{PROFILE}.json"   # orchestrator.py:243 —
+                                                           # a full run writes
+                                                           # reports/full/c4/C4_FULL.json
+    covered: [config, run manifest, train history, source and cross-source metrics,
+              checkpoint, status, raw evidence, selection evidence, locks,
+              parameter counts, FLOPs/MACs, GPU VRAM and timing, throughput,
+              inference latency, plots, tables, report.html, MASTER_RUN_INDEX]
+    missing_writers: 0
+    evidence_class: STRUCTURAL_NOT_OBSERVED
+    evidence_class_meaning: >-
+      the audit matrix was computed from the artifacts a REHEARSAL produced, because
+      C4-C13 have never run scientifically and no reports/full/c4..c13 artifact set
+      exists yet. That is evidence about the full path only because the writers are
+      the same code under both contexts — which is the property this milestone
+      established. It is not an observation of a full run.
+    c13_can_aggregate_rehearsal_evidence: false
+
+  # --- exact test evidence, post-fix ---------------------------------------
+  tests:
+    broad_regression_exact_command: >-
+      python -m pytest -q --no-header -p no:cacheprovider
+      --continue-on-collection-errors
+    broad_regression: {passed: 1877, failed: 7, skipped: 101, seconds: 536.42}
+    broad_regression_rerun_reason: interrupted by a 529 and not recoverable
+    inherited_failure_set_identical: true    # compared test-id by test-id against
+                                             # reports/c0/C0_TEST_SUITE.json
+    new_unexplained_failures: 0
+    documented_failures_now_passing: 0
+    skipped_drift: 0                         # 101 before, 101 after
+    previous_baseline: {passed: 1820, failed: 7, skipped: 101}
+    net_new_passing_tests: 57
+    closure_suite_exact_command: >-
+      python -m pytest tests/pipeline/test_full_path_and_ancestry.py -q --no-header
+      -p no:cacheprovider
+    closure_suite: {passed: 41, failed: 0, skipped: 0}
+    pipeline_suite_exact_command: >-
+      python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
+    pipeline_suite: {passed: 421, failed: 0, skipped: 0}
+    relocation_test: PASS          # completed before the interruption; not redone
+    three_run_idempotency: PASS    # idem_1/2/3 byte-identical; schedules differ only
+                                   # in generated_at_utc; no counter drift
+    tests_weakened_to_obtain_green: 0
+    test_style_change: >-
+      the closure tests read AST constants rather than matching prose, so a
+      docstring may discuss the rehearsal while the assertion still proves no
+      rehearsal literal is EVALUATED.
+
+  gpu_seconds: 0
+  modal_usage: 0
+  gemini_calls: 0
+  real_target_access: 0
+  scientific_training_runs: 0
+  target_labels_opened: 0
+  datasets_opened: 0
+
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
   authorized_by: user, in session, engineering-only adapter milestone
@@ -586,15 +802,16 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1769
+  passed: 1877
   failed: 7
   skipped: 101
+  measured_at_utc: 2026-08-17   # the rerun after the 529 interruption
   milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, C7: 19,
                      pipeline: 313}
   new_tests_this_milestone: 97   # 26 search engine + 35 portability/contracts +
                                  # 19 decision contract + 17 pipeline
   pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-  pipeline_suite: {passed: 313, failed: 0, skipped: 0}
+  pipeline_suite: {passed: 421, failed: 0, skipped: 0}
   c7_suite_exact_command: python -m pytest tests/c7 -q --no-header -p no:cacheprovider
   c7_suite: {passed: 19, failed: 0, skipped: 0}
   pipeline_offline: >-
@@ -623,7 +840,19 @@ known_deviations:
 
 blockers:
   - "C4-C13 are ENGINEERING_READY and SCIENTIFICALLY NOT_RUN. Every one of them BLOCKS
-    under --profile full on this machine and names the input it lacks."
+    under --profile full on this machine and names the input it lacks. As of this
+    milestone the reason is exclusively DATA and HARDWARE: the scientific code path
+    exists for all ten stages and contains no placeholder. The blocking inputs are
+    enumerated per stage in final_full_path_closure.c4_to_c13_full_path."
+  - "CUDA HARDWARE VALIDATION = NOT YET EXECUTED. The runner grades a host generically
+    on compute capability and driver version, and the classifier was exercised on ten
+    synthetic hosts — but no real CUDA device has ever been allocated by this project.
+    cuda-cu129 and cuda-cu126 are DECLARED_NOT_VALIDATED_HERE. The first real GPU run
+    is therefore also the first validation of the wheel selection and of the pre-C4
+    GPU preflight."
+  - "The production FULL output audit is STRUCTURAL, not observed. No
+    reports/full/c4..c13 artifact set has ever existed. The audit is sound only because
+    the writers are the same code under both contexts; it is not a record of a full run."
   - "CORRECTED by the pre-GPU audit. The previous milestone listed the pinned weights and
     AdaFace as missing; they are PRESENT and now verified by hash against their frozen
     pins — SigLIP2 (all 7 files), ConvNeXt V2 Atto, AdaFace ir50, SCRFD and FaceXFormer,
@@ -720,14 +949,24 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW of the portable pre-full checkpoint before transferring the complete
-  folder to the external CUDA GPU. The optional local test is DONE: `python train.py`
-  was run on the CPU laptop, resolved CPU_FULL_REHEARSAL and passed C0-C13 in 94 s,
-  and the three defects it exposed are fixed at 0ce62bd with regression tests. On a
-  compatible CUDA host the same command resolves GPU_SCIENTIFIC_FULL starting at C4;
-  that host still needs the derived data/processed and data/packages trees, which do
-  not travel in the folder. No C4-C13 scientific execution, GPU allocation, Modal
-  spend, target access or Gemini call has been performed or is authorized.
+  USER REVIEW before copying the complete portable bundle to an external NVIDIA CUDA
+  machine and running exactly `python train.py`. Nothing else is authorized.
 
-last_updated_utc: 2026-08-17   # portable closure + laptop verification and C8 fix
+  What review is being asked to confirm: C4-C13 now have a real production FULL code
+  path with zero placeholders; C8 under full schedules all 42 declared rows of the
+  frozen matrix a777671f... and cannot see the rehearsal sampler; a rehearsal cannot
+  serve as a scientific ancestor through any of four independent barriers; the runner
+  grades any NVIDIA host on compute capability and driver rather than on model name;
+  and the folder needs no pip command, no dataset-preparation command and no
+  train.py argument.
+
+  What review must NOT read into it: no CUDA hardware has ever been validated, no
+  reports/full/c4..c13 artifact has ever been written, and the production output
+  audit is structural rather than observed. The first external-GPU run is therefore
+  the first execution of that path, and it should be watched rather than left alone.
+
+  No C4-C13 scientific execution, GPU allocation, Modal spend, target access or
+  Gemini call has been performed or is authorized.
+
+last_updated_utc: 2026-08-17   # final full-path / CUDA-portability / one-folder closure
 ```

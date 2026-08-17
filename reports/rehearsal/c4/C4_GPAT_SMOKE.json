@@ -25,7 +25,7 @@
   },
   "checkpoint": {
     "path": "runs/rehearsal/c4/smoke_checkpoint/gpat_smoke.pt",
-    "sha256": "b0fb6ef57647142bb8a4572eeb51e6fb1c75298ad711907abdbb933cd6cc3598"
+    "sha256": "cb3dd28e0b99f5d02cb3c5d34e2f23cca007b18ea4aef1a1b34192ff0fa52f73"
   },
   "checks": [
     {
@@ -122,7 +122,7 @@
       "check_id": "c4_checkpoint_save",
       "detail": {
         "path": "gpat_smoke.pt",
-        "sha256": "b0fb6ef57647142bb8a4572eeb51e6fb1c75298ad711907abdbb933cd6cc3598"
+        "sha256": "cb3dd28e0b99f5d02cb3c5d34e2f23cca007b18ea4aef1a1b34192ff0fa52f73"
       },
       "ok": true,
       "summary": "the checkpoint was written atomically"
@@ -173,7 +173,7 @@
     {
       "check_id": "c4_complexity_and_resources_recorded",
       "detail": {
-        "history_rows": 4,
+        "history_rows": 12,
         "inference_status": "COMPLETE",
         "macs_status": "COMPLETE",
         "selection_input": false,
@@ -185,7 +185,7 @@
   ],
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:50:29.611047Z",
+  "generated_at_utc": "2026-08-17T13:29:05.439915Z",
   "geometry_metric": {
     "ll_invariant_error": 1.1920928955078125e-07,
     "tolerance": 1e-05

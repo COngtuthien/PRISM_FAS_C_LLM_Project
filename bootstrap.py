@@ -258,7 +258,15 @@ def _to_int(text: str) -> int | None:
 
 
 def gpu_family(name: str | None, contract: dict[str, Any]) -> str:
-    """Infer the architecture family conservatively; unknown stays unknown."""
+    """Name the architecture family, for the operator's benefit only.
+
+    This is PROVENANCE, not a gate. An earlier version made the family a
+    matching condition, which meant a perfectly compatible datacenter card
+    would be refused for the sole reason that its marketing string was not in a
+    list somebody had typed. Compute capability is the hardware fact that
+    actually determines whether a wheel's kernels will run; the name is how a
+    human recognises the machine.
+    """
     if not name:
         return "UNKNOWN"
     patterns = dict(contract.get("family_patterns") or {})
@@ -267,7 +275,73 @@ def gpu_family(name: str | None, contract: dict[str, Any]) -> str:
         for needle in (needles if isinstance(needles, list) else [needles]):
             if str(needle).upper() in upper:
                 return family
-    return "UNKNOWN"
+    return "UNRECOGNISED_NAME"
+
+
+#: How well a host matches a declared profile.
+VALIDATED_PROFILE = "VALIDATED_PROFILE"
+COMPATIBLE_DECLARED_PROFILE = "COMPATIBLE_DECLARED_PROFILE"
+UNVALIDATED_COMPATIBLE_CANDIDATE = "UNVALIDATED_COMPATIBLE_CANDIDATE"
+INCOMPATIBLE = "INCOMPATIBLE"
+
+
+def _capability_tuple(value: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(part) for part in str(value).strip().split("."))
+    except (TypeError, ValueError):
+        return ()
+
+
+def classify_candidate(profile: dict[str, Any], *, capability: str,
+                       driver: tuple[int, ...]) -> dict[str, Any]:
+    """Grade one declared profile against the detected hardware.
+
+    Compute capability is the primary key and the driver floor is the second.
+    A capability inside the profile's declared range but not in its enumerated
+    list is a CANDIDATE rather than a match: the kernels are almost certainly
+    present, but nobody has run it, and the difference between "should work" and
+    "has worked" is the difference this vocabulary exists to keep.
+    """
+    declared = [str(item) for item in (profile.get("compute_capabilities") or [])]
+    minimum_driver = _version_tuple(profile.get("minimum_driver_version") or "0")
+    driver_ok = driver >= minimum_driver
+
+    detail = {"profile_id": profile.get("id"),
+              "declared_capabilities": declared,
+              "detected_capability": capability or "unreported",
+              "minimum_driver_version": profile.get("minimum_driver_version"),
+              "driver_satisfied": driver_ok}
+
+    if not driver_ok:
+        return {**detail, "grade": INCOMPATIBLE,
+                "why": f"driver below the profile floor "
+                       f"{profile.get('minimum_driver_version')}"}
+
+    if not capability:
+        # Unreported capability cannot be graded upward. Refusing here is safer
+        # than assuming, because the failure it prevents happens at the first
+        # kernel launch, long after the data has loaded.
+        return {**detail, "grade": INCOMPATIBLE,
+                "why": "the host did not report a compute capability"}
+
+    if capability in declared:
+        grade = (VALIDATED_PROFILE if profile.get("status") == "VALIDATED"
+                 else COMPATIBLE_DECLARED_PROFILE)
+        return {**detail, "grade": grade,
+                "why": f"compute capability {capability} is declared by this profile"}
+
+    detected = _capability_tuple(capability)
+    supported = [_capability_tuple(item) for item in declared]
+    supported = [item for item in supported if item]
+    if supported and min(supported) <= detected <= max(supported):
+        return {**detail, "grade": UNVALIDATED_COMPATIBLE_CANDIDATE,
+                "why": f"compute capability {capability} falls inside this profile's "
+                       f"declared range {min(declared)}-{max(declared)} but is not "
+                       "itself enumerated"}
+
+    return {**detail, "grade": INCOMPATIBLE,
+            "why": f"compute capability {capability} is outside this profile's "
+                   f"declared range"}
 
 
 def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, Any]:
@@ -297,40 +371,48 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
         profile = dict(profiles.get(profile_id) or {})
         if not profile:
             continue
-        families = profile.get("gpu_families") or []
-        capabilities = [str(item) for item in (profile.get("compute_capabilities") or [])]
-        minimum = _version_tuple(profile.get("minimum_driver_version") or "0")
-        family_ok = family in families
-        capability_ok = (not capability) or (capability in capabilities)
-        driver_ok = driver >= minimum
-        considered.append({"profile_id": profile_id, "family_match": family_ok,
-                           "compute_capability_match": capability_ok,
-                           "driver_match": driver_ok,
-                           "minimum_driver_version": profile.get("minimum_driver_version")})
-        if family_ok and capability_ok and driver_ok:
-            return {"profile_id": profile_id, "profile": profile,
-                    "reason": f"{family} GPU with driver {gpu.get('driver_version')} "
-                              f"matches the declared {profile_id} profile",
-                    "gpu": gpu, "family": family,
-                    "supports_scientific_execution":
-                        bool(profile.get("supports_scientific_execution")),
-                    "candidates_considered": considered}
+        considered.append(classify_candidate(profile, capability=capability,
+                                             driver=driver))
 
+    # An exactly-declared capability wins over a merely-plausible one, whichever
+    # order the profiles are listed in. The GPU's model name is recorded but
+    # never consulted: a card this contract has never heard of is accepted when
+    # its capability and driver satisfy a profile.
+    rank = {VALIDATED_PROFILE: 0, COMPATIBLE_DECLARED_PROFILE: 1,
+            UNVALIDATED_COMPATIBLE_CANDIDATE: 2}
+    ranked = sorted((item for item in considered if item["grade"] != INCOMPATIBLE),
+                    key=lambda item: (rank[item["grade"]],
+                                      order.index(item["profile_id"])))
+
+    if ranked:
+        best = ranked[0]
+        profile = dict(profiles.get(best["profile_id"]) or {})
+        return {"profile_id": best["profile_id"], "profile": profile,
+                "grade": best["grade"],
+                "reason": f"compute capability {capability or 'unreported'} with driver "
+                          f"{gpu.get('driver_version')}: {best['why']} ({best['grade']})",
+                "gpu": gpu, "family": family,
+                "supports_scientific_execution":
+                    bool(profile.get("supports_scientific_execution")),
+                "candidates_considered": considered}
+
+    lines = "\n".join(
+        f"    {item['profile_id']:<14} {item['grade']:<32} {item['why']}"
+        for item in considered)
     raise BootstrapError(
         CUDA_NOT_VALIDATED,
-        f"the detected GPU matches no declared environment profile.\n"
-        f"    GPU                 {gpu.get('name')}\n"
+        "the detected GPU satisfies no declared environment profile.\n"
+        f"    GPU                 {gpu.get('name')}  (name is provenance, not a gate)\n"
         f"    driver              {gpu.get('driver_version')}\n"
         f"    compute capability  {gpu.get('compute_capability') or 'unreported'}\n"
-        f"    inferred family     {family}\n"
-        f"  Declared profiles and what they require:\n"
-        + "\n".join(
-            f"    {item['profile_id']:<14} families={profiles[item['profile_id']].get('gpu_families')} "
-            f"min driver={item['minimum_driver_version']}" for item in considered)
-        + "\n  Either install a driver that satisfies a declared profile, or extend "
-          "configs/environment/environment_contract.yaml deliberately.\n"
-          "  This runner will NOT guess a CUDA wheel and will NOT fall back to CPU "
-          "for scientific execution.",
+        f"    architecture        {family}\n"
+        "  Declared profiles, and why each was rejected:\n" + lines +
+        "\n  Compatibility is decided by compute capability and driver version, not\n"
+        "  by the GPU's model name, so an unlisted card is fine when its capability\n"
+        "  is covered. Either install a driver that satisfies a declared profile, or\n"
+        "  extend configs/environment/environment_contract.yaml deliberately.\n"
+        "  This runner will NOT guess a CUDA wheel and will NOT fall back to CPU\n"
+        "  for scientific execution.",
         {"gpu": gpu, "family": family, "candidates_considered": considered})
 
 

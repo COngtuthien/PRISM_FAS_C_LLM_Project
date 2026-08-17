@@ -281,6 +281,10 @@ def build_bundle(repo: Path, *, reports_root: Path, runs_root: Path,
     bundle = {
         "schema_version": BUNDLE_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        # Which profile produced this bundle. Without it the manifest asserted
+        # `scientific_eligible: false` while giving no way to tell WHICH
+        # non-scientific run wrote it.
+        "execution_profile": reports_root.name,
         "reports_root": reports_root.relative_to(repo).as_posix()
         if reports_root.is_relative_to(repo) else str(reports_root),
         "runs_root": runs_root.relative_to(repo).as_posix()

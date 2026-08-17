@@ -38,6 +38,7 @@ from typing import Any, Callable, Sequence
 
 from prism_fas.pipeline.adapters import (AdapterError, AdapterRequest, AdapterResult,
                                          ProviderBinding, assert_binding_permitted)
+from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.state import atomic_write_json
 from prism_fas.pipeline.status import DualStatus
 
@@ -183,22 +184,25 @@ class EngineeringAdapter:
 
     # --- overridden by subclasses --------------------------------------------
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
-        raise NotImplementedError
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
+        """The stage's control flow. ONE implementation, both execution paths.
 
-    def run_full(self, request: AdapterRequest) -> list[AdapterResult]:
-        """Scientific execution. The default is the honest one: refuse.
+        There is deliberately no `run_full` here to override. A stage used to get
+        a default scientific method that refused with SCIENTIFIC_PATH_NOT_EXERCISED,
+        which meant the rehearsal exercised code the scientific run would never
+        reach — the two could not drift apart, because they were never together.
 
-        A stage whose scientific path is genuinely implemented overrides this.
-        A stage that has only ever been rehearsed on fixtures must not pretend
-        otherwise, and the default makes that the easy behaviour rather than
-        something a subclass has to remember to do.
+        Now the context decides what this method does: whether a fixture may
+        stand in, how much may be truncated, where artifacts go, whether a
+        governing lock may be written. Everything else — scheduling, identity,
+        checkpointing, resume, selection, acceptance, the writers — is the same
+        code under both, so rehearsing it is evidence about the scientific path
+        rather than about a parallel one.
         """
-        return [self.blocked(
-            request, "SCIENTIFIC_PATH_NOT_EXERCISED",
-            f"{self.stage_id} has an implemented control path but its scientific "
-            "execution has never run on this repository; it is engineering-ready, "
-            "not scientifically executable here")]
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement workflow(); every C4-C13 "
+            "adapter must, because there is no placeholder to fall back to")
 
     # --- shared behaviour -----------------------------------------------------
 
@@ -206,12 +210,14 @@ class EngineeringAdapter:
         binding = self.default_binding(request.profile)
         assert_binding_permitted(binding, request, stage_id=self.stage_id)
 
-        if request.profile.scientific_eligible:
+        context = ExecutionContext.for_profile(request.profile)
+        if context.is_scientific:
+            # The gate is what a scientific run legitimately stops on: a missing
+            # dataset, weight, accelerator. It is never "the code is not written".
             gate = self.full_precondition_gate(request)
             if gate is not None:
                 return [gate]
-            return list(self.run_full(request))
-        return list(self.run_smoke(request))
+        return list(self.workflow(request, context))
 
     def full_precondition_gate(self, request: AdapterRequest) -> AdapterResult | None:
         """Under full, refuse to start without the real inputs. Name every one.
@@ -367,5 +373,6 @@ def resume_decision(request: AdapterRequest, unit_id: str, artifact: Path, *,
 
 __all__ = ["FIXTURE_MARKER", "MISSING_INPUT", "CanonicalImplementationUnavailable",
            "utc", "check", "stage_reports_dir", "stage_runs_dir", "write_artifact",
-           "RequiredInput", "SmokeBudget", "EngineeringAdapter", "import_canonical",
+           "RequiredInput", "SmokeBudget", "EngineeringAdapter", "ExecutionContext",
+           "import_canonical",
            "read_json", "resume_decision"]

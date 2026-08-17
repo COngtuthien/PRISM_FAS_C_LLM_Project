@@ -55,7 +55,7 @@
     "checkpoint_roundtrip": {
       "global_step": 1,
       "prototype_state_present": false,
-      "sha256": "31fffeedbe47861cac54379b0e7935c7c8860407493f42b40da9fb557df368f1",
+      "sha256": "96ee8fd33e1b07f8bd35d7513c7f87edf9f78b85ea71ca4c15f0e200da0d828d",
       "stage": "G1"
     },
     "config_hash": "4cce35d0d7c7d04002592b1d3f29166dcc7f37450e9a0d2ffaf15114b172228b",
@@ -215,7 +215,7 @@
     "sampler": "domain_class_balanced",
     "synthetic": "bank_physics_gpat"
   },
-  "generated_at_utc": "2026-08-17T11:50:49.318479Z",
+  "generated_at_utc": "2026-08-17T13:29:23.168914Z",
   "global_tower": "shape-exact stub; the pinned SigLIP2 weights are not resolved on this machine and the full profile requires them",
   "mode": "TRACK_R_READINESS",
   "profile_config": "configs/execution/rehearsal.yaml",

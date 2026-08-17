@@ -2,7 +2,7 @@
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:51:46.783573Z",
+  "generated_at_utc": "2026-08-17T13:30:15.102777Z",
   "is_scientific_lock": false,
   "label_capability": {
     "granted_after": "prediction lockset",

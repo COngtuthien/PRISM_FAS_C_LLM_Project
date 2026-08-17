@@ -26,6 +26,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C9"
 
@@ -75,7 +76,8 @@ class C9Adapter(EngineeringAdapter):
                           "C8's own acceptance verdict over the completed matrix"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         lock, build_result = self._build(request, reports)
         return [build_result,
@@ -134,7 +136,7 @@ class C9Adapter(EngineeringAdapter):
             "why_not": ("the real SOURCE_MATRIX_LOCK_C is built at C9 under the full "
                         "profile from real runs. This lock was built over fixture evidence "
                         "and may never occupy that position"),
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return lock, self.result(request, mode=BUILD_LOCK, checks=checks,
                                  artifacts=[artifact],
                                  parent_identities={"c8_source_matrix": plan.identity})
@@ -175,7 +177,7 @@ class C9Adapter(EngineeringAdapter):
             "mode": VALIDATE_LOCK, "validation": report,
             "drift_detection": {"detected": not drifted["valid"],
                                 "problems": drifted["problems"]},
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
 
         decision = resume_decision(request, "c9_source_matrix_lock",
                                    reports / "C9_SOURCE_MATRIX_LOCK.json",
@@ -234,7 +236,7 @@ class C9Adapter(EngineeringAdapter):
 
         artifact = write_artifact(request, reports / "C9_REFUSAL_CASES.json", {
             "schema_version": "c9-refusal-cases-v1", "generated_at_utc": utc(),
-            "mode": REFUSAL_CASES, "cases": cases, "fixture_backed": True,
+            "mode": REFUSAL_CASES, "cases": cases, "fixture_backed": request.context.fixtures_permitted,
             "meaning": "constructed refusal cases proving the gate blocks. They are not "
                        "findings about any real run"})
         return self.result(request, mode=REFUSAL_CASES, checks=checks, artifacts=[artifact])

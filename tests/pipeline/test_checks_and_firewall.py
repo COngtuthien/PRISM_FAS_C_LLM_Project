@@ -191,6 +191,12 @@ def test_the_c3_identities_re_derive_from_live_code(repo: Path) -> None:
 #: layer that legitimately drives the planner and a mock or replay provider, and
 #: its stricter rules (module-level bans plus one named gated lazy import) are
 #: enforced in test_adapters_integration.py.
+#: Modules exempt from the torch ban, by name and with a reason. `gpu_preflight`
+#: exists to prove a GPU can execute the pipeline, so importing torch is its
+#: entire job. It is imported from the zero-argument runner AFTER the profile is
+#: resolved and never from the validate path, which is what the ban protects.
+TORCH_EXEMPT = {"gpu_preflight.py"}
+
 FORBIDDEN_IMPORTS = (
     "prism_fas.llm.providers",
     "prism_fas.llm.pipeline",
@@ -219,9 +225,12 @@ def _imported_modules(path: Path) -> set[str]:
 def test_no_pipeline_module_imports_a_provider_gpu_or_target_module(
         module_path: Path) -> None:
     imported = _imported_modules(module_path)
+    forbidden_here = tuple(item for item in FORBIDDEN_IMPORTS
+                           if not (item == "torch"
+                                   and module_path.name in TORCH_EXEMPT))
     offending = {name for name in imported
                  if any(name == forbidden or name.startswith(f"{forbidden}.")
-                        for forbidden in FORBIDDEN_IMPORTS)}
+                        for forbidden in forbidden_here)}
     assert not offending, f"{module_path.name} imports {sorted(offending)}"
 
 

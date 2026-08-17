@@ -28,6 +28,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, resume_decision,
                                                 stage_reports_dir, utc, write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import ENGINEERING_NOMINAL, gate_metrics
 
 STAGE_ID = "C6"
@@ -68,8 +69,9 @@ class C6Adapter(EngineeringAdapter):
                           "the 2048 rendered candidates per arm the gate evaluates"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
-        budget = SmokeBudget.from_profile(request.profile)
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
+        budget = context.budget or SmokeBudget.from_profile(request.profile)
         reports = stage_reports_dir(request, STAGE_ID)
         results: list[AdapterResult] = []
 
@@ -149,7 +151,7 @@ class C6Adapter(EngineeringAdapter):
             "decisions": {arm: [{"accepted": row["accepted"],
                                  "failed_gates": row["failed_gates"], "q": row["q"]}
                                 for row in rows] for arm, rows in decisions.items()},
-            "fixture_backed": True, "budget": budget.as_dict()})
+            "fixture_backed": request.context.fixtures_permitted, "budget": budget.as_dict()})
         return decisions, self.result(request, mode=APPLY_COMMON_GATE, checks=checks,
                                       artifacts=[artifact])
 
@@ -237,7 +239,7 @@ class C6Adapter(EngineeringAdapter):
             "nominal_source": "ENGINEERING_FIXTURE_NOMINAL — the scientific NOMINAL is "
                               "fitted from the source_train benign population and does not "
                               "exist on this machine",
-            "is_scientific_lock": False, "fixture_backed": True})
+            "is_scientific_lock": False, "fixture_backed": request.context.fixtures_permitted})
         return profiles, selection, self.result(
             request, mode=PROFILE_SELECTION, checks=checks, artifacts=[artifact])
 
@@ -277,7 +279,7 @@ class C6Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C6_RELIABILITY.json", {
             "schema_version": "c6-reliability-v1", "generated_at_utc": utc(),
             "mode": RELIABILITY_GATES, "report": report, "score_shift": shift,
-            "fixture_backed": True, "scientific_gate_satisfied": False})
+            "fixture_backed": request.context.fixtures_permitted, "scientific_gate_satisfied": False})
         return self.result(request, mode=RELIABILITY_GATES, checks=checks,
                            artifacts=[artifact])
 
@@ -315,7 +317,7 @@ class C6Adapter(EngineeringAdapter):
 
         artifact = write_artifact(request, reports / "C6_MATCHED_BANKS.json", {
             **plan, "generated_at_utc": utc(), "mode": MATCHED_BANKS,
-            "is_scientific_bank": False, "fixture_backed": True,
+            "is_scientific_bank": False, "fixture_backed": request.context.fixtures_permitted,
             "why_not": "the counts above are the frozen contract applied to fixture "
                        "acceptance figures; no synthetic sample was rendered or selected"})
 
@@ -372,7 +374,7 @@ class C6Adapter(EngineeringAdapter):
             "selection": selection.as_dict(),
             "meaning": ("a constructed shortfall case proving the refusal path executes. "
                         "It is not a finding about any real arm"),
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=CARDINALITY_REFUSAL, checks=checks,
                            artifacts=[artifact])
 

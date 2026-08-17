@@ -248,6 +248,11 @@ GATED_LAZY_IMPORTS = {
     ("adapters/c7.py", "torch"),
     ("adapters/c8.py", "torch"),
     ("adapters/c11.py", "prism_fas.evaluation.target_prediction"),
+    # gpu_preflight exists to prove a GPU can execute the pipeline, so importing
+    # torch is its entire purpose. It is called from the zero-argument runner
+    # after the profile resolves, never from the validate path, and every one of
+    # its torch imports is inside a function — which this suite re-checks below.
+    ("gpu_preflight.py", "torch"),
 }
 
 

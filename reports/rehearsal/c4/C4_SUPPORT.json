@@ -23,9 +23,15 @@
     "source": "the profile's declared engineering_budget (L.12)"
   },
   "conditioning_dim": 41,
+  "context_cardinality_rule": "SAMPLED_TO_BUDGET",
+  "context_fixtures_permitted": true,
+  "context_scientific_eligible": false,
+  "context_target_capability": "fixture_only",
+  "context_writes_governing_locks": false,
+  "execution_context": "rehearsal",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:50:24.894430Z",
+  "generated_at_utc": "2026-08-17T13:29:01.067487Z",
   "mode": "PREPARE_SUPPORT",
   "pairs": 2,
   "profile_config": "configs/execution/rehearsal.yaml",
@@ -41,5 +47,11 @@
     "images": "deterministic noise fields, not faces",
     "pairs": "drawn from the frozen C3 recipe banks rather than from preprocessed source imagery"
   },
-  "support_bank_identity": "430b4cbf4d41c4630a50ddef8b637aed81be3e800c14dd8ff1345ab7a90d1b55"
+  "support_bank_identity": "430b4cbf4d41c4630a50ddef8b637aed81be3e800c14dd8ff1345ab7a90d1b55",
+  "support_provenance": {
+    "fixture_backed": true,
+    "note": "conditioned on the frozen C3 recipes; the imagery is synthetic and carries no source-package content",
+    "seed": 20260806,
+    "source": "deterministic_fixture"
+  }
 }

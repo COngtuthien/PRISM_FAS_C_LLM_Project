@@ -28,6 +28,7 @@ from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInpu
                                                 SmokeBudget, check, read_json,
                                                 resume_decision, stage_reports_dir,
                                                 stage_runs_dir, utc, write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C8"
 
@@ -73,21 +74,24 @@ class C8Adapter(EngineeringAdapter):
                           "the pinned SigLIP2 and ConvNeXt weights"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         runs = stage_runs_dir(request, STAGE_ID)
-        budget = SmokeBudget.from_profile(request.profile)
+        budget = context.budget or SmokeBudget.from_profile(request.profile)
 
-        plan, plan_result = self._plan(request, reports)
-        scheduled, schedule_result = self._schedule(request, plan, reports)
-        executed, execute_result = self._execute(request, scheduled, reports, runs, budget)
+        plan, plan_result = self._plan(request, reports, context)
+        scheduled, schedule_result = self._schedule(request, plan, reports, context)
+        executed, execute_result = self._execute(request, scheduled, reports, runs,
+                                                 budget, context)
         return [plan_result, schedule_result, execute_result,
                 self._failure_preservation(request, plan, reports, runs),
                 self._target_isolation(request, reports)]
 
     # --- modes ----------------------------------------------------------------
 
-    def _plan(self, request: AdapterRequest, reports: Path) -> tuple[Any, AdapterResult]:
+    def _plan(self, request: AdapterRequest, reports: Path,
+              context: ExecutionContext) -> tuple[Any, AdapterResult]:
         from prism_fas.evaluation.source_matrix import (ARMS, SEED_FAMILY, build_plan)
 
         checks: list[dict[str, Any]] = []
@@ -122,15 +126,21 @@ class C8Adapter(EngineeringAdapter):
             "rows that differ only by seed share one configuration identity",
             rows=report["rows"], unique_configurations=report["unique_configurations"]))
 
+        # The plan is the complete frozen matrix under BOTH contexts. Only how
+        # many of its rows get executed differs, and that is the scheduler's
+        # decision, recorded below rather than folded into the plan.
         artifact = write_artifact(request, reports / "C8_MATRIX_PLAN.json", {
             **plan.as_dict(), "generated_at_utc": utc(), "mode": PLAN_MATRIX,
-            "fixture_backed": True, "rows_executed_here": SMOKE_ROWS})
+            **context.stamp(),
+            "fixture_backed": context.fixtures_permitted,
+            "rows_declared": len(plan.rows),
+            "rows_executed_here": context.limit(len(plan.rows), sample=SMOKE_ROWS)})
         return plan, self.result(request, mode=PLAN_MATRIX, checks=checks,
                                  artifacts=[artifact],
                                  parent_identities={"c8_source_matrix": plan.identity})
 
-    def _schedule(self, request: AdapterRequest, plan: Any,
-                  reports: Path) -> tuple[list[Any], AdapterResult]:
+    def _schedule(self, request: AdapterRequest, plan: Any, reports: Path,
+                  context: ExecutionContext) -> tuple[list[Any], AdapterResult]:
         """Decide what still has to run. Identity-aware, not existence-aware."""
         checks: list[dict[str, Any]] = []
         runs = stage_runs_dir(request, STAGE_ID)
@@ -152,13 +162,17 @@ class C8Adapter(EngineeringAdapter):
         skipped = [decision for decision in decisions
                    if decision["action"] == "SKIP_VALID_COMPLETE"]
 
-        # The sample is fixed by plan order, so rerunning exercises the same arms.
-        # A sampled row that is already valid is carried with its stored directory
-        # rather than re-run, which keeps resume honest without letting the sample
-        # drift off the front of the matrix.
+        # How many rows run is the context's answer, not this module's. Under a
+        # scientific context `limit` returns the declared count and never reads
+        # SMOKE_ROWS, so the rehearsal sampling constant is not reachable from
+        # the scientific path even by mistake (§8).
+        count = context.limit(len(plan.rows), sample=SMOKE_ROWS)
+        # Fixed by plan order, so rerunning exercises the same arms. A row that is
+        # already valid is carried with its stored directory rather than re-run,
+        # which keeps resume honest without letting the window drift forward.
         sample = [{"row": row, "decision": decision, "directory": directory}
                   for row, decision, directory
-                  in list(zip(plan.rows, decisions, directories))[:SMOKE_ROWS]]
+                  in list(zip(plan.rows, decisions, directories))[:count]]
 
         checks.append(check(
             "c8_schedule_is_identity_aware", True,
@@ -172,29 +186,42 @@ class C8Adapter(EngineeringAdapter):
             unit="runs/<profile>/c8/<protocol>/<experiment>/<config>/<seed>/",
             example_units=[decision["row_id"] for decision in decisions[:3]]))
         checks.append(check(
-            "c8_rehearsal_sample_is_stable",
+            "c8_sample_is_stable",
             [item["row"].row_id for item in sample]
-            == [row.row_id for row in plan.rows[:SMOKE_ROWS]],
-            "the rehearsed rows are the first rows of the plan, so a rerun of the "
+            == [row.row_id for row in plan.rows[:count]],
+            "the scheduled rows are the first rows of the plan, so a rerun of the "
             "same command exercises the same arms",
             sampled=[item["row"].row_id for item in sample],
             rule="a sample drawn from the pending remainder would slide forward on "
                  "every rerun and eventually execute nothing while reporting PASS"))
+        checks.append(check(
+            "c8_scientific_cardinality_is_the_complete_matrix",
+            not context.is_scientific or count == len(plan.rows),
+            "a scientific run schedules every declared row of the frozen matrix"
+            if context.is_scientific else
+            "a rehearsal samples the matrix; the scientific path does not",
+            context=context.name, declared=len(plan.rows), scheduled=count,
+            cardinality_rule=context.cardinality_rule,
+            rule="§8: no SMOKE_ROWS, first-N, pending-prefix or fixture cardinality "
+                 "may affect a full run"))
 
         artifact = write_artifact(request, reports / "C8_SCHEDULE.json", {
             "schema_version": "c8-schedule-v1", "generated_at_utc": utc(),
             "mode": SCHEDULE, "matrix_identity": plan.identity,
             "planned": len(plan.rows), "pending": len(pending), "skipped": len(skipped),
-            "decisions": decisions, "rows_executed_here": SMOKE_ROWS,
+            "decisions": decisions, "rows_executed_here": count,
+            **context.stamp(),
+            "rows_declared": len(plan.rows),
             "sampled_rows": [item["row"].row_id for item in sample],
-            "sample_rule": "first rows of the plan, in plan order",
-            "fixture_backed": True})
+            "sample_rule": ("every declared row" if context.is_scientific else
+                            "first rows of the plan, in plan order"),
+            "fixture_backed": context.fixtures_permitted})
         return sample, self.result(request, mode=SCHEDULE, checks=checks,
                                    artifacts=[artifact])
 
     def _execute(self, request: AdapterRequest, sample: list[dict[str, Any]],
-                 reports: Path, runs: Path | None,
-                 budget: SmokeBudget) -> tuple[list[dict[str, Any]], AdapterResult]:
+                 reports: Path, runs: Path | None, budget: SmokeBudget,
+                 context: ExecutionContext) -> tuple[list[dict[str, Any]], AdapterResult]:
         """Run a bounded sample of rows through the real training control flow."""
         checks: list[dict[str, Any]] = []
         executed: list[dict[str, Any]] = []
@@ -248,7 +275,9 @@ class C8Adapter(EngineeringAdapter):
             "rows": [{key: value for key, value in item.items()
                       if key not in ("complexity", "resources")} for item in executed],
             "rows_executed": len(executed), "rows_planned": 42,
-            "fixture_backed": True, "budget": budget.as_dict(),
+            **context.stamp(),
+            "fixture_backed": context.fixtures_permitted,
+            "budget": None if context.is_scientific else budget.as_dict(),
             "note": "a bounded sample of the preregistered matrix, run on fixtures to "
                     "exercise the per-run artifact contract. No scientific comparison "
                     "is possible from these numbers (L.1)"})
@@ -529,7 +558,7 @@ class C8Adapter(EngineeringAdapter):
             "mode": TARGET_ISOLATION, "target_paths_resolved": 0,
             "target_labels_resolved": 0, "target_metrics_computed": 0,
             "artifacts_scanned": len(list(reports.rglob("*.json"))),
-            "unexpected_references": hits, "fixture_backed": True})
+            "unexpected_references": hits, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=TARGET_ISOLATION, checks=checks,
                            artifacts=[artifact])
 

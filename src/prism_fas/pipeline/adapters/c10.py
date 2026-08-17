@@ -30,6 +30,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C10"
 
@@ -82,7 +83,8 @@ class C10Adapter(EngineeringAdapter):
                           "the SiW-Mv2 v2 feature package, mounted READ-ONLY for C11"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         roots, build = self._build_fixture(request, reports)
         return [build,
@@ -96,7 +98,9 @@ class C10Adapter(EngineeringAdapter):
     def _build_fixture(self, request: AdapterRequest,
                        reports: Path) -> tuple[dict[str, Path], AdapterResult]:
         checks: list[dict[str, Any]] = []
-        roots = _fixture_roots(reports)
+        from prism_fas.pipeline.adapters import sources
+
+        roots, provenance = sources.target_roots(request.repo, reports, request.context)
         for name, path in roots.items():
             path.mkdir(parents=True, exist_ok=True)
             (path / "README.txt").write_text(
@@ -136,7 +140,7 @@ class C10Adapter(EngineeringAdapter):
             "mode": BUILD_FIXTURE_PACKAGE,
             "roots": {name: path.relative_to(request.repo).as_posix()
                       for name, path in roots.items()},
-            "fixture_backed": True, "contains_real_target_data": False})
+            "fixture_backed": request.context.fixtures_permitted, "contains_real_target_data": False})
         return roots, self.result(request, mode=BUILD_FIXTURE_PACKAGE, checks=checks,
                                   artifacts=[artifact])
 
@@ -227,7 +231,7 @@ class C10Adapter(EngineeringAdapter):
             "schema_version": "c10-firewall-v1", "generated_at_utc": utc(),
             "mode": FIREWALL_PERMISSIONS, "permissions": declared,
             "cases": cases, "firewall_report": firewall.report(),
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=FIREWALL_PERMISSIONS, checks=checks,
                            artifacts=[artifact])
 
@@ -263,7 +267,7 @@ class C10Adapter(EngineeringAdapter):
             "schema_version": "c10-package-identity-v1", "generated_at_utc": utc(),
             "mode": PACKAGE_IDENTITY, "fixture_package_identity": identity,
             "declared_real_identity": declared, "real_package_opened": False,
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=PACKAGE_IDENTITY, checks=checks,
                            artifacts=[artifact])
 
@@ -310,7 +314,7 @@ class C10Adapter(EngineeringAdapter):
             "is_scientific_lock": False,
             "why_not": "built over a fixture package; the scientific target lock is built "
                        "at C10 under the full profile against the real read-only mount",
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
 
         decision = resume_decision(request, "c10_target_lock",
                                    reports / "C10_TARGET_LOCK.json",
@@ -357,7 +361,7 @@ class C10Adapter(EngineeringAdapter):
             "mode": TAMPER_DETECTION,
             "identities": {"baseline": before, "after_added_file": after_addition,
                            "after_edited_file": after_edit, "after_restore": restored},
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=TAMPER_DETECTION, checks=checks,
                            artifacts=[artifact])
 

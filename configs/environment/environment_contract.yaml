@@ -63,6 +63,7 @@ profiles:
     status: DECLARED_NOT_VALIDATED_HERE
     minimum_driver_version: "570.00"
     compute_capabilities: ["12.0", "10.0", "9.0", "8.9", "8.6", "8.0"]
+    # Provenance only. Selection reads compute_capabilities, never these.
     gpu_families: [Blackwell, Hopper, Ada, Ampere]
     example_gpus: ["NVIDIA GeForce RTX 5090", "NVIDIA GeForce RTX 5080",
                    "NVIDIA H100", "NVIDIA GeForce RTX 4090"]
@@ -81,8 +82,10 @@ profiles:
     status: DECLARED_NOT_VALIDATED_HERE
     minimum_driver_version: "525.60"
     compute_capabilities: ["9.0", "8.9", "8.6", "8.0", "7.5"]
+    # Provenance only. Selection reads compute_capabilities, never these.
     gpu_families: [Hopper, Ada, Ampere, Turing]
-    example_gpus: ["NVIDIA GeForce RTX 4090", "NVIDIA A100", "NVIDIA RTX A6000"]
+    example_gpus: ["NVIDIA GeForce RTX 4090", "NVIDIA A100", "NVIDIA RTX A6000",
+                   "NVIDIA L40S", "NVIDIA RTX 6000 Ada"]
     supports_scientific_execution: true
 
 # What must actually import before an existing .venv is adopted as ready.
@@ -101,11 +104,30 @@ import_checks:
   required_for_rehearsal: [core, reporting]
   required_for_science: [core, reporting, science_only]
 
-# How a detected GPU is matched to a profile. Ordered: the first profile whose
-# family matches AND whose minimum driver is satisfied wins. No other rule.
+# How a detected GPU is matched to a profile.
+#
+# Compatibility is decided by COMPUTE CAPABILITY and DRIVER VERSION. The GPU's
+# model name is recorded as operational provenance and is never a gate: refusing
+# an otherwise-capable datacenter card because nobody typed its marketing string
+# into a list would be a portability bug, not a safety measure.
+#
+# Each profile is graded against the host, and the best grade wins:
+#
+#   VALIDATED_PROFILE                 declared, and evidence exists that it ran
+#   COMPATIBLE_DECLARED_PROFILE       the capability is enumerated by the profile
+#   UNVALIDATED_COMPATIBLE_CANDIDATE  the capability falls inside the profile's
+#                                     declared range but is not itself listed;
+#                                     the kernels are almost certainly present,
+#                                     but nobody has run it
+#   INCOMPATIBLE                      driver below the floor, capability outside
+#                                     the range, or capability unreported
+#
+# An unreported capability is never graded upward. The failure that would cause
+# happens at the first kernel launch, after the data has loaded.
 selection:
   order: [cuda-cu129, cuda-cu126]
-  match_on: [gpu_family, compute_capability, driver_version]
+  match_on: [compute_capability, driver_version]
+  model_name_is_a_gate: false
   cpu_fallback_for_bootstrap: true
   cpu_fallback_for_science: false
   on_no_match: CUDA_ENVIRONMENT_NOT_VALIDATED
@@ -114,8 +136,9 @@ selection:
     declared profile with its requirement, so the operator can either install a
     supported driver or extend this contract deliberately.
 
-# Family inference from the reported GPU name. Deliberately conservative: an
-# unrecognised name yields UNKNOWN and UNKNOWN matches no profile.
+# Family inference from the reported GPU name, for readable output only. An
+# unrecognised name yields UNRECOGNISED_NAME, which blocks nothing: the card is
+# still selected on its compute capability and driver.
 family_patterns:
   Blackwell: ["RTX 50", "RTX PRO 6000", "B200", "GB200"]
   Hopper: ["H100", "H200", "H800"]

@@ -34,6 +34,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 read_json, resume_decision,
                                                 stage_reports_dir, utc, write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import evaluation_labels
 
 STAGE_ID = "C12"
@@ -66,7 +67,8 @@ class C12Adapter(EngineeringAdapter):
                           "the evaluation-only label artifact, readable by C-G8 alone"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         predictions = self._load_predictions(request)
         return [
@@ -135,7 +137,7 @@ class C12Adapter(EngineeringAdapter):
             "schema_version": "c12-scorer-isolation-v1", "generated_at_utc": utc(),
             "mode": SCORER_ISOLATION, "capability": capability,
             "import_closure": closure, "module_audit": module,
-            "isolation_report": isolation_report(), "fixture_backed": True})
+            "isolation_report": isolation_report(), "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=SCORER_ISOLATION, checks=checks,
                            artifacts=[artifact])
 
@@ -184,7 +186,7 @@ class C12Adapter(EngineeringAdapter):
             "schema_version": "c12-dry-run-v1", "generated_at_utc": utc(),
             "mode": DRY_RUN, "preconditions": preconditions,
             "scientific_lockset_present": has_lockset,
-            "label_bytes_opened": 0, "fixture_backed": True})
+            "label_bytes_opened": 0, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=DRY_RUN, checks=checks, artifacts=[artifact])
 
     def _score(self, request: AdapterRequest, predictions: dict[str, Any],
@@ -246,7 +248,7 @@ class C12Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C12_SCORING.json", {
             "schema_version": "c12-scoring-v1", "generated_at_utc": utc(),
             "mode": UNLOCK_AND_SCORE, "scored": scored,
-            "real_siw_labels_opened": False, "fixture_backed": True,
+            "real_siw_labels_opened": False, "fixture_backed": request.context.fixtures_permitted,
             "scientific_meaning": "none. Fixture predictions scored against fixture "
                                   "labels; these numbers may never appear in a claim"})
         return self.result(request, mode=UNLOCK_AND_SCORE, checks=checks,
@@ -313,7 +315,7 @@ class C12Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C12_STATISTICS.json", {
             "schema_version": "c12-statistics-v1", "generated_at_utc": utc(),
             "mode": STATISTICS, "bootstrap": result, "plan_agreement": agreement,
-            "holm": holm, "shared_videos": len(shared), "fixture_backed": True,
+            "holm": holm, "shared_videos": len(shared), "fixture_backed": request.context.fixtures_permitted,
             "scientific_meaning": "none; the inputs are fixtures"})
         return self.result(request, mode=STATISTICS, checks=checks, artifacts=[artifact])
 
@@ -357,7 +359,7 @@ class C12Adapter(EngineeringAdapter):
             "schema_version": "c12-no-feedback-v1", "generated_at_utc": utc(),
             "mode": NO_FEEDBACK, "upstream_digests": digests,
             "artifacts_written": written, "artifacts_outside_namespace": outside,
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
 
         decision = resume_decision(request, "c12_scoring", reports / "C12_SCORING.json",
                                    expected_identity="c12-scoring-v1",

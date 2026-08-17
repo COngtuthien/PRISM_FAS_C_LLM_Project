@@ -19,7 +19,7 @@
   "blockers": [],
   "budget": {
     "bounded": true,
-    "elapsed_seconds": 82.725,
+    "elapsed_seconds": 74.798,
     "exceeded": [],
     "limits": {
       "max_epochs": 1,
@@ -40,7 +40,7 @@
   "engineering_status_note": "L.3 fixes the engineering vocabulary at NOT_TESTED / RUNNING / SMOKE_PASS / SMOKE_FAIL / BLOCKED. None of those means 'validate passed', so a clean validate run leaves engineering_status=NOT_TESTED and reports on the separate validate_gate axis instead of borrowing SMOKE_PASS.",
   "execution_profile": "rehearsal",
   "failed_check_ids": [],
-  "finished_at_utc": "2026-08-17T11:51:47.246497Z",
+  "finished_at_utc": "2026-08-17T13:30:15.480882Z",
   "meaning": "This run measured static readiness only: identities, locks, contracts and environment. It executed no scientific work, and it is not evidence that any milestone can run, let alone that one is scientifically complete.",
   "not_scientific_evidence": true,
   "outcome": "PASS",
@@ -50,7 +50,7 @@
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
   "profile_permits_scientific_evidence": false,
-  "run_id": "rehearsal-20260817T115024Z-a071fd80",
+  "run_id": "rehearsal-20260817T132900Z-7c6bf704",
   "schema_version": "prism-orchestrator-run-v1",
   "scientific_eligible": false,
   "stages": [
@@ -299,7 +299,7 @@
   "stages_total": 14,
   "stages_with_validate_checks": 14,
   "stages_without_adapter": [],
-  "started_at_utc": "2026-08-17T11:50:24.540627Z",
+  "started_at_utc": "2026-08-17T13:29:00.700078Z",
   "validate_gate_counts": {
     "FAIL": 0,
     "NOT_APPLICABLE": 0,

@@ -1,17 +1,17 @@
 {
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "by_status": {
-    "BLOCKED": 2,
-    "PASS": 901,
+    "BLOCKED": 12,
+    "PASS": 1349,
     "SKIPPED_VALID": 10
   },
   "c2b_negative_preserved": true,
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:51:47.226799Z",
-  "index_rows": 913,
+  "generated_at_utc": "2026-08-17T13:30:15.462144Z",
+  "index_rows": 1371,
   "mode": "NEGATIVE_PRESERVATION",
-  "non_pass_rows": 2,
+  "non_pass_rows": 12,
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
   "schema_version": "c13-negative-preservation-v1",

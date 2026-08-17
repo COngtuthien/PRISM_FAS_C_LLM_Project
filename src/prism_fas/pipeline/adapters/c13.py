@@ -29,6 +29,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 read_json, resume_decision,
                                                 stage_reports_dir, utc, write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C13"
 
@@ -90,7 +91,8 @@ class C13Adapter(EngineeringAdapter):
                           "the catalog every evidence row must remain addressable from"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         matrix, matrix_result = self._acceptance(request, reports)
         return [matrix_result,
@@ -150,7 +152,7 @@ class C13Adapter(EngineeringAdapter):
             "mode": ACCEPTANCE_MATRIX, **matrix, "is_c_acceptance": False,
             "why_not": "C_ACCEPTANCE is produced at C13 under the full profile after every "
                        "required milestone is scientifically complete",
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return matrix, self.result(request, mode=ACCEPTANCE_MATRIX, checks=checks,
                                    artifacts=[artifact])
 
@@ -202,7 +204,7 @@ class C13Adapter(EngineeringAdapter):
             "schema_version": "c13-negative-preservation-v1", "generated_at_utc": utc(),
             "mode": NEGATIVE_PRESERVATION, "index_rows": len(rows),
             "by_status": by_status, "non_pass_rows": len(non_pass),
-            "c2b_negative_preserved": preserved, "fixture_backed": True})
+            "c2b_negative_preserved": preserved, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=NEGATIVE_PRESERVATION, checks=checks,
                            artifacts=[artifact])
 
@@ -250,7 +252,7 @@ class C13Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C13_ARTIFACT_INTEGRITY.json", {
             "schema_version": "c13-artifact-integrity-v1", "generated_at_utc": utc(),
             "mode": ARTIFACT_INTEGRITY, "bank_identities": verified,
-            "bank_bytes": jsonl_ok, "problems": problems, "fixture_backed": True})
+            "bank_bytes": jsonl_ok, "problems": problems, "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=ARTIFACT_INTEGRITY, checks=checks,
                            artifacts=[artifact])
 
@@ -302,7 +304,7 @@ class C13Adapter(EngineeringAdapter):
             "mode": CLAIM_POLICY, "cases": cases,
             "single_seed_comparison_refused": refused,
             "profile_may_claim": request.profile.may_select_scientific_winner,
-            "fixture_backed": True})
+            "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=CLAIM_POLICY, checks=checks, artifacts=[artifact])
 
     def _report(self, request: AdapterRequest, matrix: dict[str, Any],
@@ -342,7 +344,7 @@ class C13Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C13_FINAL_REPORT.json", {
             "schema_version": "c13-final-report-v1", "generated_at_utc": utc(),
             "mode": FINAL_REPORT, "acceptance": matrix, "structure": structure,
-            "tag_proposal": proposal, "is_c_acceptance": False, "fixture_backed": True,
+            "tag_proposal": proposal, "is_c_acceptance": False, "fixture_backed": request.context.fixtures_permitted,
             "meaning": ("engineering evidence that the C13 machinery runs and refuses "
                         "correctly. It is not a Version-C result and contains no claim")})
 

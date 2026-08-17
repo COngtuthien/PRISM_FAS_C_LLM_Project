@@ -553,7 +553,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:50:29.994820Z",
+  "finished_at_utc": "2026-08-17T13:29:05.795430Z",
   "mandatory_full_outputs": "quality-gate search and audit where permitted, all candidate decisions and q values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
   "notes": [],
   "phase": "scientific",
@@ -566,7 +566,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C6",
-  "started_at_utc": "2026-08-17T11:50:29.950301Z",
+  "started_at_utc": "2026-08-17T13:29:05.756634Z",
   "substages": [],
   "title": "Quality gate and matched banks",
   "validate_checks": [

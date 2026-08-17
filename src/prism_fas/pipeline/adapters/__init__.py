@@ -143,6 +143,19 @@ class AdapterRequest:
     authorized_live_generation: bool = False
     options: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def context(self) -> Any:
+        """The execution policy this request runs under, derived from the profile.
+
+        A property rather than a field so it cannot be set to something the
+        profile does not permit: a rehearsal request cannot be handed a
+        scientific context by a caller that constructs the dataclass directly.
+        Derived on access and cheap; `ExecutionContext` is frozen.
+        """
+        from prism_fas.pipeline.execution import ExecutionContext
+
+        return ExecutionContext.for_profile(self.profile)
+
 
 class StageAdapter(Protocol):
     """The contract every adapter satisfies."""

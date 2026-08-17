@@ -1,0 +1,187 @@
+{
+  "blockers": [],
+  "bundle_ready_for_full": "YES",
+  "counts": {
+    "created_during_run": 4,
+    "must_copy": 4,
+    "rebuildable": 3,
+    "target_stage_only": 1
+  },
+  "items": [
+    {
+      "classification": "MUST_COPY",
+      "description": "code, configs, frozen C3 recipe banks, locks and all committed evidence",
+      "name": "repository",
+      "needed_from_stage": "C0",
+      "path": ".",
+      "present": true,
+      "rebuild": null
+    },
+    {
+      "classification": "MUST_COPY",
+      "description": "the CASIA-FASD raw dataset",
+      "name": "raw_casia_fasd",
+      "needed_from_stage": "C4",
+      "path": "data/raw/casia_fasd",
+      "present": true,
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+    },
+    {
+      "classification": "MUST_COPY",
+      "description": "the MSU-MFSD raw dataset",
+      "name": "raw_msu_mfsd",
+      "needed_from_stage": "C4",
+      "path": "data/raw/msu_mfsd",
+      "present": true,
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+    },
+    {
+      "classification": "NOT_REQUIRED_UNTIL_TARGET_STAGE",
+      "description": "the SIW-MV2 raw dataset (held-out target; not opened before C10)",
+      "name": "raw_siw_mv2",
+      "needed_from_stage": "C10",
+      "path": "data/raw/siw_mv2",
+      "present": true,
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+    },
+    {
+      "classification": "MUST_COPY",
+      "description": "the pinned SigLIP2, ConvNeXt, AdaFace, SCRFD and FaceXFormer weights",
+      "name": "weights",
+      "needed_from_stage": "C4",
+      "path": "weights",
+      "present": true,
+      "rebuild": "copy the model cache into ./weights, or point configs/paths.local.yaml at it"
+    },
+    {
+      "classification": "REBUILDABLE_FROM_COPIED_RAW",
+      "description": "the derived processed tree",
+      "name": "derived_processed",
+      "needed_from_stage": "C4",
+      "path": "data/processed",
+      "present": false,
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+    },
+    {
+      "classification": "REBUILDABLE_FROM_COPIED_RAW",
+      "description": "the derived packages tree",
+      "name": "derived_packages",
+      "needed_from_stage": "C4",
+      "path": "data/packages",
+      "present": false,
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+    },
+    {
+      "classification": "REBUILDABLE_FROM_COPIED_RAW",
+      "description": "the derived gpat_pairs tree",
+      "name": "derived_gpat_pairs",
+      "needed_from_stage": "C4",
+      "path": "data/packages/gpat_pairs",
+      "present": false,
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+    },
+    {
+      "classification": "CREATED_DURING_RUN",
+      "description": "the runs tree, written by the run itself",
+      "name": "runs",
+      "needed_from_stage": "C0",
+      "path": "runs",
+      "present": true,
+      "rebuild": null
+    },
+    {
+      "classification": "CREATED_DURING_RUN",
+      "description": "the reports tree, written by the run itself",
+      "name": "reports",
+      "needed_from_stage": "C0",
+      "path": "reports",
+      "present": true,
+      "rebuild": null
+    },
+    {
+      "classification": "CREATED_DURING_RUN",
+      "description": "the state tree, written by the run itself",
+      "name": "state",
+      "needed_from_stage": "C0",
+      "path": "state",
+      "present": true,
+      "rebuild": null
+    },
+    {
+      "classification": "CREATED_DURING_RUN",
+      "description": "the venv tree, written by the run itself",
+      "name": "venv",
+      "needed_from_stage": "C0",
+      "path": ".venv",
+      "present": true,
+      "rebuild": null
+    }
+  ],
+  "note": "a REBUILDABLE item absent with its raw source present is not a blocker: `python train.py` builds it before C4 and resumes an interrupted build rather than restarting it",
+  "resolution": {
+    "derived": {
+      "gpat_pairs": {
+        "declared": "data/packages/gpat_pairs",
+        "identity_relevant": false,
+        "name": "gpat_pairs",
+        "origin": "absent",
+        "path": null,
+        "present": false
+      },
+      "packages": {
+        "declared": "data/packages",
+        "identity_relevant": false,
+        "name": "packages",
+        "origin": "absent",
+        "path": null,
+        "present": false
+      },
+      "processed": {
+        "declared": "data/processed",
+        "identity_relevant": false,
+        "name": "processed",
+        "origin": "absent",
+        "path": null,
+        "present": false
+      }
+    },
+    "identity_note": "which location was used is operational provenance. No scientific identity depends on it, so the same data yields the same identity after the folder moves.",
+    "policy": "the in-folder location wins when it exists; otherwise the absolute root from configs/paths.local.yaml is used",
+    "raw_datasets": {
+      "casia_fasd": {
+        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/casia-fasd",
+        "identity_relevant": false,
+        "name": "casia_fasd",
+        "origin": "paths_local",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\casia-fasd",
+        "present": true
+      },
+      "msu_mfsd": {
+        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/MSU-MFSD",
+        "identity_relevant": false,
+        "name": "msu_mfsd",
+        "origin": "paths_local",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\MSU-MFSD",
+        "present": true
+      },
+      "siw_mv2": {
+        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/SiW-Mv2",
+        "identity_relevant": false,
+        "name": "siw_mv2",
+        "origin": "paths_local",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\SiW-Mv2",
+        "present": true
+      }
+    },
+    "weights": {
+      "declared": "D:/AI on IOT/Anti_spoofing/model_cache",
+      "identity_relevant": false,
+      "name": "model_cache",
+      "origin": "paths_local",
+      "path": "D:\\AI on IOT\\Anti_spoofing\\model_cache",
+      "present": true
+    }
+  },
+  "schema_version": "prism-portable-bundle-v1",
+  "weight_files": []
+}

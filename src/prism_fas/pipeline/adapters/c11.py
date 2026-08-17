@@ -31,6 +31,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
+from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import prediction_rows
 
 STAGE_ID = "C11"
@@ -84,7 +85,8 @@ class C11Adapter(EngineeringAdapter):
                           "the label-free SiW feature package, mounted READ-ONLY"),
         )
 
-    def run_smoke(self, request: AdapterRequest) -> list[AdapterResult]:
+    def workflow(self, request: AdapterRequest,
+                 context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         rows, build = self._build(request, reports)
         locks, lock_result = self._locks(request, rows, reports)
@@ -167,7 +169,7 @@ class C11Adapter(EngineeringAdapter):
         rows_path = reports / "C11_PREDICTION_ROWS.json"
         write_artifact(request, rows_path, {
             "schema_version": "c11-prediction-rows-v1", "generated_at_utc": utc(),
-            "rows": rows, "row_count": len(rows), "fixture_backed": True})
+            "rows": rows, "row_count": len(rows), "fixture_backed": request.context.fixtures_permitted})
         rows_identity = prediction_logical_identity(rows)
 
         artifact = write_artifact(request, reports / "C11_PREDICTIONS.json", {
@@ -177,7 +179,7 @@ class C11Adapter(EngineeringAdapter):
             "prediction_logical_identity": rows_identity,
             "rows_artifact": rows_path.relative_to(request.repo).as_posix(),
             "rows_artifact_in_git": False,
-            "validation": report, "fixture_backed": True,
+            "validation": report, "fixture_backed": request.context.fixtures_permitted,
             "real_target_inference_performed": False,
             "note": "fixture prediction rows built from video ids and scores alone. No "
                     "SiW feature was read and no model was run against the target"})
@@ -226,7 +228,7 @@ class C11Adapter(EngineeringAdapter):
             "forbidden_fields": list(FORBIDDEN_FIELDS),
             "forbidden_fields_found": present,
             "target_labels_opened": False, "target_labels_resolved": 0,
-            "rows_scanned": len(rows), "fixture_backed": True,
+            "rows_scanned": len(rows), "fixture_backed": request.context.fixtures_permitted,
             "procedural_note": ("this is procedural isolation of the Version-C prediction "
                                 "process. It is not a claim that researchers have never "
                                 "seen SiW labels historically (§19.1)")})
@@ -332,7 +334,7 @@ class C11Adapter(EngineeringAdapter):
             "mode": PREDICTION_LOCKS, "locks": locks,
             "lockset": None, "lockset_refused": lockset_refused,
             "lockset_refusal": refusal,
-            "is_scientific_lockset": False, "fixture_backed": True,
+            "is_scientific_lockset": False, "fixture_backed": request.context.fixtures_permitted,
             "why_no_lockset": ("every lock here is marked engineering_smoke, and the "
                                "canonical builder refuses those. The scientific lockset is "
                                "built at C11 under the full profile from real label-free "
@@ -390,7 +392,7 @@ class C11Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C11_DOUBLE_VALIDATION.json", {
             "schema_version": "c11-double-validation-v1", "generated_at_utc": utc(),
             "mode": DOUBLE_VALIDATION, "first_pass": first, "second_pass": second,
-            "agreed": agreed, "fixture_backed": True})
+            "agreed": agreed, "fixture_backed": request.context.fixtures_permitted})
 
         decision = resume_decision(request, "c11_prediction_lockset",
                                    reports / "C11_PREDICTION_LOCKSET.json",

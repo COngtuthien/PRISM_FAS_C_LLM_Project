@@ -149,6 +149,53 @@ def _zero_argument(args: argparse.Namespace) -> int:
         print("\n  Nothing to execute: every milestone is scientifically complete.")
         return EXIT_PASS
 
+    # On a scientific host, prove the GPU can actually train before starting C4.
+    # Selecting a wheel from nvidia-smi shows a driver exists; it does not show
+    # that a kernel launches, that autograd runs or that a checkpoint round-trips.
+    # This is the same command, not a second one the operator must remember.
+    from prism_fas.pipeline import gpu_preflight
+
+    try:
+        report = gpu_preflight.run_preflight(REPO, strict=plan.is_scientific)
+        path = gpu_preflight.write_report(REPO, report)
+        if report["applicable"]:
+            device = report["device"]
+            print(f"\n  GPU preflight       PASS  {report['probes_run']} probe(s) in "
+                  f"{report['elapsed_seconds']}s")
+            print(f"  Device              {device['gpu_name']}  cc {device['compute_capability']}"
+                  f"  {device['total_memory_mb']} MB")
+            print(f"  Report              {path.relative_to(REPO).as_posix()}")
+    except gpu_preflight.GPUPreflightError as error:
+        print(f"\n[{error.reason}] {error}", file=sys.stderr)
+        print("\n  Stopped BEFORE C4. No scientific work was started.", file=sys.stderr)
+        return EXIT_BLOCKED
+
+    # Build any missing derived data tree from the raw datasets that travelled in
+    # the folder. Deterministic, resumable, and delegated to the canonical
+    # builders — this is the step that used to be the collaborator's homework.
+    from prism_fas.pipeline import preparation
+
+    try:
+        # A rehearsal runs on fixtures and needs no derived tree, so it only
+        # REPORTS what a scientific run would have to build. Building hours of
+        # preprocessing that the rehearsal will not read would be pure waste.
+        prepared = preparation.prepare(REPO, resume=True,
+                                       dry_run=not plan.is_scientific)
+        preparation.write_report(REPO, prepared)
+        if prepared["outcome"] not in ("NOTHING_TO_DO",):
+            print(f"\n  Derived data        {prepared['outcome']}  {prepared['summary']}")
+            for step in prepared["steps"]:
+                print(f"      {step['step']:16s} {step['action']:18s} {step['seconds']}s")
+        if prepared["outcome"] == "BLOCKED" and plan.is_scientific:
+            print(f"\n[{prepared['reason_code']}] {prepared['summary']}", file=sys.stderr)
+            print("\n  Stopped BEFORE C4. No scientific work was started.",
+                  file=sys.stderr)
+            return EXIT_BLOCKED
+    except preparation.PreparationError as error:
+        print(f"\n[{error.reason}] {error}", file=sys.stderr)
+        print("\n  Stopped BEFORE C4. No scientific work was started.", file=sys.stderr)
+        return EXIT_BLOCKED
+
     result = run(repo=REPO, profile_name=plan.profile_name, resume=True,
                  first_stage=plan.first_stage, last_stage=plan.last_stage)
     _print_stage_table(result)

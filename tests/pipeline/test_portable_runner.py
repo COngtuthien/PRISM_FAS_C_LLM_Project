@@ -132,7 +132,7 @@ def test_an_unknown_accelerator_matches_nothing(contract: dict) -> None:
            "driver_version": "999.0", "compute_capability": "13.0"}
     with pytest.raises(boot.BootstrapError) as caught:
         boot.select_profile(contract, gpu)
-    assert caught.value.detail["family"] == "UNKNOWN"
+    assert caught.value.detail["family"] == "UNRECOGNISED_NAME"
 
 
 def test_no_gpu_selects_the_cpu_profile_and_refuses_science(contract: dict) -> None:
@@ -141,11 +141,40 @@ def test_no_gpu_selects_the_cpu_profile_and_refuses_science(contract: dict) -> N
     assert selection["supports_scientific_execution"] is False
 
 
-def test_family_inference_is_conservative(contract: dict) -> None:
+def test_family_inference_is_provenance_and_never_a_gate(contract: dict) -> None:
+    """The family names the architecture for the operator; it decides nothing.
+
+    Two non-matches are kept distinct because they mean different things: no
+    name was reported at all, versus a name this contract has not seen. Neither
+    blocks selection, which is decided by compute capability and driver.
+    """
     assert boot.gpu_family("NVIDIA GeForce RTX 5090", contract) == "Blackwell"
     assert boot.gpu_family("NVIDIA GeForce RTX 4090", contract) == "Ada"
     assert boot.gpu_family(None, contract) == "UNKNOWN"
-    assert boot.gpu_family("Totally Made Up", contract) == "UNKNOWN"
+    assert boot.gpu_family("Totally Made Up", contract) == "UNRECOGNISED_NAME"
+    assert contract["selection"]["model_name_is_a_gate"] is False
+
+
+def test_a_card_whose_name_is_unlisted_is_still_selected_on_capability(
+        contract: dict) -> None:
+    """§12: do not reject an otherwise compatible GPU over its marketing name."""
+    gpu = {"available": True, "name": "NVIDIA Some-New-Datacenter-Part",
+           "driver_version": "560.00", "compute_capability": "8.9",
+           "memory_total_mb": 49152}
+    selection = boot.select_profile(contract, gpu)
+    assert selection["profile_id"] == "cuda-cu126"
+    assert selection["supports_scientific_execution"] is True
+    assert selection["family"] == "UNRECOGNISED_NAME"
+    assert selection["grade"] == boot.COMPATIBLE_DECLARED_PROFILE
+
+
+def test_a_capability_inside_the_range_but_unlisted_is_a_candidate(
+        contract: dict) -> None:
+    """Plausible is reported as plausible, not promoted to validated."""
+    gpu = {"available": True, "name": "NVIDIA Whatever", "driver_version": "575.00",
+           "compute_capability": "8.7", "memory_total_mb": 24576}
+    selection = boot.select_profile(contract, gpu)
+    assert selection["grade"] == boot.UNVALIDATED_COMPATIBLE_CANDIDATE
 
 
 # --- environment identity ----------------------------------------------------
@@ -515,7 +544,7 @@ def test_the_rehearsal_sample_is_drawn_from_the_plan_not_the_remainder() -> None
         encoding="utf-8")
     assert "pending[:SMOKE_ROWS]" not in source, (
         "sampling the pending remainder slides the window forward on every rerun")
-    assert "list(zip(plan.rows, decisions, directories))[:SMOKE_ROWS]" in source
+    assert "list(zip(plan.rows, decisions, directories))[:count]" in source
 
 
 def test_the_stage_complexity_rollup_covers_every_arm_not_the_last_one() -> None:
