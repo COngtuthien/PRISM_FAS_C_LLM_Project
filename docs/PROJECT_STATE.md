@@ -196,6 +196,7 @@ pre_gpu_scientific_decision:
 portable_execution:
   status: READY
   branch: portable-one-command-full-run
+  commits: [e5fca49, 0ce62bd]     # closure, then the C8 fix the laptop test found
   normal_user_command: "python train.py"
   zero_argument_runner: READY
   dependency_bootstrap: READY
@@ -238,9 +239,15 @@ portable_execution:
 
   zero_argument_run:
     command: "python train.py"
+    executed_on_laptop: true          # user-authorized test, 2026-08-17
     resolved_intent: CPU_FULL_REHEARSAL
+    resolution_reason: "no CUDA GPU matched a declared scientific profile"
     outcome: PASS
+    exit_code: 0
+    wall_clock_seconds: 94            # 103 s from a cleared rehearsal namespace
     stages: 14
+    substage_modes: 62
+    provider_calls: 0
     engineering_status_per_stage: SMOKE_PASS
     scientific_status_per_stage: NOT_RUN
     reports_namespace: reports/rehearsal
@@ -248,8 +255,77 @@ portable_execution:
     plots_written: 4
     tables_written: 9
     report_html: reports/rehearsal/final/report.html
+    report_is_self_contained: true    # figures embedded as data URIs
     scientific_outputs_modified: 0
     real_target_access: 0
+    # Checked independently rather than taken from the runner's own banner: the
+    # only paths written were reports/rehearsal/, runs/rehearsal/ and the two
+    # state/ cursors. reports/c0..c3, reports/full and assets/recipe_banks were
+    # byte-unchanged.
+    scientific_namespaces_untouched: true
+    reruns_executed: 3
+    rerun_output_identical: true      # after the C8 fix below; not before it
+
+  # --- what running it on the laptop actually found -------------------------
+  laptop_verification:
+    verdict: THREE_DEFECTS_FOUND_AND_FIXED
+    found_by: "running `python train.py` three times and diffing the outputs"
+    fix_commit: 0ce62bd
+    scientific_impact: NONE
+    scientific_impact_reason: >
+      C8 does not override run_full, so --profile full returns
+      BLOCKED(SCIENTIFIC_PATH_NOT_EXERCISED) and the matrix could never have been
+      truncated by the rehearsal sampler. No scientific constant, envelope,
+      selection rule, quota, seed family or frozen identity was touched.
+    defects:
+      - id: c8_sample_slid_forward
+        severity: HIGH_ENGINEERING
+        was: "the rehearsal sampled pending[:SMOKE_ROWS], the first rows still
+              PENDING, rather than the first rows of the plan"
+        consequence: >
+          Resume marks each executed row complete, so the window advanced by two
+          on every rerun: different arms each time, and after roughly 21 reruns
+          no pending rows would remain, leaving a rehearsal that executes zero
+          rows and still reports PASS.
+        now: "the sample is the first rows of the plan, in plan order; a sampled
+              row that resume already validated is reported from its stored
+              artifacts by C8Adapter._reuse_one rather than re-run"
+      - id: c8_rollup_last_writer_wins
+        severity: MEDIUM_ENGINEERING
+        was: "C8_MODEL_COMPLEXITY.json and C8_COMPUTE_RESOURCES.json were written
+              inside the per-row loop"
+        consequence: "the surviving stage artifact described whichever arm
+                      finished last while being labelled as the stage result"
+        now: "written once after the loop, holding every executed arm sorted by
+              row id; reporting.profiled_entries reads both the single-model
+              shape (C4, C7) and the multi-row rollup shape (C8)"
+      - id: c8_row_name_collision
+        severity: LOW
+        was: "rows named detector_{experiment_id}, which repeats across protocols
+              and seeds"
+        consequence: "two sampled rows rendered as duplicate identical entries"
+        now: "named detector_{row_id}"
+    also_fixed:
+      - id: report_figures_were_linked_not_embedded
+        was: "report.html referenced ../plots/*.png, which .gitignore excludes as
+              regenerable"
+        consequence: "the report rendered four broken images from a fresh clone"
+        now: "figures embedded as data URIs; a figure that cannot be read is
+              named as missing rather than rendered broken"
+        found_by: "opening an actual fresh clone of the pushed branch"
+    proof_after_fix:
+      consecutive_runs: 3
+      complexity_table_byte_identical: true
+      sampled_rows: [C-G-RND-P1-s20260806, C-G-RND-P1-s20260807]
+      schedule_skipped_stable_at: 2     # was climbing by 2 per run
+      rows_reported_reused_on_rerun: true
+    regression_tests_added: 5           # tests/pipeline/test_portable_runner.py
+
+  test_suite:
+    full_suite: "1820 passed, 7 failed, 101 skipped"
+    failures_are_the_inherited_set: true   # reports/c0/C0_TEST_SUITE.json
+    new_unexplained_failures: 0
+    pipeline_suite_after_c8_fix: "369 passed"
 
   output_audit_matrix:
     artifact: reports/handoff/OUTPUT_AUDIT_MATRIX.json
@@ -644,12 +720,14 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW of the portable pre-full checkpoint before optionally testing
-  `python train.py` on the local CPU laptop or transferring the complete folder to the
-  external CUDA GPU. The runner resolves CPU_FULL_REHEARSAL here and passes end to end;
-  on a compatible CUDA host the same command resolves GPU_SCIENTIFIC_FULL starting at C4.
-  No C4-C13 scientific execution, GPU allocation, Modal spend, target access or Gemini
-  call has been performed or is authorized.
+  USER REVIEW of the portable pre-full checkpoint before transferring the complete
+  folder to the external CUDA GPU. The optional local test is DONE: `python train.py`
+  was run on the CPU laptop, resolved CPU_FULL_REHEARSAL and passed C0-C13 in 94 s,
+  and the three defects it exposed are fixed at 0ce62bd with regression tests. On a
+  compatible CUDA host the same command resolves GPU_SCIENTIFIC_FULL starting at C4;
+  that host still needs the derived data/processed and data/packages trees, which do
+  not travel in the folder. No C4-C13 scientific execution, GPU allocation, Modal
+  spend, target access or Gemini call has been performed or is authorized.
 
-last_updated_utc: 2026-08-17   # portable one-command execution closure
+last_updated_utc: 2026-08-17   # portable closure + laptop verification and C8 fix
 ```
