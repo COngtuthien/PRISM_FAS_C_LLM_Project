@@ -2,7 +2,7 @@
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:00:52.374224Z",
+  "generated_at_utc": "2026-08-17T11:50:29.992343Z",
   "meaning": "a constructed shortfall case proving the refusal path executes. It is not a finding about any real arm",
   "mode": "CARDINALITY_REFUSAL",
   "profile_config": "configs/execution/rehearsal.yaml",

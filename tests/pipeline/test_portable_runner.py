@@ -498,3 +498,69 @@ def test_an_uncountable_module_downgrades_to_partial_rather_than_lying() -> None
     assert profile["complexity"]["status"] == complexity.PARTIAL
     assert "Exotic" in profile["complexity"]["unsupported_operations"]
     assert any("LOWER BOUND" in warning for warning in profile["complexity"]["warnings"])
+
+
+# --- rerunning the same command must produce the same rehearsal --------------
+#
+# Found by running `python train.py` three times on the laptop. C8 sampled its
+# rehearsal rows from the PENDING remainder, so each rerun exercised two
+# different arms, the complexity table changed between runs, and after enough
+# reruns the sample would have been empty — a rehearsal reporting PASS while
+# executing nothing. The stage-level rollup compounded it by being written
+# inside the per-row loop, so it named whichever arm finished last.
+
+def test_the_rehearsal_sample_is_drawn_from_the_plan_not_the_remainder() -> None:
+    """Plan order, so a rerun exercises the same arms."""
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "c8.py").read_text(
+        encoding="utf-8")
+    assert "pending[:SMOKE_ROWS]" not in source, (
+        "sampling the pending remainder slides the window forward on every rerun")
+    assert "list(zip(plan.rows, decisions, directories))[:SMOKE_ROWS]" in source
+
+
+def test_the_stage_complexity_rollup_covers_every_arm_not_the_last_one() -> None:
+    """The rollup is written once, after the loop, over all executed rows."""
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "c8.py").read_text(
+        encoding="utf-8")
+    tree = ast.parse(source)
+    run_one = next(node for node in ast.walk(tree)
+                   if isinstance(node, ast.FunctionDef) and node.name == "_run_one")
+    written = {node.value for node in ast.walk(run_one)
+               if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+    assert "C8_MODEL_COMPLEXITY.json" not in written, (
+        "_run_one writes the stage rollup per row, so the last row wins")
+    assert "C8_COMPUTE_RESOURCES.json" not in written
+
+
+def test_a_multi_model_rollup_is_read_as_every_model() -> None:
+    """The collector must not read only the first entry of a rollup."""
+    from prism_fas.reporting import profiled_entries
+
+    rollup = {"models": [{"model": "detector_row_a"}, {"model": "detector_row_b"}]}
+    assert [entry["model"] for entry in profiled_entries(rollup, "models")] == [
+        "detector_row_a", "detector_row_b"]
+
+    flat = {"model": "gpat_residual_generator", "total_parameters": 910538}
+    assert profiled_entries(flat, "models") == [flat]
+
+    assert profiled_entries({}, "models") == []
+    assert profiled_entries({"models": [1, "two", None]}, "models") == []
+
+
+def test_two_sampled_rows_cannot_collide_in_the_complexity_table() -> None:
+    """Rows differing only by protocol or seed must get distinct names."""
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "c8.py").read_text(
+        encoding="utf-8")
+    assert 'name=f"detector_{row.row_id}"' in source
+    assert 'name=f"detector_{row.experiment_id}"' not in source, (
+        "experiment_id repeats across protocols and seeds")
+
+
+def test_a_resume_validated_row_is_reported_from_what_it_stored() -> None:
+    """Reused rows still appear, so the table does not shrink on the second run."""
+    from prism_fas.pipeline.adapters import c8
+
+    assert hasattr(c8.C8Adapter, "_reuse_one")
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "c8.py").read_text(
+        encoding="utf-8")
+    assert "SKIP_VALID_COMPLETE" in source and "_reuse_one" in source

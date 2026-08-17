@@ -39,7 +39,7 @@
   ],
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:02:16.405921Z",
+  "generated_at_utc": "2026-08-17T11:51:46.689228Z",
   "meaning": "constructed refusal cases proving the gate blocks. They are not findings about any real run",
   "mode": "REFUSAL_CASES",
   "profile_config": "configs/execution/rehearsal.yaml",

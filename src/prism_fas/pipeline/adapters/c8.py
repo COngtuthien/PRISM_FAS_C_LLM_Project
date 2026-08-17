@@ -43,6 +43,11 @@ MODES: tuple[str, ...] = (PLAN_MATRIX, SCHEDULE, EXECUTE_ROWS, FAILURE_PRESERVAT
 #: How many of the 42 preregistered rows the rehearsal actually executes. The
 #: scheduler is what C8 readiness proves; running 42 CPU detectors would prove
 #: only that a CPU is slow.
+#:
+#: The sample is the FIRST rows of the plan, not the first rows still pending.
+#: Sampling the pending remainder slid the window forward on every rerun, so the
+#: same command exercised different arms each time and, after enough reruns,
+#: would have executed nothing at all while still reporting PASS.
 SMOKE_ROWS = 2
 
 
@@ -131,10 +136,13 @@ class C8Adapter(EngineeringAdapter):
         runs = stage_runs_dir(request, STAGE_ID)
         decisions: list[dict[str, Any]] = []
 
+        directories: list[Path] = []
         for row in plan.rows:
-            manifest = (runs or reports) / row.protocol / row.experiment_id / \
-                row.config_identity[:12] / str(row.seed) / "run_manifest.json"
-            decision = resume_decision(request, row.row_id, manifest,
+            directory = (runs or reports) / row.protocol / row.experiment_id / \
+                row.config_identity[:12] / str(row.seed)
+            directories.append(directory)
+            decision = resume_decision(request, row.row_id,
+                                       directory / "run_manifest.json",
                                        expected_identity=row.run_identity,
                                        identity_key="run_identity")
             decisions.append({"row_id": row.row_id, **decision})
@@ -143,6 +151,14 @@ class C8Adapter(EngineeringAdapter):
                    if decision["action"] == "EXECUTE"]
         skipped = [decision for decision in decisions
                    if decision["action"] == "SKIP_VALID_COMPLETE"]
+
+        # The sample is fixed by plan order, so rerunning exercises the same arms.
+        # A sampled row that is already valid is carried with its stored directory
+        # rather than re-run, which keeps resume honest without letting the sample
+        # drift off the front of the matrix.
+        sample = [{"row": row, "decision": decision, "directory": directory}
+                  for row, decision, directory
+                  in list(zip(plan.rows, decisions, directories))[:SMOKE_ROWS]]
 
         checks.append(check(
             "c8_schedule_is_identity_aware", True,
@@ -155,26 +171,42 @@ class C8Adapter(EngineeringAdapter):
             "each protocol/method/config/seed is its own resumable unit",
             unit="runs/<profile>/c8/<protocol>/<experiment>/<config>/<seed>/",
             example_units=[decision["row_id"] for decision in decisions[:3]]))
+        checks.append(check(
+            "c8_rehearsal_sample_is_stable",
+            [item["row"].row_id for item in sample]
+            == [row.row_id for row in plan.rows[:SMOKE_ROWS]],
+            "the rehearsed rows are the first rows of the plan, so a rerun of the "
+            "same command exercises the same arms",
+            sampled=[item["row"].row_id for item in sample],
+            rule="a sample drawn from the pending remainder would slide forward on "
+                 "every rerun and eventually execute nothing while reporting PASS"))
 
         artifact = write_artifact(request, reports / "C8_SCHEDULE.json", {
             "schema_version": "c8-schedule-v1", "generated_at_utc": utc(),
             "mode": SCHEDULE, "matrix_identity": plan.identity,
             "planned": len(plan.rows), "pending": len(pending), "skipped": len(skipped),
             "decisions": decisions, "rows_executed_here": SMOKE_ROWS,
+            "sampled_rows": [item["row"].row_id for item in sample],
+            "sample_rule": "first rows of the plan, in plan order",
             "fixture_backed": True})
-        return pending[:SMOKE_ROWS], self.result(request, mode=SCHEDULE, checks=checks,
-                                                 artifacts=[artifact])
+        return sample, self.result(request, mode=SCHEDULE, checks=checks,
+                                   artifacts=[artifact])
 
-    def _execute(self, request: AdapterRequest, rows: list[Any], reports: Path,
-                 runs: Path | None, budget: SmokeBudget) -> tuple[list[dict[str, Any]],
-                                                                  AdapterResult]:
+    def _execute(self, request: AdapterRequest, sample: list[dict[str, Any]],
+                 reports: Path, runs: Path | None,
+                 budget: SmokeBudget) -> tuple[list[dict[str, Any]], AdapterResult]:
         """Run a bounded sample of rows through the real training control flow."""
         checks: list[dict[str, Any]] = []
         executed: list[dict[str, Any]] = []
+        rows = [item["row"] for item in sample]
 
-        for row in rows:
+        for item in sample:
+            row = item["row"]
             try:
-                executed.append(self._run_one(request, row, runs or reports, budget))
+                if item["decision"]["action"] == "SKIP_VALID_COMPLETE":
+                    executed.append(self._reuse_one(request, row, item["directory"]))
+                else:
+                    executed.append(self._run_one(request, row, runs or reports, budget))
             except Exception as error:
                 executed.append({"row_id": row.row_id, "status": "FAIL",
                                  "error": f"{type(error).__name__}: {error}"})
@@ -212,14 +244,64 @@ class C8Adapter(EngineeringAdapter):
 
         artifact = write_artifact(request, reports / "C8_EXECUTED_ROWS.json", {
             "schema_version": "c8-executed-rows-v1", "generated_at_utc": utc(),
-            "mode": EXECUTE_ROWS, "rows": executed,
+            "mode": EXECUTE_ROWS,
+            "rows": [{key: value for key, value in item.items()
+                      if key not in ("complexity", "resources")} for item in executed],
             "rows_executed": len(executed), "rows_planned": 42,
             "fixture_backed": True, "budget": budget.as_dict(),
             "note": "a bounded sample of the preregistered matrix, run on fixtures to "
                     "exercise the per-run artifact contract. No scientific comparison "
                     "is possible from these numbers (L.1)"})
+
+        # One rollup per stage, covering every arm that ran, ordered by row id so
+        # the file is reproducible. The per-run copies beside each checkpoint stay
+        # authoritative; this is the navigable summary the reporting layer reads.
+        rollups = [write_artifact(
+            request, reports / f"C8_{name}.json",
+            {"schema_version": f"c8-{name.lower()}-v1", "generated_at_utc": utc(),
+             "mode": EXECUTE_ROWS, "rows_profiled": len(payloads),
+             "models" if key == "complexity" else "runs": payloads,
+             "note": "every executed arm, not a representative one: a single-arm "
+                     "rollup would name whichever arm happened to finish last"})
+            for name, key, payloads in (
+                ("MODEL_COMPLEXITY", "complexity",
+                 [item["complexity"] for item in sorted(
+                     (row for row in executed if row.get("complexity")),
+                     key=lambda row: row["row_id"])]),
+                ("COMPUTE_RESOURCES", "resources",
+                 [dict(item["resources"], row_id=item["row_id"]) for item in sorted(
+                     (row for row in executed if row.get("resources")),
+                     key=lambda row: row["row_id"])]))]
+
         return executed, self.result(request, mode=EXECUTE_ROWS, checks=checks,
-                                     artifacts=[artifact])
+                                     artifacts=[artifact, *rollups])
+
+    def _reuse_one(self, request: AdapterRequest, row: Any,
+                   directory: Path) -> dict[str, Any]:
+        """Report a row that resume validated, from what it already wrote.
+
+        Re-running it would contradict L.11; omitting it would make the rollup
+        and the complexity table shrink on the second run of the same command.
+        """
+        import json
+
+        def stored(name: str) -> dict[str, Any]:
+            path = directory / name
+            if not path.is_file():
+                return {}
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return {}
+
+        manifest = stored("run_manifest.json")
+        return {"row_id": row.row_id, "status": "PASS", "reused": True,
+                "manifest_keys": sorted(manifest),
+                "calibration": manifest.get("calibration", {}),
+                "parent_identities": manifest.get("parent_identities", {}),
+                "complexity": stored("model_complexity.json"),
+                "resources": stored("compute_resources.json"),
+                "path": directory.relative_to(request.repo).as_posix()}
 
     def _run_one(self, request: AdapterRequest, row: Any, root: Path,
                  budget: SmokeBudget) -> dict[str, Any]:
@@ -339,22 +421,24 @@ class C8Adapter(EngineeringAdapter):
                           source_dev={key: value for key, value in metrics.items()
                                       if isinstance(value, (int, float))}
                           if index == len(losses) - 1 else None)
+        # Named by row id, not experiment id: the matrix runs the same experiment
+        # at several protocols and seeds, and those rows would otherwise appear as
+        # duplicate identically-named entries in the complexity table.
         complexity_payload = complexity_module.profile_model(
-            model, evaluation, name=f"detector_{row.experiment_id}",
+            model, evaluation, name=f"detector_{row.row_id}",
             input_shape=list(evaluation.image.shape))
+        resource_payload = resources_module.resource_record(microbatch_plan=microbatch)
         write_artifact(request, destination / "model_complexity.json", complexity_payload)
-        write_artifact(request, destination / "compute_resources.json",
-                       resources_module.resource_record(microbatch_plan=microbatch))
-        write_artifact(request,
-                       stage_reports_dir(request, STAGE_ID) / "C8_COMPUTE_RESOURCES.json",
-                       resources_module.resource_record(microbatch_plan=microbatch))
-        write_artifact(request,
-                       stage_reports_dir(request, STAGE_ID) / "C8_MODEL_COMPLEXITY.json",
-                       complexity_payload)
+        write_artifact(request, destination / "compute_resources.json", resource_payload)
+        # The stage-level rollup is written once by `_execute`, over every row.
+        # Writing it here would make it last-writer-wins: the matrix runs many
+        # arms, and the surviving file would name whichever arm finished last.
         return {"row_id": row.row_id, "status": "PASS",
                 "manifest_keys": sorted(manifest),
                 "calibration": manifest["calibration"],
                 "parent_identities": manifest["parent_identities"],
+                "complexity": complexity_payload,
+                "resources": resource_payload,
                 "path": destination.relative_to(request.repo).as_posix()}
 
     def _failure_preservation(self, request: AdapterRequest, plan: Any, reports: Path,

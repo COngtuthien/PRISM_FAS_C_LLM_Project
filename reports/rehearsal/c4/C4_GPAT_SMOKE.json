@@ -25,7 +25,7 @@
   },
   "checkpoint": {
     "path": "runs/rehearsal/c4/smoke_checkpoint/gpat_smoke.pt",
-    "sha256": "3084b6e75452f02be949ba67b5ac413a30fb452b9dee4056550e1a6975150c70"
+    "sha256": "b0fb6ef57647142bb8a4572eeb51e6fb1c75298ad711907abdbb933cd6cc3598"
   },
   "checks": [
     {
@@ -122,7 +122,7 @@
       "check_id": "c4_checkpoint_save",
       "detail": {
         "path": "gpat_smoke.pt",
-        "sha256": "3084b6e75452f02be949ba67b5ac413a30fb452b9dee4056550e1a6975150c70"
+        "sha256": "b0fb6ef57647142bb8a4572eeb51e6fb1c75298ad711907abdbb933cd6cc3598"
       },
       "ok": true,
       "summary": "the checkpoint was written atomically"
@@ -185,7 +185,7 @@
   ],
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:00:51.924813Z",
+  "generated_at_utc": "2026-08-17T11:50:29.611047Z",
   "geometry_metric": {
     "ll_invariant_error": 1.1920928955078125e-07,
     "tolerance": 1e-05

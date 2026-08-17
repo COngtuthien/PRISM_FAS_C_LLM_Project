@@ -189,7 +189,7 @@
           "check_id": "c4_checkpoint_save",
           "detail": {
             "path": "gpat_smoke.pt",
-            "sha256": "3084b6e75452f02be949ba67b5ac413a30fb452b9dee4056550e1a6975150c70"
+            "sha256": "b0fb6ef57647142bb8a4572eeb51e6fb1c75298ad711907abdbb933cd6cc3598"
           },
           "ok": true,
           "summary": "the checkpoint was written atomically"
@@ -625,7 +625,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:00:51.997654Z",
+  "finished_at_utc": "2026-08-17T11:50:29.684626Z",
   "mandatory_full_outputs": "every allowed GPAT source-search run, configs/metrics/checkpoints, winner selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",
   "notes": [],
   "phase": "source-search",
@@ -638,7 +638,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C4",
-  "started_at_utc": "2026-08-17T11:00:46.597828Z",
+  "started_at_utc": "2026-08-17T11:50:24.858631Z",
   "substages": [],
   "title": "GPAT source search and final checkpoint",
   "validate_checks": [

@@ -30,6 +30,20 @@ def _read_json(path: Path) -> dict[str, Any]:
         return {}
 
 
+def profiled_entries(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    """Read a profiling artifact that holds either one subject or many.
+
+    C4 and C7 each profile a single model, so their artifact is one flat object.
+    C8 runs the matrix and rolls up one entry per arm under ``models``/``runs``.
+    Reading only the flat shape would silently report a single arbitrary arm as
+    the stage's result, which is exactly the bug this function was added for.
+    """
+    entries = payload.get(key)
+    if isinstance(entries, list):
+        return [entry for entry in entries if isinstance(entry, dict)]
+    return [payload] if payload else []
+
+
 def assemble(repo: Path, *, reports_root: Path, runs_root: Path,
              profile_name: str, execution_intent: str) -> dict[str, Any]:
     """Gather every artifact the writers can use. Absence is recorded, not filled."""
@@ -87,37 +101,37 @@ def assemble(repo: Path, *, reports_root: Path, runs_root: Path,
 
     complexity_rows: list[dict[str, Any]] = []
     for path in stage_artifacts("MODEL_COMPLEXITY.json"):
-        payload = _read_json(path)
-        if payload:
-            block = payload.get("complexity") or {}
+        for entry in profiled_entries(_read_json(path), "models"):
+            block = entry.get("complexity") or {}
             complexity_rows.append({
-                "model": payload.get("model"),
-                "total_parameters": payload.get("total_parameters"),
-                "trainable_parameters": payload.get("trainable_parameters"),
-                "frozen_parameters": payload.get("frozen_parameters"),
-                "parameter_megabytes": payload.get("parameter_megabytes"),
+                "model": entry.get("model"),
+                "total_parameters": entry.get("total_parameters"),
+                "trainable_parameters": entry.get("trainable_parameters"),
+                "frozen_parameters": entry.get("frozen_parameters"),
+                "parameter_megabytes": entry.get("parameter_megabytes"),
                 "macs": block.get("macs"), "flops": block.get("flops"),
                 "status": block.get("status"),
                 "unsupported_operations": block.get("unsupported_operations")})
 
     compute_rows: list[dict[str, Any]] = []
     for path in stage_artifacts("COMPUTE_RESOURCES.json"):
-        payload = _read_json(path)
-        device = payload.get("device") or {}
-        training = payload.get("training") or {}
-        plan = payload.get("microbatch_plan") or {}
-        memory = (training.get("memory") or {})
-        compute_rows.append({
-            "run": path.parent.name, "device": device.get("device"),
-            "gpu_name": device.get("gpu_name"),
-            "effective_batch": plan.get("effective_batch"),
-            "physical_microbatch": plan.get("physical_microbatch"),
-            "gradient_accumulation_steps": plan.get("gradient_accumulation_steps"),
-            "wall_clock_seconds": training.get("wall_clock_seconds"),
-            "steps_per_second": training.get("steps_per_second"),
-            "samples_per_second": training.get("samples_per_second"),
-            "peak_allocated_mb": memory.get("peak_allocated_mb"),
-            "peak_reserved_mb": memory.get("peak_reserved_mb")})
+        for payload in profiled_entries(_read_json(path), "runs"):
+            device = payload.get("device") or {}
+            training = payload.get("training") or {}
+            plan = payload.get("microbatch_plan") or {}
+            memory = (training.get("memory") or {})
+            compute_rows.append({
+                "run": payload.get("row_id") or path.parent.name,
+                "device": device.get("device"),
+                "gpu_name": device.get("gpu_name"),
+                "effective_batch": plan.get("effective_batch"),
+                "physical_microbatch": plan.get("physical_microbatch"),
+                "gradient_accumulation_steps": plan.get("gradient_accumulation_steps"),
+                "wall_clock_seconds": training.get("wall_clock_seconds"),
+                "steps_per_second": training.get("steps_per_second"),
+                "samples_per_second": training.get("samples_per_second"),
+                "peak_allocated_mb": memory.get("peak_allocated_mb"),
+                "peak_reserved_mb": memory.get("peak_reserved_mb")})
 
     bank_rows = [
         {"arm": arm, "raw_slots": block.get("raw_slots"),

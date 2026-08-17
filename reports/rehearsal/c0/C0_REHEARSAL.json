@@ -63,7 +63,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:00:46.332049Z",
+  "finished_at_utc": "2026-08-17T11:50:24.604085Z",
   "mandatory_full_outputs": "spec/repo reconciliation, compliance and deviation matrix, environment and source-package identities, C0_ACCEPTANCE",
   "notes": [
     "verification only: C0 is a completed milestone and is never re-run"
@@ -78,7 +78,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C0",
-  "started_at_utc": "2026-08-17T11:00:46.330432Z",
+  "started_at_utc": "2026-08-17T11:50:24.603047Z",
   "substages": [
     "C0"
   ],

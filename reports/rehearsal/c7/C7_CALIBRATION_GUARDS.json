@@ -64,7 +64,7 @@
       "video_aggregation": "trimmed mean, trim=0.10"
     }
   },
-  "generated_at_utc": "2026-08-17T11:01:16.757955Z",
+  "generated_at_utc": "2026-08-17T11:50:52.208793Z",
   "mode": "CALIBRATION_GUARDS",
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",

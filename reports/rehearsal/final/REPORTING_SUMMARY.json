@@ -251,7 +251,7 @@
         "csv": "model_complexity.csv",
         "empty_reason": "",
         "json": "model_complexity.json",
-        "rows": 4,
+        "rows": 5,
         "table": "model_complexity"
       },
       {
@@ -271,7 +271,7 @@
         "csv": "compute_efficiency.csv",
         "empty_reason": "",
         "json": "compute_efficiency.json",
-        "rows": 4,
+        "rows": 5,
         "table": "compute_efficiency"
       },
       {

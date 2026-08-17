@@ -77,11 +77,11 @@
           "detail": {
             "by_status": {
               "BLOCKED": 2,
-              "PASS": 509,
+              "PASS": 901,
               "SKIPPED_VALID": 10
             },
             "non_pass_rows": 2,
-            "rows": 521
+            "rows": 913
           },
           "ok": true,
           "summary": "the master index still carries every recorded run, whatever its outcome"
@@ -371,7 +371,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:02:16.862814Z",
+  "finished_at_utc": "2026-08-17T11:51:47.246463Z",
   "mandatory_full_outputs": "C_ACCEPTANCE, master final summary, reports/tables/plots/paper evidence, preserved negative, failed and blocked results",
   "notes": [],
   "phase": "final-report",
@@ -384,7 +384,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C13",
-  "started_at_utc": "2026-08-17T11:02:16.837973Z",
+  "started_at_utc": "2026-08-17T11:51:47.216151Z",
   "substages": [],
   "title": "Acceptance, evidence package and report",
   "validate_checks": [

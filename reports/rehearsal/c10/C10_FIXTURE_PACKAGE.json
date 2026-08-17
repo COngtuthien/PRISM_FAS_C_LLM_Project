@@ -3,7 +3,7 @@
   "contains_real_target_data": false,
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:02:16.424186Z",
+  "generated_at_utc": "2026-08-17T11:51:46.710672Z",
   "mode": "BUILD_FIXTURE_PACKAGE",
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",

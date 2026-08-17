@@ -101,10 +101,10 @@
         {
           "check_id": "c8_schedule_is_identity_aware",
           "detail": {
-            "pending": 36,
+            "pending": 40,
             "planned": 42,
             "rule": "L.11: a completed unit is skipped only after its parent identities, config identity, content hash and acceptance state validate",
-            "skipped": 6
+            "skipped": 2
           },
           "ok": true,
           "summary": "each row's resume decision compares a recorded run identity, not a filename"
@@ -121,10 +121,22 @@
           },
           "ok": true,
           "summary": "each protocol/method/config/seed is its own resumable unit"
+        },
+        {
+          "check_id": "c8_rehearsal_sample_is_stable",
+          "detail": {
+            "rule": "a sample drawn from the pending remainder would slide forward on every rerun and eventually execute nothing while reporting PASS",
+            "sampled": [
+              "C-G-RND-P1-s20260806",
+              "C-G-RND-P1-s20260807"
+            ]
+          },
+          "ok": true,
+          "summary": "the rehearsed rows are the first rows of the plan, so a rerun of the same command exercises the same arms"
         }
       ],
       "checks_failed": 0,
-      "checks_run": 2,
+      "checks_run": 3,
       "detail": {},
       "engineering_status": "SMOKE_PASS",
       "mode": "SCHEDULE",
@@ -136,11 +148,13 @@
       "stage_id": "C8",
       "status": "PASS",
       "substage": "C8",
-      "summary": "C8 schedule — 2/2 checks passed"
+      "summary": "C8 schedule — 3/3 checks passed"
     },
     {
       "artifacts": [
-        "reports/rehearsal/c8/C8_EXECUTED_ROWS.json"
+        "reports/rehearsal/c8/C8_EXECUTED_ROWS.json",
+        "reports/rehearsal/c8/C8_MODEL_COMPLEXITY.json",
+        "reports/rehearsal/c8/C8_COMPUTE_RESOURCES.json"
       ],
       "checks": [
         {
@@ -148,8 +162,8 @@
           "detail": {
             "failures": [],
             "rows": [
-              "C-G-LLM-P1-s20260806",
-              "C-G-LLM-P1-s20260807"
+              "C-G-RND-P1-s20260806",
+              "C-G-RND-P1-s20260807"
             ]
           },
           "ok": true,
@@ -183,8 +197,8 @@
                 "decision_logit_name": "global_logit_G",
                 "decision_score_name": "p_G",
                 "split": "source_dev",
-                "temperature": 0.16308240620283068,
-                "threshold": 0.6239020591671518,
+                "temperature": 0.2550409275686471,
+                "threshold": 0.6274777347463627,
                 "threshold_criterion": "min_acer",
                 "threshold_tie_break": [
                   "min_acer",
@@ -197,8 +211,8 @@
                 "decision_logit_name": "global_logit_G",
                 "decision_score_name": "p_G",
                 "split": "source_dev",
-                "temperature": 0.39055555825857363,
-                "threshold": 0.624019910266086,
+                "temperature": 0.17058520822909648,
+                "threshold": 0.624604102687691,
                 "threshold_criterion": "min_acer",
                 "threshold_tie_break": [
                   "min_acer",
@@ -379,7 +393,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T11:02:16.111592Z",
+  "finished_at_utc": "2026-08-17T11:51:46.411217Z",
   "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
   "notes": [],
   "phase": "scientific",
@@ -392,7 +406,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C8",
-  "started_at_utc": "2026-08-17T11:02:13.720137Z",
+  "started_at_utc": "2026-08-17T11:51:46.296446Z",
   "substages": [],
   "title": "Source matrix over arms, tracks, configs and seeds",
   "validate_checks": [

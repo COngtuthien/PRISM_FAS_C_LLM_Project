@@ -1,44 +1,104 @@
 {
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
-  "classification": "OPERATIONAL_PROVENANCE_ONLY",
-  "cpu_gpu_comparison": "CPU and GPU runtimes are never presented as a controlled treatment comparison; they are different machines, not different conditions",
-  "device": {
-    "classification": "OPERATIONAL_PROVENANCE_ONLY",
-    "cpu_count": 16,
-    "cuda_available": false,
-    "device": "cpu",
-    "disk_free_gb": 101.08,
-    "enters_scientific_identity": false,
-    "platform": "Windows-11-10.0.26200-SP0",
-    "precision": "fp32",
-    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
-    "python": "3.13.11",
-    "schema_version": "prism-compute-resources-v1",
-    "thread_count": 8,
-    "torch_cuda_build": null,
-    "torch_version": "2.13.0+cpu"
-  },
-  "enters_scientific_identity": false,
   "execution_profile": "rehearsal",
-  "inference": null,
-  "microbatch_plan": {
-    "backend": "local_cpu",
-    "classification": "ENGINEERING_ADAPTIVE",
-    "contract": "§15.2.2: microbatch may change only with gradient accumulation preserving effective batch and order; effective scientific batch composition remains 12 real live + 12 real spoof + 8 synthetic",
-    "effective_batch": 32,
-    "effective_composition": {
-      "real_live": 12,
-      "real_spoof": 12,
-      "synthetic": 8
-    },
-    "gradient_accumulation_steps": 1,
-    "physical_microbatch": 32,
-    "preserves_effective_batch": true,
-    "reason": "largest divisor of 32 not exceeding the backend ceiling 32"
-  },
+  "generated_at_utc": "2026-08-17T11:51:46.326157Z",
+  "mode": "EXECUTE_ROWS",
+  "note": "every executed arm, not a representative one: a single-arm rollup would name whichever arm happened to finish last",
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
-  "schema_version": "prism-compute-resources-v1",
-  "scientific_eligible": false,
-  "training": null
+  "rows_profiled": 2,
+  "runs": [
+    {
+      "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+      "classification": "OPERATIONAL_PROVENANCE_ONLY",
+      "cpu_gpu_comparison": "CPU and GPU runtimes are never presented as a controlled treatment comparison; they are different machines, not different conditions",
+      "device": {
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "cpu_count": 16,
+        "cuda_available": false,
+        "device": "cpu",
+        "disk_free_gb": 101.08,
+        "enters_scientific_identity": false,
+        "platform": "Windows-11-10.0.26200-SP0",
+        "precision": "fp32",
+        "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+        "python": "3.13.11",
+        "schema_version": "prism-compute-resources-v1",
+        "thread_count": 8,
+        "torch_cuda_build": null,
+        "torch_version": "2.13.0+cpu"
+      },
+      "enters_scientific_identity": false,
+      "execution_profile": "rehearsal",
+      "inference": null,
+      "microbatch_plan": {
+        "backend": "local_cpu",
+        "classification": "ENGINEERING_ADAPTIVE",
+        "contract": "§15.2.2: microbatch may change only with gradient accumulation preserving effective batch and order; effective scientific batch composition remains 12 real live + 12 real spoof + 8 synthetic",
+        "effective_batch": 32,
+        "effective_composition": {
+          "real_live": 12,
+          "real_spoof": 12,
+          "synthetic": 8
+        },
+        "gradient_accumulation_steps": 1,
+        "physical_microbatch": 32,
+        "preserves_effective_batch": true,
+        "reason": "largest divisor of 32 not exceeding the backend ceiling 32"
+      },
+      "profile_config": "configs/execution/rehearsal.yaml",
+      "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+      "row_id": "C-G-RND-P1-s20260806",
+      "schema_version": "prism-compute-resources-v1",
+      "scientific_eligible": false,
+      "training": null
+    },
+    {
+      "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+      "classification": "OPERATIONAL_PROVENANCE_ONLY",
+      "cpu_gpu_comparison": "CPU and GPU runtimes are never presented as a controlled treatment comparison; they are different machines, not different conditions",
+      "device": {
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "cpu_count": 16,
+        "cuda_available": false,
+        "device": "cpu",
+        "disk_free_gb": 101.08,
+        "enters_scientific_identity": false,
+        "platform": "Windows-11-10.0.26200-SP0",
+        "precision": "fp32",
+        "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+        "python": "3.13.11",
+        "schema_version": "prism-compute-resources-v1",
+        "thread_count": 8,
+        "torch_cuda_build": null,
+        "torch_version": "2.13.0+cpu"
+      },
+      "enters_scientific_identity": false,
+      "execution_profile": "rehearsal",
+      "inference": null,
+      "microbatch_plan": {
+        "backend": "local_cpu",
+        "classification": "ENGINEERING_ADAPTIVE",
+        "contract": "§15.2.2: microbatch may change only with gradient accumulation preserving effective batch and order; effective scientific batch composition remains 12 real live + 12 real spoof + 8 synthetic",
+        "effective_batch": 32,
+        "effective_composition": {
+          "real_live": 12,
+          "real_spoof": 12,
+          "synthetic": 8
+        },
+        "gradient_accumulation_steps": 1,
+        "physical_microbatch": 32,
+        "preserves_effective_batch": true,
+        "reason": "largest divisor of 32 not exceeding the backend ceiling 32"
+      },
+      "profile_config": "configs/execution/rehearsal.yaml",
+      "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+      "row_id": "C-G-RND-P1-s20260807",
+      "schema_version": "prism-compute-resources-v1",
+      "scientific_eligible": false,
+      "training": null
+    }
+  ],
+  "schema_version": "c8-compute_resources-v1",
+  "scientific_eligible": false
 }

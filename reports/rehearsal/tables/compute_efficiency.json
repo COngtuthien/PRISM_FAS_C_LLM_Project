@@ -12,7 +12,7 @@
     "peak_allocated_mb",
     "peak_reserved_mb"
   ],
-  "row_count": 4,
+  "row_count": 5,
   "rows": [
     {
       "device": "cpu",
@@ -61,7 +61,20 @@
       "peak_allocated_mb": null,
       "peak_reserved_mb": null,
       "physical_microbatch": 32,
-      "run": "c8",
+      "run": "C-G-RND-P1-s20260806",
+      "samples_per_second": null,
+      "steps_per_second": null,
+      "wall_clock_seconds": null
+    },
+    {
+      "device": "cpu",
+      "effective_batch": 32,
+      "gpu_name": null,
+      "gradient_accumulation_steps": 1,
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null,
+      "physical_microbatch": 32,
+      "run": "C-G-RND-P1-s20260807",
       "samples_per_second": null,
       "steps_per_second": null,
       "wall_clock_seconds": null

@@ -2,7 +2,7 @@
   "arm": "LLM",
   "bank_contract_identity": "",
   "blocked_reason": null,
-  "created_utc": "2026-08-17T08:28:33.031916Z",
+  "created_utc": "2026-08-17T11:30:35.219442Z",
   "execution_profile": "rehearsal",
   "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
   "history": [
@@ -11,168 +11,168 @@
       "logical_request_id": "c3-llm-req-01",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.038758Z"
+      "utc": "2026-08-17T11:30:35.226685Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-01",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.091739Z"
+      "utc": "2026-08-17T11:30:35.274136Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-02",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.102072Z"
+      "utc": "2026-08-17T11:30:35.281572Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-02",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.145977Z"
+      "utc": "2026-08-17T11:30:35.316108Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-03",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.160935Z"
+      "utc": "2026-08-17T11:30:35.323627Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-03",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.234636Z"
+      "utc": "2026-08-17T11:30:35.359410Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-04",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.250298Z"
+      "utc": "2026-08-17T11:30:35.367598Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-04",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.309244Z"
+      "utc": "2026-08-17T11:30:35.401881Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-05",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.319945Z"
+      "utc": "2026-08-17T11:30:35.408906Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-05",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.363546Z"
+      "utc": "2026-08-17T11:30:35.443111Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-06",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.373890Z"
+      "utc": "2026-08-17T11:30:35.451809Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-06",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.418521Z"
+      "utc": "2026-08-17T11:30:35.489469Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-07",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.427994Z"
+      "utc": "2026-08-17T11:30:35.497307Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-07",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.473045Z"
+      "utc": "2026-08-17T11:30:35.531227Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-08",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.483156Z"
+      "utc": "2026-08-17T11:30:35.538696Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-08",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.523935Z"
+      "utc": "2026-08-17T11:30:35.575287Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-09",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.532565Z"
+      "utc": "2026-08-17T11:30:35.583336Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-09",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.567360Z"
+      "utc": "2026-08-17T11:30:35.620820Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-10",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.575994Z"
+      "utc": "2026-08-17T11:30:35.628866Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-10",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.616109Z"
+      "utc": "2026-08-17T11:30:35.663790Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-11",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.624538Z"
+      "utc": "2026-08-17T11:30:35.671750Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-11",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.662002Z"
+      "utc": "2026-08-17T11:30:35.712205Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-12",
       "note": "attempt 1 started",
       "status": "IN_PROGRESS",
-      "utc": "2026-08-17T08:28:33.670050Z"
+      "utc": "2026-08-17T11:30:35.720495Z"
     },
     {
       "attempt_count": 1,
       "logical_request_id": "c3-llm-req-12",
       "note": "all 32 candidates accepted",
       "status": "COMPLETED_VALID",
-      "utc": "2026-08-17T08:28:33.707987Z"
+      "utc": "2026-08-17T11:30:35.755124Z"
     }
   ],
   "logical_request_count": 12,
@@ -185,9 +185,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.038740Z",
+      "first_started_utc": "2026-08-17T11:30:35.226634Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.091739Z",
+      "last_transition_utc": "2026-08-17T11:30:35.274136Z",
       "logical_request_id": "c3-llm-req-01",
       "logical_request_index": 0,
       "next_permitted_action": "NONE",
@@ -206,9 +206,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.102017Z",
+      "first_started_utc": "2026-08-17T11:30:35.281518Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.145977Z",
+      "last_transition_utc": "2026-08-17T11:30:35.316108Z",
       "logical_request_id": "c3-llm-req-02",
       "logical_request_index": 1,
       "next_permitted_action": "NONE",
@@ -227,9 +227,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.160886Z",
+      "first_started_utc": "2026-08-17T11:30:35.323588Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.234636Z",
+      "last_transition_utc": "2026-08-17T11:30:35.359410Z",
       "logical_request_id": "c3-llm-req-03",
       "logical_request_index": 2,
       "next_permitted_action": "NONE",
@@ -248,9 +248,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.250233Z",
+      "first_started_utc": "2026-08-17T11:30:35.367557Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.309244Z",
+      "last_transition_utc": "2026-08-17T11:30:35.401881Z",
       "logical_request_id": "c3-llm-req-04",
       "logical_request_index": 3,
       "next_permitted_action": "NONE",
@@ -269,9 +269,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.319884Z",
+      "first_started_utc": "2026-08-17T11:30:35.408873Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.363546Z",
+      "last_transition_utc": "2026-08-17T11:30:35.443111Z",
       "logical_request_id": "c3-llm-req-05",
       "logical_request_index": 4,
       "next_permitted_action": "NONE",
@@ -290,9 +290,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.373848Z",
+      "first_started_utc": "2026-08-17T11:30:35.451772Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.418521Z",
+      "last_transition_utc": "2026-08-17T11:30:35.489469Z",
       "logical_request_id": "c3-llm-req-06",
       "logical_request_index": 5,
       "next_permitted_action": "NONE",
@@ -311,9 +311,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.427947Z",
+      "first_started_utc": "2026-08-17T11:30:35.497263Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.473045Z",
+      "last_transition_utc": "2026-08-17T11:30:35.531227Z",
       "logical_request_id": "c3-llm-req-07",
       "logical_request_index": 6,
       "next_permitted_action": "NONE",
@@ -332,9 +332,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.483115Z",
+      "first_started_utc": "2026-08-17T11:30:35.538666Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.523935Z",
+      "last_transition_utc": "2026-08-17T11:30:35.575287Z",
       "logical_request_id": "c3-llm-req-08",
       "logical_request_index": 7,
       "next_permitted_action": "NONE",
@@ -353,9 +353,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.532520Z",
+      "first_started_utc": "2026-08-17T11:30:35.583303Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.567360Z",
+      "last_transition_utc": "2026-08-17T11:30:35.620820Z",
       "logical_request_id": "c3-llm-req-09",
       "logical_request_index": 8,
       "next_permitted_action": "NONE",
@@ -374,9 +374,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.575961Z",
+      "first_started_utc": "2026-08-17T11:30:35.628829Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.616109Z",
+      "last_transition_utc": "2026-08-17T11:30:35.663790Z",
       "logical_request_id": "c3-llm-req-10",
       "logical_request_index": 9,
       "next_permitted_action": "NONE",
@@ -395,9 +395,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.624504Z",
+      "first_started_utc": "2026-08-17T11:30:35.671689Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.662002Z",
+      "last_transition_utc": "2026-08-17T11:30:35.712205Z",
       "logical_request_id": "c3-llm-req-11",
       "logical_request_index": 10,
       "next_permitted_action": "NONE",
@@ -416,9 +416,9 @@
       "accepted_recipe_count": 32,
       "archive_identity": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
       "attempt_count": 1,
-      "first_started_utc": "2026-08-17T08:28:33.669990Z",
+      "first_started_utc": "2026-08-17T11:30:35.720454Z",
       "last_provider_classification": "OK",
-      "last_transition_utc": "2026-08-17T08:28:33.707987Z",
+      "last_transition_utc": "2026-08-17T11:30:35.755124Z",
       "logical_request_id": "c3-llm-req-12",
       "logical_request_index": 11,
       "next_permitted_action": "NONE",
@@ -455,5 +455,5 @@
     "IN_PROGRESS": 0,
     "NOT_STARTED": 0
   },
-  "updated_utc": "2026-08-17T11:00:46.596016Z"
+  "updated_utc": "2026-08-17T11:50:24.856810Z"
 }

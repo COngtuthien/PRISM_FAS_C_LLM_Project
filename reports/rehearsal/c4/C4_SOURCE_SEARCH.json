@@ -165,10 +165,10 @@
   "engineering_only": true,
   "execution_profile": "rehearsal",
   "expansion_policy": "expanding a candidate set or starting a second pass is USER_APPROVAL_REQUIRED (§15.2.2)",
-  "finished_at_utc": "2026-08-17T11:00:51.977195Z",
+  "finished_at_utc": "2026-08-17T11:50:29.661521Z",
   "finite_valid_trials": 9,
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T11:00:51.977735Z",
+  "generated_at_utc": "2026-08-17T11:50:29.662067Z",
   "leaderboard": [
     {
       "artifacts": [],
@@ -473,7 +473,7 @@
     "low_frequency_geometry_drift",
     "outside_mask_error"
   ],
-  "started_at_utc": "2026-08-17T11:00:51.966108Z",
+  "started_at_utc": "2026-08-17T11:50:29.651353Z",
   "status": "COMPLETED",
   "tie_break": "canonical_config_sha256_ascending",
   "tie_break_trace": [

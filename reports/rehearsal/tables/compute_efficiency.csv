@@ -2,4 +2,5 @@ run,device,gpu_name,effective_batch,physical_microbatch,gradient_accumulation_st
 c4,cpu,,,,,,,,,
 c7,cpu,,,,,,,,,
 c7,cpu,,,,,,,,,
-c8,cpu,,32,32,1,,,,,
+C-G-RND-P1-s20260806,cpu,,32,32,1,,,,,
+C-G-RND-P1-s20260807,cpu,,32,32,1,,,,,
