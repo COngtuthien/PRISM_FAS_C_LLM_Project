@@ -495,6 +495,12 @@ final_full_path_closure:
                                  m3b, prism_fas.synthesis.pair_plan]
     derived_build_blocks_rather_than_fabricates: MISSING_RAW_DATA
     rehearsal_only_reports_what_science_would_build: true   # dry_run, no wasted hours
+    derived_build_evidence_class: READY_BY_CONSTRUCTION_NOT_EXERCISED
+    derived_build_test_coverage: 0        # no test in the repository imports this module
+    derived_build_real_path_ever_run: false   # every run here took the dry_run branch
+    derived_build_risk: >-
+      this is the one component of the closure that is neither tested nor executed, and
+      it runs before C4 on the external host. See the matching entry in `blockers`.
     relocatable_logical_roots:
       - data/raw/casia_fasd
       - data/raw/msu_mfsd
@@ -853,6 +859,16 @@ blockers:
   - "The production FULL output audit is STRUCTURAL, not observed. No
     reports/full/c4..c13 artifact set has ever existed. The audit is sound only because
     the writers are the same code under both contexts; it is not a record of a full run."
+  - "HIGHEST-RISK COMPONENT OF THE FIRST GPU RUN: src/prism_fas/pipeline/preparation.py
+    (315 lines) has ZERO test coverage — no test in the repository imports it — and its
+    real build path has never executed. train.py calls it with dry_run=not
+    plan.is_scientific, so every run on this laptop took the dry-run branch and only
+    REPORTED what a scientific run would build. `_run_step` and its four delegations to
+    m2_runner, package, m3b and pair_plan are therefore READY_BY_CONSTRUCTION rather
+    than exercised. Everything else in this closure is either tested or was run; this
+    one thing is neither, and it runs early, before C4, on the collaborator's machine.
+    Closing it needs either unit tests over _run_step with stubbed builders, or one
+    authorized non-dry-run preparation on a small subset here."
   - "CORRECTED by the pre-GPU audit. The previous milestone listed the pinned weights and
     AdaFace as missing; they are PRESENT and now verified by hash against their frozen
     pins — SigLIP2 (all 7 files), ConvNeXt V2 Atto, AdaFace ir50, SCRFD and FaceXFormer,
