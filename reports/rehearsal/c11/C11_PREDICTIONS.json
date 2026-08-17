@@ -1,0 +1,33 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.512917Z",
+  "mode": "BUILD_PREDICTIONS",
+  "note": "fixture prediction rows built from video ids and scores alone. No SiW feature was read and no model was run against the target",
+  "prediction_logical_identity": "14950a479c3129ee362ef7eb011bcfa76d292d628863ec0f4bf9eda9343c11d0",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "real_target_inference_performed": false,
+  "row_count": 320,
+  "rows_artifact": "reports/rehearsal/c11/C11_PREDICTION_ROWS.json",
+  "rows_artifact_in_git": false,
+  "rows_by_variant": {
+    "C-G-LLM": 160,
+    "C-R-LLM": 160
+  },
+  "schema_version": "c11-predictions-v1",
+  "scientific_eligible": false,
+  "validation": {
+    "labels_present": false,
+    "prompt_status": [
+      "not_applicable"
+    ],
+    "region_status": [
+      "not_applicable"
+    ],
+    "rows": 320,
+    "unique_sample_ids": 320,
+    "videos": 80
+  }
+}

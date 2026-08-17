@@ -1,0 +1,16 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "artifacts_scanned": 7,
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.107881Z",
+  "mode": "TARGET_ISOLATION",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c8-target-isolation-v1",
+  "scientific_eligible": false,
+  "target_labels_resolved": 0,
+  "target_metrics_computed": 0,
+  "target_paths_resolved": 0,
+  "unexpected_references": []
+}

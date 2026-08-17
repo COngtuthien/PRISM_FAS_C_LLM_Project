@@ -1,0 +1,60 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "classification": "OPERATIONAL_PROVENANCE_ONLY",
+  "cpu_gpu_comparison": "CPU and GPU runtimes are never presented as a controlled treatment comparison; they are different machines, not different conditions",
+  "device": {
+    "classification": "OPERATIONAL_PROVENANCE_ONLY",
+    "cpu_count": 16,
+    "cuda_available": false,
+    "device": "cpu",
+    "disk_free_gb": 101.08,
+    "enters_scientific_identity": false,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "precision": "fp32",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python": "3.13.11",
+    "schema_version": "prism-compute-resources-v1",
+    "thread_count": 8,
+    "torch_cuda_build": null,
+    "torch_version": "2.13.0+cpu"
+  },
+  "enters_scientific_identity": false,
+  "execution_profile": "rehearsal",
+  "inference": {
+    "batch_size": 32,
+    "classification": "OPERATIONAL_PROVENANCE_ONLY",
+    "end_to_end_measured": false,
+    "enters_scientific_identity": false,
+    "error": "",
+    "fps": 52.2485,
+    "fps_note": "frames per second at the stated batch size, from model-only latency. Not an end-to-end pipeline rate",
+    "input_resolution": [
+      224,
+      224
+    ],
+    "latency_scope": "MODEL_ONLY",
+    "memory": {
+      "device": "cpu",
+      "note": "CUDA memory counters are unavailable on CPU",
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null
+    },
+    "model_only_latency_ms_max": 738.1069,
+    "model_only_latency_ms_mean": 612.4574,
+    "model_only_latency_ms_min": 516.2117,
+    "model_only_latency_ms_p50": 605.181,
+    "model_only_latency_ms_p95": 738.1069,
+    "schema_version": "prism-compute-resources-v1",
+    "status": "COMPLETE",
+    "synchronization": "CUDA synchronize around every timed region; on CPU the call is a no-op and the timer is already exact",
+    "throughput_samples_per_second": 52.2485,
+    "timed_iterations": 20,
+    "warmup_iterations": 5
+  },
+  "microbatch_plan": null,
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "prism-compute-resources-v1",
+  "scientific_eligible": false,
+  "training": null
+}

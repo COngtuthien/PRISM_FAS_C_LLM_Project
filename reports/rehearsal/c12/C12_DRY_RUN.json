@@ -1,0 +1,23 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.786659Z",
+  "label_bytes_opened": 0,
+  "mode": "DRY_RUN",
+  "preconditions": {
+    "label_bytes_read": 0,
+    "lockset_present": true,
+    "prediction_count": 320,
+    "predictions_present": true,
+    "variants": [
+      "C-G-LLM",
+      "C-R-LLM"
+    ]
+  },
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c12-dry-run-v1",
+  "scientific_eligible": false,
+  "scientific_lockset_present": false
+}

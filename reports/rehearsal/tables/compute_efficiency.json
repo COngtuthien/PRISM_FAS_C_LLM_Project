@@ -1,0 +1,73 @@
+{
+  "columns": [
+    "run",
+    "device",
+    "gpu_name",
+    "effective_batch",
+    "physical_microbatch",
+    "gradient_accumulation_steps",
+    "wall_clock_seconds",
+    "steps_per_second",
+    "samples_per_second",
+    "peak_allocated_mb",
+    "peak_reserved_mb"
+  ],
+  "row_count": 4,
+  "rows": [
+    {
+      "device": "cpu",
+      "effective_batch": null,
+      "gpu_name": null,
+      "gradient_accumulation_steps": null,
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null,
+      "physical_microbatch": null,
+      "run": "c4",
+      "samples_per_second": null,
+      "steps_per_second": null,
+      "wall_clock_seconds": null
+    },
+    {
+      "device": "cpu",
+      "effective_batch": null,
+      "gpu_name": null,
+      "gradient_accumulation_steps": null,
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null,
+      "physical_microbatch": null,
+      "run": "c7",
+      "samples_per_second": null,
+      "steps_per_second": null,
+      "wall_clock_seconds": null
+    },
+    {
+      "device": "cpu",
+      "effective_batch": null,
+      "gpu_name": null,
+      "gradient_accumulation_steps": null,
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null,
+      "physical_microbatch": null,
+      "run": "c7",
+      "samples_per_second": null,
+      "steps_per_second": null,
+      "wall_clock_seconds": null
+    },
+    {
+      "device": "cpu",
+      "effective_batch": 32,
+      "gpu_name": null,
+      "gradient_accumulation_steps": 1,
+      "peak_allocated_mb": null,
+      "peak_reserved_mb": null,
+      "physical_microbatch": 32,
+      "run": "c8",
+      "samples_per_second": null,
+      "steps_per_second": null,
+      "wall_clock_seconds": null
+    }
+  ],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "compute_efficiency"
+}

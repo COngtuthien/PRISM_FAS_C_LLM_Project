@@ -443,15 +443,52 @@ DETECTOR_ANCHOR_PATHS: dict[str, tuple[str, ...]] = {
 K4_ONLY_WEIGHTS: tuple[str, ...] = ("lambda_M", "lambda_out", "lambda_clean")
 
 
+def _apply_lr_decision(coordinates: tuple["Coordinate", ...],
+                       base_config: Mapping[str, Any] | None,
+                       decision: Any | None) -> tuple[tuple["Coordinate", ...],
+                                                      dict[str, Any]]:
+    """Replace the per-scalar LR coordinate with the approved interpretation.
+
+    Without a decision the plan keeps its honest pre-decision shape: the
+    `learning_rate` coordinate stays AMBIGUOUS and contributes no trials. With
+    one, that coordinate is replaced in place — same position, still exactly one
+    learning-rate step — by the multiplier the decision authorizes, and the
+    frozen anchor vector is bound into the plan's base config so it enters the
+    plan identity. An evaluator therefore cannot search a different vector than
+    the one the decision approved.
+    """
+    config = dict(base_config or {})
+    if decision is None:
+        return coordinates, config
+
+    from prism_fas.search.lr_decision import lr_coordinate
+
+    replacement = lr_coordinate(decision)
+    updated = tuple(replacement if item.name == "learning_rate" else item
+                    for item in coordinates)
+    config["lr_anchor_vector"] = dict(decision.anchor_vector)
+    config["lr_interpretation"] = decision.interpretation
+    config["lr_preserved_ratio"] = list(decision.preserved_ratio)
+    if decision.searches_a_multiplier:
+        config[replacement.name] = 1.0
+    return updated, config
+
+
 def gpat_search_plan(anchors: Mapping[str, Any], *,
                      anchor_paths: Mapping[str, Sequence[str]] | None = None,
-                     base_config: Mapping[str, Any] | None = None
+                     base_config: Mapping[str, Any] | None = None,
+                     lr_decision: Any | None = None
                      ) -> tuple[SearchPlan, dict[str, AnchorResolution]]:
     """The §15.2.3 neutral-GPAT envelope: one pass, five scalars, x{0.5,1,2}.
 
     Returns the plan and the anchor resolutions beside it, because a caller
     needs to know *why* a coordinate is inactive before deciding whether the
     envelope is executable at all.
+
+    `lr_decision` supplies the approved learning-rate interpretation. Given one,
+    the ambiguous per-scalar coordinate is replaced by the single multiplier the
+    decision authorizes; without one the plan keeps the honest pre-decision
+    shape.
     """
     paths = {name: tuple(value) for name, value
              in dict(anchor_paths or GPAT_ANCHOR_PATHS).items()}
@@ -461,6 +498,7 @@ def gpat_search_plan(anchors: Mapping[str, Any], *,
                                    multipliers=MULTIPLIERS_HALF_ONE_TWO,
                                    spec_clause="§15.2.3")
         for name in GPAT_COORDINATE_ORDER)
+    coordinates, base_config = _apply_lr_decision(coordinates, base_config, lr_decision)
     plan = SearchPlan(
         plan_id="c4_gpat_coordinate_v1",
         milestone="C4",
@@ -481,7 +519,8 @@ def detector_search_plan(anchors: Mapping[str, Any], *,
                          anchor_paths: Mapping[str, Sequence[str]] | None = None,
                          base_config: Mapping[str, Any] | None = None,
                          selection_tuple: Sequence[str] = P3_READY_SELECTION_TUPLE,
-                         k4_weights: Sequence[str] = ()
+                         k4_weights: Sequence[str] = (),
+                         lr_decision: Any | None = None
                          ) -> tuple[SearchPlan, dict[str, AnchorResolution]]:
     """The §15.2.2 detector/loss envelope in its exact coordinate order.
 
@@ -508,6 +547,9 @@ def detector_search_plan(anchors: Mapping[str, Any], *,
             active=active.get(name, True),
             inactive_reason=("the K=4 manifold variant is not active" if k4 else
                              f"{name} is not an active loss term in this variant")))
+    coordinates, base_config = _apply_lr_decision(tuple(coordinates), base_config,
+                                                  lr_decision)
+    coordinates = list(coordinates)
     plan = SearchPlan(
         plan_id="c7_detector_coordinate_v1",
         milestone="C7",

@@ -25,7 +25,7 @@
   "conditioning_dim": 41,
   "execution_profile": "smoke",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T04:30:03.795103Z",
+  "generated_at_utc": "2026-08-17T08:23:22.329611Z",
   "mode": "PREPARE_SUPPORT",
   "pairs": 2,
   "profile_config": "configs/execution/smoke.yaml",

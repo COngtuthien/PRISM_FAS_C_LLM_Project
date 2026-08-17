@@ -1,0 +1,101 @@
+# The approved learning-rate anchor interpretation for C4 and C7.
+#
+# This file is the SCIENTIFIC DECISION RECORD. It resolves the one
+# NEEDS_SCIENTIFIC_DECISION the engineering-readiness milestone stopped on:
+# `learning_rate` has no scalar of that name in either component, and §15.2.2
+# does not permit choosing among ambiguous anchors silently.
+#
+# The evidence behind it is `reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json`
+# (identity 5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1),
+# which remains preserved unchanged as the awaiting-approval record.
+#
+# Approved: interpretation B for C4 and for C7 Track R — ONE learning-rate
+# coordinate whose candidate is a MULTIPLIER applied to every active LR group,
+# holding the inherited ratios fixed. m = 1.0 reproduces Version B exactly.
+#
+# Track G needed no approval: it instantiates no ConvNeXt, so backbone_lr
+# controls zero parameters there and head_lr is already the unique inherited
+# anchor (§13.4.1, §15.2.3).
+#
+# Nothing in this file may be edited to make a result look better. A change here
+# is a change to a frozen scientific contract and requires a new decision record
+# naming the old identity, the new identity, the reason and the count of
+# already-executed affected scientific requests.
+schema_version: "prism-lr-anchor-decision-v1"
+decision_status: APPROVED
+approved_by: user
+approved_in: "PORTABLE ONE-FOLDER EXECUTION CLOSURE task"
+supersedes_dossier_status: AWAITING_USER_APPROVAL
+dossier: reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json
+dossier_identity: "5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1"
+spec_clauses: ["§15.2.2", "§15.2.3", "§13.4.1"]
+
+# The single candidate set, unchanged from the frozen envelope.
+multipliers: [0.5, 1.0, 2.0]
+coordinate_name: learning_rate_multiplier
+coordinate_position: first        # §15.2.2 searches the learning rate first
+
+c4_gpat:
+  interpretation: B_common_multiplier
+  compliance_class: COMPATIBLE_BUT_USER_APPROVAL_REQUIRED
+  approved: true
+  # The inherited anchor is a VECTOR. Each group's LR is anchor x multiplier.
+  anchor_vector:
+    encoder_lr: 2.0e-4
+    recipe_lr: 1.0e-4
+    generator_lr: 2.0e-4
+  anchor_source: configs/synthesis/gpat_m8.yaml
+  preserved_ratio: [2.0, 1.0, 2.0]        # encoder : recipe : generator
+  parameter_groups: [artifact_encoder, recipe_encoder, generator]
+  rationale: >-
+    all three groups are non-empty, simultaneously optimized by one AdamW, and
+    together cover 100% of the model's 910,538 trainable parameters. A single
+    multiplier searches the component's learning rate as Version B configured it
+    without electing one scalar over two equally inherited ones, and without
+    adding a coordinate the frozen search order does not name.
+
+c7_track_r:
+  interpretation: B_common_multiplier
+  compliance_class: COMPATIBLE_BUT_USER_APPROVAL_REQUIRED
+  approved: true
+  anchor_vector:
+    backbone_lr: 1.0e-5
+    head_lr: 1.0e-4
+  anchor_source: configs/train/m9_reference.yaml
+  preserved_ratio: [1.0, 10.0]            # backbone : heads
+  parameter_groups: [backbone, heads]
+  rationale: >-
+    the inherited detector scheduler already applies ONE multiplier to every
+    parameter group, so a common multiplier is the inherited semantics rather
+    than a new construct. The 1:10 backbone:heads ratio is a deliberate frozen
+    setting — a fine-tuned backbone at 1e-5 with fresh heads at 1e-4 — and this
+    is the only approved option that leaves it undisturbed.
+
+c7_track_g:
+  interpretation: UNIQUE_INHERITED_ANCHOR
+  compliance_class: ALREADY_IMPLIED_BY_FROZEN_SPEC
+  approved: true
+  requires_user_decision: false
+  anchor_vector:
+    head_lr: 1.0e-4
+  anchor_source: configs/train/m9_reference.yaml
+  parameter_groups: [heads]
+  rationale: >-
+    §13.4.1 forbids Track G from instantiating ConvNeXt, PRISMDetector's
+    parameter_groups omits an empty group, and backbone_lr therefore controls
+    zero Track-G parameters. Exactly one LR scalar is applicable, which is what
+    a uniquely inherited anchor means. Version-B M10 row B01 recorded
+    optimizer_groups == ['heads'] for the same structural reason.
+
+# What the decision deliberately does NOT do.
+not_approved:
+  - "A_single_scalar — electing one of several equally inherited scalars"
+  - "C_independent_per_group — one coordinate per group, which would add two
+     coordinates to C4 and one to Track R and break the inherited ratios"
+  - "any change to the multiplier set, the coordinate order, or the selection tuple"
+
+search_envelope_unchanged:
+  coordinate_count_added: 1        # exactly the one the frozen order already names
+  candidate_values_per_coordinate: 3
+  one_pass_only: true
+  revisit_permitted: false

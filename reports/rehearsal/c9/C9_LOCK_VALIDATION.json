@@ -1,0 +1,27 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "drift_detection": {
+    "detected": true,
+    "problems": [
+      "row evidence drifted since the freeze: ['C-G-DET-P1-s20260806', 'C-G-DET-P1-s20260807', 'C-G-DET-P1-s20260808', 'C-G-DET-P2-s20260806', 'C-G-DET-P2-s20260807', 'C-G-DET-P2-s20260808', 'C-G-DET-P3READY-s20260806', 'C-G-DET-P3READY-s20260807', 'C-G-DET-P3READY-s20260808', 'C-G-DET-P3READY-s20260809', 'C-G-DET-P3READY-s20260810', 'C-G-LLM-P1-s20260806', 'C-G-LLM-P1-s20260807', 'C-G-LLM-P1-s20260808', 'C-G-LLM-P2-s20260806', 'C-G-LLM-P2-s20260807', 'C-G-LLM-P2-s20260808', 'C-G-LLM-P3READY-s20260806', 'C-G-LLM-P3READY-s20260807', 'C-G-LLM-P3READY-s20260808', 'C-G-LLM-P3READY-s20260809', 'C-G-LLM-P3READY-s20260810', 'C-G-RND-P1-s20260806', 'C-G-RND-P1-s20260807', 'C-G-RND-P1-s20260808', 'C-G-RND-P2-s20260806', 'C-G-RND-P2-s20260807', 'C-G-RND-P2-s20260808', 'C-G-RND-P3READY-s20260806', 'C-G-RND-P3READY-s20260807', 'C-G-RND-P3READY-s20260808', 'C-G-RND-P3READY-s20260809', 'C-G-RND-P3READY-s20260810', 'C-R-DET-P3READY-s20260806', 'C-R-DET-P3READY-s20260807', 'C-R-DET-P3READY-s20260808', 'C-R-LLM-P3READY-s20260806', 'C-R-LLM-P3READY-s20260807', 'C-R-LLM-P3READY-s20260808', 'C-R-NOPROMPT-P3READY-s20260806', 'C-R-NOPROMPT-P3READY-s20260807', 'C-R-NOPROMPT-P3READY-s20260808']"
+    ]
+  },
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.327445Z",
+  "mode": "VALIDATE_LOCK",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c9-lock-validation-v1",
+  "scientific_eligible": false,
+  "validation": {
+    "identity_reproduces": true,
+    "lock_identity": "28c0e52e80e80898f5cd38d29013d86bf523adce99022f288f9f9d6ab87dbff0",
+    "lock_identity_recomputed": "28c0e52e80e80898f5cd38d29013d86bf523adce99022f288f9f9d6ab87dbff0",
+    "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+    "problems": [],
+    "rows_locked": 42,
+    "schema_version": "prism-c9-source-matrix-lock-v1",
+    "valid": true
+  }
+}

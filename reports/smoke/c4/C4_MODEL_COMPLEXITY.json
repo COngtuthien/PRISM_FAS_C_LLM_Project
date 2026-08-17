@@ -1,0 +1,38 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "buffer_elements": 0,
+  "canonical_input_shape": [
+    2,
+    3,
+    224,
+    224
+  ],
+  "complexity": {
+    "counting_convention": "one MAC = one multiply-accumulate; FLOPs = 2 x MACs. Counted by forward hooks over Conv2d, Linear and normalization layers",
+    "flops": 16228762112,
+    "flops_per_mac": 2,
+    "macs": 8114381056,
+    "status": "COMPLETE",
+    "tool": "prism_fas.reporting.complexity (in-tree forward hooks)",
+    "tool_version": "prism-model-complexity-v1",
+    "unsupported_operations": [],
+    "warnings": []
+  },
+  "dtypes": [
+    "torch.float32"
+  ],
+  "execution_profile": "smoke",
+  "frozen_parameters": 0,
+  "model": "gpat_residual_generator",
+  "parameter_bytes": 3642152,
+  "parameter_megabytes": 3.4734,
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "prism-model-complexity-v1",
+  "scientific_eligible": false,
+  "selection_input": false,
+  "selection_note": "compute diagnostics never enter scientific winner selection. The §15.2.3 and §15.4 selection tuples contain no complexity term",
+  "torch_version": "2.13.0+cpu",
+  "total_parameters": 910538,
+  "trainable_parameters": 910538
+}

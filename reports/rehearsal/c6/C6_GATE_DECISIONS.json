@@ -1,0 +1,341 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 64,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 8,
+    "max_wall_clock_seconds": 86400,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "candidates_per_arm": 8,
+  "decisions": {
+    "DET": [
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      }
+    ],
+    "LLM": [
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      }
+    ],
+    "RND": [
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      },
+      {
+        "accepted": true,
+        "failed_gates": [],
+        "q": 0.8233984112739563
+      },
+      {
+        "accepted": false,
+        "failed_gates": [
+          "artifact_strength",
+          "face_detection",
+          "fingerprint",
+          "identity",
+          "landmark",
+          "parsing_dice",
+          "support_overlap"
+        ],
+        "q": 5.179474555916386e-06
+      }
+    ]
+  },
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:52.336062Z",
+  "mode": "APPLY_COMMON_GATE",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c6-gate-decisions-v1",
+  "scientific_candidates_per_arm": 2048,
+  "scientific_eligible": false,
+  "summaries": {
+    "DET": {
+      "accepted": 4,
+      "evaluated": 8,
+      "failed_gate_counts": {
+        "artifact_strength": 4,
+        "face_detection": 4,
+        "fingerprint": 4,
+        "identity": 4,
+        "landmark": 4,
+        "parsing_dice": 4,
+        "support_overlap": 4
+      },
+      "q_statistics": {
+        "max": 0.8233984112739563,
+        "mean": 0.8233984112739563,
+        "median": 0.8233984112739563,
+        "min": 0.8233984112739563
+      },
+      "recipe_match": "not_applicable",
+      "rejected": 4
+    },
+    "LLM": {
+      "accepted": 4,
+      "evaluated": 8,
+      "failed_gate_counts": {
+        "artifact_strength": 4,
+        "face_detection": 4,
+        "fingerprint": 4,
+        "identity": 4,
+        "landmark": 4,
+        "parsing_dice": 4,
+        "support_overlap": 4
+      },
+      "q_statistics": {
+        "max": 0.8233984112739563,
+        "mean": 0.8233984112739563,
+        "median": 0.8233984112739563,
+        "min": 0.8233984112739563
+      },
+      "recipe_match": "not_applicable",
+      "rejected": 4
+    },
+    "RND": {
+      "accepted": 4,
+      "evaluated": 8,
+      "failed_gate_counts": {
+        "artifact_strength": 4,
+        "face_detection": 4,
+        "fingerprint": 4,
+        "identity": 4,
+        "landmark": 4,
+        "parsing_dice": 4,
+        "support_overlap": 4
+      },
+      "q_statistics": {
+        "max": 0.8233984112739563,
+        "mean": 0.8233984112739563,
+        "median": 0.8233984112739563,
+        "min": 0.8233984112739563
+      },
+      "recipe_match": "not_applicable",
+      "rejected": 4
+    }
+  },
+  "threshold_profile": "NOMINAL",
+  "thresholds": {
+    "nominal_source": "ENGINEERING_FIXTURE_NOMINAL",
+    "profile": "NOMINAL",
+    "range_safe_unprofiled": [
+      "tau_out"
+    ],
+    "threshold_identity": "aca13586c80b2ed10bf04aeeb56169c06a81ba530419acfaf82e15c04251f0c9",
+    "thresholds": {
+      "tau_fd": 0.5,
+      "tau_fp": 0.5,
+      "tau_id": 0.8,
+      "tau_lm": 0.08,
+      "tau_out": 0.0,
+      "tau_parse": 0.9
+    }
+  }
+}

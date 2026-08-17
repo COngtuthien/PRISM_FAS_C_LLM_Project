@@ -1,0 +1,320 @@
+{
+  "bundle": "reports/rehearsal/final/FINAL_BUNDLE_MANIFEST.json",
+  "device": {
+    "classification": "OPERATIONAL_PROVENANCE_ONLY",
+    "cpu_count": 16,
+    "cuda_available": false,
+    "device": "cpu",
+    "disk_free_gb": 101.08,
+    "enters_scientific_identity": false,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "precision": "fp32",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python": "3.13.11",
+    "schema_version": "prism-compute-resources-v1",
+    "thread_count": 8,
+    "torch_cuda_build": null,
+    "torch_version": "2.13.0+cpu"
+  },
+  "execution_intent": "CPU_FULL_REHEARSAL",
+  "missing_evidence": [],
+  "plots": {
+    "declared": [
+      "training_loss",
+      "loss_components",
+      "learning_rate",
+      "source_dev_metrics",
+      "recipe_bank_coverage",
+      "recipe_bank_diversity",
+      "quality_gate_acceptance",
+      "q_distribution",
+      "synthetic_vs_real_separability",
+      "track_g_per_seed",
+      "track_g_mean_std",
+      "track_r_llm_vs_det",
+      "prompthead_ablation",
+      "forest_hypotheses",
+      "ch4_mechanism",
+      "frame_vs_video",
+      "roc_curves",
+      "calibration_reliability",
+      "threshold_metrics"
+    ],
+    "deterministic": "Agg backend, no timestamps, no random colours",
+    "errors": [],
+    "output_dir": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/reports/rehearsal/plots",
+    "schema_version": "prism-plots-v1",
+    "skipped": [
+      {
+        "figure": "recipe_bank_coverage",
+        "needs": "C3 bank coverage per arm"
+      },
+      {
+        "figure": "recipe_bank_diversity",
+        "needs": "C3 bank diversity per arm"
+      },
+      {
+        "figure": "quality_gate_acceptance",
+        "needs": "C6 gate decisions"
+      },
+      {
+        "figure": "q_distribution",
+        "needs": "C6 quality weights"
+      },
+      {
+        "figure": "synthetic_vs_real_separability",
+        "needs": "C6 reliability report"
+      },
+      {
+        "figure": "track_g_per_seed",
+        "needs": "C8/C12 per-seed metrics, Track G"
+      },
+      {
+        "figure": "track_g_mean_std",
+        "needs": "C12 seed summary, Track G"
+      },
+      {
+        "figure": "track_r_llm_vs_det",
+        "needs": "C12 seed summary, Track R"
+      },
+      {
+        "figure": "prompthead_ablation",
+        "needs": "C12 C-R-NOPROMPT vs C-R-LLM"
+      },
+      {
+        "figure": "forest_hypotheses",
+        "needs": "C12 bootstrap intervals for C-H1/C-H2/C-H3/C-H5"
+      },
+      {
+        "figure": "ch4_mechanism",
+        "needs": "C12 C-H4 mechanism evidence"
+      },
+      {
+        "figure": "frame_vs_video",
+        "needs": "C12 frame and video metrics"
+      },
+      {
+        "figure": "roc_curves",
+        "needs": "C12 scored predictions"
+      },
+      {
+        "figure": "calibration_reliability",
+        "needs": "C12 calibrated scores"
+      },
+      {
+        "figure": "threshold_metrics",
+        "needs": "C12 threshold sweep"
+      }
+    ],
+    "skipped_count": 15,
+    "source": "stored evidence only; no plot triggers training or opens a dataset",
+    "written": [
+      "learning_rate.png",
+      "loss_components.png",
+      "source_dev_metrics.png",
+      "training_loss.png"
+    ],
+    "written_count": 4
+  },
+  "profile": "rehearsal",
+  "report": "reports/rehearsal/final/report.html",
+  "schema_version": "prism-reporting-v1",
+  "tables": {
+    "empty": [
+      "main_results",
+      "per_seed_results",
+      "hypothesis_tests",
+      "quality_gate",
+      "source_matrix",
+      "target_results"
+    ],
+    "note": "an empty table is written with its header so an absent artifact is distinguishable from an absent table",
+    "output_dir": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/reports/rehearsal/tables",
+    "populated": [
+      "recipe_bank_analysis",
+      "model_complexity",
+      "compute_efficiency"
+    ],
+    "schema_version": "prism-tables-v1",
+    "table_count": 9,
+    "tables": [
+      {
+        "columns": [
+          "experiment_id",
+          "track",
+          "arm",
+          "protocol",
+          "seeds",
+          "video_ACER_mean",
+          "video_ACER_std",
+          "video_BPCER_mean",
+          "APCER_mean",
+          "roc_auc_mean",
+          "eer_mean",
+          "status"
+        ],
+        "csv": "main_results.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "main_results.json",
+        "rows": 0,
+        "table": "main_results"
+      },
+      {
+        "columns": [
+          "experiment_id",
+          "track",
+          "arm",
+          "protocol",
+          "seed",
+          "video_ACER",
+          "video_BPCER",
+          "APCER",
+          "roc_auc",
+          "eer",
+          "nll",
+          "ece",
+          "status"
+        ],
+        "csv": "per_seed_results.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "per_seed_results.json",
+        "rows": 0,
+        "table": "per_seed_results"
+      },
+      {
+        "columns": [
+          "hypothesis",
+          "comparison",
+          "effect",
+          "ci_low",
+          "ci_high",
+          "p_value",
+          "holm_adjusted_p",
+          "reject_null",
+          "seeds",
+          "statistical_claim_allowed"
+        ],
+        "csv": "hypothesis_tests.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "hypothesis_tests.json",
+        "rows": 0,
+        "table": "hypothesis_tests"
+      },
+      {
+        "columns": [
+          "arm",
+          "candidates",
+          "accepted",
+          "rejected",
+          "acceptance_rate",
+          "q_min",
+          "q_median",
+          "q_mean",
+          "q_max",
+          "profile",
+          "failed_gates"
+        ],
+        "csv": "quality_gate.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "quality_gate.json",
+        "rows": 0,
+        "table": "quality_gate"
+      },
+      {
+        "columns": [
+          "arm",
+          "raw_slots",
+          "eligible",
+          "selected",
+          "bank_identity",
+          "coverage_axes",
+          "diversity"
+        ],
+        "csv": "recipe_bank_analysis.csv",
+        "empty_reason": "",
+        "json": "recipe_bank_analysis.json",
+        "rows": 3,
+        "table": "recipe_bank_analysis"
+      },
+      {
+        "columns": [
+          "model",
+          "total_parameters",
+          "trainable_parameters",
+          "frozen_parameters",
+          "parameter_megabytes",
+          "macs",
+          "flops",
+          "status",
+          "unsupported_operations"
+        ],
+        "csv": "model_complexity.csv",
+        "empty_reason": "",
+        "json": "model_complexity.json",
+        "rows": 4,
+        "table": "model_complexity"
+      },
+      {
+        "columns": [
+          "run",
+          "device",
+          "gpu_name",
+          "effective_batch",
+          "physical_microbatch",
+          "gradient_accumulation_steps",
+          "wall_clock_seconds",
+          "steps_per_second",
+          "samples_per_second",
+          "peak_allocated_mb",
+          "peak_reserved_mb"
+        ],
+        "csv": "compute_efficiency.csv",
+        "empty_reason": "",
+        "json": "compute_efficiency.json",
+        "rows": 4,
+        "table": "compute_efficiency"
+      },
+      {
+        "columns": [
+          "row_id",
+          "experiment_id",
+          "track",
+          "arm",
+          "protocol",
+          "seed",
+          "config_identity",
+          "run_identity",
+          "status",
+          "checkpoint_sha256",
+          "calibration_hash"
+        ],
+        "csv": "source_matrix.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "source_matrix.json",
+        "rows": 0,
+        "table": "source_matrix"
+      },
+      {
+        "columns": [
+          "experiment_id",
+          "track",
+          "arm",
+          "seed",
+          "videos",
+          "video_ACER",
+          "APCER",
+          "BPCER",
+          "roc_auc",
+          "eer",
+          "threshold",
+          "prediction_lock_identity"
+        ],
+        "csv": "target_results.csv",
+        "empty_reason": "no evidence exists for this table yet",
+        "json": "target_results.json",
+        "rows": 0,
+        "table": "target_results"
+      }
+    ]
+  }
+}

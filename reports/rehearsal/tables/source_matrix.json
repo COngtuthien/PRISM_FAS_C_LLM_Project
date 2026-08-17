@@ -1,0 +1,20 @@
+{
+  "columns": [
+    "row_id",
+    "experiment_id",
+    "track",
+    "arm",
+    "protocol",
+    "seed",
+    "config_identity",
+    "run_identity",
+    "status",
+    "checkpoint_sha256",
+    "calibration_hash"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "source_matrix"
+}

@@ -1,0 +1,14 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "declared_real_identity": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "fixture_package_identity": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b",
+  "generated_at_utc": "2026-08-17T11:02:16.465053Z",
+  "mode": "PACKAGE_IDENTITY",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "real_package_opened": false,
+  "schema_version": "c10-package-identity-v1",
+  "scientific_eligible": false
+}

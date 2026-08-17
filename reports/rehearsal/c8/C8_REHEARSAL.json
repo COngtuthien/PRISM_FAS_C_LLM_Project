@@ -1,0 +1,402 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: PLAN_MATRIX, SCHEDULE, EXECUTE_ROWS, FAILURE_PRESERVATION, TARGET_ISOLATION.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/rehearsal/c8/C8_MATRIX_PLAN.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c8_matrix_satisfies_replication_policy",
+          "detail": {
+            "problems": [],
+            "rows": 42,
+            "seed_counts": {
+              "C-G-DET:P1": 3,
+              "C-G-DET:P2": 3,
+              "C-G-DET:P3": 5,
+              "C-G-LLM:P1": 3,
+              "C-G-LLM:P2": 3,
+              "C-G-LLM:P3": 5,
+              "C-G-RND:P1": 3,
+              "C-G-RND:P2": 3,
+              "C-G-RND:P3": 5,
+              "C-R-DET:P3": 3,
+              "C-R-LLM:P3": 3,
+              "C-R-NOPROMPT:P3": 3
+            },
+            "unique_configurations": 12
+          },
+          "ok": true,
+          "summary": "the planned matrix satisfies the §18.3 seed counts for every row"
+        },
+        {
+          "check_id": "c8_primary_p3_rows_have_five_seeds",
+          "detail": {
+            "per_arm": {
+              "DET": 5,
+              "LLM": 5,
+              "RND": 5
+            }
+          },
+          "ok": true,
+          "summary": "the three primary P3 Track-G generator rows carry 5 seeds each"
+        },
+        {
+          "check_id": "c8_prompthead_ablation_present",
+          "detail": {
+            "seeds": 3
+          },
+          "ok": true,
+          "summary": "the C-H5 PromptHead ablation is planned with 3 seeds"
+        },
+        {
+          "check_id": "c8_seed_family_is_closed",
+          "detail": {
+            "rule": "§18.3: no best-seed reporting and no cherry-picking; the family is not extended after a result is seen",
+            "seed_family": [
+              20260806,
+              20260807,
+              20260808,
+              20260809,
+              20260810
+            ]
+          },
+          "ok": true,
+          "summary": "no row uses a seed outside the fixed family"
+        },
+        {
+          "check_id": "c8_replication_shares_one_config_identity",
+          "detail": {
+            "rows": 42,
+            "unique_configurations": 12
+          },
+          "ok": true,
+          "summary": "rows that differ only by seed share one configuration identity"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 5,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "PLAN_MATRIX",
+      "notes": [],
+      "parent_identities": {
+        "c8_source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "status": "PASS",
+      "substage": "C8",
+      "summary": "C8 plan matrix — 5/5 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c8/C8_SCHEDULE.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c8_schedule_is_identity_aware",
+          "detail": {
+            "pending": 36,
+            "planned": 42,
+            "rule": "L.11: a completed unit is skipped only after its parent identities, config identity, content hash and acceptance state validate",
+            "skipped": 6
+          },
+          "ok": true,
+          "summary": "each row's resume decision compares a recorded run identity, not a filename"
+        },
+        {
+          "check_id": "c8_missing_seeds_resume_independently",
+          "detail": {
+            "example_units": [
+              "C-G-RND-P1-s20260806",
+              "C-G-RND-P1-s20260807",
+              "C-G-RND-P1-s20260808"
+            ],
+            "unit": "runs/<profile>/c8/<protocol>/<experiment>/<config>/<seed>/"
+          },
+          "ok": true,
+          "summary": "each protocol/method/config/seed is its own resumable unit"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 2,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "SCHEDULE",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "status": "PASS",
+      "substage": "C8",
+      "summary": "C8 schedule — 2/2 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c8/C8_EXECUTED_ROWS.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c8_rows_execute_end_to_end",
+          "detail": {
+            "failures": [],
+            "rows": [
+              "C-G-LLM-P1-s20260806",
+              "C-G-LLM-P1-s20260807"
+            ]
+          },
+          "ok": true,
+          "summary": "2/2 sampled row(s) ran forward, backward, checkpoint and calibration"
+        },
+        {
+          "check_id": "c8_run_manifest_carries_the_l8_columns",
+          "detail": {
+            "required": [
+              "run_identity",
+              "protocol",
+              "method",
+              "arm",
+              "config_identity",
+              "seed",
+              "environment",
+              "metrics",
+              "checkpoint",
+              "parent_identities",
+              "status"
+            ]
+          },
+          "ok": true,
+          "summary": "each run manifest carries config, identity, protocol, method, arm, seed, environment, metrics, checkpoint identity, parents and status"
+        },
+        {
+          "check_id": "c8_calibration_is_source_dev_only",
+          "detail": {
+            "calibrations": [
+              {
+                "decision_logit_name": "global_logit_G",
+                "decision_score_name": "p_G",
+                "split": "source_dev",
+                "temperature": 0.16308240620283068,
+                "threshold": 0.6239020591671518,
+                "threshold_criterion": "min_acer",
+                "threshold_tie_break": [
+                  "min_acer",
+                  "min_apcer",
+                  "min_threshold"
+                ],
+                "uses_target": false
+              },
+              {
+                "decision_logit_name": "global_logit_G",
+                "decision_score_name": "p_G",
+                "split": "source_dev",
+                "temperature": 0.39055555825857363,
+                "threshold": 0.624019910266086,
+                "threshold_criterion": "min_acer",
+                "threshold_tie_break": [
+                  "min_acer",
+                  "min_apcer",
+                  "min_threshold"
+                ],
+                "uses_target": false
+              }
+            ],
+            "rule": "§16: C-G5 fits temperature and operating threshold on source_dev only"
+          },
+          "ok": true,
+          "summary": "temperature and threshold were fitted on source_dev alone"
+        },
+        {
+          "check_id": "c8_checkpoint_inheritance_recorded",
+          "detail": {
+            "parents": [
+              {
+                "architecture": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+                "batch_contract": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+                "variant": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+              },
+              {
+                "architecture": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+                "batch_contract": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+                "variant": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "each run records the ancestor identities it inherited"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "EXECUTE_ROWS",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "status": "PASS",
+      "substage": "C8",
+      "summary": "C8 execute rows — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "runs/rehearsal/c8/P3/C-R-NOPROMPT/774882aadc4e/20260808_forced_failure/run_manifest.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c8_failed_row_is_written_not_dropped",
+          "detail": {
+            "path": "runs/rehearsal/c8/P3/C-R-NOPROMPT/774882aadc4e/20260808_forced_failure/run_manifest.json",
+            "status": "FAIL"
+          },
+          "ok": true,
+          "summary": "a failed row writes its own durable manifest"
+        },
+        {
+          "check_id": "c8_failed_row_keeps_its_reason",
+          "detail": {
+            "failure": {
+              "error": "constructed engineering failure",
+              "recoverable": false,
+              "stage": "G5"
+            }
+          },
+          "ok": true,
+          "summary": "the failure reason is recorded rather than summarized away"
+        },
+        {
+          "check_id": "c8_no_winner_only_cleanup",
+          "detail": {
+            "rule": "L.8: failed and blocked rows remain addressable from the master index and the final evidence package"
+          },
+          "ok": true,
+          "summary": "no code path in this stage deletes a row after another row succeeds"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "FAILURE_PRESERVATION",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "status": "PASS",
+      "substage": "C8",
+      "summary": "C8 failure preservation — 3/3 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c8/C8_TARGET_ISOLATION.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c8_no_target_artifact_written",
+          "detail": {
+            "files_with_unexpected_target_reference": [],
+            "permitted": "the P3 protocol declaration names siw_mv2_v2 as its future test domain; naming it is not resolving it"
+          },
+          "ok": true,
+          "summary": "no C8 artifact resolves a target path, label or metric"
+        },
+        {
+          "check_id": "c8_p3_is_ready_not_run",
+          "detail": {
+            "p3": {
+              "dev": [
+                "casia_fasd",
+                "msu_mfsd"
+              ],
+              "role": "fixed held-out target; predicted at C11 only",
+              "test": [
+                "siw_mv2_v2"
+              ],
+              "train": [
+                "casia_fasd",
+                "msu_mfsd"
+              ]
+            },
+            "rule": "§19.2: training/LLM/synthesis environments may resolve no SiW labels, attack-family metadata or target metrics"
+          },
+          "ok": true,
+          "summary": "P3 rows are selected on CASIA-dev and MSU-dev; prediction happens at C11"
+        },
+        {
+          "check_id": "c8_selection_never_reads_a_target_metric",
+          "detail": {
+            "p1p2_tuple": [
+              "video_ACER",
+              "video_BPCER",
+              "NLL",
+              "ECE",
+              "epoch"
+            ],
+            "p3_ready_tuple": [
+              "mean_domain_video_ACER",
+              "max_domain_video_ACER",
+              "mean_domain_video_BPCER",
+              "mean_domain_NLL",
+              "mean_domain_ECE",
+              "epoch"
+            ]
+          },
+          "ok": true,
+          "summary": "the source selection tuple contains only source-domain quantities"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "TARGET_ISOLATION",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "status": "PASS",
+      "substage": "C8",
+      "summary": "C8 target isolation — 3/3 checks passed"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "rehearsal",
+  "finished_at_utc": "2026-08-17T11:02:16.111592Z",
+  "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
+  "notes": [],
+  "phase": "scientific",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C8",
+  "started_at_utc": "2026-08-17T11:02:13.720137Z",
+  "substages": [],
+  "title": "Source matrix over arms, tracks, configs and seeds",
+  "validate_checks": [
+    "c8_source_matrix"
+  ],
+  "validate_gate": "PASS"
+}

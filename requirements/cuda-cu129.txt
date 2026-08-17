@@ -1,0 +1,24 @@
+# CUDA 12.9 profile — NVIDIA Blackwell (RTX 50-series, including the RTX 5090)
+# and any newer architecture the cu129 wheel supports.
+#
+#     pip install -r requirements/cuda-cu129.txt
+#
+# Blackwell is sm_120. A CPU wheel, or a CUDA wheel built before sm_120 kernels
+# existed, will import and then fail at the first kernel launch — which is the
+# worst possible failure mode: it happens after the data is loaded and the GPU
+# hours have started. The bootstrap therefore selects this profile from the
+# declared manifest rather than discovering it at run time.
+#
+# NOT VALIDATED ON THE MACHINE THAT WROTE THIS FILE. This project's accepted
+# evidence was produced on a CPU-only host. The pin is declared from the pinned
+# torch minor and the vendor's published CUDA matrix; the external-GPU preflight
+# is what turns it from declared into validated.
+-r base.txt
+-c constraints.txt
+
+--extra-index-url https://download.pytorch.org/whl/cu129
+
+torch==2.13.0
+torchvision==0.28.0
+
+onnxruntime==1.24.0

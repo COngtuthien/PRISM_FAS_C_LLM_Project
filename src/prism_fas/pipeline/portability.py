@@ -377,6 +377,77 @@ def backend_report(backend: BackendProfile, plan: MicrobatchPlan) -> dict[str, A
     }
 
 
+
+# --- one-folder portability --------------------------------------------------
+#
+# The project is meant to be copied whole onto another machine. Two things have
+# to hold for that to work, and they are different problems:
+#
+#   * every asset the run needs must be INSIDE the folder, or reachable from a
+#     declared root — `bundle_readiness` answers that;
+#   * moving the folder must not change a scientific identity — `portable_path`
+#     and `scientific_identity` above already guarantee it, and a test moves a
+#     sandbox to prove it rather than asserting it.
+
+#: Canonical project-relative asset roots. Everything the pipeline reads or
+#: writes resolves under one of these, so the folder is self-describing.
+ASSET_ROOTS: dict[str, str] = {
+    "configs": "configs",
+    "assets": "assets",
+    "data": "data",
+    "weights": "weights",
+    "runs": "runs",
+    "reports": "reports",
+    "state": "state",
+}
+
+PORTABLE_MANIFEST = "PORTABLE_ASSET_MANIFEST.json"
+
+
+def project_root() -> Path:
+    """The project root, derived from this file rather than from a config.
+
+    A root read from configuration would be wrong the moment the folder moved,
+    which is the one thing this module exists to survive.
+    """
+    return Path(__file__).resolve().parents[3]
+
+
+def resolve_asset(relative: str, *, repo: Path | None = None) -> Path:
+    """A project-relative path, resolved against the real root."""
+    return (repo or project_root()) / relative
+
+
+def bundle_readiness(repo: Path, *, intent: str) -> dict[str, Any]:
+    """Is this folder complete enough to run `intent` right now?
+
+    Answers before a long run starts, with the exact missing paths, so nobody
+    spends GPU hours to discover that one file is absent. Returns the two verdicts
+    the closure task names — PORTABLE_BUNDLE_READY_FOR_CPU_REHEARSAL and
+    PORTABLE_BUNDLE_READY_FOR_GPU_SCIENCE — computed from the same manifest.
+    """
+    from prism_fas.pipeline.assets import load_manifest
+
+    manifest = load_manifest(repo)
+    required_flag = ("required_for_gpu_science" if intent == "GPU_SCIENTIFIC_FULL"
+                     else "required_for_cpu_rehearsal")
+    required = [item for item in manifest["items"] if item.get(required_flag)]
+    missing = [item for item in required if not item["present"]]
+    return {
+        "intent": intent,
+        "verdict": ("PORTABLE_BUNDLE_READY_FOR_GPU_SCIENCE"
+                    if intent == "GPU_SCIENTIFIC_FULL"
+                    else "PORTABLE_BUNDLE_READY_FOR_CPU_REHEARSAL"),
+        "ready": not missing,
+        "required_count": len(required),
+        "present_count": len(required) - len(missing),
+        "missing": [{"logical_name": item["logical_name"],
+                     "expected_path": item["expected_path"],
+                     "how_to_obtain": item.get("how_to_obtain", "")} for item in missing],
+        "manifest_identity": manifest["manifest_identity"],
+    }
+
+
 __all__ = ["SCHEMA_VERSION", "OPERATIONAL_FIELDS", "PROVENANCE_NAMESPACE",
            "NON_PORTABLE_PATTERNS",
            "PROVENANCE_KEYS", "PortabilityError", "BackendProfile", "KNOWN_BACKENDS",
@@ -384,4 +455,5 @@ __all__ = ["SCHEMA_VERSION", "OPERATIONAL_FIELDS", "PROVENANCE_NAMESPACE",
            "assert_composition_preserved", "scientific_identity_material",
            "scientific_identity", "identity_is_backend_invariant",
            "checkpoint_portability_audit", "LogicalPath", "portable_path",
-           "backend_report"]
+           "backend_report", "ASSET_ROOTS", "PORTABLE_MANIFEST", "project_root",
+           "resolve_asset", "bundle_readiness"]

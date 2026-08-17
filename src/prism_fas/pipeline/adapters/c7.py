@@ -38,7 +38,8 @@ from typing import Any
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, resume_decision,
-                                                stage_reports_dir, utc, write_artifact)
+                                                stage_reports_dir, stage_runs_dir, utc,
+                                                write_artifact)
 
 STAGE_ID = "C7"
 
@@ -187,6 +188,45 @@ class C7Adapter(EngineeringAdapter):
                 fuses_prompt_evidence=variant.fuses_prompt_evidence,
                 rule="§13.4.4: p_prompt is null/not_applicable on ordinary target frames "
                      "and never enters fused_logit_R"))
+
+        # Complexity and inference cost for this track, written during the run so
+        # the reporting layer never has to rebuild a detector to describe one.
+        from prism_fas.reporting import complexity as complexity_module
+        from prism_fas.reporting import resources as resources_module
+        from prism_fas.reporting.history import HistoryWriter
+        from prism_fas.evaluation.variant_audit import build_audit_detector
+
+        model = build_audit_detector(variant)
+        batch = _fixture_batch(variant)
+        profile = complexity_module.profile_model(
+            model, batch, name=f"detector_track_{track.lower()}",
+            input_shape=list(batch.image.shape))
+        write_artifact(request, reports / f"C7_TRACK_{track}_MODEL_COMPLEXITY.json",
+                       profile)
+        inference = resources_module.benchmark_inference(
+            model, batch, batch_size=batch.batch_size,
+            input_resolution=list(batch.image.shape[-2:]))
+        write_artifact(request, reports / f"C7_TRACK_{track}_COMPUTE_RESOURCES.json",
+                       resources_module.resource_record(inference=inference))
+
+        runs = stage_runs_dir(request, STAGE_ID)
+        if runs is not None:
+            writer = HistoryWriter(path=runs / f"track_{track.lower()}" / "train_history.jsonl",
+                                   run_identity=variant.identity())
+            writer.append(epoch=0, step=1,
+                          total_loss=report.get("L_total"),
+                          losses={name: float(value) for name, value
+                                  in (report.get("loss_values") or {}).items()},
+                          learning_rates={group["name"]: group["lr"] for group
+                                          in (report.get("optimizer_groups") or [])})
+        checks.append(check(
+            f"c7_track_{track.lower()}_evidence_written",
+            profile["total_parameters"] > 0,
+            f"Track {track} complexity, inference cost and a history row were written",
+            total_parameters=profile["total_parameters"],
+            trainable_parameters=profile["trainable_parameters"],
+            macs_status=profile["complexity"]["status"],
+            selection_input=False))
 
         artifact = write_artifact(request, reports / f"C7_TRACK_{track}_READINESS.json", {
             "schema_version": "c7-track-readiness-v1", "generated_at_utc": utc(),

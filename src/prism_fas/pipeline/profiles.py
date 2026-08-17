@@ -19,7 +19,13 @@ from typing import Any
 
 import yaml
 
-PROFILE_NAMES: tuple[str, ...] = ("validate", "smoke", "full")
+#: `rehearsal` is CPU_FULL_REHEARSAL — a full traversal of the implementation on
+#: a host with no suitable GPU. It sits beside smoke rather than replacing it:
+#: smoke proves the control flow cheaply, rehearsal proves the real training
+#: path. Neither is scientifically eligible, and L.2's "exactly one eligible
+#: profile" invariant below is what keeps that true no matter how many
+#: non-eligible profiles exist.
+PROFILE_NAMES: tuple[str, ...] = ("validate", "smoke", "rehearsal", "full")
 
 #: L.2: exactly one profile is scientifically eligible, and exactly the same one
 #: may select a winner. Held here as the expectation the loaded file is checked

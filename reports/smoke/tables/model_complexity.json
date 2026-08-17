@@ -1,0 +1,30 @@
+{
+  "columns": [
+    "model",
+    "total_parameters",
+    "trainable_parameters",
+    "frozen_parameters",
+    "parameter_megabytes",
+    "macs",
+    "flops",
+    "status",
+    "unsupported_operations"
+  ],
+  "row_count": 1,
+  "rows": [
+    {
+      "flops": 16228762112,
+      "frozen_parameters": 0,
+      "macs": 8114381056,
+      "model": "gpat_residual_generator",
+      "parameter_megabytes": 3.4734,
+      "status": "COMPLETE",
+      "total_parameters": 910538,
+      "trainable_parameters": 910538,
+      "unsupported_operations": []
+    }
+  ],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "model_complexity"
+}

@@ -1,0 +1,36 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "checks": [
+    {
+      "check_id": "c4_batch_contract",
+      "detail": {},
+      "ok": true,
+      "summary": "the support batch satisfies the frozen GPAT batch contract"
+    },
+    {
+      "check_id": "c4_conditioning_41d",
+      "detail": {
+        "actual": 41,
+        "expected": 41
+      },
+      "ok": true,
+      "summary": "conditioning is the frozen 41-D vector"
+    },
+    {
+      "check_id": "c4_support_has_interior_and_exterior",
+      "detail": {
+        "support_fraction": 0.25
+      },
+      "ok": true,
+      "summary": "the support mask has both interior and exterior, so the outside-mask invariant is measurable"
+    }
+  ],
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:46.642548Z",
+  "mode": "VALIDATE_SUPPORT",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c4-support-validation-v1",
+  "scientific_eligible": false
+}

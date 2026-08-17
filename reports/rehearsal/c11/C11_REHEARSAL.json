@@ -1,0 +1,378 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: BUILD_PREDICTIONS, LABEL_ISOLATION_AUDIT, PREDICTION_LOCKS, DOUBLE_VALIDATION. No real target inference is performed.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/rehearsal/c11/C11_PREDICTIONS.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c11_prediction_rows_validate",
+          "detail": {
+            "builder": "prism_fas.evaluation.target_prediction (canonical)",
+            "rows": 320,
+            "validation": {
+              "labels_present": false,
+              "prompt_status": [
+                "not_applicable"
+              ],
+              "region_status": [
+                "not_applicable"
+              ],
+              "rows": 320,
+              "unique_sample_ids": 320,
+              "videos": 80
+            }
+          },
+          "ok": true,
+          "summary": "320 prediction rows satisfy the frozen prediction schema"
+        },
+        {
+          "check_id": "c11_prompt_is_not_applicable_at_target",
+          "detail": {
+            "rule": "§12.3 and §13.4.4: the recipe/attack mask does not exist for a real target sample, so a numeric 0.0 would be a fabricated measurement"
+          },
+          "ok": true,
+          "summary": "p_prompt is null on ordinary target frames rather than 0.0"
+        },
+        {
+          "check_id": "c11_region_fields_follow_variant_capability",
+          "detail": {
+            "fuses_region_evidence": {
+              "C-G-LLM": false,
+              "C-R-LLM": false
+            },
+            "note": "v1.5 Track R fuses the region into fused_logit_R rather than into a post-hoc s_region score, and its manifold is OFF, so s_region is null",
+            "rows_with_s_region": 0
+          },
+          "ok": true,
+          "summary": "s_region is written exactly when the variant fuses a regional evidence term"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "BUILD_PREDICTIONS",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C11",
+      "status": "PASS",
+      "substage": "C11",
+      "summary": "C11 build predictions — 3/3 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c11/C11_LABEL_ISOLATION.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c11_no_forbidden_field_in_any_row",
+          "detail": {
+            "forbidden_fields": [
+              "label",
+              "true_label",
+              "label_live_spoof",
+              "true_target",
+              "target",
+              "class_target",
+              "attack_type",
+              "attack_family",
+              "taxonomy",
+              "subject",
+              "subject_id",
+              "session",
+              "session_id",
+              "raw_path",
+              "source_path",
+              "video_path",
+              "ground_truth"
+            ],
+            "found": [],
+            "rows_scanned": 320
+          },
+          "ok": true,
+          "summary": "no prediction row carries a label, attack family, taxonomy or raw path"
+        },
+        {
+          "check_id": "c11_no_class_or_family_token_in_values",
+          "detail": {
+            "found": [],
+            "tokens_checked": [
+              "live",
+              "spoof",
+              "replay",
+              "print",
+              "mask3d",
+              "paper",
+              "silicone"
+            ]
+          },
+          "ok": true,
+          "summary": "no row VALUE spells out a class or attack family"
+        },
+        {
+          "check_id": "c11_video_id_is_opaque",
+          "detail": {
+            "sample": [
+              "C-G-LLM:fixture_video_000",
+              "C-G-LLM:fixture_video_001",
+              "C-G-LLM:fixture_video_002"
+            ]
+          },
+          "ok": true,
+          "summary": "video identifiers are opaque ids rather than filesystem paths"
+        },
+        {
+          "check_id": "c11_decision_is_derived_from_the_score_not_a_label",
+          "detail": {
+            "distinct_decisions": [
+              "live",
+              "spoof"
+            ]
+          },
+          "ok": true,
+          "summary": "each row's decision comes from its own calibrated score and threshold"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "LABEL_ISOLATION_AUDIT",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C11",
+      "status": "PASS",
+      "substage": "C11",
+      "summary": "C11 label isolation audit — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c11/C11_PREDICTION_LOCKSET.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c11_prediction_lock_c_g_llm",
+          "detail": {
+            "lock_keys": [
+              "aggregation",
+              "calibration_hash",
+              "checkpoint_sha256",
+              "code_commit",
+              "engineering_smoke",
+              "experiment_id",
+              "inference_config_hash",
+              "prediction_lock_identity"
+            ],
+            "rows": 160
+          },
+          "ok": true,
+          "summary": "C-G-LLM's prediction lock builds and validates against its own rows"
+        },
+        {
+          "check_id": "c11_prediction_lock_c_r_llm",
+          "detail": {
+            "lock_keys": [
+              "aggregation",
+              "calibration_hash",
+              "checkpoint_sha256",
+              "code_commit",
+              "engineering_smoke",
+              "experiment_id",
+              "inference_config_hash",
+              "prediction_lock_identity"
+            ],
+            "rows": 160
+          },
+          "ok": true,
+          "summary": "C-R-LLM's prediction lock builds and validates against its own rows"
+        },
+        {
+          "check_id": "c11_lock_refuses_mutated_predictions",
+          "detail": {
+            "cases": [
+              {
+                "error": "PredictionLockError: the prediction file does not reproduce its locked logical identity",
+                "field": "decision_score",
+                "refused": true
+              },
+              {
+                "error": "PredictionLockError: the prediction file does not reproduce its locked logical identity",
+                "field": "s_final",
+                "refused": true
+              },
+              {
+                "error": "PredictionLockError: the prediction file does not reproduce its locked logical identity",
+                "field": "confidence",
+                "refused": true
+              },
+              {
+                "error": "PredictionLockError: lock row_count 160 != 159 rows on disk",
+                "field": "row_count",
+                "refused": true
+              }
+            ],
+            "identity_binds": [
+              "sample_id",
+              "video_id",
+              "frame_id",
+              "s_final",
+              "decision_score",
+              "confidence",
+              "decision"
+            ],
+            "rule": "§19.2: predictions are frozen; no optimizer or checkpoint mutation is permitted and the rows may not move under their own lock"
+          },
+          "ok": true,
+          "summary": "changing any locked decision quantity, or dropping a row, invalidates the lock"
+        },
+        {
+          "check_id": "c11_lockset_refuses_engineering_smoke_predictions",
+          "detail": {
+            "builder": "prism_fas.evaluation.target_prediction.build_lockset (canonical)",
+            "consequence": "a smoke run can never produce the artifact that grants the scorer label capability at C12",
+            "locks_offered": 2,
+            "refusal": "M10ContractError: an engineering-smoke prediction may never enter the lockset"
+          },
+          "ok": true,
+          "summary": "the global lockset cannot be built from engineering-smoke prediction locks"
+        },
+        {
+          "check_id": "c11_logical_identity_is_content_addressed",
+          "detail": {
+            "identities": {
+              "C-G-LLM": "fd3efde0ebc185b9",
+              "C-R-LLM": "6190fa1870d9360f"
+            }
+          },
+          "ok": true,
+          "summary": "prediction identity is derived from the rows themselves"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 5,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "PREDICTION_LOCKS",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C11",
+      "status": "PASS",
+      "substage": "C11",
+      "summary": "C11 prediction locks — 5/5 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c11/C11_DOUBLE_VALIDATION.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c11_locks_validated_twice_and_agree",
+          "detail": {
+            "agreed": true,
+            "first_pass": {
+              "C-G-LLM": {
+                "logical_identity": "fd3efde0ebc185b980161d011a5fff4475c45969786861ba6715c8ab3ddd0ac5",
+                "valid": true
+              },
+              "C-R-LLM": {
+                "logical_identity": "6190fa1870d9360ff8ec9c1f3c99e116e2b18b157495c2cc1b2853bd2c7c2f9e",
+                "valid": true
+              }
+            },
+            "rule": "§19.2: create per-row PREDICTION_LOCK and a global TARGET_PREDICTION_LOCKSET; validate twice before label capability is granted to the scorer",
+            "second_pass": {
+              "C-G-LLM": {
+                "logical_identity": "fd3efde0ebc185b980161d011a5fff4475c45969786861ba6715c8ab3ddd0ac5",
+                "valid": true
+              },
+              "C-R-LLM": {
+                "logical_identity": "6190fa1870d9360ff8ec9c1f3c99e116e2b18b157495c2cc1b2853bd2c7c2f9e",
+                "valid": true
+              }
+            }
+          },
+          "ok": true,
+          "summary": "two independent validation passes re-derived identical results"
+        },
+        {
+          "check_id": "c11_no_label_capability_granted_here",
+          "detail": {
+            "label_capability_granted": false,
+            "lockset_present": false,
+            "stage_permission": "G7: target_label_root=deny"
+          },
+          "ok": true,
+          "summary": "C11 grants no label capability; that happens at C12 and only after a real lockset exists"
+        },
+        {
+          "check_id": "c11_resume_is_identity_aware",
+          "detail": {
+            "action": "SKIP_VALID_COMPLETE",
+            "artifact": "C11_PREDICTION_LOCKSET.json",
+            "expected_identity": "c11-prediction-lockset-v1",
+            "identity_matches": true,
+            "present": true,
+            "reason": "the recorded identity validates; the completed unit is reused unchanged (L.11)",
+            "recorded_identity": "c11-prediction-lockset-v1",
+            "resume_requested": true,
+            "unit_id": "c11_prediction_lockset"
+          },
+          "ok": true,
+          "summary": "resume validates the lockset artifact by identity"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "DOUBLE_VALIDATION",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C11",
+      "status": "PASS",
+      "substage": "C11",
+      "summary": "C11 double validation — 3/3 checks passed"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "rehearsal",
+  "finished_at_utc": "2026-08-17T11:02:16.540785Z",
+  "mandatory_full_outputs": "every preregistered P3 prediction artifact by method and seed plus per-row PREDICTION_LOCK and global lockset, C11_ACCEPTANCE",
+  "notes": [],
+  "phase": "target-eval",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C11",
+  "started_at_utc": "2026-08-17T11:02:16.503207Z",
+  "substages": [],
+  "title": "Label-isolated P3 prediction",
+  "validate_checks": [
+    "c11_prediction_schema"
+  ],
+  "validate_gate": "PASS"
+}

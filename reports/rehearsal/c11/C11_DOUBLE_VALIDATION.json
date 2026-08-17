@@ -1,0 +1,32 @@
+{
+  "agreed": true,
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "first_pass": {
+    "C-G-LLM": {
+      "logical_identity": "fd3efde0ebc185b980161d011a5fff4475c45969786861ba6715c8ab3ddd0ac5",
+      "valid": true
+    },
+    "C-R-LLM": {
+      "logical_identity": "6190fa1870d9360ff8ec9c1f3c99e116e2b18b157495c2cc1b2853bd2c7c2f9e",
+      "valid": true
+    }
+  },
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.530518Z",
+  "mode": "DOUBLE_VALIDATION",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c11-double-validation-v1",
+  "scientific_eligible": false,
+  "second_pass": {
+    "C-G-LLM": {
+      "logical_identity": "fd3efde0ebc185b980161d011a5fff4475c45969786861ba6715c8ab3ddd0ac5",
+      "valid": true
+    },
+    "C-R-LLM": {
+      "logical_identity": "6190fa1870d9360ff8ec9c1f3c99e116e2b18b157495c2cc1b2853bd2c7c2f9e",
+      "valid": true
+    }
+  }
+}

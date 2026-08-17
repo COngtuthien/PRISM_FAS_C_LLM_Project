@@ -1,0 +1,20 @@
+{
+  "columns": [
+    "arm",
+    "candidates",
+    "accepted",
+    "rejected",
+    "acceptance_rate",
+    "q_min",
+    "q_median",
+    "q_mean",
+    "q_max",
+    "profile",
+    "failed_gates"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "quality_gate"
+}

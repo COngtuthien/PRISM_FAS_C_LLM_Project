@@ -1,0 +1,268 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:52.374224Z",
+  "meaning": "a constructed shortfall case proving the refusal path executes. It is not a finding about any real arm",
+  "mode": "CARDINALITY_REFUSAL",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c6-cardinality-refusal-v1",
+  "scientific_eligible": false,
+  "selection": {
+    "arm_independence": "the arm identity is not an input to threshold derivation or selection; one common profile applies to RND, DET and LLM and no arm may be relaxed independently (§11.4)",
+    "evaluations": [
+      {
+        "arms": [
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "RND",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "DET",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 300,
+            "accepted_total": 812,
+            "arm": "LLM",
+            "candidates": 2048,
+            "feasible": false,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 212
+          }
+        ],
+        "arms_missing_evidence": [],
+        "every_arm_feasible": false,
+        "profile": "STRICT",
+        "qualifies": false,
+        "reliability_gates_passed": true,
+        "selected": false,
+        "threshold_identity": "bf6468694f6aeaaf3776e7a395f1cdf5975eda163aafbfca1044649847e39cfa",
+        "thresholds": {
+          "tau_fd": 0.55,
+          "tau_fp": 0.45,
+          "tau_id": 0.82,
+          "tau_lm": 0.072,
+          "tau_out": 0.0,
+          "tau_parse": 0.91
+        }
+      },
+      {
+        "arms": [
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "RND",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "DET",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 300,
+            "accepted_total": 812,
+            "arm": "LLM",
+            "candidates": 2048,
+            "feasible": false,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 212
+          }
+        ],
+        "arms_missing_evidence": [],
+        "every_arm_feasible": false,
+        "profile": "NOMINAL",
+        "qualifies": false,
+        "reliability_gates_passed": true,
+        "selected": false,
+        "threshold_identity": "aca13586c80b2ed10bf04aeeb56169c06a81ba530419acfaf82e15c04251f0c9",
+        "thresholds": {
+          "tau_fd": 0.5,
+          "tau_fp": 0.5,
+          "tau_id": 0.8,
+          "tau_lm": 0.08,
+          "tau_out": 0.0,
+          "tau_parse": 0.9
+        }
+      },
+      {
+        "arms": [
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "RND",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 512,
+            "accepted_total": 1024,
+            "arm": "DET",
+            "candidates": 2048,
+            "feasible": true,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 0
+          },
+          {
+            "accepted_gpat": 512,
+            "accepted_physics": 300,
+            "accepted_total": 812,
+            "arm": "LLM",
+            "candidates": 2048,
+            "feasible": false,
+            "required_gpat": 512,
+            "required_physics": 512,
+            "required_total": 1024,
+            "shortfall_gpat": 0,
+            "shortfall_physics": 212
+          }
+        ],
+        "arms_missing_evidence": [],
+        "every_arm_feasible": false,
+        "profile": "PERMISSIVE",
+        "qualifies": false,
+        "reliability_gates_passed": true,
+        "selected": false,
+        "threshold_identity": "384576d975c4ee52f0d21575885d646e4ceb5b26c234dd43f22822c1c0fd52de",
+        "thresholds": {
+          "tau_fd": 0.45,
+          "tau_fp": 0.55,
+          "tau_id": 0.72,
+          "tau_lm": 0.088,
+          "tau_out": 0.0,
+          "tau_parse": 0.81
+        }
+      }
+    ],
+    "failed": true,
+    "failure_reason": "no preregistered profile yields the full matched cardinality in every arm (infeasible under ['STRICT', 'NOMINAL', 'PERMISSIVE']). §11.4: C6 FAILS. The gate is not relaxed for one arm.",
+    "on_failure": "C6 FAILS rather than relaxing the gate for the arm that fell short; rejected candidates remain rejected provenance and are not replaceable by extra renders",
+    "profile_order_strictest_first": [
+      "STRICT",
+      "NOMINAL",
+      "PERMISSIVE"
+    ],
+    "reliability_gates": {},
+    "schema_version": "prism-c6-gate-profile-v1",
+    "selected_profile": null,
+    "selection_rule": "the strictest profile that (i) yields at least 1024 accepted samples in EVERY arm from the frozen 2048 candidates/arm with exactly 512 Physics + 512 GPAT feasible, and (ii) passes all mandatory source-only shortcut/reliability gates (§11.4)"
+  },
+  "shortfall_plan": {
+    "arms": {
+      "DET": {
+        "accepted_gpat": 512,
+        "accepted_physics": 512,
+        "accepted_total": 1024,
+        "arm": "DET",
+        "candidates": 2048,
+        "feasible": true,
+        "final_bank_size": 1024,
+        "gpat": 512,
+        "physics": 512,
+        "required_gpat": 512,
+        "required_physics": 512,
+        "required_total": 1024,
+        "shortfall_gpat": 0,
+        "shortfall_physics": 0
+      },
+      "LLM": {
+        "accepted_gpat": 512,
+        "accepted_physics": 300,
+        "accepted_total": 812,
+        "arm": "LLM",
+        "candidates": 2048,
+        "feasible": false,
+        "final_bank_size": null,
+        "gpat": 512,
+        "physics": 300,
+        "required_gpat": 512,
+        "required_physics": 512,
+        "required_total": 1024,
+        "shortfall_gpat": 0,
+        "shortfall_physics": 212
+      },
+      "RND": {
+        "accepted_gpat": 512,
+        "accepted_physics": 512,
+        "accepted_total": 1024,
+        "arm": "RND",
+        "candidates": 2048,
+        "feasible": true,
+        "final_bank_size": 1024,
+        "gpat": 512,
+        "physics": 512,
+        "required_gpat": 512,
+        "required_physics": 512,
+        "required_total": 1024,
+        "shortfall_gpat": 0,
+        "shortfall_physics": 0
+      }
+    },
+    "cardinality_contract": {
+      "candidates_per_arm": 2048,
+      "final_bank_per_arm": 1024,
+      "gpat_per_arm": 512,
+      "gpat_renders_per_recipe": 4,
+      "physics_per_arm": 512,
+      "physics_renders_per_recipe": 4,
+      "renders_per_recipe": 8
+    },
+    "matched": false,
+    "on_shortfall": "if an arm cannot satisfy its quota under the frozen render budget and the common gate, C6 FAILS (§11.3)",
+    "schema_version": "prism-c6-gate-profile-v1",
+    "selection_basis": "balanced deterministically over source domain, route, recipe coverage and base live IDs (§11.3)"
+  }
+}

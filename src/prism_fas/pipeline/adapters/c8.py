@@ -325,6 +325,32 @@ class C8Adapter(EngineeringAdapter):
             "target_labels_resolved": 0,
         }
         write_artifact(request, destination / "run_manifest.json", manifest)
+
+        # Per-run structured history and compute provenance, beside the manifest.
+        from prism_fas.reporting import complexity as complexity_module
+        from prism_fas.reporting import resources as resources_module
+        from prism_fas.reporting.history import HistoryWriter
+
+        writer = HistoryWriter(path=destination / "train_history.jsonl",
+                               run_identity=row.run_identity)
+        for index, value in enumerate(losses):
+            writer.append(epoch=0, step=index + 1, total_loss=value,
+                          learning_rates=HistoryWriter.group_learning_rates(optimizer),
+                          source_dev={key: value for key, value in metrics.items()
+                                      if isinstance(value, (int, float))}
+                          if index == len(losses) - 1 else None)
+        complexity_payload = complexity_module.profile_model(
+            model, evaluation, name=f"detector_{row.experiment_id}",
+            input_shape=list(evaluation.image.shape))
+        write_artifact(request, destination / "model_complexity.json", complexity_payload)
+        write_artifact(request, destination / "compute_resources.json",
+                       resources_module.resource_record(microbatch_plan=microbatch))
+        write_artifact(request,
+                       stage_reports_dir(request, STAGE_ID) / "C8_COMPUTE_RESOURCES.json",
+                       resources_module.resource_record(microbatch_plan=microbatch))
+        write_artifact(request,
+                       stage_reports_dir(request, STAGE_ID) / "C8_MODEL_COMPLEXITY.json",
+                       complexity_payload)
         return {"row_id": row.row_id, "status": "PASS",
                 "manifest_keys": sorted(manifest),
                 "calibration": manifest["calibration"],

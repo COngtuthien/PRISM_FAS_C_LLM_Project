@@ -1,0 +1,61 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "bootstrap": {
+    "bootstrap_mean_delta": 0.01583344965202067,
+    "bootstrap_plan_identity": "cb85e69b33cb3c60e26067af64fc7a12b22afee6bd7bc472ba13f48d7ca970e3",
+    "bootstrap_std_delta": 0.08488192770169778,
+    "ci_high": 0.17166035353535355,
+    "ci_low": -0.1283286340852131,
+    "confidence_level": 0.95,
+    "interval": "percentile",
+    "n_units": 40,
+    "observed_delta": 0.025000000000000022,
+    "p_value": 0.875,
+    "paired": true,
+    "schema_version": "m10-bootstrap-v1",
+    "seed_material_sha256": "f465b4cbd355249d1d43d3749ee1637de7702a2689bdedbc64671c627b924a9c",
+    "settings": {
+      "confidence_level": 0.95,
+      "resamples": 64,
+      "seed": 20260806,
+      "statistic": "acer_difference",
+      "unit": "video"
+    },
+    "significant_at_alpha": false,
+    "threshold_control": 0.5,
+    "threshold_source": "frozen source_dev calibration of each side",
+    "threshold_treatment": 0.5
+  },
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.824146Z",
+  "holm": {
+    "adjusted": {
+      "C-H1": 0.03,
+      "C-H2": 0.08,
+      "C-H3": 0.2
+    },
+    "alpha": 0.05,
+    "family_size": 3,
+    "policy": "holm_bonferroni",
+    "raw": {
+      "C-H1": 0.01,
+      "C-H2": 0.04,
+      "C-H3": 0.2
+    },
+    "rejected_null": [
+      "C-H1"
+    ]
+  },
+  "mode": "STATISTICS",
+  "plan_agreement": {
+    "bootstrap_plan_identity": "cb85e69b33cb3c60e26067af64fc7a12b22afee6bd7bc472ba13f48d7ca970e3",
+    "identical": true
+  },
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c12-statistics-v1",
+  "scientific_eligible": false,
+  "scientific_meaning": "none; the inputs are fixtures",
+  "shared_videos": 40
+}

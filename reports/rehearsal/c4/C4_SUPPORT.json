@@ -1,0 +1,45 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 64,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 8,
+    "max_wall_clock_seconds": 86400,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "conditioning_dim": 41,
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:46.637273Z",
+  "mode": "PREPARE_SUPPORT",
+  "pairs": 2,
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "recipe_ids": [
+    "00bc1db0b70278fa317656e86420d6fed6510b360e4a70bbc81493ac9c07d5de",
+    "01d19bdb1e036f4b453ae40fa8d7a48c847b1fabb527303c0fbfb3143925fa8a"
+  ],
+  "schema_version": "c4-support-v1",
+  "scientific_eligible": false,
+  "substituted_components": {
+    "identity_embedding": "deterministic stand-in; the frozen AdaFace tower is not resolvable on this machine",
+    "images": "deterministic noise fields, not faces",
+    "pairs": "drawn from the frozen C3 recipe banks rather than from preprocessed source imagery"
+  },
+  "support_bank_identity": "430b4cbf4d41c4630a50ddef8b637aed81be3e800c14dd8ff1345ab7a90d1b55"
+}

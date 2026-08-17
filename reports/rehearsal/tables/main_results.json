@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "experiment_id",
+    "track",
+    "arm",
+    "protocol",
+    "seeds",
+    "video_ACER_mean",
+    "video_ACER_std",
+    "video_BPCER_mean",
+    "APCER_mean",
+    "roc_auc_mean",
+    "eer_mean",
+    "status"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "main_results"
+}

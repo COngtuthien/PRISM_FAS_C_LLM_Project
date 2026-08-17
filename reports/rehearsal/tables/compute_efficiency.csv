@@ -1,0 +1,5 @@
+run,device,gpu_name,effective_batch,physical_microbatch,gradient_accumulation_steps,wall_clock_seconds,steps_per_second,samples_per_second,peak_allocated_mb,peak_reserved_mb
+c4,cpu,,,,,,,,,
+c7,cpu,,,,,,,,,
+c7,cpu,,,,,,,,,
+c8,cpu,,32,32,1,,,,,

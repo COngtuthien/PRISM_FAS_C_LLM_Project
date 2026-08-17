@@ -21,9 +21,18 @@ def test_all_three_profiles_load(repo: Path) -> None:
 
 
 def test_only_full_is_scientifically_eligible(repo: Path) -> None:
+    """L.2's invariant, stated so adding a profile cannot weaken it.
+
+    Written against the profile LIST rather than a hard-coded set: the point is
+    that exactly one profile is eligible however many exist, and a test that
+    enumerated three would have to be edited — and could be edited wrongly — every
+    time a non-eligible profile is added.
+    """
     eligible = {name: load_profile(name, repo=repo).scientific_eligible
                 for name in PROFILE_NAMES}
-    assert eligible == {"validate": False, "smoke": False, "full": True}
+    assert [name for name, value in eligible.items() if value] == ["full"]
+    assert set(eligible) == set(PROFILE_NAMES)
+    assert len(PROFILE_NAMES) >= 4, "validate, smoke, rehearsal and full"
 
 
 def test_only_full_may_select_a_winner(repo: Path) -> None:
@@ -39,8 +48,17 @@ def test_full_declares_the_frozen_selector_as_its_only_winner_path(repo: Path) -
 
 
 def test_namespaces_are_disjoint_per_profile(repo: Path) -> None:
-    reports = {load_profile(name, repo=repo).reports_namespace for name in PROFILE_NAMES}
-    assert reports == {"reports/validate", "reports/smoke", "reports/full"}
+    """Every profile writes somewhere no other profile writes.
+
+    This is what keeps a rehearsal from being mistaken for — or resumed as —
+    scientific evidence, so it is asserted as disjointness rather than as a fixed
+    list of three names.
+    """
+    reports = [load_profile(name, repo=repo).reports_namespace for name in PROFILE_NAMES]
+    assert len(reports) == len(set(reports)), f"namespaces collide: {reports}"
+    for name in PROFILE_NAMES:
+        assert load_profile(name, repo=repo).reports_namespace == f"reports/{name}"
+    assert "reports/rehearsal" in reports
 
 
 def test_validate_claims_no_run_tree(repo: Path) -> None:
@@ -48,7 +66,7 @@ def test_validate_claims_no_run_tree(repo: Path) -> None:
 
 
 def test_non_eligible_profiles_forbid_provider_gpu_and_labels(repo: Path) -> None:
-    for name in ("validate", "smoke"):
+    for name in ("validate", "smoke", "rehearsal"):
         policy = load_profile(name, repo=repo).compute_policy
         assert policy.forbids_live_provider
         assert policy.forbids_target_labels

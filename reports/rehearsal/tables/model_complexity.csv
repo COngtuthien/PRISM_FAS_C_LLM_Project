@@ -1,0 +1,5 @@
+model,total_parameters,trainable_parameters,frozen_parameters,parameter_megabytes,macs,flops,status,unsupported_operations
+gpat_residual_generator,910538,910538,0,3.4734,8114381056,16228762112,COMPLETE,
+detector_track_g,12353,12353,0,0.0471,394240,788480,COMPLETE,
+detector_track_r,3419414,3419414,0,13.044,17547597824,35095195648,PARTIAL,GlobalResponseNorm
+detector_C-G-LLM,12353,12353,0,0.0471,394240,788480,COMPLETE,

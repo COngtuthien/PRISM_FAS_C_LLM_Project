@@ -1,0 +1,140 @@
+# The environment contract: what a host must provide, and which dependency
+# profile the bootstrap is allowed to install on it.
+#
+# The rule this file exists to enforce is in §10 of the closure task: the
+# bootstrap may INSPECT non-secret system information (nvidia-smi, driver, GPU
+# model) and then select an ALREADY-DECLARED profile. It may never perform an
+# open-ended package-version search at execution time. If a host matches no
+# declared profile the run stops with CUDA_ENVIRONMENT_NOT_VALIDATED rather than
+# guessing, and never falls back to CPU for scientific execution.
+#
+# Honesty note carried through every entry below: the accepted C0-C13 evidence
+# was produced on a CPU-only Windows host. The CPU profile is VALIDATED. Every
+# CUDA profile is DECLARED — pinned from the same torch minor and the vendor's
+# published CUDA matrix — and becomes validated only when the external-GPU
+# preflight runs on the real hardware.
+schema_version: "prism-environment-contract-v1"
+
+python:
+  # 3.11 is the floor pyproject already declared. 3.14 is excluded because no
+  # dependency in the constraints file has been tested against it here.
+  minimum: "3.11"
+  maximum_exclusive: "3.14"
+  tested_on: "3.13.11"
+  implementation: CPython
+  on_unsupported: >-
+    stop with a concise actionable message naming the found and required
+    versions. Never install, replace or shim the host interpreter.
+
+virtual_environment:
+  path: .venv
+  # Project-local on purpose: the folder is meant to be copied whole, and a venv
+  # outside the project root would not travel with it.
+  create_with: "python -m venv"
+  pip:
+    minimum: "24.0"
+    upgrade_policy: >-
+      upgrade pip only when it is below the minimum, and only to the latest
+      compatible release. Never upgrade setuptools/wheel opportunistically.
+
+profiles:
+  cpu:
+    id: cpu
+    requirements: requirements/cpu.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cpu"
+    status: VALIDATED
+    validated_by: >-
+      the accepted C0-C13 engineering-readiness evidence: validate PASS (21
+      checks) and smoke PASS (242 adapter checks) on this profile
+    supports: [validate, smoke, CPU_FULL_REHEARSAL, plots, tables, reports,
+               static_model_complexity]
+    supports_scientific_execution: false
+    why_not: >-
+      §L.2 gives the full profile gpu: required. A CPU host may rehearse the
+      implementation; it may not produce scientific evidence.
+
+  cuda-cu129:
+    id: cuda-cu129
+    requirements: requirements/cuda-cu129.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cu129"
+    cuda_tag: cu129
+    status: DECLARED_NOT_VALIDATED_HERE
+    minimum_driver_version: "570.00"
+    compute_capabilities: ["12.0", "10.0", "9.0", "8.9", "8.6", "8.0"]
+    gpu_families: [Blackwell, Hopper, Ada, Ampere]
+    example_gpus: ["NVIDIA GeForce RTX 5090", "NVIDIA GeForce RTX 5080",
+                   "NVIDIA H100", "NVIDIA GeForce RTX 4090"]
+    supports_scientific_execution: true
+    note: >-
+      Blackwell is sm_120 and needs a wheel built with those kernels. Selecting
+      an older CUDA tag on a 50-series card imports cleanly and then fails at the
+      first kernel launch, after the data is loaded.
+
+  cuda-cu126:
+    id: cuda-cu126
+    requirements: requirements/cuda-cu126.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cu126"
+    cuda_tag: cu126
+    status: DECLARED_NOT_VALIDATED_HERE
+    minimum_driver_version: "525.60"
+    compute_capabilities: ["9.0", "8.9", "8.6", "8.0", "7.5"]
+    gpu_families: [Hopper, Ada, Ampere, Turing]
+    example_gpus: ["NVIDIA GeForce RTX 4090", "NVIDIA A100", "NVIDIA RTX A6000"]
+    supports_scientific_execution: true
+
+# What must actually import before an existing .venv is adopted as ready.
+#
+# §8 requires verifying an existing environment's identity before using it. A
+# hash over requirement bytes proves what was ASKED for; these groups prove what
+# is actually IMPORTABLE, which is the thing that fails at run time.
+#
+# The groups are separated because they gate different intents. A CPU rehearsal
+# substitutes a fixture SigLIP2 tower and never touches ONNX preprocessing, so it
+# does not need `science_only`; the full scientific profile does.
+import_checks:
+  core: [torch, numpy, yaml, pydantic, pyarrow, PIL, cv2, timm, scipy, pandas]
+  reporting: [matplotlib]
+  science_only: [transformers, onnxruntime]
+  required_for_rehearsal: [core, reporting]
+  required_for_science: [core, reporting, science_only]
+
+# How a detected GPU is matched to a profile. Ordered: the first profile whose
+# family matches AND whose minimum driver is satisfied wins. No other rule.
+selection:
+  order: [cuda-cu129, cuda-cu126]
+  match_on: [gpu_family, compute_capability, driver_version]
+  cpu_fallback_for_bootstrap: true
+  cpu_fallback_for_science: false
+  on_no_match: CUDA_ENVIRONMENT_NOT_VALIDATED
+  on_no_match_action: >-
+    stop and print the detected GPU name, driver, compute capability and every
+    declared profile with its requirement, so the operator can either install a
+    supported driver or extend this contract deliberately.
+
+# Family inference from the reported GPU name. Deliberately conservative: an
+# unrecognised name yields UNKNOWN and UNKNOWN matches no profile.
+family_patterns:
+  Blackwell: ["RTX 50", "RTX PRO 6000", "B200", "GB200"]
+  Hopper: ["H100", "H200", "H800"]
+  Ada: ["RTX 40", "L40", "L4", "RTX 6000 Ada"]
+  Ampere: ["RTX 30", "A100", "A40", "A30", "A10", "RTX A"]
+  Turing: ["RTX 20", "T4", "GTX 16", "Quadro RTX"]
+
+network:
+  bootstrap_requires_network: true
+  training_requires_network: false
+  after_bootstrap: >-
+    the installed environment is recorded in state/ENVIRONMENT_MANIFEST.json and
+    a matching identity skips installation entirely, so later runs contact no
+    package index.
+  offline_wheelhouse:
+    path: vendor/wheels
+    optional: true
+    status: NOT_PREPARED
+    note: >-
+      if a wheelhouse is present the bootstrap installs from it with
+      --no-index --find-links, which removes the last network requirement.
+      Multi-GB wheels are never committed to Git.

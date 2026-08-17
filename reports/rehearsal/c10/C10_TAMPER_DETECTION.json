@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.501876Z",
+  "identities": {
+    "after_added_file": "2c7ee13158d549e8d042fa338b81c111d5fcb126208e84eeb995fe8159d2916a",
+    "after_edited_file": "eefbe49811c3393727d424d79f83e5022d82d6a9e596b6cc008c03ed4f7d7204",
+    "after_restore": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b",
+    "baseline": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b"
+  },
+  "mode": "TAMPER_DETECTION",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c10-tamper-detection-v1",
+  "scientific_eligible": false
+}

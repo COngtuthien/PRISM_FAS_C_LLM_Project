@@ -165,10 +165,10 @@
   "engineering_only": true,
   "execution_profile": "smoke",
   "expansion_policy": "expanding a candidate set or starting a second pass is USER_APPROVAL_REQUIRED (§15.2.2)",
-  "finished_at_utc": "2026-08-17T04:30:10.003621Z",
+  "finished_at_utc": "2026-08-17T08:23:33.087772Z",
   "finite_valid_trials": 9,
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T04:30:10.004197Z",
+  "generated_at_utc": "2026-08-17T08:23:33.088409Z",
   "leaderboard": [
     {
       "artifacts": [],
@@ -445,7 +445,7 @@
     "low_frequency_geometry_drift",
     "outside_mask_error"
   ],
-  "started_at_utc": "2026-08-17T04:30:05.689661Z",
+  "started_at_utc": "2026-08-17T08:23:27.869664Z",
   "status": "COMPLETED",
   "tie_break": "canonical_config_sha256_ascending",
   "tie_break_trace": [

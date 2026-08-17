@@ -1,0 +1,13 @@
+# Compatibility entrypoint.
+#
+# The real manifests live in requirements/. This file exists because `pip install
+# -r requirements.txt` is what people type, and pointing it at the CPU profile is
+# the safe default: it installs everything needed to import the project, run
+# validate/smoke/rehearsal and produce plots, tables and reports on any host.
+#
+# For a CUDA host use the hardware profile instead:
+#     pip install -r requirements/cuda-cu129.txt
+#
+# Normally you do not run pip at all. `python train.py` bootstraps the correct
+# profile itself.
+-r requirements/cpu.txt

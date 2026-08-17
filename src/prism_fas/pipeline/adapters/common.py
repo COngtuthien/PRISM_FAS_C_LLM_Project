@@ -280,7 +280,12 @@ class EngineeringAdapter:
         what makes "smoke is not scientific completion" structural.
         """
         failed = [item for item in checks if not item["ok"]]
-        smoke = request.profile.name == "smoke"
+        # L.3 fixes the engineering vocabulary at NOT_TESTED | RUNNING | SMOKE_PASS
+        # | SMOKE_FAIL | BLOCKED. Both `smoke` and `rehearsal` are non-eligible
+        # profiles that EXECUTE the code path, which is exactly what SMOKE_PASS
+        # describes. Inventing a sixth value for the rehearsal would edit a frozen
+        # vocabulary; leaving it NOT_TESTED would claim the path was never run.
+        smoke = request.profile.name in ("smoke", "rehearsal")
         status = "PASS" if not failed else ("FAIL" if smoke else "BLOCKED")
         engineering = ("SMOKE_PASS" if smoke and not failed else
                        "SMOKE_FAIL" if smoke else

@@ -344,9 +344,12 @@ class C4Adapter(EngineeringAdapter):
                              "machine; the PATH is exercised, the VALUE is not a "
                              "measurement of identity preservation"))
 
+        # The optimizer is built from the model's own parameter groups so the
+        # three inherited learning rates are the ones actually applied — and so
+        # the recorded LR curve has a row per group rather than one number that
+        # silently belongs to whichever group came first.
         optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=float(config.get("optimizer", {}).get("generator_lr", 2e-4)),
+            model.parameter_groups(config),
             weight_decay=float(config.get("optimizer", {}).get("weight_decay", 1e-4)))
         optimizer.zero_grad(set_to_none=True)
         total.backward()
@@ -386,7 +389,11 @@ class C4Adapter(EngineeringAdapter):
 
         payload = load_checkpoint(checkpoint_path, expected_identity=identity)
         reloaded = build_gpat_model(config)
-        restored = torch.optim.AdamW(reloaded.parameters())
+        # Rebuilt from the model's parameter groups, not from a flat
+        # `.parameters()`: the saved optimizer state has one group per inherited
+        # learning rate, and a single-group optimizer cannot load it. Resuming a
+        # real run would hit this on the first restart.
+        restored = torch.optim.AdamW(reloaded.parameter_groups(config))
         apply_checkpoint(payload, model=reloaded, optimizer=restored)
         identical = bool(torch.equal(next(reloaded.parameters()).detach(),
                                      next(model.parameters()).detach()))
@@ -411,6 +418,52 @@ class C4Adapter(EngineeringAdapter):
             "c4_checkpoint_portable", portability["portable"],
             "the checkpoint record carries no unrecoverable machine dependency",
             **portability))
+
+        # --- structured evidence for the reporting layer ---------------------
+        #
+        # Written here, during the run, because a figure that can only be
+        # produced by re-running the job is not evidence. The history is append
+        # only and lives beside the checkpoint.
+        from prism_fas.reporting import complexity as complexity_module
+        from prism_fas.reporting import resources as resources_module
+        from prism_fas.reporting.history import HistoryWriter
+
+        writer = HistoryWriter(path=destination / "train_history.jsonl",
+                               run_identity=identity["architecture_hash"])
+        writer.append(
+            epoch=0, step=1, total_loss=float(total.detach()),
+            losses={name: float(value.detach())
+                    for name, value in losses.components.items()},
+            learning_rates=HistoryWriter.group_learning_rates(optimizer),
+            invariants={"ll_invariant_error": ll_error,
+                        "outside_mask_error": outside_error},
+            selection_tuple={"neutral_support_validation_objective":
+                             float(total.detach()),
+                             "low_frequency_geometry_drift": ll_error,
+                             "outside_mask_error": outside_error})
+
+        profile = complexity_module.profile_model(
+            model, batch, name="gpat_residual_generator",
+            input_shape=list(batch.live_image.shape),
+            forward=lambda m, b: m.forward_batch(b))
+        write_artifact(request, reports / "C4_MODEL_COMPLEXITY.json", profile)
+
+        inference = resources_module.benchmark_inference(
+            model, batch, batch_size=batch.batch_size,
+            input_resolution=list(batch.live_image.shape[-2:]),
+            forward=lambda m, b: m.forward_batch(b))
+        write_artifact(request, reports / "C4_COMPUTE_RESOURCES.json",
+                       resources_module.resource_record(inference=inference))
+        checks.append(check(
+            "c4_complexity_and_resources_recorded",
+            profile["total_parameters"] > 0 and writer.rows > 0,
+            "model complexity, compute resources and a structured history row were "
+            "written for this run",
+            total_parameters=profile["total_parameters"],
+            macs_status=profile["complexity"]["status"],
+            history_rows=writer.rows,
+            inference_status=inference["status"],
+            selection_input=False))
 
         artifact = write_artifact(request, reports / "C4_GPAT_SMOKE.json", {
             "schema_version": "c4-gpat-smoke-v1", "generated_at_utc": utc(),

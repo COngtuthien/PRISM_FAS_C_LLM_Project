@@ -13,8 +13,8 @@ authoritative_spec:
   canonical_location_per_spec_M1: docs/specs/   # deviation recorded; move planned
 
 repository:
-  branch: pre-gpu-scientific-decision
-  previous_branch: c4-c13-engineering-readiness    # engineering readiness at f8d5a5f
+  branch: portable-one-command-full-run
+  previous_branch: pre-gpu-scientific-decision     # LR decision dossier at 758fbe4
   branch_point: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # the accepted C3 scientific checkpoint
   latest_accepted_checkpoint: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # C3 banks frozen
   origin: https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git
@@ -28,9 +28,9 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: PRE_GPU_SCIENTIFIC_DECISION_CLOSURE
-current_substage: learning-rate anchor audit and external-GPU handoff — COMPLETE
-execution_profile: none   # this milestone ran no execution profile; it is an audit
+current_milestone: PORTABLE_ONE_COMMAND_EXECUTION_CLOSURE
+current_substage: portable one-folder runner, bootstrap and reporting — COMPLETE
+execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
 # SCOPE WARNING. The two axes below say different things and are easy to conflate.
@@ -130,7 +130,7 @@ c4_to_c13_engineering_readiness:
 
 # --- pre-GPU scientific decision closure (this milestone) --------------------
 pre_gpu_scientific_decision:
-  status: DOSSIER_COMPLETE_AWAITING_USER_APPROVAL
+  status: DOSSIER_COMPLETE_DECISION_APPROVED
   is_scientific_execution: false
   branch: pre-gpu-scientific-decision
   branched_from: f8d5a5fab9f253c61399cda5f4031f4b4af0e68c
@@ -138,7 +138,7 @@ pre_gpu_scientific_decision:
   dossier_identity: 5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1
   dossier_markdown: reports/handoff/LR_ANCHOR_DECISION_DOSSIER.md
 
-  learning_rate_decision: AWAITING_USER_APPROVAL
+  learning_rate_decision: APPROVED   # superseded by portable_execution above
 
   # What the forensic audit established, from code and byte-comparison rather
   # than from config names.
@@ -177,8 +177,8 @@ pre_gpu_scientific_decision:
     track_g: ALREADY_IMPLIED_BY_FROZEN_SPEC
 
   recommendation: B_common_multiplier   # for C4 and C7 Track R; RECOMMENDATION_ONLY
-  recommendation_implemented: false
-  search_plans_unchanged: true
+  recommendation_implemented: true    # approved and frozen; see portable_execution
+  search_plans_unchanged: false      # both identities superseded by the approved decision
   consequence_if_approved: >-
     both frozen plan identities change. c4_gpat_coordinate_v1 ab77e964... and
     c7_detector_coordinate_v1 62d00225... were built with learning_rate AMBIGUOUS
@@ -191,6 +191,88 @@ pre_gpu_scientific_decision:
   real_target_access: 0
   datasets_opened: 0
   weights_hashed_not_loaded: 5
+
+# --- portable one-command execution closure (this milestone) -----------------
+portable_execution:
+  status: READY
+  branch: portable-one-command-full-run
+  normal_user_command: "python train.py"
+  zero_argument_runner: READY
+  dependency_bootstrap: READY
+  cpu_rehearsal_mode: READY
+  gpu_scientific_auto_mode: READY_NOT_EXECUTED
+  compute_profiling: READY_NOT_GPU_VALIDATED
+  plot_table_report_generation: READY
+  auto_resume: READY
+  one_folder_portability: READY
+
+  learning_rate_decision: APPROVED
+  lr_c4: B_common_multiplier                # anchor vector 2e-4 : 1e-4 : 2e-4, ratio 2:1:2
+  lr_c7_track_r: B_common_multiplier        # anchor vector 1e-5 : 1e-4, ratio 1:10
+  lr_c7_track_g: head_lr_unique_applicable_anchor
+  lr_decision_config: configs/search/lr_anchor_decision.yaml
+  lr_decision_identity: 7ef3492263507d4399828089bbe1af79438bc892e50c8ad732585c1d40c8397c
+  lr_decision_record: reports/handoff/LR_ANCHOR_DECISION_RECORD.json
+  lr_dossier_preserved: reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json
+
+  frozen_search_plans:
+    c4: {identity: 71bfff29bfe1e7ba71d083831a0337a6ae6e0dcfc7f7a75eb9e6f3f3a4ac2b6a, trials: 12}
+    c7_track_r: {identity: d671eb002ea3262f2b193ee010db33694cbf031e2bcfbabb73f187c94c46cba3, trials: 24}
+    c7_track_g: {identity: e42e91de37621b0d3b18ab910196bf870763a2b34f81bdd1e2c985107a42943b, trials: 12}
+  superseded_pre_decision_plans:
+    c4: ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec
+    c7: 62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b
+
+  new_components:
+    - bootstrap.py                                  # stdlib-only; a test asserts it
+    - train.py                                      # thin zero-argument entrypoint
+    - configs/environment/environment_contract.yaml # python range + declared CUDA profiles
+    - configs/execution/rehearsal.yaml              # CPU_FULL_REHEARSAL profile
+    - configs/search/lr_anchor_decision.yaml        # the approved LR decision
+    - requirements/{base,cpu,cuda-cu129,cuda-cu126,dev,constraints}.txt
+    - src/prism_fas/pipeline/runner.py              # intent resolution and preflight
+    - src/prism_fas/pipeline/assets.py              # portable asset manifest
+    - src/prism_fas/reporting/                      # complexity, resources, history,
+                                                    # plots, tables, report, bundle
+    - src/prism_fas/search/lr_decision.py           # the approved interpretation
+
+  zero_argument_run:
+    command: "python train.py"
+    resolved_intent: CPU_FULL_REHEARSAL
+    outcome: PASS
+    stages: 14
+    engineering_status_per_stage: SMOKE_PASS
+    scientific_status_per_stage: NOT_RUN
+    reports_namespace: reports/rehearsal
+    runs_namespace: runs/rehearsal
+    plots_written: 4
+    tables_written: 9
+    report_html: reports/rehearsal/final/report.html
+    scientific_outputs_modified: 0
+    real_target_access: 0
+
+  output_audit_matrix:
+    artifact: reports/handoff/OUTPUT_AUDIT_MATRIX.json
+    stages_covered: 10        # C4..C13
+    missing_writers: 0
+
+  environment:
+    manifest: state/ENVIRONMENT_MANIFEST.json
+    profile_id: cpu
+    profile_status: VALIDATED
+    cuda_profiles_status: DECLARED_NOT_VALIDATED_HERE
+    supported_python: ">=3.11,<3.14"
+    tested_python: "3.13.11"
+
+  pinned_weights_verified: 5   # SigLIP2 (7 files), ConvNeXt, AdaFace, SCRFD, FaceXFormer
+  bundle_ready_for_cpu_rehearsal: true
+  bundle_ready_for_gpu_science: false   # the derived data trees are absent here
+
+  gpu_seconds: 0
+  modal_usage: 0
+  gemini_calls: 0
+  real_target_access: 0
+  scientific_training_runs: 0
 
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
@@ -562,14 +644,12 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER APPROVAL of the C4 and C7 learning-rate anchor interpretation, from
-  reports/handoff/LR_ANCHOR_DECISION_DOSSIER.json (identity
-  5997bdcc23927777f2dc66cc48cc51aa7c363a4d8a0cd551137de196f5366ce1), before the
-  external-GPU scientific search plans are frozen. Three legal interpretations are costed
-  for C4 and for C7 Track R; B_common_multiplier is recommended for both, and Track G
-  needs no decision because head_lr is already its unique inherited anchor. Approving any
-  interpretation supersedes both current search-plan identities. No C4-C13 scientific
-  execution, GPU allocation, Modal spend, target access or Gemini call is authorized.
+  USER REVIEW of the portable pre-full checkpoint before optionally testing
+  `python train.py` on the local CPU laptop or transferring the complete folder to the
+  external CUDA GPU. The runner resolves CPU_FULL_REHEARSAL here and passes end to end;
+  on a compatible CUDA host the same command resolves GPU_SCIENTIFIC_FULL starting at C4.
+  No C4-C13 scientific execution, GPU allocation, Modal spend, target access or Gemini
+  call has been performed or is authorized.
 
-last_updated_utc: 2026-08-17   # pre-GPU learning-rate anchor audit and handoff preparation
+last_updated_utc: 2026-08-17   # portable one-command execution closure
 ```

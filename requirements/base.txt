@@ -1,0 +1,36 @@
+# Hardware-independent runtime dependencies.
+#
+# Every package here is imported by src/prism_fas on a path that C0-C13 can
+# reach. The list was produced by walking the real import graph with ast, not by
+# transcribing pyproject, because pyproject declared only four of them while the
+# code imports fifteen.
+#
+# Install with the shared constraints:
+#     pip install -r requirements/base.txt -c requirements/constraints.txt
+#
+# torch and torchvision are NOT here. They come from the hardware profile.
+-c constraints.txt
+
+# --- data model, configuration and serialization -------------------------
+pydantic
+PyYAML
+pyarrow
+typer
+
+# --- numerics -------------------------------------------------------------
+numpy
+scipy
+pandas
+
+# --- imaging --------------------------------------------------------------
+pillow                      # prism_fas.data.loader.transforms
+opencv-python-headless      # 18 modules; headless avoids a GUI toolkit on servers
+
+# --- model zoo ------------------------------------------------------------
+timm                        # ConvNeXt V2 Atto, the Track-R local branch
+transformers                # the frozen SigLIP2 tower (prism_fas.detector.pretrained)
+safetensors                 # the pinned weight format
+huggingface_hub             # revision-pinned resolution of the cached weights
+
+# --- plotting and reporting ----------------------------------------------
+matplotlib                  # every figure under reports/*/plots; Agg backend only

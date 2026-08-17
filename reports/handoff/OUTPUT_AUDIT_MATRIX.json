@@ -1,0 +1,227 @@
+{
+  "complete": true,
+  "final_report_present": true,
+  "missing_writers": [],
+  "note": "computed from the artifacts a rehearsal produced, not from the stage pass/fail flags. A stage can pass every check and still write nothing",
+  "plots_written": [
+    "learning_rate.png",
+    "loss_components.png",
+    "source_dev_metrics.png",
+    "training_loss.png"
+  ],
+  "profile": "rehearsal",
+  "schema_version": "prism-output-audit-matrix-v1",
+  "stages": [
+    {
+      "artifacts": [
+        "C4_COMPUTE_RESOURCES.json",
+        "C4_ENGINEERING_CONFIG_RECORD.json",
+        "C4_GPAT_SMOKE.json",
+        "C4_MODEL_COMPLEXITY.json",
+        "C4_REHEARSAL.json",
+        "C4_SEARCH_STATE.json",
+        "C4_SOURCE_SEARCH.json",
+        "C4_SUPPORT.json",
+        "C4_SUPPORT_VALIDATION.json"
+      ],
+      "checkpoint": true,
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": true,
+      "selection_evidence": true,
+      "stage": "C4",
+      "training_outputs": true,
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C5_CANDIDATE_IDENTITIES.json",
+        "C5_FAILURES.json",
+        "C5_GPAT_RENDERS.json",
+        "C5_PHYSICS_RENDERS.json",
+        "C5_RECIPES.json",
+        "C5_REHEARSAL.json",
+        "C5_ROUTES.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C5",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C6_CARDINALITY_REFUSAL.json",
+        "C6_GATE_DECISIONS.json",
+        "C6_MATCHED_BANKS.json",
+        "C6_PROFILE_SELECTION.json",
+        "C6_REHEARSAL.json",
+        "C6_RELIABILITY.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C6",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C7_CALIBRATION_GUARDS.json",
+        "C7_DECISION_AUDIT.json",
+        "C7_REHEARSAL.json",
+        "C7_SEARCH_STATE.json",
+        "C7_SOURCE_SEARCH.json",
+        "C7_TRACK_G_COMPUTE_RESOURCES.json",
+        "C7_TRACK_G_MODEL_COMPLEXITY.json",
+        "C7_TRACK_G_READINESS.json",
+        "C7_TRACK_R_COMPUTE_RESOURCES.json",
+        "C7_TRACK_R_MODEL_COMPLEXITY.json",
+        "C7_TRACK_R_READINESS.json",
+        "C7_VARIANT_MATRIX_AUDIT.json"
+      ],
+      "checkpoint": true,
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": true,
+      "selection_evidence": true,
+      "stage": "C7",
+      "training_outputs": true,
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C8_COMPUTE_RESOURCES.json",
+        "C8_EXECUTED_ROWS.json",
+        "C8_MATRIX_PLAN.json",
+        "C8_MODEL_COMPLEXITY.json",
+        "C8_REHEARSAL.json",
+        "C8_SCHEDULE.json",
+        "C8_TARGET_ISOLATION.json"
+      ],
+      "checkpoint": true,
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": true,
+      "selection_evidence": true,
+      "stage": "C8",
+      "training_outputs": true,
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C9_LOCK_VALIDATION.json",
+        "C9_REFUSAL_CASES.json",
+        "C9_REHEARSAL.json",
+        "C9_SOURCE_MATRIX_LOCK.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C9",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C10_FIREWALL.json",
+        "C10_FIXTURE_PACKAGE.json",
+        "C10_PACKAGE_IDENTITY.json",
+        "C10_REHEARSAL.json",
+        "C10_TAMPER_DETECTION.json",
+        "C10_TARGET_LOCK.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C10",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C11_DOUBLE_VALIDATION.json",
+        "C11_LABEL_ISOLATION.json",
+        "C11_PREDICTION_LOCKSET.json",
+        "C11_PREDICTION_ROWS.json",
+        "C11_PREDICTIONS.json",
+        "C11_REHEARSAL.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C11",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C12_DRY_RUN.json",
+        "C12_NO_FEEDBACK.json",
+        "C12_REHEARSAL.json",
+        "C12_SCORER_ISOLATION.json",
+        "C12_SCORING.json",
+        "C12_STATISTICS.json",
+        "fixture_labels.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C12",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    },
+    {
+      "artifacts": [
+        "C13_ACCEPTANCE_MATRIX.json",
+        "C13_ARTIFACT_INTEGRITY.json",
+        "C13_CLAIM_POLICY.json",
+        "C13_FINAL_REPORT.json",
+        "C13_NEGATIVE_PRESERVATION.json",
+        "C13_REHEARSAL.json"
+      ],
+      "checkpoint": "N/A",
+      "locks": true,
+      "master_index_entry": true,
+      "raw_evidence": true,
+      "resource_metrics": "N/A",
+      "selection_evidence": true,
+      "stage": "C13",
+      "training_outputs": "N/A",
+      "validation_metrics": true
+    }
+  ],
+  "tables_written": [
+    "compute_efficiency",
+    "hypothesis_tests",
+    "main_results",
+    "model_complexity",
+    "per_seed_results",
+    "quality_gate",
+    "recipe_bank_analysis",
+    "source_matrix",
+    "target_results"
+  ]
+}

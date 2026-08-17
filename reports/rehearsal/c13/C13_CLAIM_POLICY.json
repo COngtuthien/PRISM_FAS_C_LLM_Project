@@ -1,0 +1,39 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "cases": [
+    {
+      "agrees": true,
+      "expected": true,
+      "may_claim": true,
+      "role": "hypothesis_critical"
+    },
+    {
+      "agrees": true,
+      "expected": true,
+      "may_claim": true,
+      "role": "spec_mandated"
+    },
+    {
+      "agrees": true,
+      "expected": false,
+      "may_claim": false,
+      "role": "diagnostic"
+    },
+    {
+      "agrees": true,
+      "expected": false,
+      "may_claim": false,
+      "role": "parity"
+    }
+  ],
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.852966Z",
+  "mode": "CLAIM_POLICY",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_may_claim": false,
+  "schema_version": "c13-claim-policy-v1",
+  "scientific_eligible": false,
+  "single_seed_comparison_refused": true
+}

@@ -1,0 +1,44 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.478938Z",
+  "is_scientific_lock": false,
+  "label_capability": {
+    "granted_after": "prediction lockset",
+    "granted_to": [
+      "G8"
+    ]
+  },
+  "lock_identity": "ca617c0141a3a6867337a9d3c84747b7622d305445e7b4e7d37a0e53247c716b",
+  "mode": "TARGET_LOCK",
+  "permissions": {
+    "G7": {
+      "prediction_root": "write",
+      "source_package_root": "deny",
+      "target_feature_root": "read",
+      "target_label_root": "deny"
+    },
+    "G8": {
+      "prediction_root": "read",
+      "source_package_root": "deny",
+      "target_feature_root": "deny",
+      "target_label_root": "read"
+    },
+    "TRAIN": {
+      "prediction_root": "deny",
+      "source_package_root": "read",
+      "target_feature_root": "deny",
+      "target_label_root": "deny"
+    }
+  },
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "protocol": "P3",
+  "schema_version": "c10-target-lock-v1",
+  "scientific_eligible": false,
+  "target": "siw_mv2_v2",
+  "target_feature_package_identity": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b",
+  "target_package_id": "fixture_target_eval",
+  "why_not": "built over a fixture package; the scientific target lock is built at C10 under the full profile against the real read-only mount"
+}

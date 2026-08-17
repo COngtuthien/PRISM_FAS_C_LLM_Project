@@ -53,6 +53,7 @@ reports/*
 # survive in Git rather than only on the machine that produced it.
 !reports/validate/
 !reports/smoke/
+!reports/rehearsal/
 !reports/full/
 # The GPU-handoff checkpoint. It is the document the collaborator's machine
 # starts from, so it has to arrive with the clone rather than live only here.
@@ -65,6 +66,13 @@ reports/c*/**/raw_responses/
 # response archives above: the table is provenance held on disk and referenced by
 # its logical identity, and the committed summary carries that identity.
 reports/*/c11/C11_PREDICTION_ROWS.json
+# Generated figures are reproducible from the stored history and are not
+# committed; the evidence they draw from is.
+reports/*/plots/*.png
+# The resolved environment is a property of whichever machine ran the
+# bootstrap, not of the science. It is rebuilt on the first run wherever the
+# folder lands, so committing one machine's copy would only mislead.
+state/ENVIRONMENT_MANIFEST.json
 reports/c*/**/*.parquet
 reports/c*/**/*.tar
 reports/c*/**/*.npz
@@ -75,15 +83,19 @@ reports/c*/**/*.png
 # literal characters.
 reports/validate/**/raw_responses/
 reports/smoke/**/raw_responses/
+reports/rehearsal/**/raw_responses/
 reports/full/**/raw_responses/
 reports/validate/**/logs/
 reports/smoke/**/logs/
+reports/rehearsal/**/logs/
 reports/full/**/logs/
 reports/validate/**/*.parquet
 reports/smoke/**/*.parquet
+reports/rehearsal/**/*.parquet
 reports/full/**/*.parquet
 reports/validate/**/*.npz
 reports/smoke/**/*.npz
+reports/rehearsal/**/*.npz
 reports/full/**/*.npz
 reports/validate/**/*.png
 reports/smoke/**/*.png

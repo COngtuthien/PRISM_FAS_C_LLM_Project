@@ -1,0 +1,394 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: ACCEPTANCE_MATRIX, NEGATIVE_PRESERVATION, ARTIFACT_INTEGRITY, CLAIM_POLICY, FINAL_REPORT. It refuses acceptance while any milestone is scientifically incomplete.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/rehearsal/c13/C13_ACCEPTANCE_MATRIX.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c13_refuses_acceptance_while_upstream_is_incomplete",
+          "detail": {
+            "complete": [
+              "C0",
+              "C1",
+              "C2",
+              "C3"
+            ],
+            "not_scientifically_complete": [
+              "C10",
+              "C11",
+              "C12",
+              "C4",
+              "C5",
+              "C6",
+              "C7",
+              "C8",
+              "C9"
+            ],
+            "refusal_reason": "scientific completion is missing for ['C10', 'C11', 'C12', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']. C13 cannot declare Version C accepted while any required milestone has scientific_status != PASS under the full profile (L.3, §25)"
+          },
+          "ok": true,
+          "summary": "C13 declines to declare Version C accepted; C4-C12 have never run under the full profile"
+        },
+        {
+          "check_id": "c13_completion_is_read_from_evidence_not_from_a_status_field",
+          "detail": {
+            "c3_evidence": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+            "later_stage_evidence": "reports/full/<stage>/<STAGE>_ACCEPTANCE.json",
+            "rule": "a status field can be edited; a frozen lock whose identity reproduces cannot"
+          },
+          "ok": true,
+          "summary": "each milestone's completion was determined by looking for the artifact it would have produced"
+        },
+        {
+          "check_id": "c13_smoke_profile_cannot_declare_acceptance",
+          "detail": {
+            "profile": "rehearsal",
+            "scientific_eligible": false
+          },
+          "ok": true,
+          "summary": "a non-eligible profile could not declare acceptance even if every milestone were complete"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "ACCEPTANCE_MATRIX",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "status": "PASS",
+      "substage": "C13",
+      "summary": "C13 acceptance matrix — 3/3 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c13/C13_NEGATIVE_PRESERVATION.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c13_master_index_retains_every_status",
+          "detail": {
+            "by_status": {
+              "BLOCKED": 2,
+              "PASS": 509,
+              "SKIPPED_VALID": 10
+            },
+            "non_pass_rows": 2,
+            "rows": 521
+          },
+          "ok": true,
+          "summary": "the master index still carries every recorded run, whatever its outcome"
+        },
+        {
+          "check_id": "c13_historical_negative_result_preserved",
+          "detail": {
+            "artifact": "reports/c2b/C2B_ACCEPTANCE.json",
+            "rule": "§25 and L.8: negative results are preserved; a negative result is evidence and is never rewritten to look better"
+          },
+          "ok": true,
+          "summary": "the C2B BATCH_SHAPE_FAIL outcome is still recorded unchanged"
+        },
+        {
+          "check_id": "c13_blocked_rows_remain_addressable",
+          "detail": {
+            "blocked_rows": 2,
+            "sample": [
+              {
+                "notes": "AdapterError: a mock binding needs a scripted provider; pass options['mock_provi",
+                "run_id": "smoke-20260817T031255Z-a2f9d93c:C3"
+              },
+              {
+                "notes": "AdapterError: a mock binding needs a scripted provider; pass options['mock_provi",
+                "run_id": "rehearsal-20260817T082623Z-41a1518e:C3"
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "blocked rows keep their own row and reason in the index"
+        },
+        {
+          "check_id": "c13_no_row_claims_unearned_eligibility",
+          "detail": {
+            "rows_claiming_eligibility": 1
+          },
+          "ok": true,
+          "summary": "no index row claims scientific eligibility under a non-full profile"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "NEGATIVE_PRESERVATION",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "status": "PASS",
+      "substage": "C13",
+      "summary": "C13 negative preservation — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c13/C13_ARTIFACT_INTEGRITY.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c13_frozen_bank_identities_reproduce",
+          "detail": {
+            "arms": {
+              "DET": {
+                "matches": true,
+                "recomputed": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+                "recorded": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9"
+              },
+              "LLM": {
+                "matches": true,
+                "recomputed": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+                "recorded": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59"
+              },
+              "RND": {
+                "matches": true,
+                "recomputed": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+                "recorded": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+              }
+            },
+            "problems": []
+          },
+          "ok": true,
+          "summary": "every frozen C3 bank identity recomputes from its own declared material"
+        },
+        {
+          "check_id": "c13_bank_bytes_are_intact",
+          "detail": {
+            "arms": {
+              "det": {
+                "exists": true,
+                "lf_only": true,
+                "lines": 256
+              },
+              "llm": {
+                "exists": true,
+                "lf_only": true,
+                "lines": 256
+              },
+              "rnd": {
+                "exists": true,
+                "lf_only": true,
+                "lines": 256
+              }
+            },
+            "note": "the bytes are hashed, so a CRLF checkout would produce a different identity for the same logical content"
+          },
+          "ok": true,
+          "summary": "each frozen bank is 256 LF-terminated lines"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 2,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "ARTIFACT_INTEGRITY",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "status": "PASS",
+      "substage": "C13",
+      "summary": "C13 artifact integrity — 2/2 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c13/C13_CLAIM_POLICY.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c13_claim_strength_follows_replication_role",
+          "detail": {
+            "cases": [
+              {
+                "agrees": true,
+                "expected": true,
+                "may_claim": true,
+                "role": "hypothesis_critical"
+              },
+              {
+                "agrees": true,
+                "expected": true,
+                "may_claim": true,
+                "role": "spec_mandated"
+              },
+              {
+                "agrees": true,
+                "expected": false,
+                "may_claim": false,
+                "role": "diagnostic"
+              },
+              {
+                "agrees": true,
+                "expected": false,
+                "may_claim": false,
+                "role": "parity"
+              }
+            ],
+            "rule": "§18.3: single-seed rows are diagnostic only and may not support superiority claims"
+          },
+          "ok": true,
+          "summary": "only replicated rows may carry a statistical claim"
+        },
+        {
+          "check_id": "c13_single_seed_superiority_claim_refused",
+          "detail": {},
+          "ok": true,
+          "summary": "a superiority comparison over a single-seed row is refused"
+        },
+        {
+          "check_id": "c13_smoke_numbers_cannot_support_a_claim",
+          "detail": {
+            "may_select_scientific_winner": false,
+            "profile": "rehearsal",
+            "rule": "L.1: a smoke result MUST NOT be the numeric basis for selecting a scientific winner, changing a hypothesis, changing P3, or claiming method superiority"
+          },
+          "ok": true,
+          "summary": "no number produced under this profile may support a scientific claim"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "CLAIM_POLICY",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "status": "PASS",
+      "substage": "C13",
+      "summary": "C13 claim policy — 3/3 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c13/C13_FINAL_REPORT.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c13_report_structure_assembles",
+          "detail": {
+            "sections": [
+              "repository integrity",
+              "acceptance matrix",
+              "milestone status",
+              "source-side evidence",
+              "target-side evidence",
+              "statistics",
+              "negative and blocked results",
+              "disclosures",
+              "tag proposal"
+            ]
+          },
+          "ok": true,
+          "summary": "the final report structure assembles with every required section"
+        },
+        {
+          "check_id": "c13_report_contains_no_target_metric",
+          "detail": {
+            "target_metrics_included": false,
+            "why_no_target_metrics": "no scientific target evaluation has run; a report that printed a number here would be fabricating it"
+          },
+          "ok": true,
+          "summary": "the report contains no target metric, fabricated or otherwise"
+        },
+        {
+          "check_id": "c13_tag_is_proposed_not_created",
+          "detail": {
+            "blocked_by": [
+              "C10",
+              "C11",
+              "C12",
+              "C4",
+              "C5",
+              "C6",
+              "C7",
+              "C8",
+              "C9"
+            ],
+            "created": false,
+            "proposed_tag": null,
+            "would_be": "c-version-c-final"
+          },
+          "ok": true,
+          "summary": "no tag was created, and none is proposed while acceptance is refused"
+        },
+        {
+          "check_id": "c13_resume_is_identity_aware",
+          "detail": {
+            "action": "SKIP_VALID_COMPLETE",
+            "artifact": "C13_ACCEPTANCE_MATRIX.json",
+            "expected_identity": "c13-acceptance-matrix-v1",
+            "identity_matches": true,
+            "present": true,
+            "reason": "the recorded identity validates; the completed unit is reused unchanged (L.11)",
+            "recorded_identity": "c13-acceptance-matrix-v1",
+            "resume_requested": true,
+            "unit_id": "c13_acceptance_matrix"
+          },
+          "ok": true,
+          "summary": "resume validates C13 evidence by identity"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "FINAL_REPORT",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "status": "PASS",
+      "substage": "C13",
+      "summary": "C13 final report — 4/4 checks passed"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "rehearsal",
+  "finished_at_utc": "2026-08-17T11:02:16.862814Z",
+  "mandatory_full_outputs": "C_ACCEPTANCE, master final summary, reports/tables/plots/paper evidence, preserved negative, failed and blocked results",
+  "notes": [],
+  "phase": "final-report",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C13",
+  "started_at_utc": "2026-08-17T11:02:16.837973Z",
+  "substages": [],
+  "title": "Acceptance, evidence package and report",
+  "validate_checks": [
+    "c13_acceptance_refuses"
+  ],
+  "validate_gate": "PASS"
+}

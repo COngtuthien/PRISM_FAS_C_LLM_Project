@@ -1,0 +1,38 @@
+{
+  "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 64,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 8,
+    "max_wall_clock_seconds": 86400,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:52.255910Z",
+  "ll_invariant_error": 2.384185791015625e-07,
+  "mode": "RENDER_GPAT",
+  "outside_mask_error": 0.0,
+  "pairs": 2,
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c5-gpat-renders-v1",
+  "scientific_eligible": false,
+  "trained_checkpoint_used": false
+}

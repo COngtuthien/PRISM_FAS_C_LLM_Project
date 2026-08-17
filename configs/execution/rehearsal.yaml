@@ -1,0 +1,68 @@
+# Execution profile: rehearsal  (v1.5 Appendix L.2, L.12)
+#
+# CPU_FULL_REHEARSAL. This is what `python train.py` resolves to on a host with
+# no suitable CUDA GPU: a full traversal of the C0-C13 implementation, exercising
+# the real models, losses, optimizers, gates, locks and reporting, so that the
+# implementation is proven before any GPU hour is spent.
+#
+# It is NOT science, and the separation is structural rather than advisory:
+#
+#   * its own namespaces, reports/rehearsal and runs/rehearsal, so a rehearsal
+#     artifact can never be mistaken for — or resumed as — scientific evidence;
+#   * scientific_eligible=false, enforced at profile load;
+#   * no live provider, no target label access, no target metric access;
+#   * C10-C13 run against an isolated fixture target package and cannot resolve
+#     the real SiW roots.
+#
+# The user accepts that a CPU rehearsal may be extremely slow. The goal is
+# execution proof, not performance, so the budget below is generous where smoke's
+# is tight — but it is still an engineering budget under L.12 and it is still not
+# a treatment factor.
+profile: rehearsal
+spec_clause: "L.2"
+purpose: CPU full rehearsal of the complete C0-C13 implementation
+
+scientific_eligible: false
+may_select_scientific_winner: false
+winner_selection_rule: null
+
+reports_namespace: reports/rehearsal
+runs_namespace: runs/rehearsal
+
+compute_policy:
+  scientific_training: false
+  # `fixture_only`, not `optional`. A rehearsal never performs scientific GPU
+  # training even on a host that has a GPU — if a suitable GPU were present the
+  # runner would have resolved GPU_SCIENTIFIC_FULL instead. Declaring anything
+  # broader would let a non-eligible profile claim a capability it must not have.
+  gpu: fixture_only
+  modal: false
+  live_provider: false
+  live_provider_permitted_for_stages: []
+  target_label_access: false
+  target_metric_access: false
+  target_scientific_scoring: false
+  # The rehearsal may only ever see a fixture target package. This is the flag
+  # the C10-C13 adapters read before touching any target root.
+  target_package: fixture_only
+
+# L.12: a reduced budget may touch samples, steps, epochs and seeds and nothing
+# else. Larger than smoke's because a rehearsal is meant to run the real path
+# long enough to be convincing, not merely to enter it.
+engineering_budget:
+  max_samples_per_split: 64
+  max_steps_per_epoch: 8
+  max_epochs: 1
+  max_seeds: 1
+  max_wall_clock_seconds: 86400
+budget_authority: operational_only
+
+reduction_permitted: true
+reducible_dimensions: [samples, steps, epochs, seeds]
+preserved_under_reduction:
+  - code_paths
+  - tensor_semantics
+  - model_topology
+  - active_loss_semantics
+  - target_firewall
+  - artifact_schemas

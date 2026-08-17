@@ -1,0 +1,22 @@
+{
+  "columns": [
+    "experiment_id",
+    "track",
+    "arm",
+    "protocol",
+    "seed",
+    "video_ACER",
+    "video_BPCER",
+    "APCER",
+    "roc_auc",
+    "eer",
+    "nll",
+    "ece",
+    "status"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "per_seed_results"
+}

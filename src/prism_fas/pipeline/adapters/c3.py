@@ -107,6 +107,18 @@ def _check_from(check_id: str, report: dict[str, Any]) -> dict[str, Any]:
     return _check(check_id, bool(report["ok"]), str(report["summary"]), **detail)
 
 
+def _rehearses_generation(profile: Any) -> bool:
+    """Profiles that drive the generation path against fixtures.
+
+    `smoke` and `rehearsal` are both non-eligible profiles that EXECUTE the code,
+    so both get the fixture provider. Keyed on the eligibility contract rather
+    than on a name list: a profile that cannot produce scientific evidence can
+    never be allowed to reach a live provider, and a profile that can must never
+    be handed fixtures.
+    """
+    return profile.name in ("smoke", "rehearsal")
+
+
 def resolve_mode(request: AdapterRequest) -> C3Mode:
     """Decide which mode runs, refusing anything the profile cannot support.
 
@@ -616,7 +628,7 @@ class C3Adapter:
             # stopping would exercise none of it, so smoke continues into a
             # fixture-backed rehearsal of exactly that code, bound to a provider
             # that cannot reach a network.
-            if request.profile.name == "smoke" and results[0].ok:
+            if _rehearses_generation(request.profile) and results[0].ok:
                 results.append(self._smoke_rehearsal(request, C3Mode.LIVE_GENERATE))
             return results
         if mode is C3Mode.FINALIZE_BANKS:
@@ -628,7 +640,7 @@ class C3Adapter:
         # C0-C13 resume run surfaced, which is exactly what smoke is for. Smoke
         # can never reach a live provider, so a generating mode here is always a
         # rehearsal and is always given its fixtures.
-        if request.profile.name == "smoke":
+        if _rehearses_generation(request.profile):
             return [self._smoke_rehearsal(request, mode)]
         return [_live_generate(request, mode, binding)]
 

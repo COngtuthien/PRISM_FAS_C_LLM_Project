@@ -1,0 +1,2 @@
+model,total_parameters,trainable_parameters,frozen_parameters,parameter_megabytes,macs,flops,status,unsupported_operations
+gpat_residual_generator,910538,910538,0,3.4734,8114381056,16228762112,COMPLETE,

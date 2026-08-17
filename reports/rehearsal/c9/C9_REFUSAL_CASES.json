@@ -1,0 +1,49 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "cases": [
+    {
+      "case": "required_row_missing",
+      "error": "the source matrix cannot be frozen: required_row_missing=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "row_failed",
+      "error": "the source matrix cannot be frozen: row_failed=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "row_not_terminal",
+      "error": "the source matrix cannot be frozen: row_not_terminal=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "run_identity_mismatch",
+      "error": "the source matrix cannot be frozen: run_identity_mismatch=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "calibration_missing",
+      "error": "the source matrix cannot be frozen: calibration_missing=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "checkpoint_missing",
+      "error": "the source matrix cannot be frozen: checkpoint_missing=['C-R-NOPROMPT-P3READY-s20260808']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    },
+    {
+      "case": "hidden_row_not_in_plan",
+      "error": "the source matrix cannot be frozen: hidden_row_not_in_plan=['UNPLANNED-ROW']. §C9 requires all checkpoints, calibrations and identities frozen with zero failed hidden rows",
+      "refused": true
+    }
+  ],
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.405921Z",
+  "meaning": "constructed refusal cases proving the gate blocks. They are not findings about any real run",
+  "mode": "REFUSAL_CASES",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c9-refusal-cases-v1",
+  "scientific_eligible": false
+}

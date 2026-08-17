@@ -1,0 +1,19 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "forced_failures": [
+    {
+      "case": "no parsing support and off-frame landmarks",
+      "error": "MaskBuildError: region 'left_eye' produced an empty mask",
+      "failed": true
+    }
+  ],
+  "generated_at_utc": "2026-08-17T11:00:52.288064Z",
+  "mode": "FAILURE_RECORDING",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "retention_rule": "a failed candidate is preserved as provenance and remains addressable; it is never dropped and never replaced by an extra render (§11.4, L.8)",
+  "schema_version": "c5-failures-v1",
+  "scientific_eligible": false
+}

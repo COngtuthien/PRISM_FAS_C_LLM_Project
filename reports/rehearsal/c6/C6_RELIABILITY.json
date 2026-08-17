@@ -1,0 +1,156 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:00:52.353723Z",
+  "mode": "RELIABILITY_GATES",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "report": {
+    "blocked": [
+      {
+        "reason": "no legitimate benign glasses/makeup/low-light population exists here. SiW-Mv2's Makeup_* and Partial_*Glasses videos are labelled SPOOF presentations, so treating them as benign live stress cases would invert their label; CASIA-FASD and MSU-MFSD carry no benign attribute metadata. Recorded as blocked rather than substituted with an invalid population.",
+        "test_id": "benign_glasses_makeup_lowlight"
+      }
+    ],
+    "by_status": {
+      "BLOCKED": 1,
+      "PASSED": 2,
+      "PLANNED": 7
+    },
+    "count": 10,
+    "failed": [],
+    "reliability_identity": "594bfead1f06614f22d75fc76eebb6dd946e03d0efff0614b446f6d9d6843f2b",
+    "reliability_schema_version": "m10-reliability-v1",
+    "tests": [
+      {
+        "blocked_reason": null,
+        "failure_meaning": "a generator fingerprint the detector could shortcut on",
+        "measures": "balanced accuracy of a probe trained to separate synthetic from real spoof",
+        "pass_rule": "probe balanced accuracy stays below the declared ceiling",
+        "population": "source_train real spoof vs accepted M8 v3 synthetic spoof; no target",
+        "result": {
+          "engineering_fixture": true
+        },
+        "spec_reference": "17.3.1",
+        "status": "PASSED",
+        "test_id": "synthetic_vs_real_spoof_probe"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the detector reads compression artefacts as attack evidence",
+        "measures": "shift of the spoof score on unchanged bona-fide content",
+        "pass_rule": "no systematic large increase in the spoof score",
+        "population": "source_dev LIVE only, benign JPEG re-encode; no spoof, no target",
+        "result": {
+          "engineering_fixture": true
+        },
+        "spec_reference": "17.3.2",
+        "status": "PASSED",
+        "test_id": "benign_jpeg_corruption"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the detector reads resampling as attack evidence",
+        "measures": "shift of the spoof score on unchanged bona-fide content",
+        "pass_rule": "no systematic large increase in the spoof score",
+        "population": "source_dev LIVE only, benign resize; no spoof, no target",
+        "result": {},
+        "spec_reference": "17.3.2",
+        "status": "PLANNED",
+        "test_id": "benign_resize_corruption"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the detector reads colour statistics as attack evidence",
+        "measures": "shift of the spoof score on unchanged bona-fide content",
+        "pass_rule": "no systematic large increase in the spoof score",
+        "population": "source_dev LIVE only, benign colour shift; no spoof, no target",
+        "result": {},
+        "spec_reference": "17.3.2",
+        "status": "PLANNED",
+        "test_id": "benign_color_corruption"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the score does not depend on the artefact it claims to detect",
+        "measures": "spoof score and regional distance at zero residual",
+        "pass_rule": "score approaches live and the regional distance falls",
+        "population": "source_train live with the GPAT residual scaled to 0; no target",
+        "result": {},
+        "spec_reference": "17.3.3",
+        "status": "PLANNED",
+        "test_id": "residual_scale_zero"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the regional evidence is not localized where the attack is",
+        "measures": "displacement of the anomaly heat-map peak",
+        "pass_rule": "the heat-map moves with the attacked region",
+        "population": "source_train live under two recipes differing only in region; no target",
+        "result": {},
+        "spec_reference": "17.3.4",
+        "status": "PLANNED",
+        "test_id": "recipe_region_shift"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the local head ignores the supervision it is given",
+        "measures": "local supervision performance under a mismatched artefact map",
+        "pass_rule": "local supervision performance drops",
+        "population": "accepted M8 v3 synthetic samples with artefact maps swapped; no target",
+        "result": {},
+        "spec_reference": "17.3.5",
+        "status": "PLANNED",
+        "test_id": "artifact_map_swap"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "a preprocessing shortcut rather than a physical cue",
+        "measures": "score sensitivity to a preprocessing-only change",
+        "pass_rule": "no large systematic shift",
+        "population": "source_dev under a different crop padding/interpolation; no target",
+        "result": {},
+        "spec_reference": "17.3.6",
+        "status": "PLANNED",
+        "test_id": "crop_padding_interpolation"
+      },
+      {
+        "blocked_reason": null,
+        "failure_meaning": "the detector learned one generator, not the artefact class",
+        "measures": "cross-route generalization of the synthetic evidence",
+        "pass_rule": "performance is retained across routes",
+        "population": "train on one synthetic route, evaluate on the other; source only",
+        "result": {},
+        "spec_reference": "17.3.7",
+        "status": "PLANNED",
+        "test_id": "cross_route_synthetic"
+      },
+      {
+        "blocked_reason": "no legitimate benign glasses/makeup/low-light population exists here. SiW-Mv2's Makeup_* and Partial_*Glasses videos are labelled SPOOF presentations, so treating them as benign live stress cases would invert their label; CASIA-FASD and MSU-MFSD carry no benign attribute metadata. Recorded as blocked rather than substituted with an invalid population.",
+        "failure_meaning": "bona-fide users with glasses or makeup are falsely rejected",
+        "measures": "BPCER under benign glasses / makeup / low light",
+        "pass_rule": "BPCER does not rise materially on benign attributes",
+        "population": "no legitimate benign population exists in this project",
+        "result": {},
+        "spec_reference": "17.3.8",
+        "status": "BLOCKED",
+        "test_id": "benign_glasses_makeup_lowlight"
+      }
+    ],
+    "uses_target_labels": false
+  },
+  "schema_version": "c6-reliability-v1",
+  "scientific_eligible": false,
+  "scientific_gate_satisfied": false,
+  "score_shift": {
+    "fraction_increased": 1.0,
+    "max_shift": 0.33,
+    "mean_after": 0.41,
+    "mean_before": 0.11,
+    "mean_shift": 0.30000000000000004,
+    "median_shift": 0.30000000000000004,
+    "p95_shift": 0.327,
+    "samples": 3
+  }
+}

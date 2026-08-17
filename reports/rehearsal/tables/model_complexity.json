@@ -1,0 +1,65 @@
+{
+  "columns": [
+    "model",
+    "total_parameters",
+    "trainable_parameters",
+    "frozen_parameters",
+    "parameter_megabytes",
+    "macs",
+    "flops",
+    "status",
+    "unsupported_operations"
+  ],
+  "row_count": 4,
+  "rows": [
+    {
+      "flops": 16228762112,
+      "frozen_parameters": 0,
+      "macs": 8114381056,
+      "model": "gpat_residual_generator",
+      "parameter_megabytes": 3.4734,
+      "status": "COMPLETE",
+      "total_parameters": 910538,
+      "trainable_parameters": 910538,
+      "unsupported_operations": []
+    },
+    {
+      "flops": 788480,
+      "frozen_parameters": 0,
+      "macs": 394240,
+      "model": "detector_track_g",
+      "parameter_megabytes": 0.0471,
+      "status": "COMPLETE",
+      "total_parameters": 12353,
+      "trainable_parameters": 12353,
+      "unsupported_operations": []
+    },
+    {
+      "flops": 35095195648,
+      "frozen_parameters": 0,
+      "macs": 17547597824,
+      "model": "detector_track_r",
+      "parameter_megabytes": 13.044,
+      "status": "PARTIAL",
+      "total_parameters": 3419414,
+      "trainable_parameters": 3419414,
+      "unsupported_operations": [
+        "GlobalResponseNorm"
+      ]
+    },
+    {
+      "flops": 788480,
+      "frozen_parameters": 0,
+      "macs": 394240,
+      "model": "detector_C-G-LLM",
+      "parameter_megabytes": 0.0471,
+      "status": "COMPLETE",
+      "total_parameters": 12353,
+      "trainable_parameters": 12353,
+      "unsupported_operations": []
+    }
+  ],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "model_complexity"
+}

@@ -1,0 +1,187 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is reachable under validate; a live provider binding additionally requires explicit user authorization.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/rehearsal/c3/live/C3_LIVE_GENERATION_STATE.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c3_completed_requests_intact",
+          "detail": {
+            "rows": [
+              {
+                "actual_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-01",
+                "matches": true,
+                "recorded_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132"
+              },
+              {
+                "actual_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-02",
+                "matches": true,
+                "recorded_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130"
+              },
+              {
+                "actual_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-03",
+                "matches": true,
+                "recorded_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab"
+              },
+              {
+                "actual_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-04",
+                "matches": true,
+                "recorded_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7"
+              },
+              {
+                "actual_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-05",
+                "matches": true,
+                "recorded_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2"
+              },
+              {
+                "actual_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-06",
+                "matches": true,
+                "recorded_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615"
+              },
+              {
+                "actual_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-07",
+                "matches": true,
+                "recorded_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab"
+              },
+              {
+                "actual_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-08",
+                "matches": true,
+                "recorded_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833"
+              },
+              {
+                "actual_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-09",
+                "matches": true,
+                "recorded_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842"
+              },
+              {
+                "actual_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-10",
+                "matches": true,
+                "recorded_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b"
+              },
+              {
+                "actual_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-11",
+                "matches": true,
+                "recorded_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875"
+              },
+              {
+                "actual_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
+                "archive_present": true,
+                "logical_request_id": "c3-llm-req-12",
+                "matches": true,
+                "recorded_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a"
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "12 completed logical request(s) re-hashed and intact"
+        },
+        {
+          "check_id": "c3_logical_request_count_unchanged",
+          "detail": {
+            "frozen": 12,
+            "planned": 12
+          },
+          "ok": true,
+          "summary": "the plan still contains exactly 12 logical requests"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 2,
+      "detail": {
+        "c3_scientific_candidate_slots": 0,
+        "c3_scientific_logical_requests": 0,
+        "is_scientific_generation": false,
+        "logical_requests_executed_this_run": 0,
+        "min_seconds_between_requests": 0.0,
+        "pacing_is_transport_only": true,
+        "provider_binding": "mock",
+        "provider_calls_this_run": 0,
+        "resume_cursor": {
+          "all_complete": true,
+          "arm": "LLM",
+          "blocked_reason": null,
+          "completed_requests": 12,
+          "next_logical_request_id": null,
+          "next_logical_request_index": null,
+          "next_permitted_action": "FINALIZE",
+          "next_slot_end": null,
+          "next_slot_start": null,
+          "total_requests": 12
+        },
+        "status_counts": {
+          "COMPLETED_VALID": 12,
+          "FAILED_BLOCKING": 0,
+          "FAILED_RETRYABLE": 0,
+          "IN_PROGRESS": 0,
+          "NOT_STARTED": 0
+        }
+      },
+      "engineering_status": "NOT_TESTED",
+      "mode": "RESUME_LIVE_GENERATE",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "mock",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C3",
+      "status": "PASS",
+      "substage": "C3",
+      "summary": "all 12 logical requests complete"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "rehearsal",
+  "finished_at_utc": "2026-08-17T11:00:46.597798Z",
+  "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
+  "notes": [],
+  "phase": "preflight",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C3",
+  "started_at_utc": "2026-08-17T11:00:46.398359Z",
+  "substages": [
+    "C3"
+  ],
+  "title": "LLM recipe bank generation and selection",
+  "validate_checks": [
+    "c3_contract_identities",
+    "c3_locks_verify",
+    "c3_scientific_banks_frozen"
+  ],
+  "validate_gate": "PASS"
+}

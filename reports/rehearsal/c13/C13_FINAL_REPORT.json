@@ -1,0 +1,92 @@
+{
+  "acceptance": {
+    "evaluated_under_profile": "rehearsal",
+    "not_scientifically_complete": [
+      "C10",
+      "C11",
+      "C12",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9"
+    ],
+    "profile_can_declare_acceptance": false,
+    "refusal_reason": "scientific completion is missing for ['C10', 'C11', 'C12', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']. C13 cannot declare Version C accepted while any required milestone has scientific_status != PASS under the full profile (L.3, §25)",
+    "required_scientific_milestones": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9",
+      "C10",
+      "C11",
+      "C12"
+    ],
+    "scientifically_complete": {
+      "C0": true,
+      "C1": true,
+      "C10": false,
+      "C11": false,
+      "C12": false,
+      "C2": true,
+      "C3": true,
+      "C4": false,
+      "C5": false,
+      "C6": false,
+      "C7": false,
+      "C8": false,
+      "C9": false
+    },
+    "version_c_accepted": false
+  },
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "rehearsal",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T11:02:16.854082Z",
+  "is_c_acceptance": false,
+  "meaning": "engineering evidence that the C13 machinery runs and refuses correctly. It is not a Version-C result and contains no claim",
+  "mode": "FINAL_REPORT",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "schema_version": "c13-final-report-v1",
+  "scientific_eligible": false,
+  "structure": {
+    "sections": [
+      "repository integrity",
+      "acceptance matrix",
+      "milestone status",
+      "source-side evidence",
+      "target-side evidence",
+      "statistics",
+      "negative and blocked results",
+      "disclosures",
+      "tag proposal"
+    ],
+    "target_metrics_included": false,
+    "why_no_target_metrics": "no scientific target evaluation has run; a report that printed a number here would be fabricating it"
+  },
+  "tag_proposal": {
+    "blocked_by": [
+      "C10",
+      "C11",
+      "C12",
+      "C4",
+      "C5",
+      "C6",
+      "C7",
+      "C8",
+      "C9"
+    ],
+    "created": false,
+    "proposed_tag": null,
+    "rule": "C13 proposes a tag; it never creates the scientific tag itself, and it proposes nothing while acceptance is refused",
+    "would_be": "c-version-c-final"
+  }
+}

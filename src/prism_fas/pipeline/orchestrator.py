@@ -176,13 +176,18 @@ def _execute_stage(stage: Stage, request: "AdapterRequest") -> StageOutcome:
 
     failed = [item for item in results if not item.ok and item.status != "BLOCKED"]
     blocked = [item for item in results if item.status == "BLOCKED"]
+    # `smoke` and `rehearsal` are the two non-eligible profiles that EXECUTE the
+    # code path, so both report on the SMOKE_* half of the L.3 vocabulary. The
+    # full profile stays NOT_TESTED on the engineering axis: a scientific run is
+    # not an engineering test, and borrowing SMOKE_PASS for it would claim one.
+    executes_code_path = request.profile.name in ("smoke", "rehearsal")
     if failed:
-        gate, engineering = "FAIL", "SMOKE_FAIL" if request.profile.name == "smoke" else "BLOCKED"
+        gate, engineering = "FAIL", "SMOKE_FAIL" if executes_code_path else "BLOCKED"
     elif blocked:
         gate, engineering = "NOT_APPLICABLE", "BLOCKED"
     else:
         gate = "PASS"
-        engineering = "SMOKE_PASS" if request.profile.name == "smoke" else "NOT_TESTED"
+        engineering = "SMOKE_PASS" if executes_code_path else "NOT_TESTED"
 
     return StageOutcome(
         stage=stage,

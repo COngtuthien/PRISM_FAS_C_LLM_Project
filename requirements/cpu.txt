@@ -1,0 +1,18 @@
+# CPU-only profile: validate, smoke, CPU_FULL_REHEARSAL, plots, tables, reports
+# and static model-complexity diagnostics.
+#
+#     pip install -r requirements/cpu.txt
+#
+# The CPU wheel is installed from the PyTorch CPU index so a CUDA-less host does
+# not pull ~2.5 GB of CUDA runtime it can never use. Importing the project must
+# never require CUDA.
+-r base.txt
+-c constraints.txt
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.13.0
+torchvision==0.28.0
+
+# SCRFD face detection runs through ONNX Runtime during M2 preprocessing.
+onnxruntime==1.24.0

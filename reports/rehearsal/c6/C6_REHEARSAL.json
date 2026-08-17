@@ -1,0 +1,576 @@
+{
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES, MATCHED_BANKS, CARDINALITY_REFUSAL.",
+  "adapter_results": [
+    {
+      "artifacts": [
+        "reports/rehearsal/c6/C6_GATE_DECISIONS.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c6_gate_identical_across_arms",
+          "detail": {
+            "distinct_threshold_sets": 1,
+            "rule": "§11.4: thresholds must remain COMMON across arms; no arm may be relaxed independently",
+            "threshold_hashes_per_arm": {
+              "DET": [
+                "a77b3557b758788acfd3a84072acea26ae781d94e334b1c3928c44e19179f126"
+              ],
+              "LLM": [
+                "a77b3557b758788acfd3a84072acea26ae781d94e334b1c3928c44e19179f126"
+              ],
+              "RND": [
+                "a77b3557b758788acfd3a84072acea26ae781d94e334b1c3928c44e19179f126"
+              ]
+            }
+          },
+          "ok": true,
+          "summary": "RND, DET and LLM were evaluated against exactly one threshold set"
+        },
+        {
+          "check_id": "c6_accept_reject_both_preserved",
+          "detail": {
+            "summaries": {
+              "DET": {
+                "accepted": 4,
+                "evaluated": 8,
+                "failed_gate_counts": {
+                  "artifact_strength": 4,
+                  "face_detection": 4,
+                  "fingerprint": 4,
+                  "identity": 4,
+                  "landmark": 4,
+                  "parsing_dice": 4,
+                  "support_overlap": 4
+                },
+                "q_statistics": {
+                  "max": 0.8233984112739563,
+                  "mean": 0.8233984112739563,
+                  "median": 0.8233984112739563,
+                  "min": 0.8233984112739563
+                },
+                "recipe_match": "not_applicable",
+                "rejected": 4
+              },
+              "LLM": {
+                "accepted": 4,
+                "evaluated": 8,
+                "failed_gate_counts": {
+                  "artifact_strength": 4,
+                  "face_detection": 4,
+                  "fingerprint": 4,
+                  "identity": 4,
+                  "landmark": 4,
+                  "parsing_dice": 4,
+                  "support_overlap": 4
+                },
+                "q_statistics": {
+                  "max": 0.8233984112739563,
+                  "mean": 0.8233984112739563,
+                  "median": 0.8233984112739563,
+                  "min": 0.8233984112739563
+                },
+                "recipe_match": "not_applicable",
+                "rejected": 4
+              },
+              "RND": {
+                "accepted": 4,
+                "evaluated": 8,
+                "failed_gate_counts": {
+                  "artifact_strength": 4,
+                  "face_detection": 4,
+                  "fingerprint": 4,
+                  "identity": 4,
+                  "landmark": 4,
+                  "parsing_dice": 4,
+                  "support_overlap": 4
+                },
+                "q_statistics": {
+                  "max": 0.8233984112739563,
+                  "mean": 0.8233984112739563,
+                  "median": 0.8233984112739563,
+                  "min": 0.8233984112739563
+                },
+                "recipe_match": "not_applicable",
+                "rejected": 4
+              }
+            }
+          },
+          "ok": true,
+          "summary": "both accepted and rejected decisions are recorded for every arm"
+        },
+        {
+          "check_id": "c6_q_is_a_weight_not_a_label",
+          "detail": {
+            "components": {
+              "q_fd": 0.9,
+              "q_fp": 0.8,
+              "q_id": 0.6,
+              "q_lm": 0.75,
+              "q_parse": 0.8,
+              "q_strength": 1.0,
+              "q_support": 0.99
+            },
+            "q": 0.8233984112739563,
+            "rule": "§11.2: q multiplies ONLY the synthetic loss bracket; it never weights real samples or the whole loss, and it is never a class label"
+          },
+          "ok": true,
+          "summary": "q is a bounded sample-quality weight and carries no class label"
+        },
+        {
+          "check_id": "c6_low_q_does_not_reject",
+          "detail": {
+            "accepted_with_low_q": 0
+          },
+          "ok": true,
+          "summary": "a candidate is never rejected for a low q when every hard gate passes"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "APPLY_COMMON_GATE",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "status": "PASS",
+      "substage": "C6",
+      "summary": "C6 apply common gate — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c6/C6_PROFILE_SELECTION.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c6_three_preregistered_profiles",
+          "detail": {
+            "order_strictest_first": [
+              "STRICT",
+              "NOMINAL",
+              "PERMISSIVE"
+            ],
+            "profiles": {
+              "NOMINAL": {
+                "tau_fd": 0.5,
+                "tau_fp": 0.5,
+                "tau_id": 0.8,
+                "tau_lm": 0.08,
+                "tau_out": 0.0,
+                "tau_parse": 0.9
+              },
+              "PERMISSIVE": {
+                "tau_fd": 0.45,
+                "tau_fp": 0.55,
+                "tau_id": 0.72,
+                "tau_lm": 0.088,
+                "tau_out": 0.0,
+                "tau_parse": 0.81
+              },
+              "STRICT": {
+                "tau_fd": 0.55,
+                "tau_fp": 0.45,
+                "tau_id": 0.82,
+                "tau_lm": 0.072,
+                "tau_out": 0.0,
+                "tau_parse": 0.91
+              }
+            }
+          },
+          "ok": true,
+          "summary": "exactly the three preregistered profiles are derived"
+        },
+        {
+          "check_id": "c6_profile_derivation_is_monotone",
+          "detail": {
+            "higher_is_better": [
+              "tau_fd",
+              "tau_id",
+              "tau_parse"
+            ],
+            "lower_is_better": [
+              "tau_lm",
+              "tau_fp"
+            ],
+            "nominal": {
+              "tau_fd": 0.5,
+              "tau_fp": 0.5,
+              "tau_id": 0.8,
+              "tau_lm": 0.08,
+              "tau_out": 0.0,
+              "tau_parse": 0.9
+            },
+            "permissive": {
+              "tau_fd": 0.45,
+              "tau_fp": 0.55,
+              "tau_id": 0.72,
+              "tau_lm": 0.088,
+              "tau_out": 0.0,
+              "tau_parse": 0.81
+            },
+            "strict": {
+              "tau_fd": 0.55,
+              "tau_fp": 0.45,
+              "tau_id": 0.82,
+              "tau_lm": 0.072,
+              "tau_out": 0.0,
+              "tau_parse": 0.91
+            }
+          },
+          "ok": true,
+          "summary": "STRICT is strictly no looser than NOMINAL, and PERMISSIVE no tighter"
+        },
+        {
+          "check_id": "c6_range_safe_thresholds_never_relaxed",
+          "detail": {
+            "range_safe": [
+              "tau_out"
+            ],
+            "rule": "§11.4: range/recipe-safe constraints are never relaxed beyond their frozen legal range"
+          },
+          "ok": true,
+          "summary": "the exact-equality outside-mask constraint is identical in all three profiles"
+        },
+        {
+          "check_id": "c6_selects_strictest_qualifying_profile",
+          "detail": {
+            "evaluations": [
+              {
+                "every_arm_feasible": false,
+                "profile": "STRICT",
+                "qualifies": false,
+                "selected": false
+              },
+              {
+                "every_arm_feasible": true,
+                "profile": "NOMINAL",
+                "qualifies": true,
+                "selected": true
+              },
+              {
+                "every_arm_feasible": true,
+                "profile": "PERMISSIVE",
+                "qualifies": true,
+                "selected": false
+              }
+            ],
+            "selected": "NOMINAL",
+            "why": "STRICT leaves RND 112 physics samples short, so it does not qualify; NOMINAL is the strictest that every arm satisfies"
+          },
+          "ok": true,
+          "summary": "the strictest profile that every arm can satisfy is selected"
+        },
+        {
+          "check_id": "c6_selection_is_a_conjunction_over_arms",
+          "detail": {
+            "per_profile_arm_feasibility": {
+              "NOMINAL": [
+                true,
+                true,
+                true
+              ],
+              "PERMISSIVE": [
+                true,
+                true,
+                true
+              ],
+              "STRICT": [
+                false,
+                true,
+                true
+              ]
+            }
+          },
+          "ok": true,
+          "summary": "a profile qualifies only when EVERY arm is feasible under it"
+        },
+        {
+          "check_id": "c6_smoke_freezes_no_quality_gate_lock",
+          "detail": {
+            "rule": "§11.4: the profile is chosen once at C6 from source-only evidence and frozen; a fixture-derived choice may never occupy that lock",
+            "scientific_lock_path": "reports/full/c6/QUALITY_GATE_LOCK_C.json"
+          },
+          "ok": true,
+          "summary": "no scientific QUALITY_GATE_LOCK_C is written by this rehearsal"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 6,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "PROFILE_SELECTION",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "status": "PASS",
+      "substage": "C6",
+      "summary": "C6 profile selection — 6/6 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c6/C6_RELIABILITY.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c6_reliability_tests_declared",
+          "detail": {
+            "source": "prism_fas.evaluation.reliability.declared_tests (canonical)",
+            "test_ids": [
+              "synthetic_vs_real_spoof_probe",
+              "benign_jpeg_corruption",
+              "benign_resize_corruption",
+              "benign_color_corruption",
+              "residual_scale_zero",
+              "recipe_region_shift",
+              "artifact_map_swap",
+              "crop_padding_interpolation",
+              "cross_route_synthetic",
+              "benign_glasses_makeup_lowlight"
+            ]
+          },
+          "ok": true,
+          "summary": "10 reliability tests are declared by the canonical module"
+        },
+        {
+          "check_id": "c6_residual_sensitivity_path",
+          "detail": {
+            "fraction_increased": 1.0,
+            "max_shift": 0.33,
+            "mean_after": 0.41,
+            "mean_before": 0.11,
+            "mean_shift": 0.30000000000000004,
+            "median_shift": 0.30000000000000004,
+            "p95_shift": 0.327,
+            "samples": 3
+          },
+          "ok": true,
+          "summary": "the residual-sensitivity score-shift computation executes"
+        },
+        {
+          "check_id": "c6_reliability_report_builds",
+          "detail": {
+            "statuses": {
+              "artifact_map_swap": "PLANNED",
+              "benign_color_corruption": "PLANNED",
+              "benign_glasses_makeup_lowlight": "BLOCKED",
+              "benign_jpeg_corruption": "PASSED",
+              "benign_resize_corruption": "PLANNED",
+              "crop_padding_interpolation": "PLANNED",
+              "cross_route_synthetic": "PLANNED",
+              "recipe_region_shift": "PLANNED",
+              "residual_scale_zero": "PLANNED",
+              "synthetic_vs_real_spoof_probe": "PASSED"
+            }
+          },
+          "ok": true,
+          "summary": "a reliability report assembles with executed and still-planned rows"
+        },
+        {
+          "check_id": "c6_reliability_results_are_fixtures",
+          "detail": {
+            "rule": "§17: the synthetic-vs-real probe and residual sensitivity run on real banks before detector target evaluation; a fixture cannot stand in"
+          },
+          "ok": true,
+          "summary": "these results are fixture-driven and cannot pass a scientific gate"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "RELIABILITY_GATES",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "status": "PASS",
+      "substage": "C6",
+      "summary": "C6 reliability gates — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c6/C6_MATCHED_BANKS.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c6_matched_cardinality",
+          "detail": {
+            "per_arm": {
+              "DET": {
+                "final_bank_size": 1024,
+                "gpat": 512,
+                "physics": 512
+              },
+              "LLM": {
+                "final_bank_size": 1024,
+                "gpat": 512,
+                "physics": 512
+              },
+              "RND": {
+                "final_bank_size": 1024,
+                "gpat": 512,
+                "physics": 512
+              }
+            }
+          },
+          "ok": true,
+          "summary": "every arm yields exactly 1024 accepted samples"
+        },
+        {
+          "check_id": "c6_all_arms_equal_cardinality",
+          "detail": {
+            "rule": "§11.3: the primary comparison requires the exact same cardinality per arm so acceptance-rate differences cannot become a confound",
+            "sizes": [
+              1024
+            ]
+          },
+          "ok": true,
+          "summary": "the three arms are matched in final bank size"
+        },
+        {
+          "check_id": "c6_route_split_is_enforced_not_just_the_total",
+          "detail": {
+            "contract": {
+              "candidates_per_arm": 2048,
+              "final_bank_per_arm": 1024,
+              "gpat_per_arm": 512,
+              "gpat_renders_per_recipe": 4,
+              "physics_per_arm": 512,
+              "physics_renders_per_recipe": 4,
+              "renders_per_recipe": 8
+            }
+          },
+          "ok": true,
+          "summary": "each bank is exactly 512 Physics + 512 GPAT"
+        },
+        {
+          "check_id": "c6_resume_is_identity_aware",
+          "detail": {
+            "action": "SKIP_VALID_COMPLETE",
+            "artifact": "C6_MATCHED_BANKS.json",
+            "expected_identity": "prism-c6-gate-profile-v1",
+            "identity_matches": true,
+            "present": true,
+            "reason": "the recorded identity validates; the completed unit is reused unchanged (L.11)",
+            "recorded_identity": "prism-c6-gate-profile-v1",
+            "resume_requested": true,
+            "unit_id": "c6_matched_banks"
+          },
+          "ok": true,
+          "summary": "resume validates C6 evidence by recorded identity"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 4,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "MATCHED_BANKS",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "status": "PASS",
+      "substage": "C6",
+      "summary": "C6 matched banks — 4/4 checks passed"
+    },
+    {
+      "artifacts": [
+        "reports/rehearsal/c6/C6_CARDINALITY_REFUSAL.json"
+      ],
+      "checks": [
+        {
+          "check_id": "c6_shortfall_is_not_matched",
+          "detail": {
+            "shortfall": {
+              "DET": {
+                "gpat": 0,
+                "physics": 0
+              },
+              "LLM": {
+                "gpat": 0,
+                "physics": 212
+              },
+              "RND": {
+                "gpat": 0,
+                "physics": 0
+              }
+            }
+          },
+          "ok": true,
+          "summary": "an arm that cannot fill its route quota makes the bank set unmatched"
+        },
+        {
+          "check_id": "c6_fails_rather_than_relaxing_one_arm",
+          "detail": {
+            "failure_reason": "no preregistered profile yields the full matched cardinality in every arm (infeasible under ['STRICT', 'NOMINAL', 'PERMISSIVE']). §11.4: C6 FAILS. The gate is not relaxed for one arm.",
+            "selected": null
+          },
+          "ok": true,
+          "summary": "no profile qualifies and C6 FAILS; the gate is not relaxed for the short arm"
+        },
+        {
+          "check_id": "c6_total_cannot_substitute_for_route_split",
+          "detail": {
+            "accepted_gpat": 124,
+            "accepted_physics": 900,
+            "accepted_total": 1024,
+            "feasible": false
+          },
+          "ok": true,
+          "summary": "reaching 1024 in total does not satisfy the 512 + 512 route split"
+        }
+      ],
+      "checks_failed": 0,
+      "checks_run": 3,
+      "detail": {},
+      "engineering_status": "SMOKE_PASS",
+      "mode": "CARDINALITY_REFUSAL",
+      "notes": [],
+      "parent_identities": {},
+      "provider_binding": "none",
+      "provider_calls": 0,
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "status": "PASS",
+      "substage": "C6",
+      "summary": "C6 cardinality refusal — 3/3 checks passed"
+    }
+  ],
+  "checks": [],
+  "checks_failed": 0,
+  "checks_passed": 0,
+  "checks_run": 0,
+  "engineering_status": "SMOKE_PASS",
+  "execution_profile": "rehearsal",
+  "finished_at_utc": "2026-08-17T11:00:52.376756Z",
+  "mandatory_full_outputs": "quality-gate search and audit where permitted, all candidate decisions and q values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
+  "notes": [],
+  "phase": "scientific",
+  "profile_config": "configs/execution/rehearsal.yaml",
+  "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
+  "profile_permits_scientific_evidence": false,
+  "provider_calls": 0,
+  "schema_version": "prism-orchestrator-run-v1",
+  "scientific_eligible": false,
+  "scientific_status": "NOT_RUN",
+  "scientifically_complete": false,
+  "stage_id": "C6",
+  "started_at_utc": "2026-08-17T11:00:52.320831Z",
+  "substages": [],
+  "title": "Quality gate and matched banks",
+  "validate_checks": [
+    "c6_gate_profiles"
+  ],
+  "validate_gate": "PASS"
+}

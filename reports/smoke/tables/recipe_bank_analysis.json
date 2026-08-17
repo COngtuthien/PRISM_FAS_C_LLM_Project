@@ -1,0 +1,44 @@
+{
+  "columns": [
+    "arm",
+    "raw_slots",
+    "eligible",
+    "selected",
+    "bank_identity",
+    "coverage_axes",
+    "diversity"
+  ],
+  "row_count": 3,
+  "rows": [
+    {
+      "arm": "DET",
+      "bank_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "coverage_axes": null,
+      "diversity": null,
+      "eligible": 384,
+      "raw_slots": 384,
+      "selected": 256
+    },
+    {
+      "arm": "LLM",
+      "bank_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "coverage_axes": null,
+      "diversity": null,
+      "eligible": 384,
+      "raw_slots": 384,
+      "selected": 256
+    },
+    {
+      "arm": "RND",
+      "bank_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "coverage_axes": null,
+      "diversity": null,
+      "eligible": 384,
+      "raw_slots": 384,
+      "selected": 256
+    }
+  ],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "recipe_bank_analysis"
+}

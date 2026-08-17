@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "experiment_id",
+    "track",
+    "arm",
+    "seed",
+    "videos",
+    "video_ACER",
+    "APCER",
+    "BPCER",
+    "roc_auc",
+    "eer",
+    "threshold",
+    "prediction_lock_identity"
+  ],
+  "row_count": 0,
+  "rows": [],
+  "schema_version": "prism-tables-v1",
+  "source": "derived from canonical stored artifacts; no value is hand-entered",
+  "table": "target_results"
+}
