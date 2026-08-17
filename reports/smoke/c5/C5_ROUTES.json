@@ -1,0 +1,48 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:30:10.057070Z",
+  "mode": "RESOLVE_ROUTES",
+  "observed": {
+    "DET": [
+      [
+        "physics",
+        "gpat"
+      ],
+      [
+        "physics",
+        "gpat"
+      ]
+    ],
+    "LLM": [
+      [
+        "physics",
+        "gpat"
+      ],
+      [
+        "physics",
+        "gpat"
+      ]
+    ],
+    "RND": [
+      [
+        "physics",
+        "gpat"
+      ],
+      [
+        "physics",
+        "gpat"
+      ]
+    ]
+  },
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "required_generator_route": [
+    "physics",
+    "gpat"
+  ],
+  "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+  "schema_version": "c5-routes-v1",
+  "scientific_eligible": false
+}

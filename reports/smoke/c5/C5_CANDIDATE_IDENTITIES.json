@@ -1,0 +1,86 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:30:10.247890Z",
+  "mode": "CANDIDATE_IDENTITY",
+  "physics_renders": 6,
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "rows": [
+    {
+      "arm": "LLM",
+      "candidate_id": "syn_0cbab46b059554d011df120f",
+      "recipe_id": "R-000341",
+      "route": "physics"
+    },
+    {
+      "arm": "LLM",
+      "candidate_id": "syn_b67bbc9c1987f3b61c11fa1b",
+      "recipe_id": "R-000341",
+      "route": "gpat"
+    },
+    {
+      "arm": "LLM",
+      "candidate_id": "syn_47f841ec1160afbfc2744d64",
+      "recipe_id": "R-000150",
+      "route": "physics"
+    },
+    {
+      "arm": "LLM",
+      "candidate_id": "syn_3a701fe4a3b0cc7142749517",
+      "recipe_id": "R-000150",
+      "route": "gpat"
+    },
+    {
+      "arm": "RND",
+      "candidate_id": "syn_5419e1ca6cbf0a92348c8b07",
+      "recipe_id": "R-000307",
+      "route": "physics"
+    },
+    {
+      "arm": "RND",
+      "candidate_id": "syn_ff8a36668f28aebda77d7b9a",
+      "recipe_id": "R-000307",
+      "route": "gpat"
+    },
+    {
+      "arm": "RND",
+      "candidate_id": "syn_1ec77cce89013e714f30f4a6",
+      "recipe_id": "R-000144",
+      "route": "physics"
+    },
+    {
+      "arm": "RND",
+      "candidate_id": "syn_a6254222e8d164f2ad89a614",
+      "recipe_id": "R-000144",
+      "route": "gpat"
+    },
+    {
+      "arm": "DET",
+      "candidate_id": "syn_db1accc208f8861dd81381d8",
+      "recipe_id": "R-000040",
+      "route": "physics"
+    },
+    {
+      "arm": "DET",
+      "candidate_id": "syn_b925544e3f856906eb35590d",
+      "recipe_id": "R-000040",
+      "route": "gpat"
+    },
+    {
+      "arm": "DET",
+      "candidate_id": "syn_9466aa9c9e646d5631118b4c",
+      "recipe_id": "R-000032",
+      "route": "physics"
+    },
+    {
+      "arm": "DET",
+      "candidate_id": "syn_9c5091cb8ee12d6c65e3329e",
+      "recipe_id": "R-000032",
+      "route": "gpat"
+    }
+  ],
+  "schema_version": "c5-candidate-identities-v1",
+  "scientific_eligible": false
+}

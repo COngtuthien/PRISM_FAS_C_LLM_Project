@@ -1,11 +1,13 @@
 """Orchestration behaviour (v1.5 Appendix L.4, L.5, L.8) and its honesty properties.
 
-The orchestrator's most valuable property is what it refuses to claim. C0-C3
-now have adapters and C4-C13 do not, so the tests that matter most assert that
-a clean run over the adapted range does NOT read as a working pipeline: a
-validate run reports no engineering pass on any stage, an unadapted stage is
-blocked rather than skipped, and no blocked run leaves artifacts that look like
-scientific evidence.
+The orchestrator's most valuable property is what it refuses to claim. Every
+C0-C13 stage now has an adapter, which makes that property harder to see and
+more important to hold: a clean validate or smoke run over all fourteen stages
+must still NOT read as a working scientific pipeline. So the tests that matter
+most assert the refusals — a validate run reports no engineering pass on any
+stage, a stage whose adapter is missing is blocked rather than skipped, the full
+profile blocks on absent scientific inputs rather than substituting fixtures, and
+no blocked run leaves artifacts that look like scientific evidence.
 """
 from __future__ import annotations
 
@@ -30,7 +32,10 @@ def validate_run(repo: Path, tmp_path_factory) -> dict:
     import shutil
 
     sandbox = tmp_path_factory.mktemp("repo")
-    for relative in ("configs", "docs", "reports", "src"):
+    # `assets` carries the frozen C3 recipe banks. C3's bank check and C5's route
+    # check both read them, so a sandbox without them is corrupt rather than
+    # minimal and the checks correctly refuse it.
+    for relative in ("assets", "configs", "docs", "reports", "src"):
         source = repo / relative
         if source.exists():
             shutil.copytree(source, sandbox / relative,
@@ -55,18 +60,28 @@ def test_no_stage_reports_scientific_completion(validate_run: dict) -> None:
         assert not scientifically_complete(outcome.status, profile=result.profile.name)
 
 
-def test_stages_without_an_adapter_are_not_applicable_rather_than_passing(
+def test_a_stage_with_no_declared_check_is_not_applicable_rather_than_passing(
         validate_run: dict) -> None:
-    gates = {outcome.stage.stage_id: outcome.validate_gate
-             for outcome in validate_run["result"].outcomes}
-    for stage_id in ("C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C13"):
-        assert gates[stage_id] == "NOT_APPLICABLE"
+    """The gate follows the CHECKS, not the adapter.
+
+    Every stage now declares at least one validate check, so nothing is
+    NOT_APPLICABLE today. The property under test is the mapping itself: a stage
+    with no declared check must never report PASS, because a PASS earned by
+    having nothing to check is the exact confusion the gate exists to prevent.
+    """
+    for outcome in validate_run["result"].outcomes:
+        if not outcome.stage.validate_checks:
+            assert outcome.validate_gate == "NOT_APPLICABLE", outcome.stage.stage_id
 
 
-def test_only_c0_to_c3_have_adapters(validate_run: dict) -> None:
-    """C0-C3 gained adapters; C4-C13 have none and must not pretend otherwise."""
+def test_every_stage_has_an_adapter_and_declares_what_that_does_not_mean(
+        validate_run: dict) -> None:
+    """C0-C13 are all adapted, and none of them claims scientific evidence."""
     adapted = {stage.stage_id for stage in STAGES if stage.adapter_implemented}
-    assert adapted == {"C0", "C1", "C2", "C3"}
+    assert adapted == set(STAGE_IDS)
+    for outcome in validate_run["result"].outcomes:
+        assert outcome.status.scientific == "NOT_RUN", outcome.stage.stage_id
+        assert outcome.status.engineering == "NOT_TESTED", outcome.stage.stage_id
 
 
 def test_the_summary_says_it_is_not_scientific_evidence(validate_run: dict) -> None:
@@ -76,9 +91,10 @@ def test_the_summary_says_it_is_not_scientific_evidence(validate_run: dict) -> N
     assert summary["not_scientific_evidence"] is True
     assert summary["artifact_kind"] == "ENGINEERING_READINESS_EVIDENCE"
     assert summary["scientific_eligible"] is False
-    # The ten that still have none. A validate run must keep saying so.
-    assert summary["stages_without_adapter"] == [
-        f"C{index}" for index in range(4, 14)]
+    # Every stage is adapted now, so the list is empty — and it must still be
+    # PRESENT and empty rather than absent, so a reader can tell "none missing"
+    # from "the field was dropped".
+    assert summary["stages_without_adapter"] == []
 
 
 # --- what a validate run does establish -------------------------------------
@@ -89,10 +105,12 @@ def test_the_run_passes_against_the_live_repository(validate_run: dict) -> None:
     assert result.ok
 
 
-def test_the_four_prepared_milestones_carry_real_checks(validate_run: dict) -> None:
+def test_every_milestone_carries_real_checks(validate_run: dict) -> None:
     gates = {outcome.stage.stage_id: outcome.validate_gate
              for outcome in validate_run["result"].outcomes}
-    assert [gates[stage_id] for stage_id in ("C0", "C1", "C2", "C3")] == ["PASS"] * 4
+    assert [gates[stage_id] for stage_id in STAGE_IDS] == ["PASS"] * len(STAGE_IDS)
+    for stage in STAGES:
+        assert stage.validate_checks, f"{stage.stage_id} declares no validate check"
 
 
 def test_every_gate_value_is_from_the_declared_vocabulary(validate_run: dict) -> None:
@@ -122,7 +140,7 @@ def test_state_and_index_are_written(validate_run: dict) -> None:
     index = json.loads((sandbox / "state/MASTER_RUN_INDEX.json").read_text(encoding="utf-8"))
     assert state["execution_profile"] == "validate"
     assert state["outcome"] == "PASS"
-    assert index["run_count"] == 14
+    assert index["run_count"] == len(STAGE_IDS)
     assert not any(row["scientific_eligible"] for row in index["runs"])
 
 
@@ -136,37 +154,73 @@ def test_historical_acceptance_files_are_annotated_not_edited(validate_run: dict
 
 # --- profiles that cannot run yet -------------------------------------------
 
-@pytest.mark.parametrize("profile_name", ["smoke", "full"])
-def test_an_unadapted_stage_is_blocked_not_skipped(
-        repo: Path, tmp_path: Path, profile_name: str) -> None:
-    """A full-range run must not report success over the ten missing stages."""
-    from conftest_adapters import make_sandbox
+def test_a_stage_without_an_adapter_would_be_blocked_not_skipped(
+        repo: Path, tmp_path: Path, monkeypatch) -> None:
+    """The refusal survives even though nothing triggers it today.
 
-    sandbox = make_sandbox(tmp_path / f"range_{profile_name}")
-    result = run(repo=sandbox, profile_name=profile_name)
+    Every C0-C13 stage is adapted, so this constructs the condition instead of
+    waiting for it: with one adapter removed from the registry, the run must
+    report BLOCKED rather than quietly traversing the gap. Deleting this test
+    when the last unadapted stage disappeared would have removed the guarantee
+    along with its last live example.
+    """
+    from conftest_adapters import make_sandbox
+    from prism_fas.pipeline.adapters import registry as registry_module
+
+    sandbox = make_sandbox(tmp_path / "missing_adapter")
+    real = registry_module.build_registry
+
+    def without_c9() -> dict:
+        table = real()
+        table.pop("C9")
+        return table
+
+    monkeypatch.setattr(registry_module, "build_registry", without_c9)
+    result = run(repo=sandbox, profile_name="smoke", first_stage="C8", last_stage="C9")
 
     assert result.outcome == "BLOCKED"
     assert not result.ok
-    assert any("have none" in blocker for blocker in result.blockers)
+    blocked = {outcome.stage.stage_id for outcome in result.outcomes
+               if outcome.status.engineering == "BLOCKED"}
+    assert blocked == {"C9"}
+    assert any("has no adapter" in note
+               for outcome in result.outcomes for note in outcome.notes)
 
+
+@pytest.mark.parametrize("profile_name", ["full"])
+def test_the_full_profile_blocks_on_absent_scientific_inputs(
+        repo: Path, tmp_path: Path, profile_name: str) -> None:
+    """Full refuses to start C4-C13 without the real inputs, and names them."""
+    from conftest_adapters import make_sandbox
+
+    sandbox = make_sandbox(tmp_path / f"range_{profile_name}")
+    result = run(repo=sandbox, profile_name=profile_name, first_stage="C4",
+                 last_stage="C13")
+
+    assert result.outcome == "BLOCKED"
     blocked = {outcome.stage.stage_id for outcome in result.outcomes
                if outcome.status.engineering == "BLOCKED"}
     assert blocked == {f"C{index}" for index in range(4, 14)}
+    # The refusal must name what is missing rather than fail vaguely.
+    named = [check for outcome in result.outcomes
+             for adapter_result in outcome.adapter_results
+             for check in adapter_result.checks if not check["ok"]]
+    assert named, "a blocked full run named no missing input"
 
 
 def test_a_blocked_run_writes_no_per_stage_artifacts(repo: Path, tmp_path: Path) -> None:
     """A reports/full/ tree of stubs would read as science having started."""
     import shutil
 
-    for relative in ("configs", "docs", "reports", "src"):
+    for relative in ("assets", "configs", "docs", "reports", "src"):
         if (repo / relative).exists():
             shutil.copytree(repo / relative, tmp_path / relative,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc",
                                                           "raw_responses"))
-    run(repo=tmp_path, profile_name="full")
+    run(repo=tmp_path, profile_name="full", first_stage="C4", last_stage="C13")
 
     assert (tmp_path / "reports/full/FULL_RUN.json").exists()
-    assert not (tmp_path / "reports/full/c0").exists()
+    assert not (tmp_path / "reports/full/c4").exists()
     summary = json.loads((tmp_path / "reports/full/FULL_RUN.json").read_text(encoding="utf-8"))
     assert summary["scientific_eligible"] is False
     assert summary["profile_permits_scientific_evidence"] is True
@@ -176,7 +230,7 @@ def test_the_full_profile_names_the_outstanding_c3_decision(
         repo: Path, tmp_path: Path) -> None:
     import shutil
 
-    for relative in ("configs", "docs", "reports", "src"):
+    for relative in ("assets", "configs", "docs", "reports", "src"):
         if (repo / relative).exists():
             shutil.copytree(repo / relative, tmp_path / relative,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc",

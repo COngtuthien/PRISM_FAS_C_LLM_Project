@@ -1,0 +1,195 @@
+{
+  "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 8,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 2,
+    "max_wall_clock_seconds": 1800,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "checkpoint": {
+    "path": "runs/smoke/c4/smoke_checkpoint/gpat_smoke.pt",
+    "sha256": "5b333558a3faab3c0c18fd4b15883aa9d86e7e9e90f12f4a11797f0c5331fda2"
+  },
+  "checks": [
+    {
+      "check_id": "c4_gpat_instantiate",
+      "detail": {
+        "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+        "builder": "prism_fas.synthesis.gpat_model.build_gpat_model",
+        "parameters": 910538
+      },
+      "ok": true,
+      "summary": "the GPAT residual model instantiated"
+    },
+    {
+      "check_id": "c4_gpat_forward",
+      "detail": {
+        "shape": [
+          2,
+          3,
+          224,
+          224
+        ]
+      },
+      "ok": true,
+      "summary": "the forward pass produced a finite synthetic image"
+    },
+    {
+      "check_id": "c4_low_frequency_geometry_lock",
+      "detail": {
+        "ll_invariant_error": 1.1920928955078125e-07,
+        "note": "LL is passed through by the architecture; there is no delta-LL head to disable, so this measures the structural lock",
+        "tolerance": 1e-05
+      },
+      "ok": true,
+      "summary": "low-frequency geometry is preserved within the frozen tolerance"
+    },
+    {
+      "check_id": "c4_outside_mask_invariant",
+      "detail": {
+        "outside_mask_error": 0.0,
+        "tolerance": 0.0
+      },
+      "ok": true,
+      "summary": "the residual does not leak outside the support mask"
+    },
+    {
+      "check_id": "c4_finite_loss",
+      "detail": {
+        "components": {
+          "identity": 0.00634351372718811,
+          "map": 0.002632369752973318,
+          "residual": 0.005305363796651363,
+          "strength": 0.07320916652679443,
+          "style": 0.017887664958834648,
+          "total_variation": 0.009505050256848335
+        },
+        "total": 0.04092105105519295,
+        "weights": {
+          "identity": 0.5,
+          "map": 0.5,
+          "residual": 0.01,
+          "strength": 0.25,
+          "style": 1.0,
+          "total_variation": 0.02
+        }
+      },
+      "ok": true,
+      "summary": "the total GPAT loss is finite"
+    },
+    {
+      "check_id": "c4_identity_metric_path",
+      "detail": {
+        "identity_loss": 0.00634351372718811,
+        "measurement_note": "the identity embedding is a deterministic stand-in on this machine; the PATH is exercised, the VALUE is not a measurement of identity preservation"
+      },
+      "ok": true,
+      "summary": "the identity-preservation loss path executed"
+    },
+    {
+      "check_id": "c4_backward",
+      "detail": {
+        "gradient_norm": 1.6404283046722412,
+        "parameters_with_gradient": 76
+      },
+      "ok": true,
+      "summary": "the backward pass populated gradients on the trainable parameters"
+    },
+    {
+      "check_id": "c4_optimizer_step",
+      "detail": {},
+      "ok": true,
+      "summary": "the optimizer step changed the parameters"
+    },
+    {
+      "check_id": "c4_checkpoint_save",
+      "detail": {
+        "path": "gpat_smoke.pt",
+        "sha256": "5b333558a3faab3c0c18fd4b15883aa9d86e7e9e90f12f4a11797f0c5331fda2"
+      },
+      "ok": true,
+      "summary": "the checkpoint was written atomically"
+    },
+    {
+      "check_id": "c4_checkpoint_load_and_resume",
+      "detail": {
+        "global_step": 1,
+        "identity_verified": true
+      },
+      "ok": true,
+      "summary": "the checkpoint restored the exact parameter state"
+    },
+    {
+      "check_id": "c4_checkpoint_rejects_identity_mismatch",
+      "detail": {
+        "rule": "L.11: if an expected identity changed, fail closed rather than reuse"
+      },
+      "ok": true,
+      "summary": "a checkpoint whose expected identity does not match is refused"
+    },
+    {
+      "check_id": "c4_checkpoint_portable",
+      "detail": {
+        "checked_patterns": [
+          "an absolute Windows drive path",
+          "an absolute POSIX mount path",
+          "a physical GPU UUID",
+          "a UNC network share"
+        ],
+        "exempt_provenance_keys": [
+          "compute",
+          "environment",
+          "operational_provenance",
+          "recorded_device",
+          "recorded_filesystem_root",
+          "recorded_hostname"
+        ],
+        "findings": [],
+        "meaning": "a checkpoint must resolve its inputs through portable logical names and config identities. Recording the machine it ran on is provenance; needing that machine to restore is a defect",
+        "path": "gpat_smoke.pt",
+        "portable": true,
+        "schema_version": "prism-backend-portability-v1"
+      },
+      "ok": true,
+      "summary": "the checkpoint record carries no unrecoverable machine dependency"
+    }
+  ],
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:30:05.664773Z",
+  "geometry_metric": {
+    "ll_invariant_error": 1.1920928955078125e-07,
+    "tolerance": 1e-05
+  },
+  "identity_metric": {
+    "loss": 0.00634351372718811,
+    "stand_in": true
+  },
+  "mode": "SMOKE_GPAT",
+  "outside_mask_metric": {
+    "error": 0.0,
+    "tolerance": 0.0
+  },
+  "parameter_count": 910538,
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c4-gpat-smoke-v1",
+  "scientific_eligible": false
+}

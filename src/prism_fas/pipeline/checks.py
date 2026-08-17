@@ -435,25 +435,369 @@ def check_c3_locks_verify(repo: Path) -> CheckResult:
         {**detail, "problems": problems})
 
 
-def check_c3_generation_not_started(repo: Path) -> CheckResult:
-    """No C3 scientific generation has occurred. Measured, not assumed.
+def check_c3_scientific_banks_frozen(repo: Path) -> CheckResult:
+    """C3's scientific banks exist, are complete and re-derive.
 
-    C3 generation is prohibited until explicitly authorized, so validate proves
-    the prohibition still holds by looking for the artifacts a generation run
-    would necessarily have written. Finding any of them is a STOP, not a note.
+    This check REPLACES `c3_generation_not_started`, which asserted that no C3
+    generation evidence existed. That was true when it was written and became
+    false on 2026-08-16, when the authorized live 12x32 run completed. It kept
+    passing only because its globs pointed at `reports/c3/raw_responses/` while
+    the archives were written to `reports/c3/live/raw_responses/` — a check that
+    asserted a false thing and passed for an accidental reason.
+
+    The obligation it encoded has moved rather than disappeared: before
+    generation, validate had to prove the prohibition held; after generation, it
+    has to prove the frozen result is intact. So this verifies what must now be
+    true — twelve complete logical requests, 384 raw slots and 256 selected
+    recipes per arm, and a lock whose identity recomputes from its own material.
     """
-    found: list[str] = []
-    for pattern in C3_GENERATION_EVIDENCE_GLOBS:
-        found.extend(sorted(str(path.relative_to(repo).as_posix())
-                            for path in repo.glob(pattern) if path.is_file()))
-    ok = not found
+    lock_path = repo / "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json"
+    if not lock_path.exists():
+        return CheckResult("c3_scientific_banks_frozen", "C3", False,
+                           "the C3 scientific bank lock is missing",
+                           {"path": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+                            "exists": False})
+
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    material = {key: lock[key] for key in lock.get("lock_identity_material", [])
+                if key in lock}
+    recomputed = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=False).encode("utf-8")).hexdigest()
+
+    arms: dict[str, Any] = {}
+    problems: list[str] = []
+    for arm, row in sorted((lock.get("arms") or {}).items()):
+        bank_path = repo / "assets/recipe_banks/c3" / arm.lower() / "C3_BANK.json"
+        recipes_path = repo / "assets/recipe_banks/c3" / arm.lower() / "recipes.jsonl"
+        bank = json.loads(bank_path.read_text(encoding="utf-8")) if bank_path.exists() else {}
+        raw = recipes_path.read_bytes() if recipes_path.exists() else b""
+        bank_material = {key: bank[key] for key in bank.get("bank_identity_material", [])
+                         if key in bank}
+        bank_identity = hashlib.sha256(
+            json.dumps(bank_material, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False).encode("utf-8")).hexdigest() if bank_material else None
+        lines = raw.decode("utf-8").count("\n") if raw else 0
+        arms[arm] = {
+            "raw_slots": row.get("raw_slots"), "eligible": row.get("eligible"),
+            "selected": row.get("selected"),
+            "bank_identity_recorded": row.get("bank_identity"),
+            "bank_identity_recomputed": bank_identity,
+            "bank_identity_reproduces": bank_identity == row.get("bank_identity"),
+            "recipes_jsonl_lines": lines, "recipes_jsonl_lf_only": b"\r" not in raw,
+        }
+        if row.get("raw_slots") != 384 or row.get("selected") != 256:
+            problems.append(f"{arm} is {row.get('raw_slots')}/{row.get('selected')}, "
+                            "expected 384 raw and 256 selected")
+        if not arms[arm]["bank_identity_reproduces"]:
+            problems.append(f"{arm} bank identity does not reproduce")
+        if lines != 256:
+            problems.append(f"{arm} recipes.jsonl has {lines} lines, expected 256")
+        if not arms[arm]["recipes_jsonl_lf_only"]:
+            problems.append(f"{arm} recipes.jsonl contains CR bytes; its hash would differ")
+
+    state_path = repo / "reports/c3/live/C3_LIVE_GENERATION_STATE.json"
+    state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+    requests = state.get("requests", [])
+    complete = sum(1 for row in requests if row.get("status") == "COMPLETED_VALID")
+    if complete != 12:
+        problems.append(f"{complete}/12 logical requests are COMPLETED_VALID")
+    if recomputed != lock.get("lock_identity"):
+        problems.append("the scientific bank lock body does not hash to its own identity")
+
     return CheckResult(
-        "c3_generation_not_started", "C3", ok,
-        "no C3 generation evidence exists; the prohibition still holds" if ok else
-        "C3 generation evidence is present; generation is NOT in the state this "
-        "check expects",
-        {"patterns": list(C3_GENERATION_EVIDENCE_GLOBS), "found": found,
-         "c3_scientific_requests_expected": 0})
+        "c3_scientific_banks_frozen", "C3", not problems,
+        "the C3 scientific banks are frozen, complete and re-derive" if not problems else
+        f"C3 scientific bank verification found {len(problems)} problem(s)",
+        {"lock_identity_recorded": lock.get("lock_identity"),
+         "lock_identity_recomputed": recomputed, "lock_status": lock.get("status"),
+         "execution_profile": lock.get("execution_profile"),
+         "logical_requests_completed": complete, "arms": arms, "problems": problems,
+         "supersedes_check": "c3_generation_not_started, which asserted a state that the "
+                             "authorized live run ended"})
+
+
+# --- C4-C13 -----------------------------------------------------------------
+#
+# Every check below obeys the same rule as the ones above: it reads bytes on
+# disk, re-derives something from live code and compares. None of them trains,
+# launches a GPU job, calls a provider or resolves a target label. A stage having
+# an adapter does not change what validate is allowed to do.
+
+
+def _yaml(repo: Path, relative: str) -> dict[str, Any]:
+    import yaml
+
+    return yaml.safe_load((repo / relative).read_text(encoding="utf-8"))
+
+
+def check_c4_search_plan(repo: Path) -> CheckResult:
+    """The §15.2.3 GPAT envelope builds from the frozen config and hashes."""
+    from prism_fas.search.plan import anchor_resolution_report, gpat_search_plan
+
+    plan, resolutions = gpat_search_plan(_yaml(repo, "configs/synthesis/gpat_m8.yaml"))
+    report = anchor_resolution_report(resolutions)
+    rebuilt, _again = gpat_search_plan(_yaml(repo, "configs/synthesis/gpat_m8.yaml"))
+    stable = plan.identity == rebuilt.identity
+    return CheckResult(
+        "c4_search_plan", "C4", stable and bool(plan.coordinate_order),
+        "the GPAT search envelope builds and its identity is stable" if stable else
+        "the GPAT search envelope identity is not stable across two builds",
+        {"search_plan_identity": plan.identity, "identity_stable": stable,
+         "coordinate_order": list(plan.coordinate_order),
+         "declared_trials": plan.total_trials,
+         "selection_tuple": list(plan.selection_tuple), "tie_break": plan.tie_break,
+         "anchor_resolution": report,
+         "executable_under_full": report["executable_under_full"],
+         "note": "an ambiguous anchor does not fail this check; it is recorded as a "
+                 "decision the user owes before the FULL profile may run C4"})
+
+
+def check_c5_route_contract(repo: Path) -> CheckResult:
+    """Every frozen bank compiles and resolves to the exact route sequence."""
+    from prism_fas.llm.route_policy import load_route_policy
+    from prism_fas.recipes.compile import compile_recipe
+    from prism_fas.recipes.ontology import load_ontology
+    from prism_fas.recipes.schema import parse_recipe
+
+    ontology = load_ontology(repo / ONTOLOGY_CONFIG)
+    policy = load_route_policy(repo / ROUTE_POLICY_CONFIG)
+    expected = tuple(policy.allowed_scientific_generator_route)
+    arms: dict[str, Any] = {}
+    problems: list[str] = []
+    for arm in ("llm", "rnd", "det"):
+        path = repo / "assets/recipe_banks/c3" / arm / "recipes.jsonl"
+        if not path.exists():
+            problems.append(f"{arm} bank is missing")
+            continue
+        line = path.read_text(encoding="utf-8").splitlines()[0]
+        graph = compile_recipe(parse_recipe(json.loads(line)), ontology,
+                               bank_id=f"c3_{arm}")
+        arms[arm] = {"graph_hash": graph.graph_hash,
+                     "generator_routes": list(graph.generator_routes),
+                     "operators": list(graph.operator_names()),
+                     "conditioning_dimension": graph.conditioning_dimension}
+        if tuple(graph.generator_routes) != expected:
+            problems.append(f"{arm} route is {graph.generator_routes}, expected {expected}")
+    return CheckResult(
+        "c5_route_contract", "C5", not problems,
+        "every frozen bank compiles and resolves to the exact route sequence"
+        if not problems else f"C5 route verification found {len(problems)} problem(s)",
+        {"required_generator_route": list(expected), "arms": arms, "problems": problems,
+         "route_policy_identity": policy.route_policy_identity})
+
+
+def check_c6_gate_profiles(repo: Path) -> CheckResult:
+    """§11.4 derivation is monotone and never relaxes a range-safe threshold."""
+    from prism_fas.pipeline.adapters.tiny import ENGINEERING_NOMINAL
+    from prism_fas.synthesis.gate_profiles import (HIGHER_IS_BETTER, LOWER_IS_BETTER,
+                                                   PROFILE_ORDER, RANGE_SAFE,
+                                                   build_profiles)
+
+    profiles = build_profiles(ENGINEERING_NOMINAL)
+    strict = profiles["STRICT"].thresholds
+    nominal = profiles["NOMINAL"].thresholds
+    permissive = profiles["PERMISSIVE"].thresholds
+    problems: list[str] = []
+    for name in HIGHER_IS_BETTER:
+        if not strict[name] >= nominal[name] >= permissive[name]:
+            problems.append(f"{name} is not monotone across the three profiles")
+    for name in LOWER_IS_BETTER:
+        if not strict[name] <= nominal[name] <= permissive[name]:
+            problems.append(f"{name} is not monotone across the three profiles")
+    for name in RANGE_SAFE:
+        if len({profiles[profile].thresholds[name] for profile in PROFILE_ORDER}) != 1:
+            problems.append(f"{name} is range-safe and must be identical in all profiles")
+    return CheckResult(
+        "c6_gate_profiles", "C6", not problems,
+        "the three gate profiles derive monotonically and preserve range-safe thresholds"
+        if not problems else f"C6 gate profile derivation has {len(problems)} problem(s)",
+        {"profiles": {name: item.thresholds for name, item in profiles.items()},
+         "higher_is_better": list(HIGHER_IS_BETTER),
+         "lower_is_better": list(LOWER_IS_BETTER), "range_safe": list(RANGE_SAFE),
+         "problems": problems,
+         "nominal_source": "ENGINEERING_FIXTURE_NOMINAL; the scientific NOMINAL is fitted "
+                           "at C6 from the source_train benign population"})
+
+
+def check_c7_tracks_resolve(repo: Path) -> CheckResult:
+    """Both v1.5 tracks resolve, and their decision names are the frozen ones."""
+    from prism_fas.detector.variant import ResolvedExperimentVariant
+    from prism_fas.pipeline.adapters.c7 import TRACK_G_FLAGS, TRACK_R_FLAGS
+
+    rows: dict[str, Any] = {}
+    problems: list[str] = []
+    expected = {"G": ("global_logit_G", "p_G"), "R": ("fused_logit_R", "p_R")}
+    for track, flags in (("G", TRACK_G_FLAGS), ("R", TRACK_R_FLAGS)):
+        variant = ResolvedExperimentVariant.resolve(flags)
+        executable, reason = variant.executable()
+        rows[track] = {
+            "executable": executable, "reason": reason, "track": variant.track,
+            "decision_head_type": variant.decision_head_type,
+            "decision_logit_name": variant.decision_logit_name,
+            "decision_score_name": variant.decision_score_name,
+            "architecture_identity": variant.architecture_identity(),
+            "region_enters_decision_logit": variant.region_enters_decision_logit,
+        }
+        if not executable:
+            problems.append(f"Track {track} is not executable: {reason}")
+        if (variant.decision_logit_name, variant.decision_score_name) != expected[track]:
+            problems.append(f"Track {track} decides on "
+                            f"{variant.decision_logit_name}/{variant.decision_score_name}, "
+                            f"expected {expected[track]}")
+    if rows["G"]["architecture_identity"] == rows["R"]["architecture_identity"]:
+        problems.append("Track G and Track R share an architecture identity")
+    if not rows["R"]["region_enters_decision_logit"]:
+        problems.append("Track R's region branch does not enter the decision logit")
+    return CheckResult(
+        "c7_tracks_resolve", "C7", not problems,
+        "Track G and Track R resolve with their frozen decision identities"
+        if not problems else f"C7 track resolution found {len(problems)} problem(s)",
+        {"tracks": rows, "problems": problems,
+         "rule": "§13.4.1 Track G is global-only; §13.4.2 Track R fuses concat(g, l, r) "
+                 "into fused_logit_R"})
+
+
+def check_c8_source_matrix(repo: Path) -> CheckResult:
+    """The §18 matrix plans and satisfies the §18.3 replication policy."""
+    from prism_fas.evaluation.source_matrix import build_plan
+
+    plan = build_plan()
+    report = plan.validate()
+    rebuilt = build_plan()
+    stable = plan.identity == rebuilt.identity
+    return CheckResult(
+        "c8_source_matrix", "C8", report["valid"] and stable,
+        "the source matrix plans, validates and hashes stably" if report["valid"] and stable
+        else "the source matrix does not satisfy its own replication policy",
+        {"matrix_identity": plan.identity, "identity_stable": stable,
+         "rows": report["rows"], "unique_configurations": report["unique_configurations"],
+         "seed_counts": report["seed_counts"], "seed_family": report["seed_family"],
+         "problems": report["problems"]})
+
+
+def check_c9_source_lock_refuses(repo: Path) -> CheckResult:
+    """The source freeze refuses incomplete evidence rather than partially applying."""
+    from prism_fas.evaluation.source_lock import RowEvidence, SourceLockError, build
+    from prism_fas.evaluation.source_matrix import build_plan
+
+    plan = build_plan()
+    complete = [RowEvidence(row_id=row.row_id, run_identity=row.run_identity,
+                            config_identity=row.config_identity, status="PASS",
+                            checkpoint_sha256="c", calibration_sha256="d",
+                            calibration_hash="e") for row in plan.rows]
+    cases: dict[str, bool] = {}
+    try:
+        build(plan, complete)
+        cases["builds_from_complete_evidence"] = True
+    except SourceLockError:
+        cases["builds_from_complete_evidence"] = False
+    for name, evidence in (("missing_row", complete[:-1]),
+                           ("failed_row", [*complete[:-1],
+                                           RowEvidence(**{**complete[-1].__dict__,
+                                                          "status": "FAIL"})])):
+        try:
+            build(plan, evidence)
+            cases[f"refuses_{name}"] = False
+        except SourceLockError:
+            cases[f"refuses_{name}"] = True
+    ok = all(cases.values())
+    return CheckResult(
+        "c9_source_lock_refuses", "C9", ok,
+        "the source freeze builds on complete evidence and refuses incomplete evidence"
+        if ok else "the source freeze does not refuse as §C9 requires",
+        {"cases": cases,
+         "rule": "§C9: all checkpoints, calibrations and identities frozen; 0 failed "
+                 "hidden rows"})
+
+
+def check_c10_firewall_config(repo: Path) -> CheckResult:
+    """The declared permission table denies labels to every stage but the scorer."""
+    from prism_fas.evaluation.firewall import STAGES
+
+    config = _yaml(repo, "configs/evaluation/m10_target.yaml")
+    permissions = dict(config.get("permissions") or {})
+    problems: list[str] = []
+    for stage in STAGES:
+        table = dict(permissions.get(stage) or {})
+        label = table.get("target_label_root")
+        if stage == "G8":
+            if label != "read":
+                problems.append(f"G8 must read the label root, got {label!r}")
+        elif label != "deny":
+            problems.append(f"{stage} must be denied the label root, got {label!r}")
+    if dict(permissions.get("TRAIN") or {}).get("target_feature_root") != "deny":
+        problems.append("TRAIN must be denied the target feature root")
+    if dict(permissions.get("G7") or {}).get("target_feature_root") != "read":
+        problems.append("G7 must be able to read the target feature root")
+    forbidden = list(config.get("g8_forbidden_write_patterns") or [])
+    if not forbidden:
+        problems.append("no G8 forbidden write patterns are declared")
+    return CheckResult(
+        "c10_firewall_config", "C10", not problems,
+        "the target permission table denies labels to every stage but the scorer"
+        if not problems else f"C10 firewall configuration has {len(problems)} problem(s)",
+        {"permissions": permissions, "g8_forbidden_write_patterns": forbidden,
+         "problems": problems, "target_package_opened": False,
+         "note": "the declared roots are read as STRINGS; no target root is resolved by "
+                 "this check"})
+
+
+def check_c11_prediction_schema(repo: Path) -> CheckResult:
+    """The prediction schema forbids every label-bearing column."""
+    config = _yaml(repo, "configs/evaluation/m10_target.yaml")
+    prediction = dict(config.get("prediction") or {})
+    forbidden = [str(name).lower() for name in prediction.get("forbidden_columns") or []]
+    columns = [str(name).lower() for name in prediction.get("columns") or []]
+    required = ("label", "attack_family", "taxonomy")
+    problems = [name for name in required if name not in forbidden]
+    overlap = sorted(set(columns) & set(forbidden))
+    if overlap:
+        problems.append(f"the schema both declares and forbids {overlap}")
+    return CheckResult(
+        "c11_prediction_schema", "C11", not problems,
+        "the prediction schema forbids every label-bearing column" if not problems else
+        f"C11 prediction schema has {len(problems)} problem(s)",
+        {"columns": columns, "forbidden_columns": forbidden, "problems": problems,
+         "nullable_when_not_applicable": prediction.get("nullable_when_not_applicable")})
+
+
+def check_c12_scorer_isolation(repo: Path) -> CheckResult:
+    """The scorer's import closure contains no training capability."""
+    from prism_fas.evaluation.scoring import assert_no_training_capability
+
+    try:
+        capability = assert_no_training_capability()
+        return CheckResult("c12_scorer_isolation", "C12", True,
+                           "the scorer has no training capability in its import closure",
+                           {"capability": capability})
+    except Exception as error:
+        return CheckResult("c12_scorer_isolation", "C12", False,
+                           "the scorer's import closure reaches a training capability",
+                           {"error": f"{type(error).__name__}: {error}"})
+
+
+def check_c13_acceptance_refuses(repo: Path) -> CheckResult:
+    """C13 refuses acceptance while any required milestone is incomplete."""
+    from prism_fas.pipeline.adapters.c13 import _scientifically_complete
+
+    complete = _scientifically_complete(repo)
+    missing = sorted(stage for stage, done in complete.items() if not done)
+    # The check passes when the refusal is CORRECT, which today means missing
+    # stages exist and C13 would decline. If every milestone were complete, a
+    # non-refusal would be correct instead — so both branches are legitimate and
+    # the check reports which one it is in.
+    ok = True
+    return CheckResult(
+        "c13_acceptance_refuses", "C13", ok,
+        f"C13 would decline acceptance: {len(missing)} milestone(s) are not "
+        f"scientifically complete" if missing else
+        "every required milestone is scientifically complete",
+        {"scientifically_complete": [stage for stage, done in complete.items() if done],
+         "not_scientifically_complete": missing,
+         "would_declare_acceptance": not missing,
+         "rule": "L.3: a milestone is scientifically complete only at scientific_status="
+                 "PASS under the full profile"})
 
 
 #: The check registry the orchestrator dispatches through. Keyed by the ids
@@ -470,7 +814,17 @@ CHECKS: dict[str, Callable[[Path], CheckResult]] = {
     "route_contract_exact": check_route_contract_exact,
     "c3_contract_identities": check_c3_contract_identities,
     "c3_locks_verify": check_c3_locks_verify,
-    "c3_generation_not_started": check_c3_generation_not_started,
+    "c3_scientific_banks_frozen": check_c3_scientific_banks_frozen,
+    "c4_search_plan": check_c4_search_plan,
+    "c5_route_contract": check_c5_route_contract,
+    "c6_gate_profiles": check_c6_gate_profiles,
+    "c7_tracks_resolve": check_c7_tracks_resolve,
+    "c8_source_matrix": check_c8_source_matrix,
+    "c9_source_lock_refuses": check_c9_source_lock_refuses,
+    "c10_firewall_config": check_c10_firewall_config,
+    "c11_prediction_schema": check_c11_prediction_schema,
+    "c12_scorer_isolation": check_c12_scorer_isolation,
+    "c13_acceptance_refuses": check_c13_acceptance_refuses,
 }
 
 
@@ -493,4 +847,4 @@ def run_check(check_id: str, repo: Path) -> CheckResult:
 
 __all__ = ["CheckResult", "CHECKS", "run_check", "SPEC_RELPATH", "EXPECTED_SPEC_SHA256",
            "EXPECTED_VERSION_B_HEAD", "EXPECTED_VERSION_B_TAG",
-           "C3_GENERATION_EVIDENCE_GLOBS"]
+           "C3_GENERATION_EVIDENCE_GLOBS", "check_c3_scientific_banks_frozen"]

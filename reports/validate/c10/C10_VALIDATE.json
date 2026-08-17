@@ -1,18 +1,57 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: BUILD_FIXTURE_PACKAGE, FIREWALL_PERMISSIONS, PACKAGE_IDENTITY, TARGET_LOCK, TAMPER_DETECTION. The real target package is never opened.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c10_firewall_config",
+      "detail": {
+        "g8_forbidden_write_patterns": [
+          ".pt",
+          ".pth",
+          ".ckpt",
+          ".safetensors",
+          "optimizer",
+          "calibration/",
+          "checkpoints/"
+        ],
+        "note": "the declared roots are read as STRINGS; no target root is resolved by this check",
+        "permissions": {
+          "G7": {
+            "prediction_root": "write",
+            "source_package_root": "deny",
+            "target_feature_root": "read",
+            "target_label_root": "deny"
+          },
+          "G8": {
+            "prediction_root": "read",
+            "source_package_root": "deny",
+            "target_feature_root": "deny",
+            "target_label_root": "read"
+          },
+          "TRAIN": {
+            "prediction_root": "deny",
+            "source_package_root": "read",
+            "target_feature_root": "deny",
+            "target_label_root": "deny"
+          }
+        },
+        "problems": [],
+        "target_package_opened": false
+      },
+      "ok": true,
+      "stage_id": "C10",
+      "summary": "the target permission table denies labels to every stage but the scorer"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923371Z",
+  "finished_at_utc": "2026-08-17T04:29:58.914269Z",
   "mandatory_full_outputs": "target package and capability lock, label-firewall audit, C10_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C10; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "target-eval",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +62,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C10",
-  "started_at_utc": "2026-08-16T12:25:03.923369Z",
+  "started_at_utc": "2026-08-17T04:29:58.902894Z",
   "substages": [],
   "title": "Target package and label firewall",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c10_firewall_config"
+  ],
+  "validate_gate": "PASS"
 }

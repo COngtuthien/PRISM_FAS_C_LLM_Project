@@ -1,0 +1,138 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 8,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 2,
+    "max_wall_clock_seconds": 1800,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:07.656475Z",
+  "mode": "EXECUTE_ROWS",
+  "note": "a bounded sample of the preregistered matrix, run on fixtures to exercise the per-run artifact contract. No scientific comparison is possible from these numbers (L.1)",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "rows": [
+    {
+      "calibration": {
+        "decision_logit_name": "global_logit_G",
+        "decision_score_name": "p_G",
+        "split": "source_dev",
+        "temperature": 0.21554165768100375,
+        "threshold": 0.6255094538813981,
+        "threshold_criterion": "min_acer",
+        "threshold_tie_break": [
+          "min_acer",
+          "min_apcer",
+          "min_threshold"
+        ],
+        "uses_target": false
+      },
+      "manifest_keys": [
+        "arm",
+        "calibration",
+        "checkpoint",
+        "config_identity",
+        "environment",
+        "flags",
+        "hypotheses",
+        "method",
+        "metrics",
+        "microbatch_plan",
+        "operational_provenance",
+        "parent_identities",
+        "protocol",
+        "replication_role",
+        "row_id",
+        "run_identity",
+        "schema_version",
+        "seed",
+        "selection_tuple",
+        "status",
+        "target_labels_resolved",
+        "target_paths_resolved",
+        "track",
+        "variant_identity"
+      ],
+      "parent_identities": {
+        "architecture": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+        "batch_contract": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+        "variant": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      },
+      "path": "runs/smoke/c8/P1/C-G-RND/1a7ce049dc0c/20260806",
+      "row_id": "C-G-RND-P1-s20260806",
+      "status": "PASS"
+    },
+    {
+      "calibration": {
+        "decision_logit_name": "global_logit_G",
+        "decision_score_name": "p_G",
+        "split": "source_dev",
+        "temperature": 0.04296176372625062,
+        "threshold": 0.6346474913741753,
+        "threshold_criterion": "min_acer",
+        "threshold_tie_break": [
+          "min_acer",
+          "min_apcer",
+          "min_threshold"
+        ],
+        "uses_target": false
+      },
+      "manifest_keys": [
+        "arm",
+        "calibration",
+        "checkpoint",
+        "config_identity",
+        "environment",
+        "flags",
+        "hypotheses",
+        "method",
+        "metrics",
+        "microbatch_plan",
+        "operational_provenance",
+        "parent_identities",
+        "protocol",
+        "replication_role",
+        "row_id",
+        "run_identity",
+        "schema_version",
+        "seed",
+        "selection_tuple",
+        "status",
+        "target_labels_resolved",
+        "target_paths_resolved",
+        "track",
+        "variant_identity"
+      ],
+      "parent_identities": {
+        "architecture": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+        "batch_contract": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+        "variant": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      },
+      "path": "runs/smoke/c8/P1/C-G-RND/1a7ce049dc0c/20260807",
+      "row_id": "C-G-RND-P1-s20260807",
+      "status": "PASS"
+    }
+  ],
+  "rows_executed": 2,
+  "rows_planned": 42,
+  "schema_version": "c8-executed-rows-v1",
+  "scientific_eligible": false
+}

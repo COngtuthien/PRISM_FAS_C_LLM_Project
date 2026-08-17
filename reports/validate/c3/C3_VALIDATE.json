@@ -65,23 +65,51 @@
       "summary": "both C3 locks verify and the superseding lock is still pre-scientific"
     },
     {
-      "check_id": "c3_generation_not_started",
+      "check_id": "c3_scientific_banks_frozen",
       "detail": {
-        "c3_scientific_requests_expected": 0,
-        "found": [],
-        "patterns": [
-          "reports/c3/C3_RAW_ARCHIVE*.json",
-          "reports/c3/C3_*_RAW_ARCHIVE*.json",
-          "reports/c3/C3_PROVENANCE*.json",
-          "reports/c3/C3_*_PROVENANCE*.json",
-          "reports/c3/C3_BATCH_STATE*.json",
-          "reports/c3/C3_LIVE_*_AUDIT*.json",
-          "reports/c3/raw_responses/**/*"
-        ]
+        "arms": {
+          "DET": {
+            "bank_identity_recomputed": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+            "bank_identity_recorded": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+            "bank_identity_reproduces": true,
+            "eligible": 384,
+            "raw_slots": 384,
+            "recipes_jsonl_lf_only": true,
+            "recipes_jsonl_lines": 256,
+            "selected": 256
+          },
+          "LLM": {
+            "bank_identity_recomputed": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+            "bank_identity_recorded": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+            "bank_identity_reproduces": true,
+            "eligible": 384,
+            "raw_slots": 384,
+            "recipes_jsonl_lf_only": true,
+            "recipes_jsonl_lines": 256,
+            "selected": 256
+          },
+          "RND": {
+            "bank_identity_recomputed": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+            "bank_identity_recorded": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+            "bank_identity_reproduces": true,
+            "eligible": 384,
+            "raw_slots": 384,
+            "recipes_jsonl_lf_only": true,
+            "recipes_jsonl_lines": 256,
+            "selected": 256
+          }
+        },
+        "execution_profile": "full",
+        "lock_identity_recomputed": "eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d",
+        "lock_identity_recorded": "eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d",
+        "lock_status": "FROZEN_SCIENTIFIC_BANKS",
+        "logical_requests_completed": 12,
+        "problems": [],
+        "supersedes_check": "c3_generation_not_started, which asserted a state that the authorized live run ended"
       },
       "ok": true,
       "stage_id": "C3",
-      "summary": "no C3 generation evidence exists; the prohibition still holds"
+      "summary": "the C3 scientific banks are frozen, complete and re-derive"
     }
   ],
   "checks_failed": 0,
@@ -89,7 +117,7 @@
   "checks_run": 3,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923301Z",
+  "finished_at_utc": "2026-08-17T04:29:57.279269Z",
   "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
   "notes": [],
   "phase": "preflight",
@@ -102,7 +130,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C3",
-  "started_at_utc": "2026-08-16T12:25:03.896208Z",
+  "started_at_utc": "2026-08-17T04:29:57.248133Z",
   "substages": [
     "C3"
   ],
@@ -110,7 +138,7 @@
   "validate_checks": [
     "c3_contract_identities",
     "c3_locks_verify",
-    "c3_generation_not_started"
+    "c3_scientific_banks_frozen"
   ],
   "validate_gate": "PASS"
 }

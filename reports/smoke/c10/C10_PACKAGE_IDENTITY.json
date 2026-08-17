@@ -1,0 +1,14 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "declared_real_identity": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "fixture_package_identity": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b",
+  "generated_at_utc": "2026-08-17T04:31:08.062994Z",
+  "mode": "PACKAGE_IDENTITY",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "real_package_opened": false,
+  "schema_version": "c10-package-identity-v1",
+  "scientific_eligible": false
+}

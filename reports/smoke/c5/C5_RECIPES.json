@@ -1,0 +1,50 @@
+{
+  "arms": {
+    "DET": [
+      "927e5a610a46e69de511e9b797ffdf03439878f12e81568cf032eef934279a78",
+      "5988e041ce47fb5d66f3acf9b4efc8d22bb8030bab0c6100ae377fbd0223343b"
+    ],
+    "LLM": [
+      "e026b3d92927758192f10bd6bfa48f14999911418122937c1c22ecd9c6124842",
+      "4acd1495144ff6636397cd8860b3b7a02fee21735ea598f8accafc150ac4cebe"
+    ],
+    "RND": [
+      "72e255b5a5ba24b7d2128ddaf909f19abd78977bd8de4ee6a0401fe869d4fbb3",
+      "b48f9998f64171dfbc7e3f9c2d67f3e952034e47bfad2c00d1287863f42296f4"
+    ]
+  },
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 8,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 2,
+    "max_wall_clock_seconds": 1800,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:30:10.046973Z",
+  "mode": "LOAD_RECIPES",
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "recipes_per_arm": 2,
+  "schema_version": "c5-recipes-v1",
+  "scientific_eligible": false,
+  "scientific_recipes_per_arm": 256
+}

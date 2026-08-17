@@ -217,7 +217,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "smoke",
-  "finished_at_utc": "2026-08-16T12:25:05.651478Z",
+  "finished_at_utc": "2026-08-17T04:30:02.074491Z",
   "mandatory_full_outputs": "disposable pilot archive and audit, validity/coverage/retry/quota evidence, C2_ACCEPTANCE",
   "notes": [
     "verification only: C2 is a completed milestone and is never re-run",
@@ -234,7 +234,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C2",
-  "started_at_utc": "2026-08-16T12:25:05.627413Z",
+  "started_at_utc": "2026-08-17T04:30:02.044146Z",
   "substages": [
     "C2",
     "C2B",

@@ -15,7 +15,12 @@ REPO = Path(__file__).resolve().parents[2]
 
 #: What an adapter needs on disk to run. `raw_responses` is excluded because it
 #: is bulky provider payload and no adapter reads it during these tests.
-_SANDBOX_TREES = ("configs", "docs", "reports", "scripts", "src")
+#:
+#: `assets` joined the list when C3's pre-live verification began checking that
+#: the frozen scientific banks are intact. A sandbox without
+#: `assets/recipe_banks/c3/` is not a smaller repository but a corrupt one — the
+#: bank check correctly refuses it — and C4 and C5 read those banks too.
+_SANDBOX_TREES = ("assets", "configs", "docs", "reports", "scripts", "src")
 _IGNORED = shutil.ignore_patterns("__pycache__", "*.pyc", "raw_responses",
                                   "validate", "smoke", "full")
 

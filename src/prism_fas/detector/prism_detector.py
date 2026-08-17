@@ -283,7 +283,25 @@ class PRISMDetector(nn.Module):
         else:
             if variant.has_global:
                 self.global_projection = nn.Sequential(nn.Linear(self.global_dim, dim), nn.LayerNorm(dim))
-            if variant.fusion == "simple_concat":
+            if variant.fusion == "glr_concat":
+                # v1.5 §13.4.2, exactly as written:
+                #   g = LayerNorm(W_G z_G)              [B,256]
+                #   l = LayerNorm(W_L GAP(F_L))         [B,256]
+                #   a_r = masked_softmax(w_A^T z_r, visibility)   over VISIBLE regions
+                #   r = LayerNorm(sum_r a_r * z_r)      [B,256]
+                #   h_R = concat(g, l, r)               [B,768]
+                #   u_R = GELU(LayerNorm(Linear_768_to_256(h_R)))
+                #   fused_logit_R = Linear_256_to_1(u_R)
+                # Every branch is a tensor input to the classifier, which is what
+                # makes the §13.5 autograd dependency hold structurally rather
+                # than by convention.
+                self.local_summary_projection = nn.Sequential(
+                    nn.Linear(dim, dim), nn.LayerNorm(dim))
+                self.region_attention_pool = nn.Linear(dim, 1, bias=False)
+                self.region_summary_norm = nn.LayerNorm(dim)
+                self.fusion_projection = nn.Sequential(
+                    nn.Linear(3 * dim, dim), nn.LayerNorm(dim), nn.GELU())
+            elif variant.fusion == "simple_concat":
                 # CNN + ViT feature fusion, then ONE binary classifier. No region,
                 # no manifold and no prompt semantics enter here.
                 self.fusion_projection = nn.Sequential(nn.Linear(2 * dim, dim), nn.GELU(), nn.LayerNorm(dim))
@@ -519,7 +537,36 @@ class PRISMDetector(nn.Module):
         # The pooled per-branch summaries the two simpler fusions classify. Never
         # built for the Table 34 path, which classifies `z_global` directly.
         image_embedding: torch.Tensor | None = None
-        if variant.fusion != "prism_noisy_or":
+        region_attention: torch.Tensor | None = None
+        fusion_branches: dict[str, torch.Tensor] = {}
+        if variant.fusion == "glr_concat":
+            # §13.4.2. `r` is pooled over VISIBLE regions only: visibility is a
+            # hard applicability mask on the denominator, so an invisible region
+            # can receive no attention weight at all (§13.4.3).
+            g = self.global_projection(global_pooled)
+            local_summary = self.local_summary_projection(local_tokens.mean(dim=1))
+            scores = self.region_attention_pool(embeddings).squeeze(-1)           # [B,R]
+            very_negative = torch.finfo(scores.dtype).min
+            masked = scores.masked_fill(~visibility_valid.bool(), very_negative)
+            region_attention = torch.softmax(masked, dim=-1)
+            # A frame with no visible region has no valid regional summary. §13.4.3
+            # requires failing closed rather than substituting a zero vector, so
+            # the weights are zeroed and `region_visibility_valid` carries the
+            # reason downstream instead of a silent zero passing as evidence.
+            any_visible = visibility_valid.any(dim=-1, keepdim=True)
+            region_attention = torch.where(any_visible, region_attention,
+                                           torch.zeros_like(region_attention))
+            region_summary = self.region_summary_norm(
+                (region_attention.unsqueeze(-1) * embeddings).sum(dim=1))
+            image_embedding = self.fusion_projection(
+                torch.cat([g, local_summary, region_summary], dim=-1))
+            global_logit = self.fusion_classifier(image_embedding)
+            # The three branch summaries are exposed by name so the §13.5
+            # intervention smoke can substitute one and re-run the model's OWN
+            # head, rather than an audit-local reimplementation of it.
+            fusion_branches = {"fusion_g": g, "fusion_l": local_summary,
+                               "fusion_r": region_summary}
+        elif variant.fusion != "prism_noisy_or":
             parts: list[torch.Tensor] = []
             if variant.has_local: parts.append(local_tokens.mean(dim=1))
             if variant.has_global: parts.append(self.global_projection(global_pooled))
@@ -559,6 +606,8 @@ class PRISMDetector(nn.Module):
         if global_pooled is not None: aux["global_embedding"] = global_pooled
         if local_tokens is not None: aux["local_tokens"] = local_tokens
         if image_embedding is not None: aux["image_embedding"] = image_embedding
+        if region_attention is not None: aux["region_attention_weights"] = region_attention
+        aux.update(fusion_branches)
         if manifold_embeddings is not None: aux["manifold_embeddings"] = manifold_embeddings
         if distances is not None:
             aux["normalized_distances"] = self.normalize_distance(distances)

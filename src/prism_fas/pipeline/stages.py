@@ -7,17 +7,19 @@ that a stage exists because it is listed here.
 Two flags carry that honesty:
 
 * ``adapter_implemented`` — whether a stage adapter exists that can execute this
-  milestone under the smoke or full profile. Today every one of them is False;
-  the adapters are a separately authorized step of the restructure plan. A
-  stage with no adapter reports NOT_TESTED, never a pass.
+  milestone's control path under the smoke or full profile. Every C0-C13 stage
+  now has one. A stage without an adapter is BLOCKED, never skipped and never
+  passed.
 * ``validate_checks`` — the readiness checks the validate profile can run for
-  this stage right now. C0-C3 have frozen contracts, locks and identities that
-  can be re-derived offline, so they have real checks. C4-C13 have nothing to
-  check yet, and an empty tuple is the truthful representation of that.
+  this stage. Each is a pure read-and-re-derive over the repository: no
+  training, no provider, no GPU, no target label.
 
-The gap between the two is the point. A green validate run proves the frozen
-contracts still reproduce; it does not prove that C4-C13 can execute, and no
-reader of the artifacts should be able to confuse the two.
+The gap between the two is the point, and it did not close when the adapters
+landed. An adapter proves a stage CAN execute; it says nothing about whether the
+stage HAS executed scientifically. C4-C13 have adapters and have never run under
+the full profile, so their ``scientific_status`` is NOT_RUN and stays there until
+a full run produces evidence. A green validate run and a green smoke run together
+mean ENGINEERING_READY — not one milestone of scientific completion.
 """
 from __future__ import annotations
 
@@ -73,8 +75,18 @@ class Stage:
         }
 
 
-_NO_ADAPTER = ("no stage adapter exists; adapters are step 4 of "
-               "docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized")
+#: Kept for a stage added later that has no adapter yet. Nothing uses it today —
+#: every C0-C13 stage is adapted — and it stays so the honest answer for a future
+#: stage is a value that already exists rather than one someone has to remember.
+_NO_ADAPTER = ("no stage adapter exists; a stage without one is BLOCKED under smoke "
+               "and full rather than skipped or passed")
+
+_ENGINEERING_ADAPTER = (
+    "engineering adapter: the stage's control path is executable and auditable under "
+    "smoke on tiny fixtures, and refuses to start under full when a real scientific "
+    "input is absent. An adapter is an ENGINEERING statement — it does not mean the "
+    "stage has scientific evidence, and scientific_status stays NOT_RUN until the full "
+    "profile executes it.")
 
 _VERIFY_ADAPTER = ("verification-only adapter over a completed milestone: it checks "
                    "artifacts, identities and acceptance, and can never re-issue the "
@@ -111,7 +123,7 @@ STAGES: tuple[Stage, ...] = (
           "256 banks per arm, locks and identities, C3_ACCEPTANCE",
           adapter_implemented=True,
           validate_checks=("c3_contract_identities", "c3_locks_verify",
-                           "c3_generation_not_started"),
+                           "c3_scientific_banks_frozen"),
           substages=("C3",),
           adapter_note="adapter has four modes: PRE_LIVE_VERIFY, LIVE_GENERATE, "
                        "RESUME_LIVE_GENERATE, FINALIZE_BANKS. Only PRE_LIVE_VERIFY is "
@@ -120,42 +132,85 @@ STAGES: tuple[Stage, ...] = (
     Stage("C4", "GPAT source search and final checkpoint", SOURCE_SEARCH,
           "every allowed GPAT source-search run, configs/metrics/checkpoints, winner "
           "selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c4_search_plan",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: PREPARE_SUPPORT, VALIDATE_SUPPORT, SMOKE_GPAT, "
+                       "SOURCE_SEARCH, FINALIZE_GPAT, VERIFY_LOCK."),
     Stage("C5", "Route rendering and synthetic candidates", SCIENTIFIC,
           "per-arm and per-recipe route render manifests, synthetic candidate identities, "
           "failures, C5_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c5_route_contract",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: LOAD_RECIPES, RESOLVE_ROUTES, RENDER_PHYSICS, "
+                       "RENDER_GPAT, CANDIDATE_IDENTITY, FAILURE_RECORDING."),
     Stage("C6", "Quality gate and matched banks", SCIENTIFIC,
           "quality-gate search and audit where permitted, all candidate decisions and q "
           "values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c6_gate_profiles",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: APPLY_COMMON_GATE, PROFILE_SELECTION, "
+                       "RELIABILITY_GATES, MATCHED_BANKS, CARDINALITY_REFUSAL."),
     Stage("C7", "Detector readiness and configuration search", SOURCE_SEARCH,
           "all declared detector/config readiness and search runs, forward/backward/resume/"
           "dependency audits, selected config locks, C7_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c7_tracks_resolve",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: TRACK_G_READINESS, TRACK_R_READINESS, "
+                       "DECISION_DEPENDENCY_AUDIT, CALIBRATION_GUARDS, "
+                       "VARIANT_MATRIX_AUDIT, SOURCE_SEARCH."),
     Stage("C8", "Source matrix over arms, tracks, configs and seeds", SCIENTIFIC,
           "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source "
           "leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c8_source_matrix",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: PLAN_MATRIX, SCHEDULE, EXECUTE_ROWS, "
+                       "FAILURE_PRESERVATION, TARGET_ISOLATION."),
     Stage("C9", "Source matrix freeze", SOURCE_FREEZE,
           "validated SOURCE_MATRIX_LOCK_C plus ancestry and index of every frozen "
           "source-side artifact, C9_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c9_source_lock_refuses",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       " Modes: BUILD_LOCK, VALIDATE_LOCK, REFUSAL_CASES."),
     Stage("C10", "Target package and label firewall", TARGET_EVAL,
           "target package and capability lock, label-firewall audit, C10_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c10_firewall_config",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: BUILD_FIXTURE_PACKAGE, FIREWALL_PERMISSIONS, "
+                       "PACKAGE_IDENTITY, TARGET_LOCK, TAMPER_DETECTION. The real "
+                       "target package is never opened."),
     Stage("C11", "Label-isolated P3 prediction", TARGET_EVAL,
           "every preregistered P3 prediction artifact by method and seed plus per-row "
           "PREDICTION_LOCK and global lockset, C11_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c11_prediction_schema",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: BUILD_PREDICTIONS, LABEL_ISOLATION_AUDIT, "
+                       "PREDICTION_LOCKS, DOUBLE_VALIDATION. No real target inference "
+                       "is performed."),
     Stage("C12", "Scoring, statistics and hypothesis tests", TARGET_EVAL,
           "frame and video metrics, bootstrap and Holm, hypotheses, scorer isolation and "
           "unlock evidence, C12_ACCEPTANCE",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c12_scorer_isolation",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: SCORER_ISOLATION, DRY_RUN, UNLOCK_AND_SCORE, "
+                       "STATISTICS, NO_FEEDBACK. No real SiW label is opened."),
     Stage("C13", "Acceptance, evidence package and report", FINAL_REPORT,
           "C_ACCEPTANCE, master final summary, reports/tables/plots/paper evidence, "
           "preserved negative, failed and blocked results",
-          adapter_note=_NO_ADAPTER),
+          adapter_implemented=True,
+          validate_checks=("c13_acceptance_refuses",),
+          adapter_note=_ENGINEERING_ADAPTER +
+                       "Modes: ACCEPTANCE_MATRIX, NEGATIVE_PRESERVATION, "
+                       "ARTIFACT_INTEGRITY, CLAIM_POLICY, FINAL_REPORT. It refuses "
+                       "acceptance while any milestone is scientifically incomplete."),
 )
 
 STAGE_IDS: tuple[str, ...] = tuple(stage.stage_id for stage in STAGES)

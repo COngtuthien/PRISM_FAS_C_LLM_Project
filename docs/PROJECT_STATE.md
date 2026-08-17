@@ -13,10 +13,10 @@ authoritative_spec:
   canonical_location_per_spec_M1: docs/specs/   # deviation recorded; move planned
 
 repository:
-  branch: c3-live-scientific-generation
-  previous_branch: c3-v15-selection-contract   # execution-layer checkpoint at 5f77f0d
-  branch_point: a876d5ffba410a867173c7ca719618b2b48a5144   # the accepted v1.5 reconciliation commit
-  latest_accepted_checkpoint: c2c84aecc7e6fce84a18f5dc3ab32d531feed2c5   # C2C = PASS
+  branch: c4-c13-engineering-readiness
+  previous_branch: c3-live-scientific-generation   # C3 scientific freeze at 36f10fd
+  branch_point: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # the accepted C3 scientific checkpoint
+  latest_accepted_checkpoint: 36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572   # C3 banks frozen
   origin: https://github.com/COngtuthien/PRISM_FAS_C_LLM_Project.git
   version_b_remote_push: DISABLED_NO_PUSH_TO_VERSION_B
 
@@ -28,39 +28,105 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C3
-current_substage: C3 live scientific generation and bank freeze — COMPLETE
-execution_profile: full
-pipeline_phase: preflight
+current_milestone: C4_TO_C13_ENGINEERING_READINESS
+current_substage: C0-C13 engineering readiness closure — COMPLETE
+execution_profile: smoke
+pipeline_phase: engineering-readiness
 
-# SCOPE WARNING. Both statuses below are scoped to stages C0..C3 and to NOTHING else.
-# `scientific_status: PASS` means C3 completed its preregistered scientific workload
-# under --profile full and its hard acceptance criteria passed. It does NOT mean the
-# project is scientifically complete: C4-C13 have never run, have no adapters, and
-# remain NOT_RUN. Read `historical_milestones` and `execution_pipeline` before quoting
-# either field.
-engineering_status_scope: stages_c0_to_c3
-engineering_status: SMOKE_PASS      # C0-C3 offline; the C3 live run is the scientific axis
+# SCOPE WARNING. The two axes below say different things and are easy to conflate.
+#
+# `engineering_status: SMOKE_PASS` is now scoped to the WHOLE C0-C13 pipeline: every
+# stage has an adapter, and `--profile smoke --from C0 --to C13` traverses all
+# fourteen and passes. That is an ENGINEERING statement about code paths.
+#
+# `scientific_status` is unchanged and remains scoped to C3. C4-C13 now have
+# adapters and STILL have never executed scientifically. An adapter proves a stage
+# CAN run; it is not evidence that it HAS. Read `execution_pipeline` and
+# `historical_milestones` before quoting either field.
+engineering_status_scope: C0_TO_C13_FULL_PIPELINE_ENGINEERING
+engineering_status: SMOKE_PASS      # C0-C13, validate PASS + smoke PASS, 2026-08-17
 scientific_status: PASS             # C3 ONLY. C4-C13 = NOT_RUN.
 scientific_status_scope: c3_only
 
 # Machine-readable so no parser can infer these exist. Previously this fact lived
 # only in YAML comments beside real-looking paths, which a parser strips.
 execution_pipeline:
-  # All three profiles are implemented, but only over the C0-C3 range. Outside it
-  # every stage is BLOCKED because no adapter exists.
-  validate: IMPLEMENTED
-  smoke: IMPLEMENTED_C0_TO_C3
-  full: EXECUTED_C3             # live C3 generation ran 2026-08-16; C4-C13 blocked
+  validate: IMPLEMENTED_C0_TO_C13   # 14 stages, 21 checks, 0 failed
+  smoke: IMPLEMENTED_C0_TO_C13      # 14 stages, 62 substage modes, 242 checks, 0 failed
+  full: EXECUTED_C3_ONLY            # live C3 generation ran 2026-08-16; C4-C13 BLOCKED
   orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
   pipeline_state_exists: true   # state/PIPELINE_STATE.json
   master_run_index_exists: true # state/MASTER_RUN_INDEX.json
-  stage_adapters_exist: C0_TO_C3_ONLY
-  c0_to_c13_pipeline_ever_run: false
+  stage_adapters_exist: C0_TO_C13_ALL
+  c0_to_c13_pipeline_ever_run: ENGINEERING_ONLY
+  c0_to_c13_pipeline_ever_run_scientifically: false
   note: >-
-    C0-C3 have adapters. C3 additionally executed LIVE under --profile full and is
-    scientifically complete. C4-C13 have no adapters: a smoke or full run covering
-    them stops with BLOCKED and names them, and no stage beyond C3 has ever executed.
+    Every C0-C13 stage has an adapter and every stage's control path executes and
+    passes under validate and smoke. C3 additionally executed LIVE under --profile
+    full and is scientifically complete. C4-C13 have executed ONLY on fixtures:
+    under --profile full each of them BLOCKS on an absent scientific input and names
+    it, and no scientific training, synthesis, target inference or scoring has ever
+    run. SMOKE_PASS over C0-C13 means ENGINEERING_READY, not scientific completion.
+
+# --- C4-C13 engineering readiness (this milestone) ---------------------------
+c4_to_c13_engineering_readiness:
+  status: COMPLETE
+  authorized_by: user, in session, as one Appendix-L engineering-readiness milestone
+  is_scientific_milestone_c4: false
+  branch: c4-c13-engineering-readiness
+  handoff_artifact: reports/handoff/C0_C13_ENGINEERING_HANDOFF.json
+
+  new_canonical_modules:
+    - src/prism_fas/search/{plan,coordinate}.py     # the §15.2.2/§15.2.3 bounded engine
+    - src/prism_fas/pipeline/portability.py         # backend-neutral batch and paths
+    - src/prism_fas/pipeline/handoff.py             # the GPU handoff inventory
+    - src/prism_fas/synthesis/gate_profiles.py      # §11.4 STRICT/NOMINAL/PERMISSIVE
+    - src/prism_fas/detector/decision_audit.py      # the §13.5 regression guards
+    - src/prism_fas/evaluation/source_matrix.py     # the §18 source matrix
+    - src/prism_fas/evaluation/source_lock.py       # SOURCE_MATRIX_LOCK_C
+  new_adapters: src/prism_fas/pipeline/adapters/c{4,5,6,7,8,9,10,11,12,13}.py
+  adapter_design_rule: >-
+    unchanged from C0-C3: adapters are THIN. Every model, loss, gate, metric, lock
+    and selector is imported from the module that already owns it, and an adapter
+    that cannot import its canonical implementation BLOCKS rather than substituting
+    one.
+
+  validate_c0_c13:
+    command: python train.py --profile validate --from C0 --to C13
+    outcome: PASS
+    stages: 14
+    checks_run: 21
+    checks_failed: 0
+    provider_calls: 0
+  smoke_c0_c13:
+    command: python train.py --profile smoke --from C0 --to C13
+    outcome: PASS
+    stages: 14
+    substage_modes_executed: 62
+    adapter_checks_run: 242
+    adapter_checks_failed: 0
+    provider_calls_live: 0
+    provider_calls_mock: 0        # the C3 fixture rehearsal re-issued nothing
+    scientific_namespace_untouched: true   # 147 files, digest identical before/after
+  second_run_idempotency:
+    command: python train.py --profile smoke --from C0 --to C13 --resume
+    outcome: PASS
+    c3_provider_calls: 0          # COMPLETED_VALID requests are never re-issued
+    c4_search_trials_reused: 9 of 9
+    c7_search_trials_reused: 21 of 21
+    c8_rows_skipped_by_identity: 4 of 42
+    duplicate_run_ids: 0
+
+  search_plan_identities:
+    c4_gpat_coordinate_v1: ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec
+    c7_detector_coordinate_v1: 62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b
+  c8_source_matrix_identity: a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8
+  handoff_inventory_identity: 13720f9cd8c670ad401ed07567cdb19ddb3bf448f05e863e431b61f23bc17581
+
+  modal_gpu_seconds_spent: 0
+  gemini_calls_this_milestone: 0
+  real_target_package_resolved: false
+  target_labels_opened: 0
 
 execution_adapters:
   restructure_plan_step: 4 of 6 (partial — C0-C3 only)
@@ -75,7 +141,8 @@ execution_adapters:
   c0_c1_c2_c2b_c2c: VERIFICATION_ONLY   # provider binding is NONE and cannot change
   historical_provider_calls_repeated: 0
   c3_modes: [PRE_LIVE_VERIFY, LIVE_GENERATE, RESUME_LIVE_GENERATE, FINALIZE_BANKS]
-  c4_to_c13: NOT_IMPLEMENTED
+  c4_to_c13: IMPLEMENTED_ENGINEERING_ONLY   # 2026-08-17; see c4_to_c13_engineering_readiness
+  c4_to_c13_provider_binding: NONE          # no stage from C4 onward can reach a provider
 
   provider_binding_model: >-
     mode (what the adapter does) is separate from binding (what it may talk to).
@@ -155,7 +222,7 @@ historical_milestones:
   C2B: ACCEPTED_WITH_DOCUMENTED_DEVIATION  # outcome BATCH_SHAPE_FAIL, preserved unchanged
   C2C: ACCEPTED                            # route contract exactly ["physics","gpat"]
   C3_preparation: COMPLETE                 # generation contract + selection contract, both bound
-  C4..C13: MISSING
+  C4..C13: ENGINEERING_READY_SCIENTIFICALLY_NOT_RUN
 
 c3:
   selection_implementation: COMPLETE        # prism_c3_selection_v1, §7.8.3
@@ -252,9 +319,9 @@ c3:
                       multi_label_balance, canonical_tie_break]
 
 execution:
-  current_profile: validate
-  engineering_status: NOT_TESTED   # the EXECUTION LAYER, not the C3 contract substage
-  scientific_status: NOT_RUN
+  current_profile: smoke
+  engineering_status: SMOKE_PASS   # the EXECUTION LAYER over C0-C13
+  scientific_status: NOT_RUN       # for C4-C13; C3's own scientific status is above
   # These now exist and were written by a real `python train.py --profile validate`.
   # They are navigation aids under L.10, never scientific authority.
   pipeline_state: {path: state/PIPELINE_STATE.json, exists: true}
@@ -281,15 +348,8 @@ contract_identities:
   provider_config: 3f6a446a67dabb003fa9c6945d9fb62b7e4b1481f6b9cd95f73f9b2e2f2489da
 
 active_locks:
-  - path: reports/c3/C3_BANK_LOCK.json
-    identity: 7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba
-    status: FROZEN, immutable, SUPERSEDED — historical evidence, bytes preserved unchanged
-  - path: reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json
-    identity: 1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628
-    status: PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK — AWAITING USER APPROVAL
-    note: >-
-      A CONTRACT lock. It does not assert that any per-arm 384-slot raw archive or
-      256-recipe bank exists; none has been generated or selected.
+  - "path: reports/c3/C3_BANK_LOCK.json identity: 7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba status: FROZEN, immutable, SUPERSEDED — historical evidence, bytes preserved unchanged"
+  - "path: reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json identity: 1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628 status: PRE_SCIENTIFIC_SUPERSEDING_CONTRACT_LOCK — AWAITING USER APPROVAL note: >- A CONTRACT lock. It does not assert that any per-arm 384-slot raw archive or 256-recipe bank exists; none has been generated or selected."
 
 historical_live_provider_calls:
   total_attempts_before_c3: 47      # 46 archived + 1 documented-but-overwritten (C2B 400)
@@ -299,21 +359,32 @@ historical_live_provider_calls:
   c2_pilot: 42
   c2b: 1 archived (+1 documented in C2B_ENVELOPE_REJECTION.json)
   c2c: 1
-  c3_scientific: 0
+  c3_scientific: 13     # the authorized live run on 2026-08-16: 12 requests + 1 retry
+  c4_to_c13: 0          # no stage from C4 onward can construct a provider at all
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1672
+  passed: 1769
   failed: 7
   skipped: 101
-  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, pipeline: 235}
+  milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, C7: 19,
+                     pipeline: 313}
+  new_tests_this_milestone: 97   # 26 search engine + 35 portability/contracts +
+                                 # 19 decision contract + 17 pipeline
   pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-  pipeline_suite: {passed: 235, failed: 0, skipped: 0}
+  pipeline_suite: {passed: 313, failed: 0, skipped: 0}
+  c7_suite_exact_command: python -m pytest tests/c7 -q --no-header -p no:cacheprovider
+  c7_suite: {passed: 19, failed: 0, skipped: 0}
   pipeline_offline: >-
-    sockets blocked and ambient credentials deleted by an autouse fixture; a static
-    AST check asserts that no pipeline module and no train.py path imports a provider,
-    Modal, torch or target-evaluation module
+    sockets blocked and ambient credentials deleted by an autouse fixture. The static
+    AST check still forbids a provider, Modal, torch or target-evaluation import, with
+    a short allowlist of LAZY exceptions: C4/C5/C7/C8 import torch inside functions to
+    prove instantiate/forward/backward on a CPU fixture, and C11 imports the canonical
+    prediction builder rather than duplicating it. The guarantee is enforced at
+    runtime instead of by the string rule: a subprocess probe imports every pipeline
+    and adapter module and asserts that no torch, Modal or vendor SDK was loaded.
   inherited_known_failures: 7   # exactly the set documented in reports/c0/C0_TEST_SUITE.json
+  inherited_failure_set_identical: true   # compared test-id by test-id, not by count
   new_unexplained_failures: 0
   c3_suite_exact_command: python -m pytest tests/c3 -q --no-header -p no:cacheprovider
   c3_suite: {passed: 156, failed: 0, skipped: 0}
@@ -329,24 +400,91 @@ known_deviations:
   - Spec copied to docs/ per the bootstrap prompt; §M.1 canonical layout says docs/specs/.
 
 blockers:
-  - C4-C13 are unstarted. C4 (GPAT source search) needs GPU compute and is not authorized.
-  - C4-C13 have no adapters. A smoke or full run covering them stops with BLOCKED and
-    names them. Restructure-plan step 4 is complete only for C0-C3.
-  - Steps 3, 5 and 6 of the restructure plan remain: dual-status stamping of newly written
-    artifacts beyond the pipeline's own, the Appendix M.1 layout move with identity
-    re-derivation, and the C4..C13 stages themselves.
-  - Quota remains NOT_PROGRAMMATICALLY_AVAILABLE for this tier. The manual AI Studio step
-    is now DONE: reports/c3/live/C3_QUOTA_SNAPSHOT.json records the user's observation
-    with current_remaining_rpd=UNKNOWN. A future live run needs a fresh observation.
+  - "C4-C13 are ENGINEERING_READY and SCIENTIFICALLY NOT_RUN. Every one of them BLOCKS
+    under --profile full on this machine and names the input it lacks."
+  - "Missing scientific inputs for C4-C9 — preprocessed source data (data/processed),
+    built source packages (data/packages), the pinned SigLIP2 and ConvNeXt weights, the
+    frozen AdaFace identity backbone, and a real GPU. The engineering smoke substitutes
+    a shape-exact fixture tower and a deterministic identity stand-in; the full profile
+    refuses both."
+  - "Missing scientific inputs for C10-C12 — the SiW-Mv2 v2 feature package under its
+    declared read-only policy, and the evaluation-only label artifact for the isolated
+    C-G8 scorer. Neither was resolved, opened or hashed by this milestone."
+  - "NEEDS_SCIENTIFIC_DECISION before C4 or C7 may execute under --profile full. The
+    inherited configurations declare more than one learning rate per component
+    (gpat_m8.yaml has encoder_lr / recipe_lr / generator_lr; m9_reference.yaml has
+    backbone_lr / head_lr). §15.2.2 requires a UNIQUELY inherited anchor and classifies a
+    non-unique one as USER_APPROVAL_REQUIRED, so `learning_rate` is recorded as AMBIGUOUS
+    in both search plans and contributes no trials. The user must bind it to a named
+    scalar, or authorize a per-component tuple, before either envelope is scientifically
+    executable. Engineering readiness does not require that decision; scientific
+    execution does."
+  - "Steps 3, 5 and 6 of the restructure plan remain — dual-status stamping of newly
+    written artifacts beyond the pipeline's own, the Appendix M.1 layout move with
+    identity re-derivation, and moving the stage adapters into
+    src/prism_fas/pipeline/stages/."
+  - "Quota remains NOT_PROGRAMMATICALLY_AVAILABLE for this tier. The manual AI Studio
+    step is now DONE — reports/c3/live/C3_QUOTA_SNAPSHOT.json records the user's
+    observation with current_remaining_rpd=UNKNOWN. A future live run needs a fresh
+    observation."
 
-deviations_recorded_this_session:
+compute_policy:
+  # Operational only. L.12: compute budget is never a treatment factor and never enters
+  # a scientific identity.
+  modal_budget_remaining_usd_approx: 30
+  modal_budget_authorized_for_full_scientific_training: false
+  modal_gpu_spent_this_milestone: 0
+  intended_strategy: >-
+    PHASE A (done): complete C0-C13 engineering readiness on local CPU, mocks, fixtures
+    and tiny smoke budgets. PHASE B (later): execute the full scientific pipeline on a
+    separate, sufficiently resourced GPU supplied by the user's collaborator. The
+    remaining Modal credit is preserved rather than spent on discovering engineering
+    defects.
+  backend_neutrality_verified: true   # a scientific identity is invariant across every
+                                      # declared backend; proven by construction, not asserted
+
+deviations_recorded_this_milestone:
+  - "check_c3_generation_not_started was RETIRED and replaced by
+    check_c3_scientific_banks_frozen. The old check asserted that no C3 generation
+    evidence existed — true when written, false since the authorized live run completed
+    on 2026-08-16 — and it kept passing only because its globs pointed at
+    reports/c3/raw_responses/ while the archives were written to
+    reports/c3/live/raw_responses/. A check that asserts a false thing and passes by
+    accident is worse than no check, so the obligation was moved rather than deleted:
+    validate now proves the frozen banks are complete and re-derive. No scientific
+    artifact changed."
+  - "A new detector fusion value `glr_concat` was ADDED to implement the v1.5 §13.4.2
+    Track-R decision contract, which the inherited detector could not express: its
+    `prism_noisy_or` path fuses post-hoc SCORES and its `simple_concat` path omits the
+    9-region summary entirely, so no inherited variant satisfies §13.5's requirement
+    that fused_logit_R depend directly on g, l and r. The change is strictly additive.
+    Every inherited variant keeps its exact architecture identity — the decision-graph
+    fields enter the payload only for the new fusion — so the frozen M9 reference
+    checkpoint stays loadable, m10_matrix_identity is unchanged at a4972b0d..., and no
+    existing matrix row uses the new value. The vocabulary entry was added to
+    configs/experiments/m10_matrix.yaml because a test asserts the config and the code
+    accept the same flag values."
+  - "The pipeline import guard was relaxed from `no torch or target-evaluation import
+    anywhere` to `no such import except a named lazy one`. C4/C5/C7/C8 must run torch to
+    prove instantiate/forward/backward on a CPU fixture, and C11 must use the canonical
+    prediction builder rather than a second implementation. Each exception is listed
+    individually, each must stay inside a function, and the guarantee the rule was
+    protecting is now enforced by measurement: a subprocess probe imports every pipeline
+    and adapter module and asserts no torch, Modal or vendor SDK was loaded."
+  - "A real engineering defect was found by the second smoke run and fixed:
+    `--profile smoke --resume` resolved C3 to RESUME_LIVE_GENERATE and routed it through
+    a bare request, leaving the mock binding with no scripted provider and BLOCKING the
+    run. A generating mode under smoke is now always given its fixtures. This is exactly
+    the class of defect the smoke profile exists to surface before GPU time is spent."
+  - "Test sandboxes now copy assets/. C3's bank check and C5's route check read the
+    frozen recipe banks, so a sandbox without them is corrupt rather than minimal."
+
+deviations_recorded_in_the_previous_session:
   - The v1.5 execution layer was built ahead of the recorded next_authorized_action. The
     user authorized it explicitly in session; the C3 review it displaced is unchanged and
     is restored as the next authorized action below. No C3 artifact, lock or identity was
     touched, and the validate run re-derived all of them unchanged.
-  - L.3 provides no engineering-status value meaning "validate passed". Recorded as an
-    interpretation rather than silently reconciled: engineering_status stays NOT_TESTED
-    and the run reports on a separate validate_gate axis. See execution_layer above.
+  - "L.3 provides no engineering-status value meaning 'validate passed'. Recorded as an interpretation rather than silently reconciled: engineering_status stays NOT_TESTED and the run reports on a separate validate_gate axis. See execution_layer above."
   - .gitignore re-includes reports/{validate,smoke,full}/ so execution evidence is
     committable, matching the existing rationale for the reports/c0..c13 roots.
   - C2B and C2C are modelled as SUBSTAGES of C2 rather than stages of their own. L.9
@@ -357,11 +495,14 @@ deviations_recorded_this_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW of the completed C3 scientific bank evidence — reports/c3/scientific/,
-  reports/c3/live/ and assets/recipe_banks/c3/ — before C4 or any further execution-layer
-  work. C3 is scientifically complete: 12/12 logical requests valid, 384 raw slots per arm,
-  384 eligible per arm, 256 selected per arm, all identities reproduced. No C4, GPAT,
-  synthesis, detector, Modal, GPU or target work has been started or is authorized.
+  USER REVIEW of the C0-C13 engineering-ready GPU-handoff checkpoint —
+  reports/handoff/C0_C13_ENGINEERING_HANDOFF.json, reports/validate/ and reports/smoke/ —
+  before starting C4 FULL scientific execution on a sufficiently resourced external GPU.
+  The review must also settle the one NEEDS_SCIENTIFIC_DECISION this milestone surfaced:
+  `learning_rate` has no uniquely inherited anchor in either the GPAT or the detector
+  configuration, so §15.2.2 classifies it as USER_APPROVAL_REQUIRED and neither bounded
+  envelope is scientifically executable until the user binds it. No C4-C13 scientific
+  execution, GPU allocation, Modal spend, target access or Gemini call is authorized.
 
-last_updated_utc: 2026-08-16   # C3 live scientific generation + bank freeze
+last_updated_utc: 2026-08-17   # C0-C13 engineering-readiness closure and GPU handoff
 ```

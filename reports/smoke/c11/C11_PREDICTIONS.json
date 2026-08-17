@@ -1,0 +1,33 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.098896Z",
+  "mode": "BUILD_PREDICTIONS",
+  "note": "fixture prediction rows built from video ids and scores alone. No SiW feature was read and no model was run against the target",
+  "prediction_logical_identity": "983a13fb4445dd4cbf0a92d430f97310c8d29c2211b8f6dc6e058f896e76bb06",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "real_target_inference_performed": false,
+  "row_count": 320,
+  "rows_artifact": "reports/smoke/c11/C11_PREDICTION_ROWS.json",
+  "rows_artifact_in_git": false,
+  "rows_by_variant": {
+    "C-G-LLM": 160,
+    "C-R-LLM": 160
+  },
+  "schema_version": "c11-predictions-v1",
+  "scientific_eligible": false,
+  "validation": {
+    "labels_present": false,
+    "prompt_status": [
+      "not_applicable"
+    ],
+    "region_status": [
+      "not_applicable"
+    ],
+    "rows": 320,
+    "unique_sample_ids": 320,
+    "videos": 80
+  }
+}

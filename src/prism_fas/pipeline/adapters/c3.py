@@ -247,8 +247,8 @@ def _pre_live_verify(request: AdapterRequest) -> AdapterResult:
     # Identity and lock verification delegates to the validate-profile checks so
     # there is exactly one implementation of each.
     from prism_fas.pipeline.checks import (check_c3_contract_identities,
-                                           check_c3_generation_not_started,
-                                           check_c3_locks_verify)
+                                           check_c3_locks_verify,
+                                           check_c3_scientific_banks_frozen)
 
     for check_fn in (check_c3_contract_identities, check_c3_locks_verify):
         result = check_fn(repo)
@@ -258,8 +258,12 @@ def _pre_live_verify(request: AdapterRequest) -> AdapterResult:
     checks.extend(_schedule_checks(repo))
     checks.extend(_control_arm_checks(repo))
 
-    started = check_c3_generation_not_started(repo)
-    checks.append(_check(started.check_id, started.ok, started.summary, **started.detail))
+    # Before the authorized live run this asked whether generation had started.
+    # It has, and it completed, so the obligation moved from "prove the
+    # prohibition holds" to "prove the frozen result is intact" — same check
+    # slot, same delegation, a claim that is still true.
+    frozen = check_c3_scientific_banks_frozen(repo)
+    checks.append(_check(frozen.check_id, frozen.ok, frozen.summary, **frozen.detail))
 
     checks.append(_check_from("c3_quota_snapshot",
                               quota_module.preflight(repo, required=False)))
@@ -613,20 +617,29 @@ class C3Adapter:
             # fixture-backed rehearsal of exactly that code, bound to a provider
             # that cannot reach a network.
             if request.profile.name == "smoke" and results[0].ok:
-                results.append(self._smoke_rehearsal(request))
+                results.append(self._smoke_rehearsal(request, C3Mode.LIVE_GENERATE))
             return results
         if mode is C3Mode.FINALIZE_BANKS:
             return [_finalize_banks(request)]
+        # A generating mode under smoke needs the same fixture provider the
+        # rehearsal supplies. `--profile smoke --resume` resolves to
+        # RESUME_LIVE_GENERATE, and routing that through the bare request left
+        # the mock binding with no scripted responses — a defect the first
+        # C0-C13 resume run surfaced, which is exactly what smoke is for. Smoke
+        # can never reach a live provider, so a generating mode here is always a
+        # rehearsal and is always given its fixtures.
+        if request.profile.name == "smoke":
+            return [self._smoke_rehearsal(request, mode)]
         return [_live_generate(request, mode, binding)]
 
-    def _smoke_rehearsal(self, request: AdapterRequest) -> AdapterResult:
-        """Drive LIVE_GENERATE against fixtures, under the smoke namespace."""
+    def _smoke_rehearsal(self, request: AdapterRequest, mode: C3Mode) -> AdapterResult:
+        """Drive a generating mode against fixtures, under the smoke namespace."""
         from prism_fas.pipeline.adapters.fixtures import smoke_provider
 
         schedule = frozen_schedule(request.repo)
         rehearsal = AdapterRequest(
             repo=request.repo, profile=request.profile,
-            mode=C3Mode.LIVE_GENERATE.value, provider_binding=ProviderBinding.MOCK,
+            mode=mode.value, provider_binding=ProviderBinding.MOCK,
             resume=True, authorized_live_generation=False,
             options={**request.options,
                      "mock_provider": smoke_provider(
@@ -637,8 +650,7 @@ class C3Adapter:
                      # is not what smoke is testing, and sleeping through it
                      # would make the profile useless.
                      "sleep": lambda _seconds: None})
-        result = _live_generate(rehearsal, C3Mode.LIVE_GENERATE, ProviderBinding.MOCK)
-        return result
+        return _live_generate(rehearsal, mode, ProviderBinding.MOCK)
 
 
 __all__ = ["STAGE_ID", "LIVE_DIR", "LIVE_STATE_FILE", "C3Mode", "GENERATING_MODES",

@@ -1,18 +1,65 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES, MATCHED_BANKS, CARDINALITY_REFUSAL.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c6_gate_profiles",
+      "detail": {
+        "higher_is_better": [
+          "tau_fd",
+          "tau_id",
+          "tau_parse"
+        ],
+        "lower_is_better": [
+          "tau_lm",
+          "tau_fp"
+        ],
+        "nominal_source": "ENGINEERING_FIXTURE_NOMINAL; the scientific NOMINAL is fitted at C6 from the source_train benign population",
+        "problems": [],
+        "profiles": {
+          "NOMINAL": {
+            "tau_fd": 0.5,
+            "tau_fp": 0.5,
+            "tau_id": 0.8,
+            "tau_lm": 0.08,
+            "tau_out": 0.0,
+            "tau_parse": 0.9
+          },
+          "PERMISSIVE": {
+            "tau_fd": 0.45,
+            "tau_fp": 0.55,
+            "tau_id": 0.72,
+            "tau_lm": 0.088,
+            "tau_out": 0.0,
+            "tau_parse": 0.81
+          },
+          "STRICT": {
+            "tau_fd": 0.55,
+            "tau_fp": 0.45,
+            "tau_id": 0.82,
+            "tau_lm": 0.072,
+            "tau_out": 0.0,
+            "tau_parse": 0.91
+          }
+        },
+        "range_safe": [
+          "tau_out"
+        ]
+      },
+      "ok": true,
+      "stage_id": "C6",
+      "summary": "the three gate profiles derive monotonically and preserve range-safe thresholds"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923349Z",
+  "finished_at_utc": "2026-08-17T04:29:57.337280Z",
   "mandatory_full_outputs": "quality-gate search and audit where permitted, all candidate decisions and q values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C6; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "scientific",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +70,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C6",
-  "started_at_utc": "2026-08-16T12:25:03.923346Z",
+  "started_at_utc": "2026-08-17T04:29:57.333681Z",
   "substages": [],
   "title": "Quality gate and matched banks",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c6_gate_profiles"
+  ],
+  "validate_gate": "PASS"
 }

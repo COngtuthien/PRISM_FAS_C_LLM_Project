@@ -119,7 +119,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "smoke",
-  "finished_at_utc": "2026-08-16T12:25:05.627359Z",
+  "finished_at_utc": "2026-08-17T04:30:02.044108Z",
   "mandatory_full_outputs": "provider/schema/prompt contracts, tests, provider and mock evidence, identities, C1_ACCEPTANCE",
   "notes": [
     "verification only: C1 is a completed milestone and is never re-run"
@@ -134,7 +134,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C1",
-  "started_at_utc": "2026-08-16T12:25:05.593205Z",
+  "started_at_utc": "2026-08-17T04:30:02.006734Z",
   "substages": [
     "C1"
   ],

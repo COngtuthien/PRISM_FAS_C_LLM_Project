@@ -1,0 +1,1161 @@
+{
+  "active_loss_terms": {
+    "L_MIL": true,
+    "L_clean": false,
+    "L_cls_real": true,
+    "L_cls_syn": true,
+    "L_cons": false,
+    "L_local": true,
+    "L_out": false,
+    "L_prompt": true,
+    "L_real": false,
+    "L_risk": true
+  },
+  "anchor_resolution": {
+    "absent": [],
+    "absent_note": "",
+    "ambiguous": [
+      "learning_rate"
+    ],
+    "blocking_reason": "['learning_rate'] have no uniquely inherited anchor. §15.2.2 classifies a non-unique inherited scalar as USER_APPROVAL_REQUIRED, so the full profile cannot execute this envelope until the user binds each one to a named scalar. Engineering readiness does not require that decision; scientific execution does.",
+    "coordinates": [
+      {
+        "candidate_paths": [
+          "optimizer.learning_rate",
+          "optimizer.backbone_lr",
+          "optimizer.head_lr"
+        ],
+        "classification": "USER_APPROVAL_REQUIRED",
+        "detail": "the inherited configuration declares more than one candidate scalar (optimizer.backbone_lr=1e-05, optimizer.head_lr=0.0001); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+        "name": "learning_rate",
+        "path": "optimizer.backbone_lr, optimizer.head_lr",
+        "state": "AMBIGUOUS",
+        "value": null
+      },
+      {
+        "candidate_paths": [
+          "optimizer.weight_decay"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "weight_decay",
+        "path": "optimizer.weight_decay",
+        "state": "RESOLVED",
+        "value": 0.05
+      },
+      {
+        "candidate_paths": [
+          "scheduler.warmup_fraction"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "warmup",
+        "path": "scheduler.warmup_fraction",
+        "state": "RESOLVED",
+        "value": 0.05
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_syn"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_syn",
+        "path": "loss.weights.lambda_syn",
+        "state": "RESOLVED",
+        "value": 0.5
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_local"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_local",
+        "path": "loss.weights.lambda_local",
+        "state": "RESOLVED",
+        "value": 1.0
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_MIL"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_MIL",
+        "path": "loss.weights.lambda_MIL",
+        "state": "RESOLVED",
+        "value": 0.5
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_P"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_P",
+        "path": "loss.weights.lambda_P",
+        "state": "RESOLVED",
+        "value": 0.2
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_risk"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_risk",
+        "path": "loss.weights.lambda_risk",
+        "state": "RESOLVED",
+        "value": 0.1
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_M"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_M",
+        "path": "loss.weights.lambda_M",
+        "state": "RESOLVED",
+        "value": 1.0
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_out"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_out",
+        "path": "loss.weights.lambda_out",
+        "state": "RESOLVED",
+        "value": 1.0
+      },
+      {
+        "candidate_paths": [
+          "loss.weights.lambda_clean"
+        ],
+        "classification": "FROZEN_INHERITED_ANCHOR",
+        "detail": "",
+        "name": "lambda_clean",
+        "path": "loss.weights.lambda_clean",
+        "state": "RESOLVED",
+        "value": 0.25
+      }
+    ],
+    "executable_under_full": false,
+    "resolved": [
+      "lambda_M",
+      "lambda_MIL",
+      "lambda_P",
+      "lambda_clean",
+      "lambda_local",
+      "lambda_out",
+      "lambda_risk",
+      "lambda_syn",
+      "warmup",
+      "weight_decay"
+    ]
+  },
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "attempted_config_ids": [
+    "weight_decay@8b3e24ca354d",
+    "weight_decay@52525664f7ea",
+    "weight_decay@6b86349a1304",
+    "warmup@59d2cf82e030",
+    "warmup@6b86349a1304",
+    "warmup@138b690dd018",
+    "lambda_syn@1cbd14eb909e",
+    "lambda_syn@138b690dd018",
+    "lambda_syn@b5362b76c2db",
+    "lambda_local@08d031d92d0d",
+    "lambda_local@b5362b76c2db",
+    "lambda_local@189b54c5922e",
+    "lambda_MIL@105f137d32c8",
+    "lambda_MIL@b5362b76c2db",
+    "lambda_MIL@f272a3b0d714",
+    "lambda_P@80ee90eb99d5",
+    "lambda_P@f272a3b0d714",
+    "lambda_P@c374e328100d",
+    "lambda_risk@4fe2d5dbf252",
+    "lambda_risk@c374e328100d",
+    "lambda_risk@e180bd4d2d2e"
+  ],
+  "best_config": {
+    "lambda_MIL": 1.0,
+    "lambda_P": 0.4,
+    "lambda_local": 1.0,
+    "lambda_risk": 0.2,
+    "lambda_syn": 1.0,
+    "warmup": 0.075,
+    "weight_decay": 0.1
+  },
+  "best_config_sha256": "e180bd4d2d2e33a2a9dff7f5b92026ef6f4484062e7551923bfa18548822b304",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 8,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 2,
+    "max_wall_clock_seconds": 1800,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "completed_coordinates": [
+    "weight_decay",
+    "warmup",
+    "lambda_syn",
+    "lambda_local",
+    "lambda_MIL",
+    "lambda_P",
+    "lambda_risk"
+  ],
+  "coordinate_order": [
+    "learning_rate",
+    "weight_decay",
+    "warmup",
+    "lambda_syn",
+    "lambda_local",
+    "lambda_MIL",
+    "lambda_P",
+    "lambda_risk",
+    "lambda_M",
+    "lambda_out",
+    "lambda_clean"
+  ],
+  "coordinates_skipped": [
+    {
+      "anchor": null,
+      "anchor_source": "optimizer.backbone_lr, optimizer.head_lr",
+      "applicable": false,
+      "candidates": [],
+      "clip": null,
+      "multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "name": "learning_rate",
+      "non_negative": true,
+      "skip_reason": "AMBIGUOUS: the inherited configuration declares more than one candidate scalar (optimizer.backbone_lr=1e-05, optimizer.head_lr=0.0001); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+      "spec_clause": "§15.2.2"
+    },
+    {
+      "anchor": null,
+      "anchor_source": "loss.weights.lambda_M",
+      "applicable": false,
+      "candidates": [],
+      "clip": null,
+      "multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "name": "lambda_M",
+      "non_negative": true,
+      "skip_reason": "the K=4 manifold variant is not active",
+      "spec_clause": "§15.2.2 (K=4-only)"
+    },
+    {
+      "anchor": null,
+      "anchor_source": "loss.weights.lambda_out",
+      "applicable": false,
+      "candidates": [],
+      "clip": null,
+      "multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "name": "lambda_out",
+      "non_negative": true,
+      "skip_reason": "the K=4 manifold variant is not active",
+      "spec_clause": "§15.2.2 (K=4-only)"
+    },
+    {
+      "anchor": null,
+      "anchor_source": "loss.weights.lambda_clean",
+      "applicable": false,
+      "candidates": [],
+      "clip": null,
+      "multipliers": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "name": "lambda_clean",
+      "non_negative": true,
+      "skip_reason": "the K=4 manifold variant is not active",
+      "spec_clause": "§15.2.2 (K=4-only)"
+    }
+  ],
+  "engineering_only": true,
+  "execution_profile": "smoke",
+  "expansion_policy": "expanding a candidate set or starting a second pass is USER_APPROVAL_REQUIRED (§15.2.2)",
+  "finished_at_utc": "2026-08-17T04:31:06.481001Z",
+  "finite_valid_trials": 20,
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:06.481838Z",
+  "leaderboard": [
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.4,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.2,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_risk@e180bd4d2d2e",
+      "config_sha256": "e180bd4d2d2e33a2a9dff7f5b92026ef6f4484062e7551923bfa18548822b304",
+      "coordinate": "lambda_risk",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15225,
+        "mean_domain_ECE": 0.08225,
+        "mean_domain_NLL": 0.33225,
+        "mean_domain_video_ACER": 0.13225,
+        "mean_domain_video_BPCER": 0.12225
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 20,
+      "value": 0.2
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.4,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_P@c374e328100d",
+      "config_sha256": "c374e328100de353aa447db5365010974858f093e1077358f05d30f7805b88f5",
+      "coordinate": "lambda_P",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15325,
+        "mean_domain_ECE": 0.08325,
+        "mean_domain_NLL": 0.33325,
+        "mean_domain_video_ACER": 0.13325,
+        "mean_domain_video_BPCER": 0.12325
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 17,
+      "value": 0.4
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.4,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_risk@c374e328100d",
+      "config_sha256": "c374e328100de353aa447db5365010974858f093e1077358f05d30f7805b88f5",
+      "coordinate": "lambda_risk",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15325,
+        "mean_domain_ECE": 0.08325,
+        "mean_domain_NLL": 0.33325,
+        "mean_domain_video_ACER": 0.13325,
+        "mean_domain_video_BPCER": 0.12325
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 19,
+      "value": 0.1
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.4,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.05,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_risk@4fe2d5dbf252",
+      "config_sha256": "4fe2d5dbf252a6c5231c94033c624f7d7c3d11e1cf6a8736c4f3a24b7c68f968",
+      "coordinate": "lambda_risk",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15375,
+        "mean_domain_ECE": 0.08375,
+        "mean_domain_NLL": 0.33375,
+        "mean_domain_video_ACER": 0.13375,
+        "mean_domain_video_BPCER": 0.12375
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 18,
+      "value": 0.05
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_MIL@f272a3b0d714",
+      "config_sha256": "f272a3b0d7143cd10e708db16f9fe4eaa1b6e87ce224f99a8214fb73fa8f84ad",
+      "coordinate": "lambda_MIL",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15525,
+        "mean_domain_ECE": 0.08525,
+        "mean_domain_NLL": 0.33525,
+        "mean_domain_video_ACER": 0.13525,
+        "mean_domain_video_BPCER": 0.12525
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 14,
+      "value": 1.0
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_P@f272a3b0d714",
+      "config_sha256": "f272a3b0d7143cd10e708db16f9fe4eaa1b6e87ce224f99a8214fb73fa8f84ad",
+      "coordinate": "lambda_P",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15525,
+        "mean_domain_ECE": 0.08525,
+        "mean_domain_NLL": 0.33525,
+        "mean_domain_video_ACER": 0.13525,
+        "mean_domain_video_BPCER": 0.12525
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 16,
+      "value": 0.2
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 1.0,
+        "lambda_P": 0.1,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_P@80ee90eb99d5",
+      "config_sha256": "80ee90eb99d55f33c399d701eeac4b986671003012d8023b523f0ee12ec5dcf9",
+      "coordinate": "lambda_P",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.15625,
+        "mean_domain_ECE": 0.08625,
+        "mean_domain_NLL": 0.33625,
+        "mean_domain_video_ACER": 0.13625,
+        "mean_domain_video_BPCER": 0.12625
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 15,
+      "value": 0.1
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_syn@b5362b76c2db",
+      "config_sha256": "b5362b76c2db82374a9084c02c2d01061f59e7fc455970072260fb33bbf182a7",
+      "coordinate": "lambda_syn",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16025,
+        "mean_domain_ECE": 0.09025,
+        "mean_domain_NLL": 0.34025,
+        "mean_domain_video_ACER": 0.14025,
+        "mean_domain_video_BPCER": 0.13025
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 8,
+      "value": 1.0
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_local@b5362b76c2db",
+      "config_sha256": "b5362b76c2db82374a9084c02c2d01061f59e7fc455970072260fb33bbf182a7",
+      "coordinate": "lambda_local",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16025,
+        "mean_domain_ECE": 0.09025,
+        "mean_domain_NLL": 0.34025,
+        "mean_domain_video_ACER": 0.14025,
+        "mean_domain_video_BPCER": 0.13025
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 10,
+      "value": 1.0
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_MIL@b5362b76c2db",
+      "config_sha256": "b5362b76c2db82374a9084c02c2d01061f59e7fc455970072260fb33bbf182a7",
+      "coordinate": "lambda_MIL",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16025,
+        "mean_domain_ECE": 0.09025,
+        "mean_domain_NLL": 0.34025,
+        "mean_domain_video_ACER": 0.14025,
+        "mean_domain_video_BPCER": 0.13025
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 13,
+      "value": 0.5
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.25,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_MIL@105f137d32c8",
+      "config_sha256": "105f137d32c87b6af07576a995014286cf2443d665dfd3a7256b3d8f6138a8ca",
+      "coordinate": "lambda_MIL",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16275,
+        "mean_domain_ECE": 0.09275,
+        "mean_domain_NLL": 0.34275,
+        "mean_domain_video_ACER": 0.14275,
+        "mean_domain_video_BPCER": 0.13275
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 12,
+      "value": 0.25
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 0.5,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_local@08d031d92d0d",
+      "config_sha256": "08d031d92d0db15c585c9931e9f16258cec81ec6c3e555a2b766d7f5fee3443d",
+      "coordinate": "lambda_local",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16525,
+        "mean_domain_ECE": 0.09525,
+        "mean_domain_NLL": 0.34525,
+        "mean_domain_video_ACER": 0.14525,
+        "mean_domain_video_BPCER": 0.13525
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 9,
+      "value": 0.5
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "warmup@138b690dd018",
+      "config_sha256": "138b690dd018619d0e7b48da5ab133be5cac11220aa3d26a3d9efbb1f4301d3d",
+      "coordinate": "warmup",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16525,
+        "mean_domain_ECE": 0.09525,
+        "mean_domain_NLL": 0.34525,
+        "mean_domain_video_ACER": 0.14525,
+        "mean_domain_video_BPCER": 0.13525
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 5,
+      "value": 0.075
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_syn@138b690dd018",
+      "config_sha256": "138b690dd018619d0e7b48da5ab133be5cac11220aa3d26a3d9efbb1f4301d3d",
+      "coordinate": "lambda_syn",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16525,
+        "mean_domain_ECE": 0.09525,
+        "mean_domain_NLL": 0.34525,
+        "mean_domain_video_ACER": 0.14525,
+        "mean_domain_video_BPCER": 0.13525
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 7,
+      "value": 0.5
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.05,
+        "weight_decay": 0.1
+      },
+      "config_id": "weight_decay@6b86349a1304",
+      "config_sha256": "6b86349a1304dfa7134afba50313f5bd316a4141e658c24015490e876848ca50",
+      "coordinate": "weight_decay",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.1655,
+        "mean_domain_ECE": 0.0955,
+        "mean_domain_NLL": 0.3455,
+        "mean_domain_video_ACER": 0.1455,
+        "mean_domain_video_BPCER": 0.1355
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 2,
+      "value": 0.1
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.05,
+        "weight_decay": 0.1
+      },
+      "config_id": "warmup@6b86349a1304",
+      "config_sha256": "6b86349a1304dfa7134afba50313f5bd316a4141e658c24015490e876848ca50",
+      "coordinate": "warmup",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.1655,
+        "mean_domain_ECE": 0.0955,
+        "mean_domain_NLL": 0.3455,
+        "mean_domain_video_ACER": 0.1455,
+        "mean_domain_video_BPCER": 0.1355
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 4,
+      "value": 0.05
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.025,
+        "weight_decay": 0.1
+      },
+      "config_id": "warmup@59d2cf82e030",
+      "config_sha256": "59d2cf82e0306fb0125259c83a05d107712e1ca820946bd22f65607ab2cc6633",
+      "coordinate": "warmup",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16575,
+        "mean_domain_ECE": 0.09575,
+        "mean_domain_NLL": 0.34575,
+        "mean_domain_video_ACER": 0.14575,
+        "mean_domain_video_BPCER": 0.13575
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 3,
+      "value": 0.025
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.05,
+        "weight_decay": 0.05
+      },
+      "config_id": "weight_decay@52525664f7ea",
+      "config_sha256": "52525664f7ea896b00480e29bdeb64169973522841aa0bc13cda8c462a2ef9e2",
+      "coordinate": "weight_decay",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.166,
+        "mean_domain_ECE": 0.096,
+        "mean_domain_NLL": 0.346,
+        "mean_domain_video_ACER": 0.146,
+        "mean_domain_video_BPCER": 0.136
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 1,
+      "value": 0.05
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.5,
+        "warmup": 0.05,
+        "weight_decay": 0.025
+      },
+      "config_id": "weight_decay@8b3e24ca354d",
+      "config_sha256": "8b3e24ca354d1319c55aac1e5bfb8094bf702f76d3fa6bafbd9f50038c902eea",
+      "coordinate": "weight_decay",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16625,
+        "mean_domain_ECE": 0.09625,
+        "mean_domain_NLL": 0.34625,
+        "mean_domain_video_ACER": 0.14625,
+        "mean_domain_video_BPCER": 0.13625
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 0,
+      "value": 0.025
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 1.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 0.25,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_syn@1cbd14eb909e",
+      "config_sha256": "1cbd14eb909eb7f17fe2b53af2307866327552e77b2b9fe08682b1eb46f75146",
+      "coordinate": "lambda_syn",
+      "finished_at_utc": "",
+      "finite_valid": true,
+      "metrics": {
+        "epoch": 1,
+        "max_domain_video_ACER": 0.16775,
+        "mean_domain_ECE": 0.09775,
+        "mean_domain_NLL": 0.34775,
+        "mean_domain_video_ACER": 0.14775,
+        "mean_domain_video_BPCER": 0.13775
+      },
+      "notes": [
+        "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "PASS",
+      "trial_index": 6,
+      "value": 0.25
+    },
+    {
+      "artifacts": [],
+      "config": {
+        "lambda_MIL": 0.5,
+        "lambda_P": 0.2,
+        "lambda_local": 2.0,
+        "lambda_risk": 0.1,
+        "lambda_syn": 1.0,
+        "warmup": 0.075,
+        "weight_decay": 0.1
+      },
+      "config_id": "lambda_local@189b54c5922e",
+      "config_sha256": "189b54c5922e64106298ac99e89c17848d23cb6f6895be2a6569cfb2a7221499",
+      "coordinate": "lambda_local",
+      "finished_at_utc": "",
+      "finite_valid": false,
+      "metrics": {},
+      "notes": [
+        "planted divergence: the retention and ranking path for non-finite trials must be exercised"
+      ],
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "started_at_utc": "",
+      "status": "DIVERGED",
+      "trial_index": 11,
+      "value": 2.0
+    }
+  ],
+  "metrics_source": "deterministic analytic objective",
+  "milestone": "C7",
+  "mode": "SOURCE_SEARCH",
+  "notes": [
+    "learning_rate: skipped — AMBIGUOUS: the inherited configuration declares more than one candidate scalar (optimizer.backbone_lr=1e-05, optimizer.head_lr=0.0001); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+    "lambda_M: skipped — the K=4 manifold variant is not active",
+    "lambda_out: skipped — the K=4 manifold variant is not active",
+    "lambda_clean: skipped — the K=4 manifold variant is not active",
+    "one pass only; no coordinate was revisited (§15.2.2)"
+  ],
+  "one_pass": true,
+  "plan_id": "c7_detector_coordinate_v1",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "retention": "every attempted config is preserved; failed, NaN and divergent trials are ranked after all finite valid trials and are never deleted (§15.2.2, L.6, L.8)",
+  "schema_version": "prism-coordinate-search-v1",
+  "scientific_eligible": false,
+  "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+  "selection_tuple": [
+    "mean_domain_video_ACER",
+    "max_domain_video_ACER",
+    "mean_domain_video_BPCER",
+    "mean_domain_NLL",
+    "mean_domain_ECE",
+    "epoch"
+  ],
+  "started_at_utc": "2026-08-17T04:31:06.458338Z",
+  "status": "COMPLETED",
+  "tie_break": "canonical_config_sha256_ascending",
+  "tie_break_trace": [
+    {
+      "candidates_evaluated": [
+        0.025,
+        0.05,
+        0.1
+      ],
+      "coordinate": "weight_decay",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "6b86349a1304dfa7134afba50313f5bd316a4141e658c24015490e876848ca50",
+      "selected_value": 0.1,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.025,
+        0.05,
+        0.075
+      ],
+      "coordinate": "warmup",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "138b690dd018619d0e7b48da5ab133be5cac11220aa3d26a3d9efbb1f4301d3d",
+      "selected_value": 0.075,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.25,
+        0.5,
+        1.0
+      ],
+      "coordinate": "lambda_syn",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "b5362b76c2db82374a9084c02c2d01061f59e7fc455970072260fb33bbf182a7",
+      "selected_value": 1.0,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "coordinate": "lambda_local",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "b5362b76c2db82374a9084c02c2d01061f59e7fc455970072260fb33bbf182a7",
+      "selected_value": 1.0,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.25,
+        0.5,
+        1.0
+      ],
+      "coordinate": "lambda_MIL",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "f272a3b0d7143cd10e708db16f9fe4eaa1b6e87ce224f99a8214fb73fa8f84ad",
+      "selected_value": 1.0,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.1,
+        0.2,
+        0.4
+      ],
+      "coordinate": "lambda_P",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "c374e328100de353aa447db5365010974858f093e1077358f05d30f7805b88f5",
+      "selected_value": 0.4,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    },
+    {
+      "candidates_evaluated": [
+        0.05,
+        0.1,
+        0.2
+      ],
+      "coordinate": "lambda_risk",
+      "decided_by_tie_break": false,
+      "numeric_tie_count": 1,
+      "selected_config_sha256": "e180bd4d2d2e33a2a9dff7f5b92026ef6f4484062e7551923bfa18548822b304",
+      "selected_value": 0.2,
+      "tie_break": "canonical_config_sha256_ascending",
+      "tied_config_sha256": []
+    }
+  ],
+  "trials_by_status": {
+    "DIVERGED": 1,
+    "FAIL": 0,
+    "INTERRUPTED": 0,
+    "PASS": 20
+  },
+  "trials_declared": 21,
+  "trials_executed": 21,
+  "variant_flags": {
+    "frames_per_video": 4,
+    "fusion": "glr_concat",
+    "global_branch": "siglip2_frozen",
+    "local_branch": "convnext",
+    "manifold": "off",
+    "outlier_loss": "off",
+    "prompt": "frozen_prompt",
+    "prototype_k": 0,
+    "quality_weighting": "q_weighted",
+    "recipe_conditioning": "structured",
+    "region": "on",
+    "sampler": "domain_class_balanced",
+    "synthetic": "bank_physics_gpat"
+  },
+  "winner_config_id": "lambda_risk@e180bd4d2d2e",
+  "winner_config_sha256": "e180bd4d2d2e33a2a9dff7f5b92026ef6f4484062e7551923bfa18548822b304",
+  "winner_metrics": {
+    "epoch": 1,
+    "max_domain_video_ACER": 0.15225,
+    "mean_domain_ECE": 0.08225,
+    "mean_domain_NLL": 0.33225,
+    "mean_domain_video_ACER": 0.13225,
+    "mean_domain_video_BPCER": 0.12225
+  }
+}

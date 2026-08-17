@@ -1,0 +1,18 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "contains_real_target_data": false,
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.032124Z",
+  "mode": "BUILD_FIXTURE_PACKAGE",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "roots": {
+    "prediction_root": "reports/smoke/c10/fixture_target/predictions",
+    "source_package_root": "reports/smoke/c10/fixture_target/source_package",
+    "target_feature_root": "reports/smoke/c10/fixture_target/target_features",
+    "target_label_root": "reports/smoke/c10/fixture_target/target_labels"
+  },
+  "schema_version": "c10-fixture-package-v1",
+  "scientific_eligible": false
+}

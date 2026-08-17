@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.089962Z",
+  "identities": {
+    "after_added_file": "2c7ee13158d549e8d042fa338b81c111d5fcb126208e84eeb995fe8159d2916a",
+    "after_edited_file": "eefbe49811c3393727d424d79f83e5022d82d6a9e596b6cc008c03ed4f7d7204",
+    "after_restore": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b",
+    "baseline": "b3b76f8284a53e2884b3d9f817ad7ac2a75b4c6d328b2eb5488e21a2deac0e0b"
+  },
+  "mode": "TAMPER_DETECTION",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c10-tamper-detection-v1",
+  "scientific_eligible": false
+}

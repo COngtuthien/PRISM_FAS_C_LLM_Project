@@ -1,18 +1,51 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: PLAN_MATRIX, SCHEDULE, EXECUTE_ROWS, FAILURE_PRESERVATION, TARGET_ISOLATION.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c8_source_matrix",
+      "detail": {
+        "identity_stable": true,
+        "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+        "problems": [],
+        "rows": 42,
+        "seed_counts": {
+          "C-G-DET:P1": 3,
+          "C-G-DET:P2": 3,
+          "C-G-DET:P3": 5,
+          "C-G-LLM:P1": 3,
+          "C-G-LLM:P2": 3,
+          "C-G-LLM:P3": 5,
+          "C-G-RND:P1": 3,
+          "C-G-RND:P2": 3,
+          "C-G-RND:P3": 5,
+          "C-R-DET:P3": 3,
+          "C-R-LLM:P3": 3,
+          "C-R-NOPROMPT:P3": 3
+        },
+        "seed_family": [
+          20260806,
+          20260807,
+          20260808,
+          20260809,
+          20260810
+        ],
+        "unique_configurations": 12
+      },
+      "ok": true,
+      "stage_id": "C8",
+      "summary": "the source matrix plans, validates and hashes stably"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923360Z",
+  "finished_at_utc": "2026-08-17T04:29:58.892448Z",
   "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C8; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "scientific",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +56,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C8",
-  "started_at_utc": "2026-08-16T12:25:03.923357Z",
+  "started_at_utc": "2026-08-17T04:29:58.882238Z",
   "substages": [],
   "title": "Source matrix over arms, tracks, configs and seeds",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c8_source_matrix"
+  ],
+  "validate_gate": "PASS"
 }

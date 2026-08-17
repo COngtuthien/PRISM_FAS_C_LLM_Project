@@ -1,18 +1,49 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: TRACK_G_READINESS, TRACK_R_READINESS, DECISION_DEPENDENCY_AUDIT, CALIBRATION_GUARDS, VARIANT_MATRIX_AUDIT, SOURCE_SEARCH.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c7_tracks_resolve",
+      "detail": {
+        "problems": [],
+        "rule": "§13.4.1 Track G is global-only; §13.4.2 Track R fuses concat(g, l, r) into fused_logit_R",
+        "tracks": {
+          "G": {
+            "architecture_identity": "9c2e68dabfe6ac9aba5c7ae200b30b658d68467a810d17d13e7f72ebd34f78ee",
+            "decision_head_type": "single_branch_logit_v1",
+            "decision_logit_name": "global_logit_G",
+            "decision_score_name": "p_G",
+            "executable": true,
+            "reason": null,
+            "region_enters_decision_logit": false,
+            "track": "G"
+          },
+          "R": {
+            "architecture_identity": "28ba08993792fb1be9763433a7acc355b3dbb1cce35880b0546462e83a55d81f",
+            "decision_head_type": "track_r_glr_concat_v1",
+            "decision_logit_name": "fused_logit_R",
+            "decision_score_name": "p_R",
+            "executable": true,
+            "reason": null,
+            "region_enters_decision_logit": true,
+            "track": "R"
+          }
+        }
+      },
+      "ok": true,
+      "stage_id": "C7",
+      "summary": "Track G and Track R resolve with their frozen decision identities"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923355Z",
+  "finished_at_utc": "2026-08-17T04:29:58.882211Z",
   "mandatory_full_outputs": "all declared detector/config readiness and search runs, forward/backward/resume/dependency audits, selected config locks, C7_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C7; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "source-search",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +54,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C7",
-  "started_at_utc": "2026-08-16T12:25:03.923352Z",
+  "started_at_utc": "2026-08-17T04:29:57.337291Z",
   "substages": [],
   "title": "Detector readiness and configuration search",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c7_tracks_resolve"
+  ],
+  "validate_gate": "PASS"
 }

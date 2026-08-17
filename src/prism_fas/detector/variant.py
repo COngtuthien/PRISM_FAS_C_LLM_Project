@@ -32,6 +32,14 @@ from typing import Any
 
 VARIANT_SCHEMA_VERSION = "m10-resolved-variant-v1"
 
+# v1.5 §13.4.2 freezes the Track-R fusion geometry: each branch summary is 256-D,
+# the concatenated width is 768 and the fusion hidden width is 256. These are
+# transcribed scientific constants, not defaults, and W_G/W_L absorb whatever
+# input dimensions the inherited SigLIP2/ConvNeXt towers happen to have.
+GLR_BRANCH_DIM = 256
+GLR_CONCAT_WIDTH = 768
+GLR_HIDDEN_DIM = 256
+
 # --- the frozen flag vocabulary ---------------------------------------------
 # Identical to `configs/experiments/m10_matrix.yaml: flag_vocabulary`. A test
 # asserts the two agree, so the YAML can never declare a value the code cannot
@@ -39,7 +47,14 @@ VARIANT_SCHEMA_VERSION = "m10-resolved-variant-v1"
 FLAG_VOCABULARY: dict[str, tuple[Any, ...]] = {
     "local_branch": ("convnext", "off"),
     "global_branch": ("siglip2_frozen", "off"),
-    "fusion": ("single_logit", "simple_concat", "prism_noisy_or"),
+    # `glr_concat` is the v1.5 §13.4.2 Track-R decision contract: one fused
+    # classifier over concat(g, l, r), where r is the visibility-aware pooled
+    # 9-region summary. It is ADDITIVE — every inherited value keeps its exact
+    # meaning and identity — because v1.5 §13.4/§13.5 require the final Track-R
+    # logit to depend directly on the local and region branches, and
+    # `prism_noisy_or` fuses post-hoc SCORES rather than features. See
+    # `prism_fas.detector.decision_audit` for the guards that enforce it.
+    "fusion": ("single_logit", "simple_concat", "prism_noisy_or", "glr_concat"),
     "region": ("on", "off"),
     "manifold": ("off", "global_center", "multi_prototype"),
     "prototype_k": (0, 1, 2, 4, 6),
@@ -157,10 +172,19 @@ class ResolvedExperimentVariant:
             problems.append("a global center is exactly one prototype")
         if self.manifold == "multi_prototype" and (k < 1 or self.region != "on"):
             problems.append("multi-prototype manifolds are regional and need at least one prototype")
-        if self.region == "on" and self.fusion != "prism_noisy_or":
-            problems.append("the regional detector uses the Table 34 fusion")
+        if self.region == "on" and self.fusion not in ("prism_noisy_or", "glr_concat"):
+            problems.append("the regional detector uses the Table 34 fusion or the v1.5 "
+                            "§13.4.2 glr_concat decision head")
         if self.region == "off" and self.fusion == "prism_noisy_or":
             problems.append("the Table 34 fusion needs the regional evidence term")
+        # `r` is a mandatory INPUT to fused_logit_R, not an optional one: §13.4.4
+        # says the region branch cannot be decorative.
+        if self.fusion == "glr_concat" and self.region != "on":
+            problems.append("glr_concat fuses the pooled 9-region summary and requires "
+                            "the region path")
+        if self.fusion == "glr_concat" and self.global_branch == "off":
+            problems.append("glr_concat fuses the frozen global embedding and requires "
+                            "the global branch")
         if self.prompt != "off" and (self.region != "on" or self.global_branch == "off"):
             problems.append("PromptHead is defined over region embeddings and the frozen text tower")
         if self.outlier_loss == "mask_aware" and self.region != "on":
@@ -178,7 +202,7 @@ class ResolvedExperimentVariant:
             problems.append("recipe conditioning requires synthetic samples")
         if self.fusion == "single_logit" and branches != 1:
             problems.append("a single-logit baseline has exactly one backbone branch")
-        if self.fusion in ("simple_concat", "prism_noisy_or") and branches != 2:
+        if self.fusion in ("simple_concat", "prism_noisy_or", "glr_concat") and branches != 2:
             problems.append(f"{self.fusion} needs both backbone branches")
         if branches == 0:
             problems.append("a detector needs at least one backbone branch")
@@ -245,6 +269,62 @@ class ResolvedExperimentVariant:
     @property
     def fuses_prompt_evidence(self) -> bool:
         return self.fusion == "prism_noisy_or" and self.has_prompt
+
+    @property
+    def region_enters_decision_logit(self) -> bool:
+        """Whether the region branch is an input to the FINAL LOGIT.
+
+        Distinct from `fuses_region_evidence`, and the distinction is the whole
+        point of v1.5 §13.5. `fuses_region_evidence` asks whether the scalar
+        `s_region` is combined with `p_global` *after* both are probabilities —
+        a post-hoc score fusion. This asks whether the pooled region embedding
+        `r` is a tensor input to the classifier that produces the logit. Only the
+        second one makes the decision structurally dependent on the region
+        branch, which is what the anti-Version-B regression guard requires.
+        """
+        return self.fusion == "glr_concat" and self.has_region_path
+
+    @property
+    def local_enters_decision_logit(self) -> bool:
+        return self.fusion in ("simple_concat", "glr_concat") and self.has_local
+
+    @property
+    def global_enters_decision_logit(self) -> bool:
+        return self.has_global
+
+    @property
+    def decision_head_type(self) -> str:
+        """The frozen name of this variant's decision graph (§13.5)."""
+        return {"glr_concat": "track_r_glr_concat_v1",
+                "prism_noisy_or": "prism_noisy_or_v1",
+                "simple_concat": "concat_single_logit_v1",
+                "single_logit": "single_branch_logit_v1"}[self.fusion]
+
+    @property
+    def decision_logit_name(self) -> str:
+        """§16.1: the logit calibration fits and inference thresholds."""
+        return "fused_logit_R" if self.fusion == "glr_concat" else "global_logit_G"
+
+    @property
+    def decision_score_name(self) -> str:
+        return "p_R" if self.fusion == "glr_concat" else "p_G"
+
+    @property
+    def track(self) -> str:
+        """`G` or `R` in the §13 sense, derived rather than declared.
+
+        Track G is global-only by design: no ConvNeXt, no regions, no manifold,
+        no PromptHead. Anything that fuses the region branch into its decision
+        logit is Track R. A variant that is neither is an inherited M10 baseline
+        and says so.
+        """
+        if self.fusion == "glr_concat":
+            return "R"
+        if (self.fusion == "single_logit" and self.has_global and not self.has_local
+                and not self.has_region_path and not self.has_manifold
+                and not self.has_prompt):
+            return "G"
+        return "inherited_m10_baseline"
 
     # --- derived plans -------------------------------------------------------
     def required_stages(self) -> tuple[str, ...]:
@@ -317,6 +397,9 @@ class ResolvedExperimentVariant:
         if self.has_region_path: modules += ["region_query", "region_attention", "region_pool", "region_norm"]
         if self.has_local: modules += ["local_head"]
         if self.fusion == "prism_noisy_or": modules += ["global_head"]
+        elif self.fusion == "glr_concat":
+            modules += ["local_summary_projection", "region_attention_pool",
+                        "fusion_projection", "fusion_classifier"]
         else: modules += ["fusion_classifier"]
         if self.has_prompt: modules += ["prompt_head"]
         return tuple(sorted(set(modules)))
@@ -329,13 +412,29 @@ class ResolvedExperimentVariant:
         architecture identity: a checkpoint built without a PromptHead cannot be
         loaded into one that has it, because the state dict and this hash both differ.
         """
-        return {"variant_schema_version": VARIANT_SCHEMA_VERSION,
-                "local_branch": self.local_branch, "global_branch": self.global_branch,
-                "fusion": self.fusion, "region": self.region, "manifold": self.manifold,
-                "prototype_k": int(self.prototype_k), "prompt": self.prompt,
-                "manifold_scope": self.manifold_scope, "manifold_slots": self.manifold_slots,
-                "fuses_region_evidence": self.fuses_region_evidence,
-                "fuses_prompt_evidence": self.fuses_prompt_evidence}
+        payload = {"variant_schema_version": VARIANT_SCHEMA_VERSION,
+                   "local_branch": self.local_branch, "global_branch": self.global_branch,
+                   "fusion": self.fusion, "region": self.region, "manifold": self.manifold,
+                   "prototype_k": int(self.prototype_k), "prompt": self.prompt,
+                   "manifold_scope": self.manifold_scope, "manifold_slots": self.manifold_slots,
+                   "fuses_region_evidence": self.fuses_region_evidence,
+                   "fuses_prompt_evidence": self.fuses_prompt_evidence}
+        # §13.5 requires the decision graph to be serialized into run identity.
+        # Added only for the v1.5 decision head, so every inherited variant's
+        # architecture identity — and therefore the loadability of the frozen M9
+        # reference checkpoint — is byte-for-byte what it was.
+        if self.fusion == "glr_concat":
+            payload.update({
+                "decision_head_type": self.decision_head_type,
+                "decision_logit_name": self.decision_logit_name,
+                "decision_score_name": self.decision_score_name,
+                "branch_summary_dim": GLR_BRANCH_DIM,
+                "fusion_concat_width": GLR_CONCAT_WIDTH,
+                "fusion_hidden_dim": GLR_HIDDEN_DIM,
+                "fusion_activation": "GELU",
+                "region_enters_decision_logit": self.region_enters_decision_logit,
+                "local_enters_decision_logit": self.local_enters_decision_logit})
+        return payload
 
     def training_payload(self) -> dict[str, Any]:
         """The switches that change WHAT IS OPTIMIZED rather than what is instantiated.

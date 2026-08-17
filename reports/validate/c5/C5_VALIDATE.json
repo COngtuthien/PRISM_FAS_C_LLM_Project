@@ -1,18 +1,70 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: LOAD_RECIPES, RESOLVE_ROUTES, RENDER_PHYSICS, RENDER_GPAT, CANDIDATE_IDENTITY, FAILURE_RECORDING.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c5_route_contract",
+      "detail": {
+        "arms": {
+          "det": {
+            "conditioning_dimension": 41,
+            "generator_routes": [
+              "physics",
+              "gpat"
+            ],
+            "graph_hash": "927e5a610a46e69de511e9b797ffdf03439878f12e81568cf032eef934279a78",
+            "operators": [
+              "texture_smoothing",
+              "boundary_inconsistency",
+              "blur"
+            ]
+          },
+          "llm": {
+            "conditioning_dimension": 41,
+            "generator_routes": [
+              "physics",
+              "gpat"
+            ],
+            "graph_hash": "e026b3d92927758192f10bd6bfa48f14999911418122937c1c22ecd9c6124842",
+            "operators": [
+              "color_shift",
+              "blur"
+            ]
+          },
+          "rnd": {
+            "conditioning_dimension": 41,
+            "generator_routes": [
+              "physics",
+              "gpat"
+            ],
+            "graph_hash": "72e255b5a5ba24b7d2128ddaf909f19abd78977bd8de4ee6a0401fe869d4fbb3",
+            "operators": [
+              "texture_smoothing",
+              "color_shift"
+            ]
+          }
+        },
+        "problems": [],
+        "required_generator_route": [
+          "physics",
+          "gpat"
+        ],
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+      },
+      "ok": true,
+      "stage_id": "C5",
+      "summary": "every frozen bank compiles and resolves to the exact route sequence"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923343Z",
+  "finished_at_utc": "2026-08-17T04:29:57.333659Z",
   "mandatory_full_outputs": "per-arm and per-recipe route render manifests, synthetic candidate identities, failures, C5_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C5; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "scientific",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +75,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C5",
-  "started_at_utc": "2026-08-16T12:25:03.923340Z",
+  "started_at_utc": "2026-08-17T04:29:57.294117Z",
   "substages": [],
   "title": "Route rendering and synthetic candidates",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c5_route_contract"
+  ],
+  "validate_gate": "PASS"
 }

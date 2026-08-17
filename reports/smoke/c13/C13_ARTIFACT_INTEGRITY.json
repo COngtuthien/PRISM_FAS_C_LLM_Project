@@ -1,0 +1,46 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "bank_bytes": {
+    "det": {
+      "exists": true,
+      "lf_only": true,
+      "lines": 256
+    },
+    "llm": {
+      "exists": true,
+      "lf_only": true,
+      "lines": 256
+    },
+    "rnd": {
+      "exists": true,
+      "lf_only": true,
+      "lines": 256
+    }
+  },
+  "bank_identities": {
+    "DET": {
+      "matches": true,
+      "recomputed": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "recorded": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9"
+    },
+    "LLM": {
+      "matches": true,
+      "recomputed": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "recorded": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59"
+    },
+    "RND": {
+      "matches": true,
+      "recomputed": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "recorded": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+    }
+  },
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.470808Z",
+  "mode": "ARTIFACT_INTEGRITY",
+  "problems": [],
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c13-artifact-integrity-v1",
+  "scientific_eligible": false
+}

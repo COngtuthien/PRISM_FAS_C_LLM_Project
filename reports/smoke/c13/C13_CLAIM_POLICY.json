@@ -1,0 +1,39 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "cases": [
+    {
+      "agrees": true,
+      "expected": true,
+      "may_claim": true,
+      "role": "hypothesis_critical"
+    },
+    {
+      "agrees": true,
+      "expected": true,
+      "may_claim": true,
+      "role": "spec_mandated"
+    },
+    {
+      "agrees": true,
+      "expected": false,
+      "may_claim": false,
+      "role": "diagnostic"
+    },
+    {
+      "agrees": true,
+      "expected": false,
+      "may_claim": false,
+      "role": "parity"
+    }
+  ],
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.472162Z",
+  "mode": "CLAIM_POLICY",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "profile_may_claim": false,
+  "schema_version": "c13-claim-policy-v1",
+  "scientific_eligible": false,
+  "single_seed_comparison_refused": true
+}

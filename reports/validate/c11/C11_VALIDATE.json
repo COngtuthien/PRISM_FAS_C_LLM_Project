@@ -1,18 +1,67 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: BUILD_PREDICTIONS, LABEL_ISOLATION_AUDIT, PREDICTION_LOCKS, DOUBLE_VALIDATION. No real target inference is performed.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c11_prediction_schema",
+      "detail": {
+        "columns": [
+          "sample_id",
+          "video_id",
+          "frame_id",
+          "p_global",
+          "s_region",
+          "p_prompt",
+          "s_final",
+          "confidence",
+          "decision",
+          "top_region_ids",
+          "region_distances",
+          "checkpoint_hash",
+          "calibration_hash",
+          "inference_config_hash",
+          "region_status",
+          "prompt_status",
+          "variant"
+        ],
+        "forbidden_columns": [
+          "label",
+          "true_label",
+          "label_live_spoof",
+          "true_target",
+          "target",
+          "class_target",
+          "attack_type",
+          "attack_family",
+          "taxonomy",
+          "subject_id",
+          "session_id",
+          "identity_embedding",
+          "source_path",
+          "crop_relative_path",
+          "official_split",
+          "private_label"
+        ],
+        "nullable_when_not_applicable": [
+          "s_region",
+          "p_prompt"
+        ],
+        "problems": []
+      },
+      "ok": true,
+      "stage_id": "C11",
+      "summary": "the prediction schema forbids every label-bearing column"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923377Z",
+  "finished_at_utc": "2026-08-17T04:29:58.924360Z",
   "mandatory_full_outputs": "every preregistered P3 prediction artifact by method and seed plus per-row PREDICTION_LOCK and global lockset, C11_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C11; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "target-eval",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +72,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C11",
-  "started_at_utc": "2026-08-16T12:25:03.923374Z",
+  "started_at_utc": "2026-08-17T04:29:58.914297Z",
   "substages": [],
   "title": "Label-isolated P3 prediction",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c11_prediction_schema"
+  ],
+  "validate_gate": "PASS"
 }

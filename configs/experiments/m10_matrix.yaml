@@ -50,7 +50,12 @@ source_selection_rule:
 flag_vocabulary:
   local_branch: [convnext, "off"]
   global_branch: [siglip2_frozen, "off"]
-  fusion: [single_logit, simple_concat, prism_noisy_or]
+  # `glr_concat` is additive for v1.5 §13.4.2: the Track-R decision head that
+  # fuses concat(g, l, r) into one logit. No row below uses it — the M10 matrix is
+  # unchanged and `m10_matrix_identity` is derived from the rows, not from this
+  # vocabulary — but the value must be declared here because a test asserts the
+  # config and the code accept exactly the same flag values.
+  fusion: [single_logit, simple_concat, prism_noisy_or, glr_concat]
   region: ["on", "off"]
   manifold: ["off", global_center, multi_prototype]
   prototype_k: [0, 1, 2, 4, 6]

@@ -1,0 +1,164 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "budget": {
+    "max_epochs": 1,
+    "max_samples_per_split": 8,
+    "max_seeds": 1,
+    "max_steps_per_epoch": 2,
+    "max_wall_clock_seconds": 1800,
+    "preserved": [
+      "code_paths",
+      "tensor_semantics",
+      "model_topology",
+      "active_loss_semantics",
+      "target_firewall",
+      "artifact_schemas"
+    ],
+    "reducible_dimensions": [
+      "samples",
+      "steps",
+      "epochs",
+      "seeds"
+    ],
+    "source": "the profile's declared engineering_budget (L.12)"
+  },
+  "execution_profile": "smoke",
+  "failures": [],
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:30:10.098800Z",
+  "image_note": "a deterministic noise field, not a face",
+  "mode": "RENDER_PHYSICS",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "rendered": [
+    {
+      "arm": "LLM",
+      "changed_pixels": 189,
+      "graph_hash": "e026b3d92927758192f10bd6bfa48f14999911418122937c1c22ecd9c6124842",
+      "operators": [
+        "color_shift",
+        "blur"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "e75bea155319218ca59c73297f677f88d651528ae1ecedad311b8fda1be4ed98",
+        "exact_edit_mask_sha256": "ccc00cf26a0a677923a18bb88dea8cd293116c82acc2c9a1fe70b331c0bf60dc",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "b4ad534cf68007a07a7d90b6bb5e8e052f19d1416e4f1fe26c0217af5d35361d",
+        "synthetic_image_sha256": "7ace9c87a3679f686740d199b4cb625c45a541e5733154e91426a67c09f9eac0"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "00bc1db0b70278fa317656e86420d6fed6510b360e4a70bbc81493ac9c07d5de",
+      "recipe_id": "R-000341",
+      "route": "physics",
+      "sample_id": "smoke-llm-00"
+    },
+    {
+      "arm": "LLM",
+      "changed_pixels": 2610,
+      "graph_hash": "4acd1495144ff6636397cd8860b3b7a02fee21735ea598f8accafc150ac4cebe",
+      "operators": [
+        "specular_reflection",
+        "boundary_inconsistency"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "68eadde57348792701c161d098a3923b0b597a554953d81f90d3bcb589b23e05",
+        "exact_edit_mask_sha256": "4e9b7b019f285ae67ccdb2c5bb42e9985af44a5e05cebfd4d687d41125a17cf1",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "af5577e1cc4cb5106e6ffe3b1893ff173086360ac7e07014eeaae5cb7188ff14",
+        "synthetic_image_sha256": "eb25d7e2a19d8c8ffadd5c3e1756987747159f4497a0b442d6f987d2e8b12c92"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "01d19bdb1e036f4b453ae40fa8d7a48c847b1fabb527303c0fbfb3143925fa8a",
+      "recipe_id": "R-000150",
+      "route": "physics",
+      "sample_id": "smoke-llm-01"
+    },
+    {
+      "arm": "RND",
+      "changed_pixels": 250,
+      "graph_hash": "72e255b5a5ba24b7d2128ddaf909f19abd78977bd8de4ee6a0401fe869d4fbb3",
+      "operators": [
+        "texture_smoothing",
+        "color_shift"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "443571dd85c4b8d509737e83de56be00443e9c36f85a94f19c41f7a52e6d0a60",
+        "exact_edit_mask_sha256": "fc5cb62e620b05ed3c4710613ff6864d78d2752aba0963d54a0f33a55701ea2d",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "27e544f3e90966a15ddf623d497c8623ca8bda43a10cc68bbb392a5a9fc4b0e0",
+        "synthetic_image_sha256": "b114820557ff65a12339d305216771c9a65c1242cec4848e3a685d60daf26f07"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "0026afc8b5b8b7e99869e87d5cb771b825569fa2620e835055e1ec2592515856",
+      "recipe_id": "R-000307",
+      "route": "physics",
+      "sample_id": "smoke-rnd-00"
+    },
+    {
+      "arm": "RND",
+      "changed_pixels": 2561,
+      "graph_hash": "b48f9998f64171dfbc7e3f9c2d67f3e952034e47bfad2c00d1287863f42296f4",
+      "operators": [
+        "halftone",
+        "boundary_inconsistency"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "a28f1cbb61c139422209535ba2872701bd1ae93464312166246b220a42b5ecc5",
+        "exact_edit_mask_sha256": "ba6be436b1c816828dedb0bf16611cf0ef79d5da5316368eaa3a5cc3db91ac17",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "8a4043f63392ca285f45947951ca3af271c613d5cb02b35d1406953b2bddb725",
+        "synthetic_image_sha256": "efae7538a2b7c979d71e73411377f92095eac7b03f227b8dfe4fa9ad7a8148b9"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "02463d8f3f9428b7ec4e6fa298d6e1f25660a36e9dc3449429303595638de83b",
+      "recipe_id": "R-000144",
+      "route": "physics",
+      "sample_id": "smoke-rnd-01"
+    },
+    {
+      "arm": "DET",
+      "changed_pixels": 812,
+      "graph_hash": "927e5a610a46e69de511e9b797ffdf03439878f12e81568cf032eef934279a78",
+      "operators": [
+        "texture_smoothing",
+        "boundary_inconsistency",
+        "blur"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "7f3fd94daed8e86a1824c10893fddc8dafbcbc95944afa988dc8abf921f673ac",
+        "exact_edit_mask_sha256": "a42daca79496734b880392887259a84a312444993774dffa4b21f100edfca8ca",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "083a529b0354d2ba7b98f5ea8e4a778b65aa5614f95ceacf71e827df8f58016c",
+        "synthetic_image_sha256": "c631ff003117c8ed2d8e8ee4edde6251366afacd02070c7e598aedd849724e27"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "001d2c1f96669fabde1ec1ec2e3242a6741e7e5800ba4e0406f1f79b10e1e75f",
+      "recipe_id": "R-000040",
+      "route": "physics",
+      "sample_id": "smoke-det-00"
+    },
+    {
+      "arm": "DET",
+      "changed_pixels": 233,
+      "graph_hash": "5988e041ce47fb5d66f3acf9b4efc8d22bb8030bab0c6100ae377fbd0223343b",
+      "operators": [
+        "color_shift",
+        "blur"
+      ],
+      "output_hashes": {
+        "artifact_strength_map_sha256": "9c5aead3e014b6bb2a7c7504afbb3879aa34d0e4ecd5e45e0d9e2c0c32e46568",
+        "exact_edit_mask_sha256": "3d143530c669edef6d14e939129df673d680e2b9e9f78c6acff20f3684cc1318",
+        "input_image_sha256": "f47ba8234ce179bbf03c1d61bc9040c536a9b20441ff17c1a0dcd277ca361f61",
+        "requested_region_mask_sha256": "bb677f935274b616a65fee2e56b0355a817f32c21ccadd131abcc30de0196daf",
+        "synthetic_image_sha256": "4a3f61e26f3d40b0fac002f7d08bcd9da8e99edf72181604ad2da161a82129c1"
+      },
+      "outside_mask_max_abs_error": 0.0,
+      "recipe_hash": "01d199474b1be04de7c6a478f538c1d5725c3c810864eea50b2528c470c5e3a5",
+      "recipe_id": "R-000032",
+      "route": "physics",
+      "sample_id": "smoke-det-01"
+    }
+  ],
+  "schema_version": "c5-physics-renders-v1",
+  "scientific_eligible": false
+}

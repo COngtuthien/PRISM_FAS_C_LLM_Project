@@ -1,0 +1,23 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.379169Z",
+  "label_bytes_opened": 0,
+  "mode": "DRY_RUN",
+  "preconditions": {
+    "label_bytes_read": 0,
+    "lockset_present": true,
+    "prediction_count": 320,
+    "predictions_present": true,
+    "variants": [
+      "C-G-LLM",
+      "C-R-LLM"
+    ]
+  },
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c12-dry-run-v1",
+  "scientific_eligible": false,
+  "scientific_lockset_present": false
+}

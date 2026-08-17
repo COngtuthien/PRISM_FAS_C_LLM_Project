@@ -1,18 +1,122 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: PREPARE_SUPPORT, VALIDATE_SUPPORT, SMOKE_GPAT, SOURCE_SEARCH, FINALIZE_GPAT, VERIFY_LOCK.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c4_search_plan",
+      "detail": {
+        "anchor_resolution": {
+          "absent": [
+            "geometry_preservation_weight"
+          ],
+          "absent_note": "an absent scalar is skipped rather than invented (§15.2.3); it is not a blocker",
+          "ambiguous": [
+            "learning_rate"
+          ],
+          "blocking_reason": "['learning_rate'] have no uniquely inherited anchor. §15.2.2 classifies a non-unique inherited scalar as USER_APPROVAL_REQUIRED, so the full profile cannot execute this envelope until the user binds each one to a named scalar. Engineering readiness does not require that decision; scientific execution does.",
+          "coordinates": [
+            {
+              "candidate_paths": [
+                "optimizer.learning_rate",
+                "optimizer.encoder_lr",
+                "optimizer.recipe_lr",
+                "optimizer.generator_lr"
+              ],
+              "classification": "USER_APPROVAL_REQUIRED",
+              "detail": "the inherited configuration declares more than one candidate scalar (optimizer.encoder_lr=0.0002, optimizer.recipe_lr=0.0001, optimizer.generator_lr=0.0002); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+              "name": "learning_rate",
+              "path": "optimizer.encoder_lr, optimizer.recipe_lr, optimizer.generator_lr",
+              "state": "AMBIGUOUS",
+              "value": null
+            },
+            {
+              "candidate_paths": [
+                "optimizer.weight_decay"
+              ],
+              "classification": "FROZEN_INHERITED_ANCHOR",
+              "detail": "",
+              "name": "weight_decay",
+              "path": "optimizer.weight_decay",
+              "state": "RESOLVED",
+              "value": 0.0001
+            },
+            {
+              "candidate_paths": [
+                "loss.residual"
+              ],
+              "classification": "FROZEN_INHERITED_ANCHOR",
+              "detail": "",
+              "name": "residual_loss_weight",
+              "path": "loss.residual",
+              "state": "RESOLVED",
+              "value": 0.01
+            },
+            {
+              "candidate_paths": [
+                "loss.identity"
+              ],
+              "classification": "FROZEN_INHERITED_ANCHOR",
+              "detail": "",
+              "name": "identity_preservation_weight",
+              "path": "loss.identity",
+              "state": "RESOLVED",
+              "value": 0.5
+            },
+            {
+              "candidate_paths": [
+                "loss.geometry",
+                "loss.geometry_preservation"
+              ],
+              "classification": "NOT_APPLICABLE",
+              "detail": "no inherited scalar exists at any declared path; §15.2.3 skips an absent scalar rather than inventing one",
+              "name": "geometry_preservation_weight",
+              "path": "",
+              "state": "ABSENT",
+              "value": null
+            }
+          ],
+          "executable_under_full": false,
+          "resolved": [
+            "identity_preservation_weight",
+            "residual_loss_weight",
+            "weight_decay"
+          ]
+        },
+        "coordinate_order": [
+          "learning_rate",
+          "weight_decay",
+          "residual_loss_weight",
+          "identity_preservation_weight",
+          "geometry_preservation_weight"
+        ],
+        "declared_trials": 9,
+        "executable_under_full": false,
+        "identity_stable": true,
+        "note": "an ambiguous anchor does not fail this check; it is recorded as a decision the user owes before the FULL profile may run C4",
+        "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
+        "selection_tuple": [
+          "hard_invariant_failure",
+          "neutral_support_validation_objective",
+          "identity_drift",
+          "low_frequency_geometry_drift",
+          "outside_mask_error"
+        ],
+        "tie_break": "canonical_config_sha256_ascending"
+      },
+      "ok": true,
+      "stage_id": "C4",
+      "summary": "the GPAT search envelope builds and its identity is stable"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923335Z",
+  "finished_at_utc": "2026-08-17T04:29:57.294102Z",
   "mandatory_full_outputs": "every allowed GPAT source-search run, configs/metrics/checkpoints, winner selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C4; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "source-search",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +127,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C4",
-  "started_at_utc": "2026-08-16T12:25:03.923328Z",
+  "started_at_utc": "2026-08-17T04:29:57.279294Z",
   "substages": [],
   "title": "GPAT source search and final checkpoint",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c4_search_plan"
+  ],
+  "validate_gate": "PASS"
 }

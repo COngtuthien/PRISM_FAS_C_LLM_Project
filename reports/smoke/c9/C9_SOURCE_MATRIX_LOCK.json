@@ -1,0 +1,606 @@
+{
+  "artifact_identities": {
+    "c3_recipe_banks": "see C3 scientific lock"
+  },
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "audit": {
+    "acceptance_rule": "all checkpoints, calibrations and identities frozen; zero failed hidden rows (§C9)",
+    "accepted_rows": 42,
+    "blocking_refusals": {},
+    "evidence_rows": 42,
+    "freezable": true,
+    "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+    "planned_rows": 42,
+    "refusals": {
+      "calibration_missing": [],
+      "checkpoint_missing": [],
+      "config_identity_mismatch": [],
+      "hidden_row_not_in_plan": [],
+      "required_row_missing": [],
+      "row_failed": [],
+      "row_not_terminal": [],
+      "run_identity_mismatch": []
+    },
+    "schema_version": "prism-c9-source-matrix-lock-v1"
+  },
+  "code_lineage": {
+    "engineering_smoke": true
+  },
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:07.808302Z",
+  "immutability": {
+    "rewrite_permitted": false
+  },
+  "is_scientific_lock": false,
+  "lock_identity": "28c0e52e80e80898f5cd38d29013d86bf523adce99022f288f9f9d6ab87dbff0",
+  "lock_identity_material": [
+    "matrix_identity",
+    "rows",
+    "code_lineage",
+    "artifact_identities"
+  ],
+  "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+  "meaning": "every hypothesis-critical checkpoint, recipe/synthetic bank identity and source_dev calibration is frozen before P3 inference (§19.2)",
+  "mode": "BUILD_LOCK",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "row_count": 42,
+  "rows": [
+    {
+      "calibration_hash": "fixture-calhash-44b01212139cc70a",
+      "calibration_sha256": "fixture-calibration-d1ac0199ea9a8bed",
+      "checkpoint_sha256": "fixture-checkpoint-d1ac0199ea9a8bed",
+      "config_identity": "44b01212139cc70aa3367492b0450f5e545bc873f6eea63dceed08f577b2d344",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P1-s20260806",
+      "run_identity": "d1ac0199ea9a8bed7684ed609c7d32ac0030ee0ebc370e0508d2f5910dbab6f6"
+    },
+    {
+      "calibration_hash": "fixture-calhash-44b01212139cc70a",
+      "calibration_sha256": "fixture-calibration-185ee0841d996bf0",
+      "checkpoint_sha256": "fixture-checkpoint-185ee0841d996bf0",
+      "config_identity": "44b01212139cc70aa3367492b0450f5e545bc873f6eea63dceed08f577b2d344",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P1-s20260807",
+      "run_identity": "185ee0841d996bf022e39cd38e77e4f596e68b780acc4a95f2f93e1ec5e9de40"
+    },
+    {
+      "calibration_hash": "fixture-calhash-44b01212139cc70a",
+      "calibration_sha256": "fixture-calibration-c2acecd3962e554a",
+      "checkpoint_sha256": "fixture-checkpoint-c2acecd3962e554a",
+      "config_identity": "44b01212139cc70aa3367492b0450f5e545bc873f6eea63dceed08f577b2d344",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P1-s20260808",
+      "run_identity": "c2acecd3962e554ab3d20067b1d3870e9f49db833c0c3718b93e9e94f16c10ec"
+    },
+    {
+      "calibration_hash": "fixture-calhash-7b9b4fdeb87df82b",
+      "calibration_sha256": "fixture-calibration-b4cc53b8d56f61d9",
+      "checkpoint_sha256": "fixture-checkpoint-b4cc53b8d56f61d9",
+      "config_identity": "7b9b4fdeb87df82bd87aa3ba9eb86c073599ed8d34af70baa5cd1e0b7b6734eb",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P2-s20260806",
+      "run_identity": "b4cc53b8d56f61d94815172135eb76f7e980ad498232f4319993b8cb06ba1957"
+    },
+    {
+      "calibration_hash": "fixture-calhash-7b9b4fdeb87df82b",
+      "calibration_sha256": "fixture-calibration-c9fdb76b474373f3",
+      "checkpoint_sha256": "fixture-checkpoint-c9fdb76b474373f3",
+      "config_identity": "7b9b4fdeb87df82bd87aa3ba9eb86c073599ed8d34af70baa5cd1e0b7b6734eb",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P2-s20260807",
+      "run_identity": "c9fdb76b474373f3c3477c1eb9e756d50b37953f8a1ea7e21dafd3f264129e61"
+    },
+    {
+      "calibration_hash": "fixture-calhash-7b9b4fdeb87df82b",
+      "calibration_sha256": "fixture-calibration-90aaf2f76966aa81",
+      "checkpoint_sha256": "fixture-checkpoint-90aaf2f76966aa81",
+      "config_identity": "7b9b4fdeb87df82bd87aa3ba9eb86c073599ed8d34af70baa5cd1e0b7b6734eb",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P2-s20260808",
+      "run_identity": "90aaf2f76966aa81b098e8f02d2f4df34231a561292271eeab4b804985f57443"
+    },
+    {
+      "calibration_hash": "fixture-calhash-b3c8368ff08e9c76",
+      "calibration_sha256": "fixture-calibration-4219bdcc8ad2c221",
+      "checkpoint_sha256": "fixture-checkpoint-4219bdcc8ad2c221",
+      "config_identity": "b3c8368ff08e9c7607df67e43e7faa6229360851097384e41086b5c2382548e1",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P3READY-s20260806",
+      "run_identity": "4219bdcc8ad2c2215c16db0f5a8dff19718d76106f3d56c36dfe55a6f156034a"
+    },
+    {
+      "calibration_hash": "fixture-calhash-b3c8368ff08e9c76",
+      "calibration_sha256": "fixture-calibration-d0d2782214af17e4",
+      "checkpoint_sha256": "fixture-checkpoint-d0d2782214af17e4",
+      "config_identity": "b3c8368ff08e9c7607df67e43e7faa6229360851097384e41086b5c2382548e1",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P3READY-s20260807",
+      "run_identity": "d0d2782214af17e43f89089d141801a37b3e9ba73ee56de1470196dab18d1c8b"
+    },
+    {
+      "calibration_hash": "fixture-calhash-b3c8368ff08e9c76",
+      "calibration_sha256": "fixture-calibration-5a373b9f52a2aae2",
+      "checkpoint_sha256": "fixture-checkpoint-5a373b9f52a2aae2",
+      "config_identity": "b3c8368ff08e9c7607df67e43e7faa6229360851097384e41086b5c2382548e1",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P3READY-s20260808",
+      "run_identity": "5a373b9f52a2aae23234211677aa7be18e6743907942bcae8f37533161501c96"
+    },
+    {
+      "calibration_hash": "fixture-calhash-b3c8368ff08e9c76",
+      "calibration_sha256": "fixture-calibration-00e040499f14842e",
+      "checkpoint_sha256": "fixture-checkpoint-00e040499f14842e",
+      "config_identity": "b3c8368ff08e9c7607df67e43e7faa6229360851097384e41086b5c2382548e1",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P3READY-s20260809",
+      "run_identity": "00e040499f14842e5d40bc6b28fa9eb226043d42b242095633d8cecfd5681772"
+    },
+    {
+      "calibration_hash": "fixture-calhash-b3c8368ff08e9c76",
+      "calibration_sha256": "fixture-calibration-28e4959bfb6977a1",
+      "checkpoint_sha256": "fixture-checkpoint-28e4959bfb6977a1",
+      "config_identity": "b3c8368ff08e9c7607df67e43e7faa6229360851097384e41086b5c2382548e1",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-DET-P3READY-s20260810",
+      "run_identity": "28e4959bfb6977a1ea2baeecc31fc333f52937767d59ce3093c321bb02501f4a"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2d7c3f49046347da",
+      "calibration_sha256": "fixture-calibration-e91e28b0b0fec08f",
+      "checkpoint_sha256": "fixture-checkpoint-e91e28b0b0fec08f",
+      "config_identity": "2d7c3f49046347dadb3487d06c29a540a2d8cecf5bf0d00c46f9c0244ae1b36e",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P1-s20260806",
+      "run_identity": "e91e28b0b0fec08f1df4abdc09483f587be6d712d820f03e70e20bd0d21dc6a4"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2d7c3f49046347da",
+      "calibration_sha256": "fixture-calibration-de5ad860b01a5440",
+      "checkpoint_sha256": "fixture-checkpoint-de5ad860b01a5440",
+      "config_identity": "2d7c3f49046347dadb3487d06c29a540a2d8cecf5bf0d00c46f9c0244ae1b36e",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P1-s20260807",
+      "run_identity": "de5ad860b01a54407b66011f9bd6baf051d247989f2e512a6b25b093ec6b824f"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2d7c3f49046347da",
+      "calibration_sha256": "fixture-calibration-702a848ad86f888b",
+      "checkpoint_sha256": "fixture-checkpoint-702a848ad86f888b",
+      "config_identity": "2d7c3f49046347dadb3487d06c29a540a2d8cecf5bf0d00c46f9c0244ae1b36e",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P1-s20260808",
+      "run_identity": "702a848ad86f888b7cfe759593660986c211bf46d10c3bf3a30b6a0eca0a62f7"
+    },
+    {
+      "calibration_hash": "fixture-calhash-5776aa546b28289c",
+      "calibration_sha256": "fixture-calibration-1a97482f9eb4b8dc",
+      "checkpoint_sha256": "fixture-checkpoint-1a97482f9eb4b8dc",
+      "config_identity": "5776aa546b28289c8a03d4144784a91d3cbfe9337f3fe9401a98f4e02845b818",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P2-s20260806",
+      "run_identity": "1a97482f9eb4b8dcdab63af414b3a86828a1d51b46d41d86577a0ff06d280329"
+    },
+    {
+      "calibration_hash": "fixture-calhash-5776aa546b28289c",
+      "calibration_sha256": "fixture-calibration-313d5c2d93bab74d",
+      "checkpoint_sha256": "fixture-checkpoint-313d5c2d93bab74d",
+      "config_identity": "5776aa546b28289c8a03d4144784a91d3cbfe9337f3fe9401a98f4e02845b818",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P2-s20260807",
+      "run_identity": "313d5c2d93bab74dacc523db071c09ef3e1cd70855d59e1a6fa4f0d86e969334"
+    },
+    {
+      "calibration_hash": "fixture-calhash-5776aa546b28289c",
+      "calibration_sha256": "fixture-calibration-f46f6e666057908a",
+      "checkpoint_sha256": "fixture-checkpoint-f46f6e666057908a",
+      "config_identity": "5776aa546b28289c8a03d4144784a91d3cbfe9337f3fe9401a98f4e02845b818",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P2-s20260808",
+      "run_identity": "f46f6e666057908abd78ee4c1c02e4234fa9a5c98a82f04e37ee2dad8519125c"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a14c3ef197ea3c22",
+      "calibration_sha256": "fixture-calibration-06faf5cf24818dc8",
+      "checkpoint_sha256": "fixture-checkpoint-06faf5cf24818dc8",
+      "config_identity": "a14c3ef197ea3c22b63624aa5a013010b054a05c5f5074b88ecd44eb4484aa92",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P3READY-s20260806",
+      "run_identity": "06faf5cf24818dc828a856864fd32a98b792ecc303e99519b46a6f811713f90a"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a14c3ef197ea3c22",
+      "calibration_sha256": "fixture-calibration-1d72c8c78f451f66",
+      "checkpoint_sha256": "fixture-checkpoint-1d72c8c78f451f66",
+      "config_identity": "a14c3ef197ea3c22b63624aa5a013010b054a05c5f5074b88ecd44eb4484aa92",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P3READY-s20260807",
+      "run_identity": "1d72c8c78f451f66eac8edc2a93078e7e9b8e6c631633f6c8485424b294f73d8"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a14c3ef197ea3c22",
+      "calibration_sha256": "fixture-calibration-01f5b3c8eb5972a5",
+      "checkpoint_sha256": "fixture-checkpoint-01f5b3c8eb5972a5",
+      "config_identity": "a14c3ef197ea3c22b63624aa5a013010b054a05c5f5074b88ecd44eb4484aa92",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P3READY-s20260808",
+      "run_identity": "01f5b3c8eb5972a51e39d246b91d74afab225a11e6309ab9c83138404d6df9eb"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a14c3ef197ea3c22",
+      "calibration_sha256": "fixture-calibration-84f34aab212ae43e",
+      "checkpoint_sha256": "fixture-checkpoint-84f34aab212ae43e",
+      "config_identity": "a14c3ef197ea3c22b63624aa5a013010b054a05c5f5074b88ecd44eb4484aa92",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P3READY-s20260809",
+      "run_identity": "84f34aab212ae43e570fdf7f9a401f00c4ec7b228d2ffa946e66df443df2de2c"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a14c3ef197ea3c22",
+      "calibration_sha256": "fixture-calibration-24846f3374df0b2f",
+      "checkpoint_sha256": "fixture-checkpoint-24846f3374df0b2f",
+      "config_identity": "a14c3ef197ea3c22b63624aa5a013010b054a05c5f5074b88ecd44eb4484aa92",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-LLM-P3READY-s20260810",
+      "run_identity": "24846f3374df0b2f7561499b5667b20f9f1f6cbb34606fe8b7d51ce06926cc01"
+    },
+    {
+      "calibration_hash": "fixture-calhash-1a7ce049dc0ca094",
+      "calibration_sha256": "fixture-calibration-268364adef47b180",
+      "checkpoint_sha256": "fixture-checkpoint-268364adef47b180",
+      "config_identity": "1a7ce049dc0ca0944c93d2d760a088cce48f00eecb0e81d735b0571eb6b1506c",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P1-s20260806",
+      "run_identity": "268364adef47b18099d750b81b5f87fc5306840c63536924af8f271fb1050e16"
+    },
+    {
+      "calibration_hash": "fixture-calhash-1a7ce049dc0ca094",
+      "calibration_sha256": "fixture-calibration-a6d4bac10b0ac571",
+      "checkpoint_sha256": "fixture-checkpoint-a6d4bac10b0ac571",
+      "config_identity": "1a7ce049dc0ca0944c93d2d760a088cce48f00eecb0e81d735b0571eb6b1506c",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P1-s20260807",
+      "run_identity": "a6d4bac10b0ac571fe6a53e6108a8e84decafba8bc2aa8d98bff5ea26887c5a8"
+    },
+    {
+      "calibration_hash": "fixture-calhash-1a7ce049dc0ca094",
+      "calibration_sha256": "fixture-calibration-0c5e76a4a26a28d2",
+      "checkpoint_sha256": "fixture-checkpoint-0c5e76a4a26a28d2",
+      "config_identity": "1a7ce049dc0ca0944c93d2d760a088cce48f00eecb0e81d735b0571eb6b1506c",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P1-s20260808",
+      "run_identity": "0c5e76a4a26a28d2017e457fa21b607f666e16294529623db2bbdfad70c684c0"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2c46ba08fa36d8fa",
+      "calibration_sha256": "fixture-calibration-5e417a9977210652",
+      "checkpoint_sha256": "fixture-checkpoint-5e417a9977210652",
+      "config_identity": "2c46ba08fa36d8fa1dd464433a1feb03ba8d329fbc79cdd6ca60729622c9ba36",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P2-s20260806",
+      "run_identity": "5e417a99772106526d13231c9c1a0ca1cbfacb413db1f192e0ce34c9158a63bf"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2c46ba08fa36d8fa",
+      "calibration_sha256": "fixture-calibration-bc18f594eace46c5",
+      "checkpoint_sha256": "fixture-checkpoint-bc18f594eace46c5",
+      "config_identity": "2c46ba08fa36d8fa1dd464433a1feb03ba8d329fbc79cdd6ca60729622c9ba36",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P2-s20260807",
+      "run_identity": "bc18f594eace46c564c0469cc7a54f5a9b63303e4926e420b519542914652da6"
+    },
+    {
+      "calibration_hash": "fixture-calhash-2c46ba08fa36d8fa",
+      "calibration_sha256": "fixture-calibration-1c59e2dcc4c2d14c",
+      "checkpoint_sha256": "fixture-checkpoint-1c59e2dcc4c2d14c",
+      "config_identity": "2c46ba08fa36d8fa1dd464433a1feb03ba8d329fbc79cdd6ca60729622c9ba36",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P2-s20260808",
+      "run_identity": "1c59e2dcc4c2d14cabfa9a8ab98586cea08a0bfa80a2da179cb91609c4f29b07"
+    },
+    {
+      "calibration_hash": "fixture-calhash-919865efe6ab85fe",
+      "calibration_sha256": "fixture-calibration-51ad068872da932a",
+      "checkpoint_sha256": "fixture-checkpoint-51ad068872da932a",
+      "config_identity": "919865efe6ab85fe8aaee6c74c36e0bbbcaeb75016b441812e946fcad3b9cc7f",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P3READY-s20260806",
+      "run_identity": "51ad068872da932a5922cde437997a8c1824cf2a6b145a75ab5b83bc3ddcfeec"
+    },
+    {
+      "calibration_hash": "fixture-calhash-919865efe6ab85fe",
+      "calibration_sha256": "fixture-calibration-764abe216508586c",
+      "checkpoint_sha256": "fixture-checkpoint-764abe216508586c",
+      "config_identity": "919865efe6ab85fe8aaee6c74c36e0bbbcaeb75016b441812e946fcad3b9cc7f",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P3READY-s20260807",
+      "run_identity": "764abe216508586cb57b41e02986a9c83ee0b9c00695568630e8f28e5b49aeff"
+    },
+    {
+      "calibration_hash": "fixture-calhash-919865efe6ab85fe",
+      "calibration_sha256": "fixture-calibration-39aaf992b1affe74",
+      "checkpoint_sha256": "fixture-checkpoint-39aaf992b1affe74",
+      "config_identity": "919865efe6ab85fe8aaee6c74c36e0bbbcaeb75016b441812e946fcad3b9cc7f",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P3READY-s20260808",
+      "run_identity": "39aaf992b1affe7484e19d05363b3c1cc5bc73349e7a4c81f1b6cbdd8652a1e1"
+    },
+    {
+      "calibration_hash": "fixture-calhash-919865efe6ab85fe",
+      "calibration_sha256": "fixture-calibration-8c4543a0f31a8ec8",
+      "checkpoint_sha256": "fixture-checkpoint-8c4543a0f31a8ec8",
+      "config_identity": "919865efe6ab85fe8aaee6c74c36e0bbbcaeb75016b441812e946fcad3b9cc7f",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P3READY-s20260809",
+      "run_identity": "8c4543a0f31a8ec8a7b039d289fb3da99984d31bb6acea7db73cbfd87796059d"
+    },
+    {
+      "calibration_hash": "fixture-calhash-919865efe6ab85fe",
+      "calibration_sha256": "fixture-calibration-ad5416bef27f4ef3",
+      "checkpoint_sha256": "fixture-checkpoint-ad5416bef27f4ef3",
+      "config_identity": "919865efe6ab85fe8aaee6c74c36e0bbbcaeb75016b441812e946fcad3b9cc7f",
+      "decision_logit_name": "global_logit_G",
+      "decision_score_name": "p_G",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-G-RND-P3READY-s20260810",
+      "run_identity": "ad5416bef27f4ef3c2414b6a8bc0972339b4567f2e9a6c6fab4d0e419aac61f9"
+    },
+    {
+      "calibration_hash": "fixture-calhash-e0f1fd826f5f8999",
+      "calibration_sha256": "fixture-calibration-4a0b36069b6a0301",
+      "checkpoint_sha256": "fixture-checkpoint-4a0b36069b6a0301",
+      "config_identity": "e0f1fd826f5f8999bcfba183890f360eff690015a6f3359626ccd3638ce76bfa",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-DET-P3READY-s20260806",
+      "run_identity": "4a0b36069b6a03016f3903aca18c3a46cc68cc09b5cfa9b8a5e756c74b81a9c0"
+    },
+    {
+      "calibration_hash": "fixture-calhash-e0f1fd826f5f8999",
+      "calibration_sha256": "fixture-calibration-a5fb19374037c2e5",
+      "checkpoint_sha256": "fixture-checkpoint-a5fb19374037c2e5",
+      "config_identity": "e0f1fd826f5f8999bcfba183890f360eff690015a6f3359626ccd3638ce76bfa",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-DET-P3READY-s20260807",
+      "run_identity": "a5fb19374037c2e5519f380551dbe5ccc362ff1bffa128d1cec8e5ab593c6f21"
+    },
+    {
+      "calibration_hash": "fixture-calhash-e0f1fd826f5f8999",
+      "calibration_sha256": "fixture-calibration-d0b2e660093e800d",
+      "checkpoint_sha256": "fixture-checkpoint-d0b2e660093e800d",
+      "config_identity": "e0f1fd826f5f8999bcfba183890f360eff690015a6f3359626ccd3638ce76bfa",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-DET-P3READY-s20260808",
+      "run_identity": "d0b2e660093e800dc7a07efa28c408c3af7aeb7b5e005429212f36e8c31e0cfd"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a6a8dbcfaaaed1a2",
+      "calibration_sha256": "fixture-calibration-4711ef12d81aa193",
+      "checkpoint_sha256": "fixture-checkpoint-4711ef12d81aa193",
+      "config_identity": "a6a8dbcfaaaed1a26fc2c605201a57cf3ea3fc8b573105f42cd00f12b9b5a4e5",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-LLM-P3READY-s20260806",
+      "run_identity": "4711ef12d81aa193def0bf6be1fa5b7416208902ae5c3cd586683974b582c4ba"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a6a8dbcfaaaed1a2",
+      "calibration_sha256": "fixture-calibration-03c2f14d677e8e7e",
+      "checkpoint_sha256": "fixture-checkpoint-03c2f14d677e8e7e",
+      "config_identity": "a6a8dbcfaaaed1a26fc2c605201a57cf3ea3fc8b573105f42cd00f12b9b5a4e5",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-LLM-P3READY-s20260807",
+      "run_identity": "03c2f14d677e8e7e1e72b1f24fecfe3de47d2bb74fc3e0835eb4a2a67730d00b"
+    },
+    {
+      "calibration_hash": "fixture-calhash-a6a8dbcfaaaed1a2",
+      "calibration_sha256": "fixture-calibration-55e6128d6a19c68a",
+      "checkpoint_sha256": "fixture-checkpoint-55e6128d6a19c68a",
+      "config_identity": "a6a8dbcfaaaed1a26fc2c605201a57cf3ea3fc8b573105f42cd00f12b9b5a4e5",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-LLM-P3READY-s20260808",
+      "run_identity": "55e6128d6a19c68a6118e5bb4c3f08be9a83d1dd5523694e07461cea34db4d22"
+    },
+    {
+      "calibration_hash": "fixture-calhash-774882aadc4e796c",
+      "calibration_sha256": "fixture-calibration-24164cdc9d7054f6",
+      "checkpoint_sha256": "fixture-checkpoint-24164cdc9d7054f6",
+      "config_identity": "774882aadc4e796c237b665e0b19b3399a247e1274eb5506082d0c42bbc1d874",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-NOPROMPT-P3READY-s20260806",
+      "run_identity": "24164cdc9d7054f6a8c1aaecefb9256ea3e9541995d4b2c913cd08612c84542d"
+    },
+    {
+      "calibration_hash": "fixture-calhash-774882aadc4e796c",
+      "calibration_sha256": "fixture-calibration-406aba6cfdfd94bc",
+      "checkpoint_sha256": "fixture-checkpoint-406aba6cfdfd94bc",
+      "config_identity": "774882aadc4e796c237b665e0b19b3399a247e1274eb5506082d0c42bbc1d874",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-NOPROMPT-P3READY-s20260807",
+      "run_identity": "406aba6cfdfd94bc4e5ff076ec63319467b1b1657fe64eae2bf7646c5e7a4519"
+    },
+    {
+      "calibration_hash": "fixture-calhash-774882aadc4e796c",
+      "calibration_sha256": "fixture-calibration-8f7d3789de699081",
+      "checkpoint_sha256": "fixture-checkpoint-8f7d3789de699081",
+      "config_identity": "774882aadc4e796c237b665e0b19b3399a247e1274eb5506082d0c42bbc1d874",
+      "decision_logit_name": "fused_logit_R",
+      "decision_score_name": "p_R",
+      "parent_identities": {
+        "source_matrix": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8"
+      },
+      "row_id": "C-R-NOPROMPT-P3READY-s20260808",
+      "run_identity": "8f7d3789de699081435918e6e42e14dc1a9592b4f2f352966e0342b78c961181"
+    }
+  ],
+  "schema_version": "prism-c9-source-matrix-lock-v1",
+  "scientific_eligible": false,
+  "status": "FROZEN_SOURCE_MATRIX",
+  "target_capability": {
+    "proof": "no row in this lock resolved a target label, metric or path; P3 rows are source-selected only",
+    "target_labels_resolved": 0,
+    "target_metrics_computed": 0
+  },
+  "why_not": "the real SOURCE_MATRIX_LOCK_C is built at C9 under the full profile from real runs. This lock was built over fixture evidence and may never occupy that position"
+}

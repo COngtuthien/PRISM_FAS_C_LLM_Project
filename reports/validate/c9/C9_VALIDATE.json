@@ -1,18 +1,31 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it. Modes: BUILD_LOCK, VALIDATE_LOCK, REFUSAL_CASES.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c9_source_lock_refuses",
+      "detail": {
+        "cases": {
+          "builds_from_complete_evidence": true,
+          "refuses_failed_row": true,
+          "refuses_missing_row": true
+        },
+        "rule": "§C9: all checkpoints, calibrations and identities frozen; 0 failed hidden rows"
+      },
+      "ok": true,
+      "stage_id": "C9",
+      "summary": "the source freeze builds on complete evidence and refuses incomplete evidence"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923366Z",
+  "finished_at_utc": "2026-08-17T04:29:58.902876Z",
   "mandatory_full_outputs": "validated SOURCE_MATRIX_LOCK_C plus ancestry and index of every frozen source-side artifact, C9_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C9; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "source-freeze",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +36,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C9",
-  "started_at_utc": "2026-08-16T12:25:03.923363Z",
+  "started_at_utc": "2026-08-17T04:29:58.892472Z",
   "substages": [],
   "title": "Source matrix freeze",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c9_source_lock_refuses"
+  ],
+  "validate_gate": "PASS"
 }

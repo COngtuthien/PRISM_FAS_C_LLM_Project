@@ -1,0 +1,204 @@
+{
+  "architecture_identity": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "audit": {
+    "L_total": 0.9701213836669922,
+    "active_loss_terms": {
+      "L_MIL": false,
+      "L_clean": false,
+      "L_cls_real": true,
+      "L_cls_syn": true,
+      "L_cons": false,
+      "L_local": false,
+      "L_out": false,
+      "L_prompt": false,
+      "L_real": false,
+      "L_risk": true
+    },
+    "architecture_delta": {
+      "fuses_prompt_evidence": false,
+      "fuses_region_evidence": false,
+      "fusion": "single_logit",
+      "local_branch": "off",
+      "manifold": "off",
+      "manifold_scope": "none",
+      "manifold_slots": 0,
+      "prompt": "off",
+      "prototype_k": 0,
+      "region": "off"
+    },
+    "architecture_identity": "d83b295d6b6664e647d9d62a2fbfb0e0b99d1e738f9cce5eacd59788bfbea058",
+    "batch_contract": {
+      "accumulation_steps": 1,
+      "batch_size": 32,
+      "domain_balance": true,
+      "phase": "mixed",
+      "ratios": {
+        "real_live": 0.375,
+        "real_spoof": 0.375,
+        "synthetic": 0.25
+      },
+      "real_live": 12,
+      "real_spoof": 12,
+      "require_both_routes": true,
+      "schema_version": "m9-batch-sampler-v1",
+      "synthetic": 8
+    },
+    "batch_contract_hash": "ab31b33fb4a10704aad89c6034e9c9a33c412fd146000a22c9e3382a3e4fe070",
+    "checkpoint_identity_computable": true,
+    "checkpoint_roundtrip": {
+      "global_step": 1,
+      "prototype_state_present": false,
+      "sha256": "7757718e82dd845440610c93b51145b795bfa827aa4fc1ed33aee142db220ac3",
+      "stage": "G1"
+    },
+    "config_hash": "685fba587c2ee21bc35e99c5529b0613a4d8a74cd276606485155648feba5ff6",
+    "executable": true,
+    "experiment_id": "c7_track_g",
+    "findings": [],
+    "flags": {
+      "frames_per_video": 4,
+      "fusion": "single_logit",
+      "global_branch": "siglip2_frozen",
+      "local_branch": "off",
+      "manifold": "off",
+      "outlier_loss": "off",
+      "prompt": "off",
+      "prototype_k": 0,
+      "quality_weighting": "q_weighted",
+      "recipe_conditioning": "structured",
+      "region": "off",
+      "sampler": "domain_class_balanced",
+      "synthetic": "bank_physics_gpat"
+    },
+    "g7_adapter": {
+      "has_prompt": false,
+      "has_region": false,
+      "has_region_detail": false,
+      "prompt_status": "not_applicable",
+      "region_status": "not_applicable"
+    },
+    "implementable": true,
+    "loss_contract_hash": "3542813ee30fe12fda8e2f33114e355c0375557e246c32c84f01e2012e9537d7",
+    "loss_values": {
+      "L_MIL": 0.0,
+      "L_clean": 0.0,
+      "L_cls_real": 0.6933239102363586,
+      "L_cls_syn": 0.6919937133789062,
+      "L_cons": 0.0,
+      "L_local": 0.0,
+      "L_out": 0.0,
+      "L_prompt": 0.0,
+      "L_real": 0.0,
+      "L_risk": 1.080570655176416e-08
+    },
+    "modules": [
+      "fusion_classifier",
+      "global_projection"
+    ],
+    "optimizer_groups": [
+      {
+        "lr": 0.0001,
+        "name": "heads",
+        "parameters": 12353
+      }
+    ],
+    "optimizer_step": true,
+    "output_components": {
+      "local_logits": false,
+      "manifold_slots": 0,
+      "p_prompt_spoof": false,
+      "prompt_logits": false,
+      "region_distances": false,
+      "region_embeddings": false,
+      "s_region": false
+    },
+    "parameter_counts": {
+      "frozen_global_tower": 1,
+      "local_backbone": 0,
+      "manifold_buffer_elements": 0,
+      "total_registered": 12353,
+      "trainable": 12353
+    },
+    "parameters_with_gradient": 6,
+    "required_stages": [
+      "G1",
+      "G5",
+      "G6"
+    ],
+    "sampler": {
+      "batch_sizes": [
+        32
+      ],
+      "declared_routes": [
+        "physics",
+        "gpat"
+      ],
+      "deterministic": true,
+      "every_batch_has_live_and_spoof": true,
+      "replayed_identically": true,
+      "steps": 3,
+      "synthetic_per_batch": [
+        8
+      ]
+    },
+    "source_selection": {
+      "calibration_metric": "source_dev/nll",
+      "selection_metric": "source_dev/acer",
+      "tie_break_metric": "source_dev/bpcer",
+      "uses_target": false
+    },
+    "stage_flow_walked": [
+      "G1",
+      "G5",
+      "G6"
+    ],
+    "training_delta": {
+      "active_loss_terms": {
+        "L_MIL": false,
+        "L_clean": false,
+        "L_cls_real": true,
+        "L_cls_syn": true,
+        "L_cons": false,
+        "L_local": false,
+        "L_out": false,
+        "L_prompt": false,
+        "L_real": false,
+        "L_risk": true
+      },
+      "outlier_loss": "off",
+      "required_stages": [
+        "G1",
+        "G5",
+        "G6"
+      ]
+    },
+    "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+  },
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "flags": {
+    "frames_per_video": 4,
+    "fusion": "single_logit",
+    "global_branch": "siglip2_frozen",
+    "local_branch": "off",
+    "manifold": "off",
+    "outlier_loss": "off",
+    "prompt": "off",
+    "prototype_k": 0,
+    "quality_weighting": "q_weighted",
+    "recipe_conditioning": "structured",
+    "region": "off",
+    "sampler": "domain_class_balanced",
+    "synthetic": "bank_physics_gpat"
+  },
+  "generated_at_utc": "2026-08-17T04:30:10.567814Z",
+  "global_tower": "shape-exact stub; the pinned SigLIP2 weights are not resolved on this machine and the full profile requires them",
+  "mode": "TRACK_G_READINESS",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c7-track-readiness-v1",
+  "scientific_eligible": false,
+  "track": "G",
+  "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+}

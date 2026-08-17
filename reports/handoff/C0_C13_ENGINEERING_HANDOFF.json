@@ -1,0 +1,1716 @@
+{
+  "accepted_git": {
+    "branch": "c4-c13-engineering-readiness",
+    "commit": "36f10fd24880a0bfb3e6c3c2ba8a3fcc53195572",
+    "dirty_paths": [
+      "M .gitignore",
+      " M configs/experiments/m10_matrix.yaml",
+      " M docs/PROJECT_STATE.md",
+      " M reports/smoke/SMOKE_RUN.json",
+      " M reports/smoke/c0/C0_SMOKE.json",
+      " M reports/smoke/c1/C1_SMOKE.json",
+      " M reports/smoke/c2/C2_SMOKE.json",
+      " M reports/smoke/c3/C3_SMOKE.json",
+      " M reports/smoke/c3/live/C3_LIVE_GENERATION_STATE.json",
+      " M reports/validate/VALIDATE_RUN.json",
+      " M reports/validate/c0/C0_VALIDATE.json",
+      " M reports/validate/c1/C1_VALIDATE.json",
+      " M reports/validate/c10/C10_VALIDATE.json",
+      " M reports/validate/c11/C11_VALIDATE.json",
+      " M reports/validate/c12/C12_VALIDATE.json",
+      " M reports/validate/c13/C13_VALIDATE.json",
+      " M reports/validate/c2/C2_VALIDATE.json",
+      " M reports/validate/c3/C3_VALIDATE.json",
+      " M reports/validate/c4/C4_VALIDATE.json",
+      " M reports/validate/c5/C5_VALIDATE.json",
+      " M reports/validate/c6/C6_VALIDATE.json",
+      " M reports/validate/c7/C7_VALIDATE.json",
+      " M reports/validate/c8/C8_VALIDATE.json",
+      " M reports/validate/c9/C9_VALIDATE.json",
+      " M src/prism_fas/detector/prism_detector.py",
+      " M src/prism_fas/detector/variant.py",
+      " M src/prism_fas/pipeline/adapters/c3.py",
+      " M src/prism_fas/pipeline/adapters/registry.py",
+      " M src/prism_fas/pipeline/checks.py",
+      " M src/prism_fas/pipeline/stages.py",
+      " M state/MASTER_RUN_INDEX.json",
+      " M state/PIPELINE_STATE.json",
+      " M tests/pipeline/conftest_adapters.py",
+      " M tests/pipeline/test_adapters_c0_c2c.py",
+      " M tests/pipeline/test_adapters_integration.py",
+      " M tests/pipeline/test_checks_and_firewall.py",
+      " M tests/pipeline/test_orchestrator.py",
+      "?? reports/handoff/",
+      "?? reports/smoke/c10/",
+      "?? reports/smoke/c11/",
+      "?? reports/smoke/c12/",
+      "?? reports/smoke/c13/",
+      "?? reports/smoke/c4/",
+      "?? reports/smoke/c5/",
+      "?? reports/smoke/c6/",
+      "?? reports/smoke/c7/",
+      "?? reports/smoke/c8/",
+      "?? reports/smoke/c9/",
+      "?? scripts/c4_c13_engineering_handoff.py",
+      "?? src/prism_fas/detector/decision_audit.py",
+      "?? src/prism_fas/evaluation/source_lock.py",
+      "?? src/prism_fas/evaluation/source_matrix.py",
+      "?? src/prism_fas/pipeline/adapters/c10.py",
+      "?? src/prism_fas/pipeline/adapters/c11.py",
+      "?? src/prism_fas/pipeline/adapters/c12.py",
+      "?? src/prism_fas/pipeline/adapters/c13.py",
+      "?? src/prism_fas/pipeline/adapters/c4.py",
+      "?? src/prism_fas/pipeline/adapters/c5.py",
+      "?? src/prism_fas/pipeline/adapters/c6.py",
+      "?? src/prism_fas/pipeline/adapters/c7.py",
+      "?? src/prism_fas/pipeline/adapters/c8.py",
+      "?? src/prism_fas/pipeline/adapters/c9.py",
+      "?? src/prism_fas/pipeline/adapters/common.py",
+      "?? src/prism_fas/pipeline/adapters/tiny.py",
+      "?? src/prism_fas/pipeline/handoff.py",
+      "?? src/prism_fas/pipeline/portability.py",
+      "?? src/prism_fas/search/",
+      "?? src/prism_fas/synthesis/gate_profiles.py",
+      "?? tests/c7/",
+      "?? tests/pipeline/test_portability_and_contracts.py",
+      "?? tests/pipeline/test_search_engine.py"
+    ],
+    "worktree_clean": false
+  },
+  "adapter_status": {
+    "C0": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [],
+      "phase": "preflight",
+      "required_inputs": [],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "PASS",
+      "title": "Spec and repository reconciliation",
+      "validate_checks": [
+        "spec_sha256",
+        "version_b_integrity",
+        "environment",
+        "c0_acceptance_present"
+      ]
+    },
+    "C1": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [],
+      "phase": "preflight",
+      "required_inputs": [],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "PASS",
+      "title": "Provider, schema and prompt contracts",
+      "validate_checks": [
+        "contract_identities",
+        "c1_acceptance_present"
+      ]
+    },
+    "C10": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "BUILD_FIXTURE_PACKAGE",
+        "FIREWALL_PERMISSIONS",
+        "PACKAGE_IDENTITY",
+        "TARGET_LOCK",
+        "TAMPER_DETECTION"
+      ],
+      "phase": "target-eval",
+      "required_inputs": [
+        {
+          "blocking": false,
+          "description": "the frozen roots, permissions and prediction schema",
+          "name": "target_evaluation_config",
+          "path": "configs/evaluation/m10_target.yaml",
+          "present": true
+        },
+        {
+          "blocking": true,
+          "description": "the source freeze that must precede any target work",
+          "name": "c9_source_lock",
+          "path": "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the SiW-Mv2 v2 feature package, mounted READ-ONLY for C11",
+          "name": "target_feature_package",
+          "path": "data/processed/prism_target_eval_v2",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Target package and label firewall",
+      "validate_checks": [
+        "c10_firewall_config"
+      ]
+    },
+    "C11": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "BUILD_PREDICTIONS",
+        "LABEL_ISOLATION_AUDIT",
+        "PREDICTION_LOCKS",
+        "DOUBLE_VALIDATION"
+      ],
+      "phase": "target-eval",
+      "required_inputs": [
+        {
+          "blocking": true,
+          "description": "the source freeze that must precede any prediction",
+          "name": "c9_source_lock",
+          "path": "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the target package and capability lock",
+          "name": "c10_target_lock",
+          "path": "reports/full/c10/TARGET_PACKAGE_LOCK.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the label-free SiW feature package, mounted READ-ONLY",
+          "name": "target_feature_package",
+          "path": "data/processed/prism_target_eval_v2",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": true,
+      "scientific_status": "NOT_RUN",
+      "title": "Label-isolated P3 prediction",
+      "validate_checks": [
+        "c11_prediction_schema"
+      ]
+    },
+    "C12": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "SCORER_ISOLATION",
+        "DRY_RUN",
+        "UNLOCK_AND_SCORE",
+        "STATISTICS",
+        "NO_FEEDBACK"
+      ],
+      "phase": "target-eval",
+      "required_inputs": [
+        {
+          "blocking": true,
+          "description": "the validated prediction lockset that gates the label reveal",
+          "name": "c11_lockset",
+          "path": "reports/full/c11/TARGET_PREDICTION_LOCKSET.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the evaluation-only label artifact, readable by C-G8 alone",
+          "name": "target_labels",
+          "path": "data/evaluation_only/prism_target_v2_labels",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Scoring, statistics and hypothesis tests",
+      "validate_checks": [
+        "c12_scorer_isolation"
+      ]
+    },
+    "C13": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "ACCEPTANCE_MATRIX",
+        "NEGATIVE_PRESERVATION",
+        "ARTIFACT_INTEGRITY",
+        "CLAIM_POLICY",
+        "FINAL_REPORT"
+      ],
+      "phase": "final-report",
+      "required_inputs": [
+        {
+          "blocking": true,
+          "description": "the completed scoring, statistics and hypothesis tests",
+          "name": "c12_statistics",
+          "path": "reports/full/c12/C12_ACCEPTANCE.json",
+          "present": false
+        },
+        {
+          "blocking": false,
+          "description": "the catalog every evidence row must remain addressable from",
+          "name": "master_run_index",
+          "path": "state/MASTER_RUN_INDEX.json",
+          "present": true
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Acceptance, evidence package and report",
+      "validate_checks": [
+        "c13_acceptance_refuses"
+      ]
+    },
+    "C2": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [],
+      "phase": "preflight",
+      "required_inputs": [],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "PASS",
+      "title": "Disposable generation pilot",
+      "validate_checks": [
+        "c2_acceptance_present",
+        "route_contract_exact"
+      ]
+    },
+    "C3": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [],
+      "phase": "preflight",
+      "required_inputs": [],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "PASS",
+      "title": "LLM recipe bank generation and selection",
+      "validate_checks": [
+        "c3_contract_identities",
+        "c3_locks_verify",
+        "c3_scientific_banks_frozen"
+      ]
+    },
+    "C4": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "PREPARE_SUPPORT",
+        "VALIDATE_SUPPORT",
+        "SMOKE_GPAT",
+        "SOURCE_SEARCH",
+        "FINALIZE_GPAT",
+        "VERIFY_LOCK"
+      ],
+      "phase": "source-search",
+      "required_inputs": [
+        {
+          "blocking": false,
+          "description": "the frozen GPAT training configuration",
+          "name": "gpat_config",
+          "path": "configs/synthesis/gpat_m8.yaml",
+          "present": true
+        },
+        {
+          "blocking": false,
+          "description": "the frozen C3 scientific recipe banks the support conditions on",
+          "name": "c3_recipe_banks",
+          "path": "assets/recipe_banks/c3",
+          "present": true
+        },
+        {
+          "blocking": true,
+          "description": "preprocessed source packages supplying the live/spoof pairs",
+          "name": "source_packages",
+          "path": "data/packages",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the frozen source-only GPAT pair plan",
+          "name": "gpat_pair_plan",
+          "path": "data/packages/gpat_pairs",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": true,
+      "scientific_status": "NOT_RUN",
+      "title": "GPAT source search and final checkpoint",
+      "validate_checks": [
+        "c4_search_plan"
+      ]
+    },
+    "C5": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "LOAD_RECIPES",
+        "RESOLVE_ROUTES",
+        "RENDER_PHYSICS",
+        "RENDER_GPAT",
+        "CANDIDATE_IDENTITY",
+        "FAILURE_RECORDING"
+      ],
+      "phase": "scientific",
+      "required_inputs": [
+        {
+          "blocking": false,
+          "description": "the three frozen 256-recipe scientific banks",
+          "name": "c3_recipe_banks",
+          "path": "assets/recipe_banks/c3",
+          "present": true
+        },
+        {
+          "blocking": false,
+          "description": "the frozen candidate-plan and render budget",
+          "name": "bank_config",
+          "path": "configs/synthesis/synthetic_bank_m8.yaml",
+          "present": true
+        },
+        {
+          "blocking": true,
+          "description": "preprocessed source_train imagery and parsing/landmark priors",
+          "name": "source_packages",
+          "path": "data/packages",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the frozen GPAT checkpoint C5's GPAT route renders through",
+          "name": "gpat_checkpoint_lock",
+          "path": "reports/full/c4/GPAT_CONFIG_LOCK.json",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": true,
+      "scientific_status": "NOT_RUN",
+      "title": "Route rendering and synthetic candidates",
+      "validate_checks": [
+        "c5_route_contract"
+      ]
+    },
+    "C6": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "APPLY_COMMON_GATE",
+        "PROFILE_SELECTION",
+        "RELIABILITY_GATES",
+        "MATCHED_BANKS",
+        "CARDINALITY_REFUSAL"
+      ],
+      "phase": "scientific",
+      "required_inputs": [
+        {
+          "blocking": false,
+          "description": "the frozen gate metric set and threshold sources",
+          "name": "quality_gate_config",
+          "path": "configs/synthesis/quality_gate_m8.yaml",
+          "present": true
+        },
+        {
+          "blocking": true,
+          "description": "the source_train-fitted NOMINAL thresholds the three profiles are derived from",
+          "name": "quality_calibration",
+          "path": "reports/full/c6/QUALITY_CALIBRATION.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the 2048 rendered candidates per arm the gate evaluates",
+          "name": "c5_candidates",
+          "path": "reports/full/c5",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Quality gate and matched banks",
+      "validate_checks": [
+        "c6_gate_profiles"
+      ]
+    },
+    "C7": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "TRACK_G_READINESS",
+        "TRACK_R_READINESS",
+        "DECISION_DEPENDENCY_AUDIT",
+        "CALIBRATION_GUARDS",
+        "VARIANT_MATRIX_AUDIT",
+        "SOURCE_SEARCH"
+      ],
+      "phase": "source-search",
+      "required_inputs": [
+        {
+          "blocking": false,
+          "description": "the frozen detector training configuration and loss weights",
+          "name": "detector_config",
+          "path": "configs/train/m9_reference.yaml",
+          "present": true
+        },
+        {
+          "blocking": false,
+          "description": "the frozen detector architecture pins",
+          "name": "detector_model_config",
+          "path": "configs/models/m9_detector.yaml",
+          "present": true
+        },
+        {
+          "blocking": true,
+          "description": "the pinned frozen SigLIP2 tower and ConvNeXt V2 Atto weights",
+          "name": "pretrained_weights",
+          "path": "data/packages/pretrained",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the matched 1024-per-arm synthetic banks C7 trains against",
+          "name": "c6_matched_banks",
+          "path": "reports/full/c6",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Detector readiness and configuration search",
+      "validate_checks": [
+        "c7_tracks_resolve"
+      ]
+    },
+    "C8": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "PLAN_MATRIX",
+        "SCHEDULE",
+        "EXECUTE_ROWS",
+        "FAILURE_PRESERVATION",
+        "TARGET_ISOLATION"
+      ],
+      "phase": "scientific",
+      "required_inputs": [
+        {
+          "blocking": true,
+          "description": "the matched 1024-per-arm synthetic banks every row trains on",
+          "name": "c6_matched_banks",
+          "path": "reports/full/c6",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the frozen detector configuration the matrix runs at",
+          "name": "c7_config_lock",
+          "path": "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the preprocessed CASIA and MSU source packages",
+          "name": "source_packages",
+          "path": "data/packages",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "the pinned SigLIP2 and ConvNeXt weights",
+          "name": "pretrained_weights",
+          "path": "data/packages/pretrained",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": true,
+      "scientific_status": "NOT_RUN",
+      "title": "Source matrix over arms, tracks, configs and seeds",
+      "validate_checks": [
+        "c8_source_matrix"
+      ]
+    },
+    "C9": {
+      "adapter_implemented": true,
+      "engineering_status": "SMOKE_PASS",
+      "modes": [
+        "BUILD_LOCK",
+        "VALIDATE_LOCK",
+        "REFUSAL_CASES"
+      ],
+      "phase": "source-freeze",
+      "required_inputs": [
+        {
+          "blocking": true,
+          "description": "every executed source run's manifest, checkpoint and calibration",
+          "name": "c8_runs",
+          "path": "runs/full/c8",
+          "present": false
+        },
+        {
+          "blocking": true,
+          "description": "C8's own acceptance verdict over the completed matrix",
+          "name": "c8_acceptance",
+          "path": "reports/full/c8/C8_ACCEPTANCE.json",
+          "present": false
+        }
+      ],
+      "requires_gpu_for_scientific_execution": false,
+      "scientific_status": "NOT_RUN",
+      "title": "Source matrix freeze",
+      "validate_checks": [
+        "c9_source_lock_refuses"
+      ]
+    }
+  },
+  "c3_frozen_scientific_identities": {
+    "arms": {
+      "DET": {
+        "bank_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+        "eligible": 384,
+        "eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+        "raw_slots": 384,
+        "selected": 256,
+        "selected_set_identity": "89761485332b94e9b5fe2756054da2286b74eb2fbcf08bf1b166163a75c772d9"
+      },
+      "LLM": {
+        "bank_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+        "eligible": 384,
+        "eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+        "raw_slots": 384,
+        "selected": 256,
+        "selected_set_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326"
+      },
+      "RND": {
+        "bank_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+        "eligible": 384,
+        "eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+        "raw_slots": 384,
+        "selected": 256,
+        "selected_set_identity": "5ab2375b6ccf28fdee795d7eaebd295be18b2b3a579da03bb1ef3736b0d0e7e3"
+      }
+    },
+    "bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+    "execution_profile": "full",
+    "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
+    "llm_schedule": {
+      "extra_logical_requests": 0,
+      "logical_requests": 12,
+      "objects_per_request": 32,
+      "provider_attempts": 13,
+      "raw_slots": 384
+    },
+    "lock_identity": "eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d",
+    "lock_identity_reproduces": true,
+    "lock_path": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+    "quota_snapshot_sha256": "763674ea101e2ee3b97bea69405d57e567e78afdb8a56515ea322829561b9efe",
+    "scientific_eligible": true,
+    "selection_contract_identity": "3d4675ba16b39d10f0e888f3c523ea540647544a436ff387bc84f2c17eced070",
+    "status": "FROZEN_SCIENTIFIC_BANKS",
+    "supersedes": {
+      "pre_scientific_contract_lock": "1acdf68f56195f1b568449b545865ae2868d99d480ed6b75b28215178c5e9628",
+      "preliminary_bank_lock": "7ee96d3abee3f3b579c2dc6fe47ea27ff51ee3c2e956a1ff16b1ca85f5753fba",
+      "rule": "both are historical evidence and are preserved unchanged; this lock records the ACTUAL scientific banks they governed"
+    },
+    "verification_problems": [],
+    "verified_now": true
+  },
+  "compute_activity": {
+    "device_used": "cpu",
+    "modal_gpu_seconds": 0,
+    "scientific_training_runs": 0
+  },
+  "data_inventory": {
+    "backend_contract": "scientific identities must not depend on the backend, workspace, GPU model, instance id, physical batch size or filesystem root. Backend information is operational provenance only (L.12)",
+    "credential_policy": "presence only; no key is ever printed, logged or committed",
+    "credentials": {
+      "GEMINI_API_KEY": "PRESENT",
+      "MODAL_TOKEN_ID": "MISSING",
+      "MODAL_TOKEN_SECRET": "MISSING"
+    },
+    "external_inputs_absent_here": [
+      "gpat_identity_model_adaface",
+      "preprocessed_source_data",
+      "source_packages"
+    ],
+    "generated_at_utc": "2026-08-17T04:31:09.589659Z",
+    "inventory_identity": "13720f9cd8c670ad401ed07567cdb19ddb3bf448f05e863e431b61f23bc17581",
+    "item_count": 25,
+    "items": [
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "the frozen 256-recipe banks for RND, DET and LLM produced by C3",
+        "expected_path": "assets/recipe_banks/c3",
+        "file_count": 6,
+        "identity": "c2b2196ac3e5582fee1f62018c0b87659e864aa6b7c533c84e44342f492cdc62",
+        "identity_kind": "sha256_tree",
+        "logical_name": "c3_scientific_recipe_banks",
+        "notes": [
+          "recipes.jsonl is pinned to LF by .gitattributes because its bytes are hashed; a CRLF checkout would produce a different identity"
+        ],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C6",
+          "C7",
+          "C8"
+        ],
+        "size_bytes": 652313,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "re-derive each arm's bank_identity from C3_BANK.json's own declared bank_identity_material and compare to C3_SCIENTIFIC_BANK_LOCK.json"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "the governing lock over the three frozen scientific banks",
+        "expected_path": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+        "file_count": null,
+        "identity": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3",
+        "identity_kind": "sha256_file",
+        "logical_name": "c3_scientific_bank_lock",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C6",
+          "C7",
+          "C8",
+          "C9"
+        ],
+        "size_bytes": 2705,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "recompute lock_identity from lock_identity_material"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "the preliminary C3 bank lock; superseded but immutable evidence",
+        "expected_path": "reports/c3/C3_BANK_LOCK.json",
+        "file_count": null,
+        "identity": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+        "identity_kind": "sha256_file",
+        "logical_name": "c3_generation_bank_lock",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5"
+        ],
+        "size_bytes": 9176,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 must equal the value recorded in PROJECT_STATE"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "the 12 immutable raw provider responses behind the LLM arm",
+        "expected_path": "reports/c3/live/raw_responses",
+        "file_count": 12,
+        "identity": "431d53e09092e66411195640e3b0646ae595ed1db24e75a06c7bc4dcd3e53d83",
+        "identity_kind": "sha256_tree",
+        "logical_name": "c3_raw_candidate_archives",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C13"
+        ],
+        "size_bytes": 362482,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 of each archive's raw_response equals the archive_identity recorded in C3_LIVE_GENERATION_STATE.json"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "the governing v1.5 contract",
+        "expected_path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+        "file_count": null,
+        "identity": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+        "identity_kind": "sha256_file",
+        "logical_name": "governing_spec",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C0"
+        ],
+        "size_bytes": 495124,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 must equal ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C4",
+        "expected_path": "configs/synthesis/gpat_m8.yaml",
+        "file_count": null,
+        "identity": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+        "identity_kind": "sha256_file",
+        "logical_name": "gpat_training_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C4"
+        ],
+        "size_bytes": 2039,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C5",
+        "expected_path": "configs/synthesis/physics_m7.yaml",
+        "file_count": null,
+        "identity": "25191a0388440bbe6960d169e0f9028e4eebb34ff8a17c8cbcaca2c81ac994ec",
+        "identity_kind": "sha256_file",
+        "logical_name": "physics_engine_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5"
+        ],
+        "size_bytes": 1533,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C5, C6",
+        "expected_path": "configs/synthesis/synthetic_bank_m8.yaml",
+        "file_count": null,
+        "identity": "98da2325e930563821b6fd94b58fda9b7fb09f62281534069e546ae2d66f8773",
+        "identity_kind": "sha256_file",
+        "logical_name": "synthetic_bank_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C6"
+        ],
+        "size_bytes": 2336,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C6",
+        "expected_path": "configs/synthesis/quality_gate_m8.yaml",
+        "file_count": null,
+        "identity": "721875cb1fc9a061032f3a2b11c9d261e0788fbf09ee470db523aea19cecbe41",
+        "identity_kind": "sha256_file",
+        "logical_name": "quality_gate_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C6"
+        ],
+        "size_bytes": 3284,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C7, C8",
+        "expected_path": "configs/models/m9_detector.yaml",
+        "file_count": null,
+        "identity": "a811901e6d153df56e28365d7e50be337f7b43f50a2deace82e3c22a9e5a52e7",
+        "identity_kind": "sha256_file",
+        "logical_name": "detector_model_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C7",
+          "C8"
+        ],
+        "size_bytes": 7144,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C7, C8",
+        "expected_path": "configs/train/m9_reference.yaml",
+        "file_count": null,
+        "identity": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+        "identity_kind": "sha256_file",
+        "logical_name": "detector_training_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C7",
+          "C8"
+        ],
+        "size_bytes": 4390,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C8, C11",
+        "expected_path": "configs/experiments/m10_matrix.yaml",
+        "file_count": null,
+        "identity": "0edb46218a58d6e9c27fbd69bb95becffcb70ca1af2bc87e131ec76963a9a70d",
+        "identity_kind": "sha256_file",
+        "logical_name": "experiment_matrix_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C8",
+          "C11"
+        ],
+        "size_bytes": 14484,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C10, C11, C12",
+        "expected_path": "configs/evaluation/m10_target.yaml",
+        "file_count": null,
+        "identity": "81eb88dab520656ddc50c570e1d9048f47ea64f868fa43b8c71f80f3cf53b535",
+        "identity_kind": "sha256_file",
+        "logical_name": "target_evaluation_config",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C10",
+          "C11",
+          "C12"
+        ],
+        "size_bytes": 8054,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C5, C6",
+        "expected_path": "configs/recipes/ontology_m7.yaml",
+        "file_count": null,
+        "identity": "d898e10c4f694ab51286096a1a7c95d6c143e2902314874d3cdb7dc6238321fe",
+        "identity_kind": "sha256_file",
+        "logical_name": "recipe_ontology",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C6"
+        ],
+        "size_bytes": 7810,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "frozen configuration consumed by C0",
+        "expected_path": "configs/execution/full.yaml",
+        "file_count": null,
+        "identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+        "identity_kind": "sha256_file",
+        "logical_name": "execution_profile_full",
+        "notes": [],
+        "origin": "IN_GIT",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C0"
+        ],
+        "size_bytes": 2536,
+        "stored_externally": false,
+        "stored_in_git": true,
+        "verification": "sha256 recorded here; the loader recomputes the config identity that enters every run manifest"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "CASIA-FASD source domain",
+        "expected_path": "D:/AI on IOT/Anti_spoofing/Dataset/casia-fasd",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "raw_dataset_casia_fasd",
+        "notes": [
+          "declared in configs/paths.local.yaml, which is Git-ignored because it holds machine-specific absolute paths"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "the preprocessing manifest identity, not the raw bytes; raw roots are never copied into the repository or uploaded anywhere"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "MSU-MFSD source domain",
+        "expected_path": "D:/AI on IOT/Anti_spoofing/Dataset/MSU-MFSD",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "raw_dataset_msu_mfsd",
+        "notes": [
+          "declared in configs/paths.local.yaml, which is Git-ignored because it holds machine-specific absolute paths"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "the preprocessing manifest identity, not the raw bytes; raw roots are never copied into the repository or uploaded anywhere"
+      },
+      {
+        "access": "EVALUATION_ONLY_NEVER_MOUNTED_ON_TRAINING",
+        "blocks_future_full_run": false,
+        "description": "the fixed P3 held-out target feature package",
+        "expected_path": "D:/AI on IOT/Anti_spoofing/Dataset/SiW-Mv2",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "target_feature_package_siw_mv2_v2",
+        "notes": [
+          "label-free features may be mounted read-only for C11 inference",
+          "label files MUST NOT be mounted on any training process or volume, and no stage before C10 may resolve this root at all",
+          "not required for engineering readiness; needed only from C10 onward"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C10",
+          "C11",
+          "C12"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "feature package identity verified at C10 against the frozen target lock; label files are verified only inside the isolated C12 scorer"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": false,
+        "description": "pinned backbone weights: frozen SigLIP2 image tower and ConvNeXt V2 Atto",
+        "expected_path": "D:/AI on IOT/Anti_spoofing/model_cache",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "model_cache",
+        "notes": [
+          "the engineering smoke substitutes a fixture tower and therefore does NOT verify these weights; the full profile requires the pinned identities"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C7",
+          "C8",
+          "C11"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "model id + revision + weight sha256 are pinned in the detector config and enter run identity; a mismatch is a hard error, not a warning"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": true,
+        "description": "frozen AdaFace identity backbone used by the GPAT identity loss",
+        "expected_path": "<model cache>/adaface_ir50",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "gpat_identity_model_adaface",
+        "notes": [
+          "resolved from the model cache at run time; never trained"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": false,
+        "required_by_stages": [
+          "C4"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "weight sha256 43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496 at revision 60a65befbcf7"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": true,
+        "description": "preprocessed CASIA/MSU frames and metadata",
+        "expected_path": "data/processed",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "preprocessed_source_data",
+        "notes": [
+          "large and Git-ignored; rebuilt on the target machine from the raw roots by the same preprocessing configs, or transferred out of band"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": false,
+        "required_by_stages": [
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "package identity recorded in the package manifest and pinned into every downstream run identity"
+      },
+      {
+        "access": "READ_ONLY",
+        "blocks_future_full_run": true,
+        "description": "built source packages: shards, manifests and priors",
+        "expected_path": "data/packages",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "source_packages",
+        "notes": [
+          "large and Git-ignored; rebuilt on the target machine from the raw roots by the same preprocessing configs, or transferred out of band"
+        ],
+        "origin": "EXTERNAL_REQUIRED",
+        "present_on_this_machine": false,
+        "required_by_stages": [
+          "C4",
+          "C5",
+          "C7",
+          "C8"
+        ],
+        "size_bytes": null,
+        "stored_externally": true,
+        "stored_in_git": false,
+        "verification": "package identity recorded in the package manifest and pinned into every downstream run identity"
+      },
+      {
+        "access": "WRITE_DESTINATION",
+        "blocks_future_full_run": false,
+        "description": "final GPAT checkpoint and its lock",
+        "expected_path": "runs/full/c4",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "gpat_checkpoint_destination",
+        "notes": [
+          "empty on a fresh clone; the full run creates it"
+        ],
+        "origin": "GENERATED_BY_PIPELINE",
+        "present_on_this_machine": false,
+        "required_by_stages": [
+          "C4",
+          "C5"
+        ],
+        "size_bytes": null,
+        "stored_externally": false,
+        "stored_in_git": false,
+        "verification": "written atomically; every artifact serializes execution_profile and scientific_eligible, and every run row lands in state/MASTER_RUN_INDEX.json"
+      },
+      {
+        "access": "WRITE_DESTINATION",
+        "blocks_future_full_run": false,
+        "description": "per method/config/seed detector checkpoints and calibration artifacts",
+        "expected_path": "runs/full/c8",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "detector_checkpoint_destination",
+        "notes": [
+          "empty on a fresh clone; the full run creates it"
+        ],
+        "origin": "GENERATED_BY_PIPELINE",
+        "present_on_this_machine": false,
+        "required_by_stages": [
+          "C8",
+          "C9",
+          "C11"
+        ],
+        "size_bytes": null,
+        "stored_externally": false,
+        "stored_in_git": false,
+        "verification": "written atomically; every artifact serializes execution_profile and scientific_eligible, and every run row lands in state/MASTER_RUN_INDEX.json"
+      },
+      {
+        "access": "WRITE_DESTINATION",
+        "blocks_future_full_run": false,
+        "description": "per-milestone full-profile evidence: raw, metrics, audits, selection, locks",
+        "expected_path": "reports/full",
+        "file_count": null,
+        "identity": null,
+        "identity_kind": "",
+        "logical_name": "full_report_destination",
+        "notes": [
+          "empty on a fresh clone; the full run creates it"
+        ],
+        "origin": "GENERATED_BY_PIPELINE",
+        "present_on_this_machine": true,
+        "required_by_stages": [
+          "C4",
+          "C13"
+        ],
+        "size_bytes": null,
+        "stored_externally": false,
+        "stored_in_git": false,
+        "verification": "written atomically; every artifact serializes execution_profile and scientific_eligible, and every run row lands in state/MASTER_RUN_INDEX.json"
+      }
+    ],
+    "items_by_origin": {
+      "EXTERNAL_REQUIRED": 7,
+      "GENERATED_BY_PIPELINE": 3,
+      "IN_GIT": 15
+    },
+    "resume_contract": "--resume is identity-aware: a completed unit is skipped only after its parent identities, config identity, content hash and acceptance state all validate. A valid frozen C3 archive or GPAT checkpoint is never regenerated because the orchestrator restarted (L.11)",
+    "schema_version": "prism-gpu-handoff-inventory-v1",
+    "supported_backends": {
+      "collaborator_gpu": {
+        "backend": "collaborator_gpu",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "VRAM resolved at run time on the host",
+        "supports_amp": true,
+        "vram_gb": null,
+        "workers": 4
+      },
+      "local_cpu": {
+        "backend": "local_cpu",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cpu",
+        "notes": "engineering fixtures and smoke only",
+        "supports_amp": false,
+        "vram_gb": null,
+        "workers": 0
+      },
+      "modal": {
+        "backend": "modal",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "metered; preserved for later use",
+        "supports_amp": true,
+        "vram_gb": 24.0,
+        "workers": 4
+      },
+      "ssh_lab": {
+        "backend": "ssh_lab",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "collaborator GPU",
+        "supports_amp": true,
+        "vram_gb": 24.0,
+        "workers": 4
+      }
+    }
+  },
+  "future_backend_requirements": {
+    "entrypoint": "python train.py",
+    "examples": [
+      "python train.py --profile validate --from C0 --to C13",
+      "python train.py --profile full --from C4 --to C4 --resume",
+      "python train.py --profile full --resume"
+    ],
+    "may_differ_per_backend": [
+      "device",
+      "physical microbatch",
+      "gradient accumulation steps",
+      "dataloader workers",
+      "I/O tuning"
+    ],
+    "must_be_identical_to_this_checkpoint": [
+      "git scientific base",
+      "frozen contracts and locks",
+      "configs and manifests",
+      "search plans",
+      "seed family",
+      "scientific algorithms"
+    ],
+    "rule": "effective scientific batch composition stays 12 real live + 12 real spoof + 8 synthetic; microbatch may change only with gradient accumulation that preserves it (§15.2.2, L.12)",
+    "supported_backends": {
+      "collaborator_gpu": {
+        "backend": "collaborator_gpu",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "VRAM resolved at run time on the host",
+        "supports_amp": true,
+        "vram_gb": null,
+        "workers": 4
+      },
+      "local_cpu": {
+        "backend": "local_cpu",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cpu",
+        "notes": "engineering fixtures and smoke only",
+        "supports_amp": false,
+        "vram_gb": null,
+        "workers": 0
+      },
+      "modal": {
+        "backend": "modal",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "metered; preserved for later use",
+        "supports_amp": true,
+        "vram_gb": 24.0,
+        "workers": 4
+      },
+      "ssh_lab": {
+        "backend": "ssh_lab",
+        "classification": "OPERATIONAL_PROVENANCE_ONLY",
+        "device": "cuda",
+        "notes": "collaborator GPU",
+        "supports_amp": true,
+        "vram_gb": 24.0,
+        "workers": 4
+      }
+    }
+  },
+  "generated_at_utc": "2026-08-17T04:31:09.589993Z",
+  "master_run_index": {
+    "duplicate_run_ids": 0,
+    "eligible_rows": [
+      {
+        "execution_profile": "full",
+        "run_id": "full-20260816T124147Z-0c8de067:C3:RESUME_LIVE_GENERATE",
+        "stage_id": "C3"
+      }
+    ],
+    "rows": 353,
+    "rows_by_profile": {
+      "full": 1,
+      "smoke": 306,
+      "validate": 46
+    },
+    "rows_claiming_scientific_eligibility": 1
+  },
+  "not_claimed": [
+    "no C4-C13 milestone is scientifically complete",
+    "no scientific winner has been selected by any smoke or validate run",
+    "no target metric exists, and none is reported here",
+    "the engineering smoke substitutes a fixture global tower and a fixture identity backbone; the full profile requires the pinned weights"
+  ],
+  "provider_activity": {
+    "gemini_calls_this_milestone": 0
+  },
+  "remaining_scientific_milestones": [
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C4"
+    },
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C5"
+    },
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C6"
+    },
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C7"
+    },
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C8"
+    },
+    {
+      "needs": "real source packages, pinned backbone weights and a GPU",
+      "scientific_status": "NOT_RUN",
+      "stage": "C9"
+    },
+    {
+      "needs": "the SiW-Mv2 v2 target package under its declared access policy",
+      "scientific_status": "NOT_RUN",
+      "stage": "C10"
+    },
+    {
+      "needs": "the SiW-Mv2 v2 target package under its declared access policy",
+      "scientific_status": "NOT_RUN",
+      "stage": "C11"
+    },
+    {
+      "needs": "the SiW-Mv2 v2 target package under its declared access policy",
+      "scientific_status": "NOT_RUN",
+      "stage": "C12"
+    },
+    {
+      "needs": "every upstream milestone scientifically complete",
+      "scientific_status": "NOT_RUN",
+      "stage": "C13"
+    }
+  ],
+  "resume_contract": "--resume is identity-aware. A completed unit is skipped only after its parent identities, config identity, content hash and acceptance state validate. A valid frozen C3 archive or GPAT checkpoint is never regenerated because the orchestrator restarted. If an expected identity changed, the pipeline fails closed and computes the invalidation subtree (L.11)",
+  "run_evidence": {
+    "meaning": "a clean validate and a clean smoke together mean ENGINEERING_READY. They complete no milestone and support no scientific claim (L.1, L.3)",
+    "smoke": {
+      "adapter_checks_run": 242,
+      "blockers": [],
+      "command": "python train.py --profile smoke --from C0 --to C13",
+      "outcome": "PASS",
+      "stages": 14,
+      "stages_without_adapter": []
+    },
+    "validate": {
+      "checks_failed": 0,
+      "checks_run": 21,
+      "command": "python train.py --profile validate --from C0 --to C13",
+      "outcome": "PASS",
+      "stages": 14
+    }
+  },
+  "schema_version": "prism-c0-c13-engineering-handoff-v1",
+  "search_plans": {
+    "C4": {
+      "anchor_resolution": {
+        "absent": [
+          "geometry_preservation_weight"
+        ],
+        "absent_note": "an absent scalar is skipped rather than invented (§15.2.3); it is not a blocker",
+        "ambiguous": [
+          "learning_rate"
+        ],
+        "blocking_reason": "['learning_rate'] have no uniquely inherited anchor. §15.2.2 classifies a non-unique inherited scalar as USER_APPROVAL_REQUIRED, so the full profile cannot execute this envelope until the user binds each one to a named scalar. Engineering readiness does not require that decision; scientific execution does.",
+        "coordinates": [
+          {
+            "candidate_paths": [
+              "optimizer.learning_rate",
+              "optimizer.encoder_lr",
+              "optimizer.recipe_lr",
+              "optimizer.generator_lr"
+            ],
+            "classification": "USER_APPROVAL_REQUIRED",
+            "detail": "the inherited configuration declares more than one candidate scalar (optimizer.encoder_lr=0.0002, optimizer.recipe_lr=0.0001, optimizer.generator_lr=0.0002); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+            "name": "learning_rate",
+            "path": "optimizer.encoder_lr, optimizer.recipe_lr, optimizer.generator_lr",
+            "state": "AMBIGUOUS",
+            "value": null
+          },
+          {
+            "candidate_paths": [
+              "optimizer.weight_decay"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "weight_decay",
+            "path": "optimizer.weight_decay",
+            "state": "RESOLVED",
+            "value": 0.0001
+          },
+          {
+            "candidate_paths": [
+              "loss.residual"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "residual_loss_weight",
+            "path": "loss.residual",
+            "state": "RESOLVED",
+            "value": 0.01
+          },
+          {
+            "candidate_paths": [
+              "loss.identity"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "identity_preservation_weight",
+            "path": "loss.identity",
+            "state": "RESOLVED",
+            "value": 0.5
+          },
+          {
+            "candidate_paths": [
+              "loss.geometry",
+              "loss.geometry_preservation"
+            ],
+            "classification": "NOT_APPLICABLE",
+            "detail": "no inherited scalar exists at any declared path; §15.2.3 skips an absent scalar rather than inventing one",
+            "name": "geometry_preservation_weight",
+            "path": "",
+            "state": "ABSENT",
+            "value": null
+          }
+        ],
+        "executable_under_full": false,
+        "resolved": [
+          "identity_preservation_weight",
+          "residual_loss_weight",
+          "weight_decay"
+        ]
+      },
+      "coordinate_order": [
+        "learning_rate",
+        "weight_decay",
+        "residual_loss_weight",
+        "identity_preservation_weight",
+        "geometry_preservation_weight"
+      ],
+      "declared_trials": 9,
+      "lock_deadline": "the GPAT envelope closes at C4 before C5",
+      "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
+      "selection_tuple": [
+        "hard_invariant_failure",
+        "neutral_support_validation_objective",
+        "identity_drift",
+        "low_frequency_geometry_drift",
+        "outside_mask_error"
+      ],
+      "tie_break": "canonical_config_sha256_ascending"
+    },
+    "C7": {
+      "anchor_resolution": {
+        "absent": [],
+        "absent_note": "",
+        "ambiguous": [
+          "learning_rate"
+        ],
+        "blocking_reason": "['learning_rate'] have no uniquely inherited anchor. §15.2.2 classifies a non-unique inherited scalar as USER_APPROVAL_REQUIRED, so the full profile cannot execute this envelope until the user binds each one to a named scalar. Engineering readiness does not require that decision; scientific execution does.",
+        "coordinates": [
+          {
+            "candidate_paths": [
+              "optimizer.learning_rate",
+              "optimizer.backbone_lr",
+              "optimizer.head_lr"
+            ],
+            "classification": "USER_APPROVAL_REQUIRED",
+            "detail": "the inherited configuration declares more than one candidate scalar (optimizer.backbone_lr=1e-05, optimizer.head_lr=0.0001); §15.2.2 requires a uniquely inherited anchor and classifies a non-unique one as USER_APPROVAL_REQUIRED",
+            "name": "learning_rate",
+            "path": "optimizer.backbone_lr, optimizer.head_lr",
+            "state": "AMBIGUOUS",
+            "value": null
+          },
+          {
+            "candidate_paths": [
+              "optimizer.weight_decay"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "weight_decay",
+            "path": "optimizer.weight_decay",
+            "state": "RESOLVED",
+            "value": 0.05
+          },
+          {
+            "candidate_paths": [
+              "scheduler.warmup_fraction"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "warmup",
+            "path": "scheduler.warmup_fraction",
+            "state": "RESOLVED",
+            "value": 0.05
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_syn"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_syn",
+            "path": "loss.weights.lambda_syn",
+            "state": "RESOLVED",
+            "value": 0.5
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_local"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_local",
+            "path": "loss.weights.lambda_local",
+            "state": "RESOLVED",
+            "value": 1.0
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_MIL"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_MIL",
+            "path": "loss.weights.lambda_MIL",
+            "state": "RESOLVED",
+            "value": 0.5
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_P"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_P",
+            "path": "loss.weights.lambda_P",
+            "state": "RESOLVED",
+            "value": 0.2
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_risk"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_risk",
+            "path": "loss.weights.lambda_risk",
+            "state": "RESOLVED",
+            "value": 0.1
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_M"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_M",
+            "path": "loss.weights.lambda_M",
+            "state": "RESOLVED",
+            "value": 1.0
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_out"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_out",
+            "path": "loss.weights.lambda_out",
+            "state": "RESOLVED",
+            "value": 1.0
+          },
+          {
+            "candidate_paths": [
+              "loss.weights.lambda_clean"
+            ],
+            "classification": "FROZEN_INHERITED_ANCHOR",
+            "detail": "",
+            "name": "lambda_clean",
+            "path": "loss.weights.lambda_clean",
+            "state": "RESOLVED",
+            "value": 0.25
+          }
+        ],
+        "executable_under_full": false,
+        "resolved": [
+          "lambda_M",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_clean",
+          "lambda_local",
+          "lambda_out",
+          "lambda_risk",
+          "lambda_syn",
+          "warmup",
+          "weight_decay"
+        ]
+      },
+      "coordinate_order": [
+        "learning_rate",
+        "weight_decay",
+        "warmup",
+        "lambda_syn",
+        "lambda_local",
+        "lambda_MIL",
+        "lambda_P",
+        "lambda_risk",
+        "lambda_M",
+        "lambda_out",
+        "lambda_clean"
+      ],
+      "declared_trials": 21,
+      "lock_deadline": "the detector/loss envelope closes at C7 before C8",
+      "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
+      "selection_tuple": [
+        "mean_domain_video_ACER",
+        "max_domain_video_ACER",
+        "mean_domain_video_BPCER",
+        "mean_domain_NLL",
+        "mean_domain_ECE",
+        "epoch"
+      ],
+      "tie_break": "canonical_config_sha256_ascending"
+    }
+  },
+  "source_matrix": {
+    "matrix_identity": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+    "problems": [],
+    "replication_policy": "primary P3 Track-G generator hypotheses use 5 seeds; P1/P2 Track-G comparisons and Track-R/PromptHead target comparisons use 3. Single-seed rows are diagnostic only and may not support superiority claims. No best-seed reporting (§18.3)",
+    "rows": 42,
+    "seed_counts": {
+      "C-G-DET:P1": 3,
+      "C-G-DET:P2": 3,
+      "C-G-DET:P3": 5,
+      "C-G-LLM:P1": 3,
+      "C-G-LLM:P2": 3,
+      "C-G-LLM:P3": 5,
+      "C-G-RND:P1": 3,
+      "C-G-RND:P2": 3,
+      "C-G-RND:P3": 5,
+      "C-R-DET:P3": 3,
+      "C-R-LLM:P3": 3,
+      "C-R-NOPROMPT:P3": 3
+    },
+    "seed_family": [
+      20260806,
+      20260807,
+      20260808,
+      20260809,
+      20260810
+    ],
+    "target_isolation": "no row resolves a SiW label, metric or path. P3-ready means selected on CASIA-dev and MSU-dev only; prediction happens at C11 (§19.2)",
+    "unique_configurations": 12,
+    "valid": true
+  },
+  "spec": {
+    "matches_pinned": true,
+    "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+  },
+  "target_activity": {
+    "real_target_package_resolved": false,
+    "target_labels_opened": 0,
+    "target_metrics_computed": 0
+  },
+  "title": "PRISM-FAS-C-LLM C0-C13 engineering-readiness GPU-handoff checkpoint",
+  "version_b": {
+    "clean": true,
+    "expected": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "head": "7799f7decd35db6987ce4578824e5bd8d9eab4ae",
+    "immutable_verified": true,
+    "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_B_Project",
+    "tag_peeled_commit": "7799f7decd35db6987ce4578824e5bd8d9eab4ae"
+  }
+}

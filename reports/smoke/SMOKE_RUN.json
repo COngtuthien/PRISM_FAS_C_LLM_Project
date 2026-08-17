@@ -4,12 +4,22 @@
     "reports/smoke/c0/C0_SMOKE.json",
     "reports/smoke/c1/C1_SMOKE.json",
     "reports/smoke/c2/C2_SMOKE.json",
-    "reports/smoke/c3/C3_SMOKE.json"
+    "reports/smoke/c3/C3_SMOKE.json",
+    "reports/smoke/c4/C4_SMOKE.json",
+    "reports/smoke/c5/C5_SMOKE.json",
+    "reports/smoke/c6/C6_SMOKE.json",
+    "reports/smoke/c7/C7_SMOKE.json",
+    "reports/smoke/c8/C8_SMOKE.json",
+    "reports/smoke/c9/C9_SMOKE.json",
+    "reports/smoke/c10/C10_SMOKE.json",
+    "reports/smoke/c11/C11_SMOKE.json",
+    "reports/smoke/c12/C12_SMOKE.json",
+    "reports/smoke/c13/C13_SMOKE.json"
   ],
   "blockers": [],
   "budget": {
     "bounded": true,
-    "elapsed_seconds": 0.652,
+    "elapsed_seconds": 66.759,
     "exceeded": [],
     "limits": {
       "max_epochs": 1,
@@ -21,7 +31,7 @@
     "on_exhaustion": "CHECKPOINT_AND_STOP_CLEANLY",
     "profile": "smoke",
     "spent": {
-      "stages": 4.0
+      "stages": 14.0
     },
     "treatment_factor": false
   },
@@ -30,7 +40,7 @@
   "engineering_status_note": "L.3 fixes the engineering vocabulary at NOT_TESTED / RUNNING / SMOKE_PASS / SMOKE_FAIL / BLOCKED. None of those means 'validate passed', so a clean validate run leaves engineering_status=NOT_TESTED and reports on the separate validate_gate axis instead of borrowing SMOKE_PASS.",
   "execution_profile": "smoke",
   "failed_check_ids": [],
-  "finished_at_utc": "2026-08-16T12:25:06.007449Z",
+  "finished_at_utc": "2026-08-17T04:31:08.485672Z",
   "meaning": "This run measured static readiness only: identities, locks, contracts and environment. It executed no scientific work, and it is not evidence that any milestone can run, let alone that one is scientifically complete.",
   "not_scientific_evidence": true,
   "outcome": "PASS",
@@ -40,7 +50,7 @@
   "profile_config": "configs/execution/smoke.yaml",
   "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
   "profile_permits_scientific_evidence": false,
-  "run_id": "smoke-20260816T122505Z-46048f50",
+  "run_id": "smoke-20260817T043001Z-bb0da506",
   "schema_version": "prism-orchestrator-run-v1",
   "scientific_eligible": false,
   "stages": [
@@ -121,18 +131,178 @@
       "validate_checks": [
         "c3_contract_identities",
         "c3_locks_verify",
-        "c3_generation_not_started"
+        "c3_scientific_banks_frozen"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: PREPARE_SUPPORT, VALIDATE_SUPPORT, SMOKE_GPAT, SOURCE_SEARCH, FINALIZE_GPAT, VERIFY_LOCK.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "every allowed GPAT source-search run, configs/metrics/checkpoints, winner selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",
+      "phase": "source-search",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C4",
+      "substages": [],
+      "title": "GPAT source search and final checkpoint",
+      "validate_checks": [
+        "c4_search_plan"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: LOAD_RECIPES, RESOLVE_ROUTES, RENDER_PHYSICS, RENDER_GPAT, CANDIDATE_IDENTITY, FAILURE_RECORDING.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "per-arm and per-recipe route render manifests, synthetic candidate identities, failures, C5_ACCEPTANCE",
+      "phase": "scientific",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C5",
+      "substages": [],
+      "title": "Route rendering and synthetic candidates",
+      "validate_checks": [
+        "c5_route_contract"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES, MATCHED_BANKS, CARDINALITY_REFUSAL.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "quality-gate search and audit where permitted, all candidate decisions and q values, matched 1024-per-arm banks, reliability, locks, C6_ACCEPTANCE",
+      "phase": "scientific",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C6",
+      "substages": [],
+      "title": "Quality gate and matched banks",
+      "validate_checks": [
+        "c6_gate_profiles"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: TRACK_G_READINESS, TRACK_R_READINESS, DECISION_DEPENDENCY_AUDIT, CALIBRATION_GUARDS, VARIANT_MATRIX_AUDIT, SOURCE_SEARCH.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "all declared detector/config readiness and search runs, forward/backward/resume/dependency audits, selected config locks, C7_ACCEPTANCE",
+      "phase": "source-search",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C7",
+      "substages": [],
+      "title": "Detector readiness and configuration search",
+      "validate_checks": [
+        "c7_tracks_resolve"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: PLAN_MATRIX, SCHEDULE, EXECUTE_ROWS, FAILURE_PRESERVATION, TARGET_ISOLATION.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
+      "phase": "scientific",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C8",
+      "substages": [],
+      "title": "Source matrix over arms, tracks, configs and seeds",
+      "validate_checks": [
+        "c8_source_matrix"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it. Modes: BUILD_LOCK, VALIDATE_LOCK, REFUSAL_CASES.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "validated SOURCE_MATRIX_LOCK_C plus ancestry and index of every frozen source-side artifact, C9_ACCEPTANCE",
+      "phase": "source-freeze",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C9",
+      "substages": [],
+      "title": "Source matrix freeze",
+      "validate_checks": [
+        "c9_source_lock_refuses"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: BUILD_FIXTURE_PACKAGE, FIREWALL_PERMISSIONS, PACKAGE_IDENTITY, TARGET_LOCK, TAMPER_DETECTION. The real target package is never opened.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "target package and capability lock, label-firewall audit, C10_ACCEPTANCE",
+      "phase": "target-eval",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C10",
+      "substages": [],
+      "title": "Target package and label firewall",
+      "validate_checks": [
+        "c10_firewall_config"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: BUILD_PREDICTIONS, LABEL_ISOLATION_AUDIT, PREDICTION_LOCKS, DOUBLE_VALIDATION. No real target inference is performed.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "every preregistered P3 prediction artifact by method and seed plus per-row PREDICTION_LOCK and global lockset, C11_ACCEPTANCE",
+      "phase": "target-eval",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C11",
+      "substages": [],
+      "title": "Label-isolated P3 prediction",
+      "validate_checks": [
+        "c11_prediction_schema"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: SCORER_ISOLATION, DRY_RUN, UNLOCK_AND_SCORE, STATISTICS, NO_FEEDBACK. No real SiW label is opened.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "frame and video metrics, bootstrap and Holm, hypotheses, scorer isolation and unlock evidence, C12_ACCEPTANCE",
+      "phase": "target-eval",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C12",
+      "substages": [],
+      "title": "Scoring, statistics and hypothesis tests",
+      "validate_checks": [
+        "c12_scorer_isolation"
+      ],
+      "validate_gate": "PASS"
+    },
+    {
+      "adapter_implemented": true,
+      "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: ACCEPTANCE_MATRIX, NEGATIVE_PRESERVATION, ARTIFACT_INTEGRITY, CLAIM_POLICY, FINAL_REPORT. It refuses acceptance while any milestone is scientifically incomplete.",
+      "checks_failed": 0,
+      "engineering_status": "SMOKE_PASS",
+      "mandatory_full_outputs": "C_ACCEPTANCE, master final summary, reports/tables/plots/paper evidence, preserved negative, failed and blocked results",
+      "phase": "final-report",
+      "scientific_status": "NOT_RUN",
+      "stage_id": "C13",
+      "substages": [],
+      "title": "Acceptance, evidence package and report",
+      "validate_checks": [
+        "c13_acceptance_refuses"
       ],
       "validate_gate": "PASS"
     }
   ],
-  "stages_total": 4,
-  "stages_with_validate_checks": 4,
+  "stages_total": 14,
+  "stages_with_validate_checks": 14,
   "stages_without_adapter": [],
-  "started_at_utc": "2026-08-16T12:25:05.360997Z",
+  "started_at_utc": "2026-08-17T04:30:01.743476Z",
   "validate_gate_counts": {
     "FAIL": 0,
     "NOT_APPLICABLE": 0,
-    "PASS": 4
+    "PASS": 14
   }
 }

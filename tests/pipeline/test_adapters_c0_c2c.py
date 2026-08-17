@@ -159,15 +159,35 @@ def test_a_historical_verdict_is_not_promoted_to_an_engineering_status(
 
 # --- registry ----------------------------------------------------------------
 
-def test_registry_covers_exactly_c0_to_c3(sandbox: Path) -> None:
-    assert sorted(build_registry()) == ["C0", "C1", "C2", "C3"]
+def test_registry_covers_every_c0_to_c13_stage(sandbox: Path) -> None:
+    """Every stage now has an adapter, and the registry says so exactly once."""
+    from prism_fas.pipeline.stages import STAGE_IDS
+
+    assert sorted(build_registry(), key=lambda name: int(name[1:])) == list(STAGE_IDS)
 
 
 def test_registry_substages_are_the_established_lineage() -> None:
-    assert ADAPTED_SUBSTAGE_IDS == ("C0", "C1", "C2", "C2B", "C2C", "C3")
+    assert ADAPTED_SUBSTAGE_IDS == ("C0", "C1", "C2", "C2B", "C2C", "C3", "C4", "C5",
+                                    "C6", "C7", "C8", "C9", "C10", "C11", "C12", "C13")
 
 
-def test_c4_to_c13_have_no_adapter() -> None:
+def test_an_adapter_is_an_engineering_statement_not_a_scientific_one() -> None:
+    """C4-C13 have adapters AND have never run scientifically. Both, at once.
+
+    This is the assertion that used to read `C4..C13 have no adapter`. The
+    adapters landed, so that sentence is now false — but the property it was
+    protecting is not about adapters at all. It is that having an executable
+    control path never implies scientific evidence, and that survives the change
+    unchanged: every stage declares an adapter, and every stage's scientific
+    status stays NOT_RUN until the full profile produces evidence.
+    """
+    from prism_fas.pipeline.stages import STAGES
+
     registry = build_registry()
+    for stage in STAGES:
+        assert stage.stage_id in registry, stage.stage_id
+        assert stage.adapter_implemented, stage.stage_id
     for index in range(4, 14):
-        assert f"C{index}" not in registry
+        note = next(item for item in STAGES if item.stage_id == f"C{index}").adapter_note
+        assert "ENGINEERING statement" in note, f"C{index} does not disclaim its adapter"
+        assert "scientific_status stays NOT_RUN" in note, f"C{index}"

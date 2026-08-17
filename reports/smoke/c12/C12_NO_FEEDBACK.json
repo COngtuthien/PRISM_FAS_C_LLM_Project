@@ -1,0 +1,26 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "artifacts_outside_namespace": [],
+  "artifacts_written": [
+    "reports/smoke/c12/C12_DRY_RUN.json",
+    "reports/smoke/c12/C12_NO_FEEDBACK.json",
+    "reports/smoke/c12/C12_SCORER_ISOLATION.json",
+    "reports/smoke/c12/C12_SCORING.json",
+    "reports/smoke/c12/C12_SMOKE.json",
+    "reports/smoke/c12/C12_STATISTICS.json",
+    "reports/smoke/c12/fixture_labels.json"
+  ],
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.437589Z",
+  "mode": "NO_FEEDBACK",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "schema_version": "c12-no-feedback-v1",
+  "scientific_eligible": false,
+  "upstream_digests": {
+    "assets/recipe_banks/c3/llm/recipes.jsonl": "db563c67da5953a562b92b090894ea954b8065485a6db29fc96f01b344433620",
+    "reports/c3/C3_BANK_LOCK.json": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3"
+  }
+}

@@ -4,7 +4,7 @@
   "blocked_reason": null,
   "created_utc": "2026-08-16T12:22:43.425112Z",
   "execution_profile": "smoke",
-  "generation_contract_identity": "",
+  "generation_contract_identity": "884bce03b4f40a4ffbbef30f14c2216a6166a0ee1e8a6f6facb163f8bb3cdd85",
   "history": [
     {
       "attempt_count": 1,
@@ -195,6 +195,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "0fb1c52bd2c2c7cffeba2a235d6bd9e78aec68e6e7520bcbaa9278d1862fc132",
       "request_identity": "071b921ca1e32a37808f395481796597c499534d2ef1de649c41e97582ceac5d",
       "slot_end": 31,
@@ -215,6 +216,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "1b9401c4bcf728520050f68d3454b0ca91454756854c75ad4337939b41dd5130",
       "request_identity": "708323d72b0013d061aa85a5fe8b6f001aad0c7cf5d0262d03933589967bb9c4",
       "slot_end": 63,
@@ -235,6 +237,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "57871cc7e8c0efa5d2d968f44a9233d07ea2bf57b5ebd6ecf6aa37738afaa2ab",
       "request_identity": "a574d43acae7ea03292a4a45307c1acbb402f645d4b7a09a07118b65c18baec6",
       "slot_end": 95,
@@ -255,6 +258,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "1a8f275ff16c02dd53b94ff3750be04edf10e511e3e580867b6cc8a9a8aff0f7",
       "request_identity": "995cf0a565923efb4713017821b429b44181b0015ce12ff7c7034e99481815b9",
       "slot_end": 127,
@@ -275,6 +279,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "13f87c27b6c7e0bc1521b2a43c07f479129b0e2f19bbc55239b74bb120c4b2a2",
       "request_identity": "0d9234a071c6285ecd1227ce260afd727cddad5f73da1527d903d868d07cf9fe",
       "slot_end": 159,
@@ -295,6 +300,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "65657e4256e942d358131ebcbc8ab718cb41f5cae75aca431c5927bca512e615",
       "request_identity": "ad745f9ea95be960f23fb3758b7c2b4f9b632c0a12ab2e6e7668b30833701a72",
       "slot_end": 191,
@@ -315,6 +321,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "836bac6939b09dabc89c4ab80de928fbc55c06ce0957fcd182f2795ffbc840ab",
       "request_identity": "d3209735f497177baa13ffa789ada5bf872bf25c91e43fab7de0fb43d0b5c533",
       "slot_end": 223,
@@ -335,6 +342,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "4206083fdeaf65ddf673f54fbcbb5e8538dcbb4fe1e71c913796b15ca2283833",
       "request_identity": "4bb3c4c8206dc47f6df9da08195ac5001edf2438703707306448787bd454cfcb",
       "slot_end": 255,
@@ -355,6 +363,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "b85d167f3bdaca493f95f3016d8007301ca460ad16f21bd89ed9930175043842",
       "request_identity": "79f2ebfb55010d5b8cfeb60d444a113022d95ca1f71e9567ea4a03dce20d98d1",
       "slot_end": 287,
@@ -375,6 +384,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "0452f7e0148af216c02e553ce81b409755f466484cf4d0552f0e4c3e8a8f4a0b",
       "request_identity": "12e770de26ab48ed208ad1ef956ebba9af7e8abc2592ce60d15d705d9283f7ac",
       "slot_end": 319,
@@ -395,6 +405,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "4b6ddc3ab88fc3e885886c579c0c3a48ea82c4f0873310af0e969429a93db875",
       "request_identity": "31317aa4702ef7afd5217fee52ce692c196c0302e4e1ae7bd09ddba27e5d6a87",
       "slot_end": 351,
@@ -415,6 +426,7 @@
         "attempt 1 started",
         "all 32 candidates accepted"
       ],
+      "provider_attempts": 0,
       "raw_response_sha256": "12c64a92735f7d532a03896b5975e9e7e294776e388e6c30b9132a12b16b3a4a",
       "request_identity": "54b708c3698efedc31b2912b0da149978e5ad9efef51866a6542050e3a8ef905",
       "slot_end": 383,
@@ -443,5 +455,5 @@
     "IN_PROGRESS": 0,
     "NOT_STARTED": 0
   },
-  "updated_utc": "2026-08-16T12:25:06.005294Z"
+  "updated_utc": "2026-08-17T04:30:02.304173Z"
 }

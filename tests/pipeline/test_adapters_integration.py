@@ -59,11 +59,17 @@ def test_index_records_a_row_per_substage(sandbox: Path) -> None:
 
 
 def test_a_later_run_never_drops_an_earlier_row(sandbox: Path) -> None:
-    """L.8: a FAIL or BLOCKED row stays addressable after a later success."""
-    run(repo=sandbox, profile_name="smoke")                      # C0-C13: blocks C4+
+    """L.8: a FAIL or BLOCKED row stays addressable after a later success.
+
+    The blocked rows used to come free from the unadapted C4-C13 range. They are
+    all adapted now, so the blocked rows come from a full-profile run instead —
+    which blocks because the real scientific inputs are absent on this machine.
+    Same property, a source of blocked rows that will still exist tomorrow.
+    """
+    run(repo=sandbox, profile_name="full", first_stage="C4", last_stage="C13")
     first = json.loads((sandbox / "state/MASTER_RUN_INDEX.json").read_text(encoding="utf-8"))
     blocked_ids = {row["run_id"] for row in first["runs"] if row["status"] == "BLOCKED"}
-    assert blocked_ids
+    assert blocked_ids, "a full run over C4-C13 produced no blocked row"
 
     run(repo=sandbox, profile_name="smoke", first_stage="C0", last_stage="C3")
     second = json.loads((sandbox / "state/MASTER_RUN_INDEX.json").read_text(encoding="utf-8"))
@@ -173,14 +179,16 @@ def test_no_offline_profile_writes_c3_generation_state_or_archives(
     assert (sandbox / "reports/smoke/c3/live/C3_LIVE_GENERATION_STATE.json").exists()
 
 
-def test_the_c3_generation_prohibition_still_holds_after_a_smoke_run(
-        sandbox: Path) -> None:
-    """A smoke rehearsal must not look like C3 generation to the pre-live check."""
-    from prism_fas.pipeline.checks import check_c3_generation_not_started
+def test_the_frozen_c3_banks_still_verify_after_a_smoke_run(sandbox: Path) -> None:
+    """A smoke rehearsal must leave the frozen scientific banks byte-identical."""
+    from prism_fas.pipeline.checks import check_c3_scientific_banks_frozen
 
+    before = check_c3_scientific_banks_frozen(sandbox)
     run(repo=sandbox, profile_name="smoke", first_stage="C0", last_stage="C3")
-    result = check_c3_generation_not_started(sandbox)
-    assert result.ok, result.detail["found"]
+    after = check_c3_scientific_banks_frozen(sandbox)
+    assert after.ok, after.detail["problems"]
+    assert after.detail["arms"] == before.detail["arms"]
+    assert after.detail["lock_identity_recomputed"] == before.detail["lock_identity_recomputed"]
 
 
 # --- 29. the suite itself cannot reach a network -----------------------------
@@ -208,13 +216,38 @@ FORBIDDEN_MODULES = (
     "torch",
 )
 
-#: The single gated exception. `_build_provider` imports the Gemini provider
+#: Lazy imports that are permitted, each named individually so adding one has to
+#: be a deliberate edit to this list rather than a side effect.
+#:
+#: The Gemini entry is a CAPABILITY gate: `_build_provider` imports the provider
 #: only after `assert_binding_permitted` has already accepted a LIVE binding, so
 #: the import is unreachable unless the profile, the stage and an explicit human
-#: authorization all agree. It is named here so adding a second one has to be a
-#: deliberate edit to this list.
+#: authorization all agree.
+#:
+#: The rest are a different kind of entry and it is worth being precise about
+#: why they are not the same concession. C4, C7 and C8 have to prove instantiate,
+#: forward, finite loss, backward, optimizer step, checkpoint and resume on a CPU
+#: fixture — that is what C7's hard acceptance literally asks for — and C11 has to
+#: build prediction rows through the canonical builder rather than a second
+#: implementation of it. Neither can be done without touching the module in
+#: question, and refusing would force exactly the duplicate scientific authority
+#: the adapter contract forbids.
+#:
+#: What the original rule was protecting is not "the string torch never appears".
+#: It is that importing the pipeline package must not drag in a heavy or
+#: network-capable dependency, so `train.py --profile validate` stays a cheap,
+#: offline, static read. Every import below is inside a function, and
+#: `test_importing_the_pipeline_package_does_not_load_a_vendor_sdk` measures that
+#: guarantee at runtime across every adapter module — which is the check that
+#: actually enforces it.
 GATED_LAZY_IMPORTS = {
     ("adapters/c3.py", "prism_fas.llm.providers.gemini"),
+    ("adapters/common.py", "torch"),
+    ("adapters/c4.py", "torch"),
+    ("adapters/c5.py", "torch"),
+    ("adapters/c7.py", "torch"),
+    ("adapters/c8.py", "torch"),
+    ("adapters/c11.py", "prism_fas.evaluation.target_prediction"),
 }
 
 
@@ -241,11 +274,17 @@ def test_no_pipeline_module_imports_a_provider_gpu_or_target_module(
         module_path: Path) -> None:
     relative = module_path.relative_to(PIPELINE_DIR).as_posix()
     offending = set()
-    for name, _module_level in _imports(module_path):
+    for name, module_level in _imports(module_path):
         if not any(name == item or name.startswith(f"{item}.")
                    for item in FORBIDDEN_MODULES):
             continue
         if (relative, name) in GATED_LAZY_IMPORTS:
+            # An allowed entry still has to be lazy. A permitted import that
+            # drifted to module level would load on `import prism_fas.pipeline`
+            # and defeat the guarantee the allowance was granted under.
+            assert not module_level, (
+                f"{relative} imports {name} at module level; every entry in "
+                "GATED_LAZY_IMPORTS must stay inside a function")
             continue
         offending.add(name)
     assert not offending, f"{relative} imports {sorted(offending)}"
@@ -261,20 +300,36 @@ def test_the_gemini_provider_is_never_imported_at_module_level() -> None:
                     "at module level; it must stay behind the live-binding gate")
 
 
-def test_importing_the_pipeline_package_does_not_load_a_vendor_sdk() -> None:
-    """The structural version of the same claim, measured at runtime."""
+def test_importing_the_pipeline_package_does_not_load_a_vendor_sdk_or_torch() -> None:
+    """The structural claim, measured at runtime over EVERY pipeline module.
+
+    This is the check that carries the guarantee. `GATED_LAZY_IMPORTS` records
+    which heavy imports are permitted; this proves the permission was honoured —
+    that after importing every adapter, every check module and the orchestrator,
+    no vendor SDK and no deep-learning framework has actually been loaded.
+    Torch is in the list because C4, C7 and C8 are allowed to import it lazily,
+    so the static rule alone no longer keeps it out.
+    """
     import subprocess
     import sys
 
+    modules = sorted(path.stem for path in (PIPELINE_DIR / "adapters").glob("*.py")
+                     if path.stem != "__init__")
+    imports = "".join(f"import prism_fas.pipeline.adapters.{name};" for name in modules)
     probe = (
         "import sys;"
         "import prism_fas.pipeline.orchestrator;"
-        "import prism_fas.pipeline.adapters.c3;"
-        "import prism_fas.pipeline.adapters.registry;"
-        "loaded=[m for m in sys.modules if m.startswith(('google.genai','modal'))];"
+        "import prism_fas.pipeline.checks;"
+        "import prism_fas.pipeline.handoff;"
+        "import prism_fas.pipeline.portability;"
+        + imports +
+        "loaded=sorted(m for m in sys.modules "
+        "if m.split('.')[0] in ('torch','modal') or m.startswith('google.genai'));"
         "print(loaded)")
     result = subprocess.run(
         [sys.executable, "-c", probe], capture_output=True, text=True,
         cwd=str(PIPELINE_DIR.parents[2]))
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "[]", f"a vendor SDK was loaded: {result.stdout}"
+    assert result.stdout.strip() == "[]", (
+        f"importing the pipeline loaded a heavy dependency: {result.stdout}")
+    assert len(modules) >= 14, f"the probe covered only {modules}"

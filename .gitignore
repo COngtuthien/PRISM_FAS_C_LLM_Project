@@ -54,10 +54,17 @@ reports/*
 !reports/validate/
 !reports/smoke/
 !reports/full/
+# The GPU-handoff checkpoint. It is the document the collaborator's machine
+# starts from, so it has to arrive with the clone rather than live only here.
+!reports/handoff/
 # Inside a Version-C report root, large or generated artifacts stay out. Raw LLM
 # response archives, prediction tables, checkpoints and logs are provenance held on
 # disk and referenced by hash, not Git payload.
 reports/c*/**/raw_responses/
+# Bulk prediction row tables, in any profile namespace. Same rule as the raw
+# response archives above: the table is provenance held on disk and referenced by
+# its logical identity, and the committed summary carries that identity.
+reports/*/c11/C11_PREDICTION_ROWS.json
 reports/c*/**/*.parquet
 reports/c*/**/*.tar
 reports/c*/**/*.npz

@@ -1,18 +1,98 @@
 {
-  "adapter_implemented": false,
-  "adapter_note": "no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized",
+  "adapter_implemented": true,
+  "adapter_note": "engineering adapter: the stage's control path is executable and auditable under smoke on tiny fixtures, and refuses to start under full when a real scientific input is absent. An adapter is an ENGINEERING statement — it does not mean the stage has scientific evidence, and scientific_status stays NOT_RUN until the full profile executes it.Modes: SCORER_ISOLATION, DRY_RUN, UNLOCK_AND_SCORE, STATISTICS, NO_FEEDBACK. No real SiW label is opened.",
   "adapter_results": [],
-  "checks": [],
+  "checks": [
+    {
+      "check_id": "c12_scorer_isolation",
+      "detail": {
+        "capability": {
+          "can_save_checkpoint": false,
+          "deferred_imports": [
+            "pyarrow.parquet"
+          ],
+          "forbidden_imports": [],
+          "holds_model": false,
+          "holds_optimizer": false,
+          "import_closure": {
+            "failures": [],
+            "module_count": 16,
+            "modules_audited": [
+              "prism_fas.data.manifests",
+              "prism_fas.data.manifests.parquet_writer",
+              "prism_fas.data.package",
+              "prism_fas.data.package.manifests",
+              "prism_fas.evaluation",
+              "prism_fas.evaluation.contracts",
+              "prism_fas.evaluation.firewall",
+              "prism_fas.evaluation.metrics",
+              "prism_fas.evaluation.scoring",
+              "prism_fas.evaluation.target_prediction",
+              "prism_fas.evaluation.video_aggregation",
+              "prism_fas.train",
+              "prism_fas.train.metrics",
+              "prism_fas.train.video_aggregation",
+              "prism_fas.utils",
+              "prism_fas.utils.core"
+            ],
+            "passed": true
+          },
+          "module": "scoring.py",
+          "module_level_imports": [
+            ".contracts",
+            ".contracts.M10ContractError",
+            ".contracts.M10_SCORING_SCHEMA_VERSION",
+            ".contracts.ScoringRefusal",
+            ".contracts.is_not_applicable",
+            ".contracts.not_applicable",
+            ".contracts.stable_identity",
+            ".firewall",
+            ".firewall.TargetLabelFirewall",
+            ".metrics",
+            ".metrics.attack_wise_apcer",
+            ".metrics.calibration_metrics",
+            ".metrics.core_metrics",
+            ".metrics.open_set_metrics",
+            ".metrics.population",
+            ".metrics.region_wise_summary",
+            ".metrics.rejection_metrics",
+            ".metrics.risk_coverage",
+            ".metrics.threshold_table",
+            ".target_prediction",
+            ".target_prediction.read_predictions",
+            ".target_prediction.validate_prediction_lock",
+            ".video_aggregation",
+            ".video_aggregation.aggregate_frames",
+            "__future__",
+            "__future__.annotations",
+            "ast",
+            "dataclasses",
+            "dataclasses.dataclass",
+            "numpy",
+            "pathlib",
+            "pathlib.Path",
+            "prism_fas.utils.core",
+            "prism_fas.utils.core.atomic_json_write",
+            "typing",
+            "typing.Any",
+            "typing.Sequence"
+          ],
+          "passed": true
+        }
+      },
+      "ok": true,
+      "stage_id": "C12",
+      "summary": "the scorer has no training capability in its import closure"
+    }
+  ],
   "checks_failed": 0,
-  "checks_passed": 0,
-  "checks_run": 0,
+  "checks_passed": 1,
+  "checks_run": 1,
   "engineering_status": "NOT_TESTED",
   "execution_profile": "validate",
-  "finished_at_utc": "2026-08-16T12:25:03.923383Z",
+  "finished_at_utc": "2026-08-17T04:29:58.995750Z",
   "mandatory_full_outputs": "frame and video metrics, bootstrap and Holm, hypotheses, scorer isolation and unlock evidence, C12_ACCEPTANCE",
-  "notes": [
-    "no validate checks are declared for C12; no stage adapter exists; adapters are step 4 of docs/V15_PIPELINE_RESTRUCTURE_PLAN.md and are separately authorized"
-  ],
+  "notes": [],
   "phase": "target-eval",
   "profile_config": "configs/execution/validate.yaml",
   "profile_identity": "b1ab119c7552ec852a6f44d8254eb791549ae767042ea6a773cd8dab975edd31",
@@ -23,9 +103,11 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C12",
-  "started_at_utc": "2026-08-16T12:25:03.923380Z",
+  "started_at_utc": "2026-08-17T04:29:58.924372Z",
   "substages": [],
   "title": "Scoring, statistics and hypothesis tests",
-  "validate_checks": [],
-  "validate_gate": "NOT_APPLICABLE"
+  "validate_checks": [
+    "c12_scorer_isolation"
+  ],
+  "validate_gate": "PASS"
 }

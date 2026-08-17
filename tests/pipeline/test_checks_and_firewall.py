@@ -98,21 +98,54 @@ def test_a_drifted_contract_identity_is_detected(repo: Path, tmp_path: Path) -> 
     assert "ontology_identity" in result.detail["drifted"]
 
 
-def test_c3_generation_evidence_would_be_detected(repo: Path, tmp_path: Path) -> None:
-    """The prohibition is measured, so planting evidence must trip the check."""
-    assert checks.check_c3_generation_not_started(tmp_path).ok
+def test_c3_scientific_banks_verify_in_the_real_repository(repo: Path) -> None:
+    """The frozen banks are complete and every identity re-derives.
 
-    planted = tmp_path / "reports" / "c3" / "C3_RAW_ARCHIVE.json"
-    planted.parent.mkdir(parents=True)
-    planted.write_text("{}", encoding="utf-8")
-    result = checks.check_c3_generation_not_started(tmp_path)
+    This replaces the old `c3_generation_not_started` test. That check asserted
+    that no C3 generation evidence existed, which stopped being true when the
+    authorized live 12x32 run completed on 2026-08-16 — and it kept passing only
+    because its globs pointed at `reports/c3/raw_responses/` while the archives
+    were written to `reports/c3/live/raw_responses/`. The obligation moved from
+    proving a prohibition to proving the frozen result is intact.
+    """
+    result = checks.check_c3_scientific_banks_frozen(repo)
+    assert result.ok, result.detail["problems"]
+    assert result.detail["logical_requests_completed"] == 12
+    assert result.detail["execution_profile"] == "full"
+    for arm, row in result.detail["arms"].items():
+        assert row["raw_slots"] == 384, arm
+        assert row["selected"] == 256, arm
+        assert row["bank_identity_reproduces"], arm
+        assert row["recipes_jsonl_lines"] == 256, arm
+        assert row["recipes_jsonl_lf_only"], arm
+
+
+def test_c3_bank_drift_would_be_detected(repo: Path, tmp_path: Path) -> None:
+    """The check measures, so a moved identity must trip it."""
+    import shutil
+
+    for relative in ("reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+                     "reports/c3/live/C3_LIVE_GENERATION_STATE.json"):
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(repo / relative, destination)
+    shutil.copytree(repo / "assets/recipe_banks/c3", tmp_path / "assets/recipe_banks/c3")
+    assert checks.check_c3_scientific_banks_frozen(tmp_path).ok
+
+    bank = tmp_path / "assets/recipe_banks/c3/llm/C3_BANK.json"
+    payload = json.loads(bank.read_text(encoding="utf-8"))
+    payload["selected_recipe_identities"] = payload["selected_recipe_identities"][:-1]
+    bank.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = checks.check_c3_scientific_banks_frozen(tmp_path)
     assert not result.ok
-    assert "reports/c3/C3_RAW_ARCHIVE.json" in result.detail["found"]
+    assert any("LLM" in problem for problem in result.detail["problems"])
 
 
-def test_no_c3_generation_evidence_exists_in_the_real_repository(repo: Path) -> None:
-    result = checks.check_c3_generation_not_started(repo)
-    assert result.ok, result.detail["found"]
+def test_the_retired_generation_check_is_gone(repo: Path) -> None:
+    """A check that asserts a false thing must not survive under its own name."""
+    assert not hasattr(checks, "check_c3_generation_not_started")
+    assert "c3_generation_not_started" not in checks.CHECKS
 
 
 def test_version_b_is_at_the_frozen_commit(repo: Path) -> None:

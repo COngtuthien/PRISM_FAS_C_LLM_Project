@@ -1,0 +1,63 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "generated_at_utc": "2026-08-17T04:31:08.388033Z",
+  "mode": "UNLOCK_AND_SCORE",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "real_siw_labels_opened": false,
+  "schema_version": "c12-scoring-v1",
+  "scientific_eligible": false,
+  "scientific_meaning": "none. Fixture predictions scored against fixture labels; these numbers may never appear in a claim",
+  "scored": {
+    "C-G-LLM": {
+      "labels_source": "fixture; generated from video ids independently of the scores",
+      "metrics": {
+        "accuracy": 0.475,
+        "acer": 0.525,
+        "apcer": 0.5,
+        "balanced_accuracy": 0.475,
+        "bpcer": 0.55,
+        "brier": 0.30554730433820476,
+        "ece": 0.2565462062500001,
+        "eer_eer": 0.55,
+        "eer_threshold": 0.5105215,
+        "fn_spoof": 10,
+        "fp_live": 11,
+        "nll": 0.8213794931999459,
+        "roc_auc": 0.36250000000000004,
+        "threshold": 0.5,
+        "tn_live": 9,
+        "total_live": 20,
+        "total_spoof": 20,
+        "tp_spoof": 10
+      },
+      "videos": 40
+    },
+    "C-R-LLM": {
+      "labels_source": "fixture; generated from video ids independently of the scores",
+      "metrics": {
+        "accuracy": 0.575,
+        "acer": 0.425,
+        "apcer": 0.35,
+        "balanced_accuracy": 0.575,
+        "bpcer": 0.5,
+        "brier": 0.25454893378319843,
+        "ece": 0.18595659375,
+        "eer_eer": 0.4,
+        "eer_threshold": 0.51198775,
+        "fn_spoof": 7,
+        "fp_live": 10,
+        "nll": 0.7034083241038562,
+        "roc_auc": 0.5775,
+        "threshold": 0.5,
+        "tn_live": 10,
+        "total_live": 20,
+        "total_spoof": 20,
+        "tp_spoof": 13
+      },
+      "videos": 40
+    }
+  }
+}

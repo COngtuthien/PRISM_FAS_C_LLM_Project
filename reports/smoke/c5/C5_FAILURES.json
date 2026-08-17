@@ -1,0 +1,19 @@
+{
+  "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "smoke",
+  "fixture_backed": true,
+  "forced_failures": [
+    {
+      "case": "no parsing support and off-frame landmarks",
+      "error": "MaskBuildError: region 'left_eye' produced an empty mask",
+      "failed": true
+    }
+  ],
+  "generated_at_utc": "2026-08-17T04:30:10.250564Z",
+  "mode": "FAILURE_RECORDING",
+  "profile_config": "configs/execution/smoke.yaml",
+  "profile_identity": "64ed4b210344065d36cf2d676383c477e755310197dac81553940ac80c13396b",
+  "retention_rule": "a failed candidate is preserved as provenance and remains addressable; it is never dropped and never replaced by an extra render (§11.4, L.8)",
+  "schema_version": "c5-failures-v1",
+  "scientific_eligible": false
+}
