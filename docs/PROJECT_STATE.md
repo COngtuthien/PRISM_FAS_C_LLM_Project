@@ -256,7 +256,11 @@ portable_execution:
     exit_code: 0
     wall_clock_seconds: 94            # 103 s from a cleared rehearsal namespace
     stages: 14
-    substage_modes: 62
+    substage_modes: 56    # CORRECTED from 62 on 2026-08-17. 62 was not reproducible:
+                          # all 20 rehearsal runs in MASTER_RUN_INDEX.json record
+                          # exactly 56 substage rows, this one included. The smoke
+                          # figures elsewhere in this file were NOT re-measured and
+                          # are left as recorded.
     provider_calls: 0
     engineering_status_per_stage: SMOKE_PASS
     scientific_status_per_stage: NOT_RUN
@@ -715,6 +719,63 @@ preparation_coverage_closure:
     documented_failures_now_passing: 0
     skipped_drift: 0
     tests_weakened_to_obtain_green: 0
+
+  # --- the post-fix verification rehearsal (executed, not inferred) ---------
+  post_fix_rehearsal:
+    executed: true
+    executed_at_utc: 2026-08-17T16:00:31Z
+    command: "python train.py"          # zero arguments, the normal user workflow
+    run_id: rehearsal-20260817T160031Z-419e83f9
+    verified_at_head: 02e56cc
+    exit_code: 0
+    wall_clock_seconds: 92
+    resolved_intent: CPU_FULL_REHEARSAL
+    scientific_eligible: false
+    environment: REUSED                 # profile=cpu VALIDATED, id 7212f5ca5fc35dd9
+    gpu_detected: none                  # nvidia-smi not on PATH
+    stages: 14
+    substage_modes: 56
+    all_stages_pass: true
+    checks_failed: 0
+
+    preparation_mode: WOULD_BUILD       # the safe dry branch
+    preparation_steps_executed: 0
+    preparation_paths_config_action: null   # ensure_local_paths never invoked
+    real_full_data_preparation: NOT_RUN
+    configs_namespace_unchanged: true   # hashed before and after; proves the dry
+                                        # branch never wrote a paths config
+
+    c8_sampled_rows: [C-G-RND-P1-s20260806, C-G-RND-P1-s20260807]
+    c8_planned: 42
+    c8_skipped: 2                       # held at 2; did not climb between runs
+    c8_rows_reused_from_stored_artifacts: 2
+    c8_matrix_identity_unchanged: true  # a777671f...
+    c8_complexity_table_identical: true # byte-identical to the accepted run
+    counter_drift: 0
+
+    scientific_outputs_modified: 0
+    verified_by: sha256 over reports/full, runs/full, assets/recipe_banks, configs,
+                 reports/c0, reports/c1, reports/c2, reports/c3 — all UNCHANGED
+    writes_confined_to: [reports/rehearsal/, runs/rehearsal/, reports/preflight/,
+                         state/MASTER_RUN_INDEX.json, state/PIPELINE_STATE.json]
+    master_index_rows_claiming_eligibility: 1   # unchanged: the 2026-08-16 C3 live run
+    rows_added_by_this_run_claiming_eligibility: 0
+
+    live_provider_calls: 0
+    gpu_seconds: 0
+    modal_usage: 0
+    gemini_calls: 0
+    real_target_access: 0               # target_labels_resolved=0,
+                                        # target_metrics_computed=0,
+                                        # target_paths_resolved=0, all fixture_backed
+    c4_to_c13_scientific_status: NOT_RUN
+
+    report_html: reports/rehearsal/final/report.html
+    report_renders: true
+    report_self_contained: true         # 4 embedded data-URI figures, 0 external src
+    report_declares_itself: "REHEARSAL - NOT SCIENTIFIC EVIDENCE"
+    linked_tables_present: 9
+    one_command_runner_broken_by_the_fixes: false
 
   coverage:
     tool: stdlib sys.settrace   # the repository declares no coverage dependency

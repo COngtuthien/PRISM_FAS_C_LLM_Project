@@ -181,7 +181,7 @@
   "failed": false,
   "failure_reason": "",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T13:29:05.765640Z",
+  "generated_at_utc": "2026-08-17T16:00:38.047078Z",
   "is_scientific_lock": false,
   "mode": "PROFILE_SELECTION",
   "nominal_source": "ENGINEERING_FIXTURE_NOMINAL — the scientific NOMINAL is fitted from the source_train benign population and does not exist on this machine",

@@ -81,7 +81,7 @@
           "detail": {
             "global_step": 1,
             "prototype_state_present": false,
-            "sha256": "8378f9b5ad9f41fec75342caf1b22fea93e5e1a15d2e28be3eedb7852583b14a",
+            "sha256": "f36cee49596838fb35861260d16938dc3b0b86adfc51d1252338647396c4b156",
             "stage": "G1"
           },
           "ok": true,
@@ -220,7 +220,7 @@
           "detail": {
             "global_step": 1,
             "prototype_state_present": false,
-            "sha256": "96ee8fd33e1b07f8bd35d7513c7f87edf9f78b85ea71ca4c15f0e200da0d828d",
+            "sha256": "1a31a2dcb09d06abd118d4fe4ee41b561b77e66326ab783d3cba40f0dccc25d7",
             "stage": "G1"
           },
           "ok": true,
@@ -1000,7 +1000,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T13:30:14.626940Z",
+  "finished_at_utc": "2026-08-17T16:01:51.850576Z",
   "mandatory_full_outputs": "all declared detector/config readiness and search runs, forward/backward/resume/dependency audits, selected config locks, C7_ACCEPTANCE",
   "notes": [],
   "phase": "source-search",
@@ -1013,7 +1013,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C7",
-  "started_at_utc": "2026-08-17T13:29:05.795502Z",
+  "started_at_utc": "2026-08-17T16:00:38.082520Z",
   "substages": [],
   "title": "Detector readiness and configuration search",
   "validate_checks": [

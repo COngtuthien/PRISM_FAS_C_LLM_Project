@@ -189,7 +189,7 @@
           "check_id": "c4_checkpoint_save",
           "detail": {
             "path": "gpat_smoke.pt",
-            "sha256": "cb3dd28e0b99f5d02cb3c5d34e2f23cca007b18ea4aef1a1b34192ff0fa52f73"
+            "sha256": "2f6ffe3d3c4182ee7a5800e610446e155ebcf7a3cae1c7e27684797898d82f49"
           },
           "ok": true,
           "summary": "the checkpoint was written atomically"
@@ -240,7 +240,7 @@
         {
           "check_id": "c4_complexity_and_resources_recorded",
           "detail": {
-            "history_rows": 12,
+            "history_rows": 13,
             "inference_status": "COMPLETE",
             "macs_status": "COMPLETE",
             "selection_input": false,
@@ -625,7 +625,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T13:29:05.511353Z",
+  "finished_at_utc": "2026-08-17T16:00:37.753976Z",
   "mandatory_full_outputs": "every allowed GPAT source-search run, configs/metrics/checkpoints, winner selection and lock, final GPAT checkpoint, C4_ACCEPTANCE",
   "notes": [],
   "phase": "source-search",
@@ -638,7 +638,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C4",
-  "started_at_utc": "2026-08-17T13:29:01.028158Z",
+  "started_at_utc": "2026-08-17T16:00:31.852184Z",
   "substages": [],
   "title": "GPAT source search and final checkpoint",
   "validate_checks": [

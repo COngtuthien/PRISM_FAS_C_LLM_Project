@@ -249,8 +249,8 @@
           "check_id": "c11_logical_identity_is_content_addressed",
           "detail": {
             "identities": {
-              "C-G-LLM": "2bd1664800732700",
-              "C-R-LLM": "95f0538c371b875b"
+              "C-G-LLM": "0fbd22990b6181cb",
+              "C-R-LLM": "01430a56bfd6c85a"
             }
           },
           "ok": true,
@@ -283,22 +283,22 @@
             "agreed": true,
             "first_pass": {
               "C-G-LLM": {
-                "logical_identity": "2bd1664800732700451cd0cebcc216421c7ee653ad3abbe5b7af647f6f0becaa",
+                "logical_identity": "0fbd22990b6181cb323b4a673f6466c8ac667d00577015d999e869612de22f2c",
                 "valid": true
               },
               "C-R-LLM": {
-                "logical_identity": "95f0538c371b875b5065331caec662caae3c2431412d31d801b651fff1ebf734",
+                "logical_identity": "01430a56bfd6c85a499bc5b9ea1d316a84124c86d351d6dc7af5b3387b83dc28",
                 "valid": true
               }
             },
             "rule": "§19.2: create per-row PREDICTION_LOCK and a global TARGET_PREDICTION_LOCKSET; validate twice before label capability is granted to the scorer",
             "second_pass": {
               "C-G-LLM": {
-                "logical_identity": "2bd1664800732700451cd0cebcc216421c7ee653ad3abbe5b7af647f6f0becaa",
+                "logical_identity": "0fbd22990b6181cb323b4a673f6466c8ac667d00577015d999e869612de22f2c",
                 "valid": true
               },
               "C-R-LLM": {
-                "logical_identity": "95f0538c371b875b5065331caec662caae3c2431412d31d801b651fff1ebf734",
+                "logical_identity": "01430a56bfd6c85a499bc5b9ea1d316a84124c86d351d6dc7af5b3387b83dc28",
                 "valid": true
               }
             }
@@ -355,7 +355,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T13:30:15.159451Z",
+  "finished_at_utc": "2026-08-17T16:01:52.492576Z",
   "mandatory_full_outputs": "every preregistered P3 prediction artifact by method and seed plus per-row PREDICTION_LOCK and global lockset, C11_ACCEPTANCE",
   "notes": [],
   "phase": "target-eval",
@@ -368,7 +368,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C11",
-  "started_at_utc": "2026-08-17T13:30:15.124218Z",
+  "started_at_utc": "2026-08-17T16:01:52.452445Z",
   "substages": [],
   "title": "Label-isolated P3 prediction",
   "validate_checks": [

@@ -457,7 +457,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T13:30:15.124189Z",
+  "finished_at_utc": "2026-08-17T16:01:52.452413Z",
   "mandatory_full_outputs": "target package and capability lock, label-firewall audit, C10_ACCEPTANCE",
   "notes": [],
   "phase": "target-eval",
@@ -470,7 +470,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C10",
-  "started_at_utc": "2026-08-17T13:30:15.030251Z",
+  "started_at_utc": "2026-08-17T16:01:52.296892Z",
   "substages": [],
   "title": "Target package and label firewall",
   "validate_checks": [
