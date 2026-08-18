@@ -431,8 +431,26 @@ def bundle_readiness(repo: Path, *, intent: str) -> dict[str, Any]:
     manifest = load_manifest(repo)
     required_flag = ("required_for_gpu_science" if intent == "GPU_SCIENTIFIC_FULL"
                      else "required_for_cpu_rehearsal")
-    required = [item for item in manifest["items"] if item.get(required_flag)]
+    declared = [item for item in manifest["items"] if item.get(required_flag)]
+
+    # An asset the RUN produces is not a prerequisite for starting the run.
+    # Counting data/processed, data/packages, the pair plan and the evaluation-only
+    # label artifact as bundle prerequisites made the runner refuse to start
+    # because it had not run yet — on the destination machine that is every time.
+    # Each of them is still gated where it is actually needed: preparation builds
+    # the derived trees before C4 and blocks with MISSING_RAW_DATA if it cannot,
+    # and every C4-C13 stage re-checks its own inputs in full_precondition_gate.
+    required = [item for item in declared
+                if item.get("origin") != "GENERATED_BY_PIPELINE"]
+    produced = [item for item in declared
+                if item.get("origin") == "GENERATED_BY_PIPELINE"]
     missing = [item for item in required if not item["present"]]
+
+    def describe(item: dict[str, Any]) -> dict[str, Any]:
+        return {"logical_name": item["logical_name"],
+                "expected_path": item["expected_path"],
+                "how_to_obtain": item.get("how_to_obtain", "")}
+
     return {
         "intent": intent,
         "verdict": ("PORTABLE_BUNDLE_READY_FOR_GPU_SCIENCE"
@@ -441,9 +459,12 @@ def bundle_readiness(repo: Path, *, intent: str) -> dict[str, Any]:
         "ready": not missing,
         "required_count": len(required),
         "present_count": len(required) - len(missing),
-        "missing": [{"logical_name": item["logical_name"],
-                     "expected_path": item["expected_path"],
-                     "how_to_obtain": item.get("how_to_obtain", "")} for item in missing],
+        "missing": [describe(item) for item in missing],
+        # Reported, never counted against readiness, so the operator still sees
+        # what the run is going to have to build.
+        "produced_by_the_run": [
+            {**describe(item), "present": item["present"]} for item in produced],
+        "produced_by_the_run_absent": sum(1 for item in produced if not item["present"]),
         "manifest_identity": manifest["manifest_identity"],
     }
 

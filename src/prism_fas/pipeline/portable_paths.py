@@ -24,6 +24,7 @@ identity hash; this module only decides which bytes to open.
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -147,17 +148,23 @@ def ensure_local_paths(repo: Path) -> dict[str, Any]:
     """Guarantee a `configs/paths.local.yaml` that describes THIS folder.
 
     The canonical builders take a paths config rather than a repo root, so
-    preparation cannot call one without this file. Two situations leave it wrong,
-    and they are the same defect from a builder's point of view:
+    preparation cannot call one without this file. Three situations leave it wrong:
 
-    * the file is Git-ignored, so a clone has none at all; and
+    * the file is Git-ignored, so a clone has none at all;
     * a folder copied from another machine carries one whose roots still name the
-      machine it left.
+      machine it left; and
+    * the assets have since been copied INTO the folder while the config still
+      points at the machine-specific originals it was written against.
 
-    Both are detected the same way — `project_root` does not name this folder —
-    and both are repaired the same way, by deriving every root from the current
-    location. A config that already names this folder is authoritative and is
-    left exactly as it is, so the machine that authored it keeps working.
+    The third is the one that makes a physically self-contained folder behave as
+    though it were not, and it is invisible from `project_root` alone. All three
+    are repaired the same way: derive every root from the current location,
+    preferring the in-folder copy.
+
+    The override still means something. A root with no in-folder copy keeps
+    whatever the superseded config declared, so a machine that legitimately reads
+    its corpora from elsewhere keeps working. In-folder wins only where there is
+    something in the folder to win with. Write roots are never external.
     """
     import yaml
 
@@ -165,34 +172,120 @@ def ensure_local_paths(repo: Path) -> dict[str, Any]:
     path = repo / "configs" / "paths.local.yaml"
     existing = _local_paths(repo)
     previous = str(existing.get("project_root") or "") if existing else ""
+    resolution = resolve(repo)
 
     if existing:
         try:
             same = Path(previous).resolve() == repo
         except (OSError, ValueError):
             same = False
-        if same:
+        superseded = _roots_superseded_by_in_folder(repo, existing)
+        if same and not superseded:
             return {"path": path, "action": REUSED, "previous_project_root": previous,
-                    "reason": "the existing config names this folder"}
+                    "reason": "the existing config names this folder and no in-folder "
+                              "asset supersedes one of its roots"}
+        if same:
+            # The config is for this folder, but assets have since been copied
+            # INTO the folder and it still points at the machine-specific
+            # originals. The in-folder copy wins, or the folder is not portable.
+            return _write_config(repo, path, resolution, existing,
+                                 action=REWRITTEN, previous=previous,
+                                 reason="in-folder assets now supersede external "
+                                        f"roots: {', '.join(superseded)}")
 
-    resolution = resolve(repo)
+    return _write_config(
+        repo, path, resolution, existing,
+        action=REWRITTEN if existing else WRITTEN, previous=previous,
+        reason=("the existing config named a different project root"
+                if existing else "no paths config travelled with the folder"))
+
+
+def _in_folder_root(repo: Path, relative: str) -> Path | None:
+    """The in-folder asset root, when it exists and holds something."""
+    candidate = repo / relative
+    if candidate.is_dir() and any(candidate.iterdir()):
+        return candidate
+    return None
+
+
+def _roots_superseded_by_in_folder(repo: Path, existing: dict[str, Any]) -> list[str]:
+    """Roots the config aims outside the folder although a copy now lives inside.
+
+    This is what makes a config for THIS folder stale anyway. The assets were
+    copied in to make the folder portable; leaving the config aimed at the
+    machine-specific originals keeps the runtime bound to them and defeats the
+    copy entirely. Write roots are checked too — one pointing outside would put
+    this run's outputs on the old machine.
+    """
+    stale: list[str] = []
+    declared_raw = dict(existing.get("raw_datasets") or {})
+    for name, relative in IN_FOLDER_RAW.items():
+        local = _in_folder_root(repo, relative)
+        if local is None:
+            continue
+        declared = str(declared_raw.get(name) or "")
+        try:
+            if not declared or Path(declared).resolve() != local:
+                stale.append(f"raw_datasets.{name}")
+        except (OSError, ValueError):
+            stale.append(f"raw_datasets.{name}")
+
+    local_weights = _in_folder_root(repo, IN_FOLDER_WEIGHTS)
+    if local_weights is not None:
+        declared = str(existing.get("model_cache") or "")
+        try:
+            if not declared or Path(declared).resolve() != local_weights:
+                stale.append("model_cache")
+        except (OSError, ValueError):
+            stale.append("model_cache")
+
+    for key, relative in (("work_root", "data/work"),
+                          ("processed_root", "data/processed"),
+                          ("package_root", "data/packages"),
+                          ("runs_root", "runs"), ("reports_root", "reports")):
+        declared = str(existing.get(key) or "")
+        try:
+            if not declared or Path(declared).resolve() != (repo / relative).resolve():
+                stale.append(key)
+        except (OSError, ValueError):
+            stale.append(key)
+    return stale
+
+
+def _write_config(repo: Path, path: Path, resolution: PathResolution,
+                  existing: dict[str, Any], *, action: str, previous: str,
+                  reason: str) -> dict[str, Any]:
+    """Write a paths config for this folder, preferring the in-folder assets."""
+    import yaml
 
     def raw_root(name: str) -> str:
-        root = resolution.raw.get(name)
-        if root and root.present and root.path is not None:
-            return root.path.as_posix()
-        # Not present anywhere: name the in-folder home, so the builder's own
-        # error names the place a collaborator is meant to copy it to.
+        local = _in_folder_root(repo, IN_FOLDER_RAW[name])
+        if local is not None:
+            return local.as_posix()
+        # No in-folder copy: keep whatever the superseded config declared, so a
+        # machine that legitimately reads an external root keeps working.
+        declared = str((existing.get("raw_datasets") or {}).get(name) or "")
+        if declared and Path(declared).is_dir():
+            return Path(declared).as_posix()
+        # Nowhere at all: name the in-folder home, so the builder's own error
+        # names the place a collaborator is meant to copy it to.
         return (repo / IN_FOLDER_RAW[name]).as_posix()
 
-    weights = resolution.weights
+    def weight_root() -> str:
+        local = _in_folder_root(repo, IN_FOLDER_WEIGHTS)
+        if local is not None:
+            return local.as_posix()
+        declared = str(existing.get("model_cache") or "")
+        if declared and Path(declared).is_dir():
+            return Path(declared).as_posix()
+        return (repo / IN_FOLDER_WEIGHTS).as_posix()
+
     document = {
         "workspace_root": repo.parent.as_posix(),
         "project_root": repo.as_posix(),
         "raw_datasets": {name: raw_root(name) for name in sorted(IN_FOLDER_RAW)},
-        "model_cache": (weights.path.as_posix() if weights and weights.present
-                        and weights.path is not None
-                        else (repo / IN_FOLDER_WEIGHTS).as_posix()),
+        "model_cache": weight_root(),
+        # Every WRITE root is unconditionally inside the project.
         "work_root": (repo / "data" / "work").as_posix(),
         "processed_root": (repo / "data" / "processed").as_posix(),
         "package_root": (repo / "data" / "packages").as_posix(),
@@ -203,10 +296,8 @@ def ensure_local_paths(repo: Path) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(SYNTHESIZED_HEADER + yaml.safe_dump(document, sort_keys=True),
                     encoding="utf-8")
-    return {"path": path, "action": REWRITTEN if existing else WRITTEN,
-            "previous_project_root": previous,
-            "reason": ("the existing config named a different project root"
-                       if existing else "no paths config travelled with the folder")}
+    return {"path": path, "action": action, "previous_project_root": previous,
+            "reason": reason}
 
 
 # --- what a full scientific run needs, and where it comes from ---------------
@@ -216,6 +307,25 @@ MUST_COPY = "MUST_COPY"
 REBUILDABLE_FROM_COPIED_RAW = "REBUILDABLE_FROM_COPIED_RAW"
 CREATED_DURING_RUN = "CREATED_DURING_RUN"
 NOT_REQUIRED_UNTIL_TARGET_STAGE = "NOT_REQUIRED_UNTIL_TARGET_STAGE"
+#: Present for local convenience, never required by the destination machine.
+OPTIONAL_ENGINEERING_ONLY = "OPTIONAL_ENGINEERING_ONLY"
+
+
+def _stats(path: Path) -> tuple[int | None, int | None]:
+    """File count and total bytes for a file or tree; (None, None) if absent."""
+    if path.is_file():
+        return 1, path.stat().st_size
+    if not path.is_dir():
+        return None, None
+    count = size = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            count += 1
+            try:
+                size += item.stat().st_size
+            except OSError:
+                pass
+    return count or None, size or None
 
 
 def bundle_manifest(repo: Path) -> dict[str, Any]:
@@ -234,10 +344,25 @@ def bundle_manifest(repo: Path) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
 
     def add(name: str, relative: str, classification: str, description: str,
-            present: bool, needed_from: str, rebuild_hint: str | None = None) -> None:
+            present: bool, needed_from: str, rebuild_hint: str | None = None,
+            identity_relevant: bool = False) -> None:
+        # `present` answers "can this machine resolve it", which was true for the
+        # whole period the assets sat outside the folder on an absolute root.
+        # `physically_in_folder` is the question that decides portability, and it
+        # is measured here rather than inferred from the resolver.
+        target = repo / relative
+        physical = target.exists() and (
+            not target.is_dir() or any(target.iterdir()))
+        # The repository row is the whole folder; walking it would re-count the
+        # dataset trees this manifest already measures item by item.
+        count, size = _stats(target) if relative != "." else (None, None)
         items.append({"name": name, "path": relative,
                       "classification": classification, "description": description,
-                      "present": present, "needed_from_stage": needed_from,
+                      "present": present, "physically_in_folder": physical,
+                      "file_count": count or None, "size_bytes": size or None,
+                      "needed_from_stage": needed_from,
+                      "identity_relevant": identity_relevant,
+                      "portability_policy": classification,
                       "rebuild": rebuild_hint})
 
     add("repository", ".", MUST_COPY,
@@ -267,10 +392,18 @@ def bundle_manifest(repo: Path) -> dict[str, Any]:
             "never copied between machines")
 
     for name, relative in (("runs", "runs"), ("reports", "reports"),
-                           ("state", "state"), ("venv", ".venv")):
+                           ("state", "state")):
         add(name, relative, CREATED_DURING_RUN,
             f"the {name} tree, written by the run itself", (repo / relative).exists(),
             "C0")
+
+    # Deliberately not CREATED_DURING_RUN: an interpreter tree is machine, OS and
+    # CUDA specific, so copying it across machines is worse than useless. The
+    # bootstrap builds a fresh one on the destination.
+    add("venv", ".venv", OPTIONAL_ENGINEERING_ONLY,
+        "this machine's interpreter; EXCLUDE from the transfer",
+        (repo / ".venv").exists(), "C0",
+        "recreated automatically by bootstrap.py on the destination machine")
 
     # The pinned weight files, individually, so a partial copy is detectable.
     # `build_assets` returns dataclasses; only the weight rows are relevant here.
@@ -314,6 +447,13 @@ def bundle_manifest(repo: Path) -> dict[str, Any]:
             "target_stage_only": sum(
                 1 for item in items
                 if item["classification"] == NOT_REQUIRED_UNTIL_TARGET_STAGE),
+            "optional_engineering_only": sum(
+                1 for item in items
+                if item["classification"] == OPTIONAL_ENGINEERING_ONLY),
+            "unclassified": sum(
+                1 for item in items if item["classification"] not in
+                (MUST_COPY, REBUILDABLE_FROM_COPIED_RAW, CREATED_DURING_RUN,
+                 NOT_REQUIRED_UNTIL_TARGET_STAGE, OPTIONAL_ENGINEERING_ONLY)),
         },
         "note": "a REBUILDABLE item absent with its raw source present is not a "
                 "blocker: `python train.py` builds it before C4 and resumes an "
@@ -327,6 +467,141 @@ def write_bundle_manifest(repo: Path) -> Path:
     repo = Path(repo).resolve()
     path = repo / "PORTABLE_BUNDLE_MANIFEST.json"
     atomic_write_json(path, bundle_manifest(repo))
+    return path
+
+
+TRANSFER_MANIFEST = "PORTABLE_TRANSFER_MANIFEST.json"
+
+#: Hashed individually. Small, identity-critical, and the files whose corruption
+#: would be silent: a truncated weight still loads far enough to waste a GPU day.
+_CRITICAL_HASH_TARGETS = (
+    "configs/search/lr_anchor_decision.yaml",
+    "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+    "reports/c3/C3_BANK_LOCK.json",
+    "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json",
+    "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json",
+)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(4 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _tree_fingerprint(root: Path) -> dict[str, Any]:
+    """A dataset's identity without hashing every frame.
+
+    CASIA alone is 123k files. Hashing all of them on the destination would cost
+    more than the transfer, so the fingerprint is a digest over the sorted
+    (relative path, size) pairs. It catches a truncated, partial or reordered
+    copy — the realistic transfer failures — and says plainly that it is not a
+    byte-level claim.
+    """
+    digest = hashlib.sha256()
+    count = size = 0
+    for item in sorted(root.rglob("*")):
+        if not item.is_file():
+            continue
+        relative = item.relative_to(root).as_posix()
+        stat = item.stat()
+        digest.update(relative.encode())
+        digest.update(str(stat.st_size).encode())
+        count += 1
+        size += stat.st_size
+    return {"files": count, "bytes": size, "manifest_sha256": digest.hexdigest(),
+            "claim": "path+size manifest digest, not per-file content hashes"}
+
+
+def transfer_manifest(repo: Path) -> dict[str, Any]:
+    """What the destination machine should check before it starts training."""
+    from prism_fas.pipeline.assets import build_assets
+
+    repo = Path(repo).resolve()
+    weights: list[dict[str, Any]] = []
+    for asset in build_assets(repo):
+        # IN_GIT assets carry a repo-relative path, EXTERNAL_ROOT ones an absolute
+        # path that is now inside the folder. Normalise before comparing.
+        path = Path(asset.expected_path)
+        if not path.is_absolute():
+            path = repo / path
+        if asset.identity_kind != "sha256_file" or not path.is_file():
+            continue
+        try:
+            relative = path.resolve().relative_to(repo).as_posix()
+        except ValueError:
+            # Still outside the folder: record it as such rather than crashing,
+            # because that is exactly the condition this manifest must surface.
+            relative = str(path)
+        weights.append({"logical_name": asset.logical_name,
+                        "path": relative,
+                        "inside_project": not Path(relative).is_absolute(),
+                        "bytes": path.stat().st_size,
+                        "sha256": _sha256(path),
+                        "expected_sha256": asset.identity,
+                        "matches_frozen_pin": _sha256(path) == asset.identity,
+                        "required_stage": asset.required_stage})
+
+    siglip = repo / IN_FOLDER_WEIGHTS / "pretrained/m9/siglip2"
+    if siglip.is_dir():
+        for item in sorted(siglip.rglob("*")):
+            if item.is_file():
+                weights.append({"logical_name": "siglip2_frozen_global_tower",
+                                "path": item.relative_to(repo).as_posix(),
+                                "inside_project": True,
+                                "bytes": item.stat().st_size,
+                                "sha256": _sha256(item),
+                                "expected_sha256": None,
+                                "matches_frozen_pin": None,
+                                "required_stage": "C7"})
+
+    datasets = {}
+    for name, relative in IN_FOLDER_RAW.items():
+        root = repo / relative
+        datasets[name] = ({"path": relative, "present": False}
+                          if not root.is_dir() else
+                          {"path": relative, "present": True, **_tree_fingerprint(root)})
+
+    critical = {}
+    for relative in _CRITICAL_HASH_TARGETS:
+        path = repo / relative
+        critical[relative] = _sha256(path) if path.is_file() else None
+
+    banks = {}
+    for arm in ("llm", "rnd", "det"):
+        root = repo / "assets" / "recipe_banks" / "c3" / arm
+        if root.is_dir():
+            banks[arm] = _tree_fingerprint(root)
+
+    return {
+        "schema_version": "prism-portable-transfer-v1",
+        "generated_at_utc": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "purpose": "verify a copied folder on the destination machine BEFORE training",
+        "how_to_verify": "python -m prism_fas.cli.main verify-transfer  (or re-run "
+                         "transfer_manifest() and compare this file field by field)",
+        "source_project_root_is_provenance_only": True,
+        "datasets": datasets,
+        "frozen_weights": weights,
+        "c3_recipe_banks": banks,
+        "critical_files": critical,
+        "excluded_from_transfer": [
+            ".venv", "__pycache__", ".pytest_cache",
+            "data/raw/msu_mfsd/MSU-MFSD-Publish.zip.0*  (split archives; the "
+            "extracted tree beside them is what the adapter reads)"],
+        "note": "dataset entries are path+size manifest digests, not per-frame "
+                "content hashes; frozen weights and critical files are full SHA256.",
+    }
+
+
+def write_transfer_manifest(repo: Path) -> Path:
+    from prism_fas.pipeline.state import atomic_write_json
+
+    repo = Path(repo).resolve()
+    path = repo / TRANSFER_MANIFEST
+    atomic_write_json(path, transfer_manifest(repo))
     return path
 
 

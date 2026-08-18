@@ -6,7 +6,7 @@ import yaml, cv2
 from prism_fas.config.models import DatasetDefinition,load_paths
 from prism_fas.data.adapters import adapter_for
 from prism_fas.data.media import ImageSequenceReader,OpenCVVideoDecoder,UnreadableImageError,VideoDecodeError
-from prism_fas.data.preprocess_m2 import CropProcessingError,DetectorInferenceError,InvalidBoundingBoxError,InvalidLandmarksError,SCRFDDetector,load_m2_config,uniform_indices,sample_id,select_largest,crop_face,validate_landmarks
+from prism_fas.data.preprocess_m2 import CropProcessingError,DetectorInferenceError,InvalidBoundingBoxError,InvalidLandmarksError,SCRFDDetector,load_m2_config,uniform_indices,sample_id,select_largest,crop_face,validate_landmarks, resolve_detector_path
 from prism_fas.data.output import HashComputationError,OutputWriteError,discard_crop_artifact,hash_crop_artifact,write_crop_image
 from prism_fas.utils.core import sha256_file,atomic_json_write
 from prism_fas.data.manifests.resume import resume_action, Lock, initialize_run_state, write_run_state_atomic
@@ -169,7 +169,7 @@ def run_preprocessing(context:PreprocessingRunContext,canonical_records,*,detect
 def run(dataset:str,config_path:Path,preprocess_path:Path,limit_records:int=3,dry_run:bool=False,resume:bool=False,force:bool=False)->dict:
     paths=load_paths(config_path); cfg=load_m2_config(preprocess_path); dfn=DatasetDefinition.model_validate(yaml.safe_load((Path('configs/data')/(dataset+'.yaml')).read_text())); records=adapter_for(dfn,getattr(paths.raw_datasets,dataset)).records()[:limit_records]
     root=paths.work_root/'m2'/cfg.preprocessing_version/cfg.config_hash/'m2a'; crops=root/'crops'/dataset; results=root/'results'; crops.mkdir(parents=True,exist_ok=True);results.mkdir(parents=True,exist_ok=True)
-    model_hash=sha256_file(cfg.scrfd_model_path); state_root=paths.work_root/'m2'/cfg.preprocessing_version/cfg.config_hash; completed={}
+    model_hash=sha256_file(resolve_detector_path(cfg.scrfd_model_path)); state_root=paths.work_root/'m2'/cfg.preprocessing_version/cfg.config_hash; completed={}
     index=state_root/'state'/'completed_samples.parquet'
     if resume and index.exists():
         import pyarrow.parquet as pq
@@ -189,7 +189,7 @@ def run(dataset:str,config_path:Path,preprocess_path:Path,limit_records:int=3,dr
             if action.startswith('blocked'): raise RuntimeError(action)
             try:
                 fr=reader.read_frame(idx);stats['frames_decoded']+=1
-                if detector is None: detector=SCRFDDetector(cfg.scrfd_model_path,cfg.scrfd_input_size)
+                if detector is None: detector=SCRFDDetector(resolve_detector_path(cfg.scrfd_model_path),cfg.scrfd_input_size)
                 ds=detector.detect(fr.image); selected=select_largest(ds,cfg.detection_threshold,cfg.min_face_size)
                 if selected is None: raise ValueError('no_face')
                 crop,box=crop_face(fr.image,selected,cfg.crop_padding,cfg.crop_output_size); target=crops/f'{sid}.{cfg.output_image_format}'; tmp=target.with_suffix('.tmp.jpg'); cv2.imwrite(str(tmp),crop,[cv2.IMWRITE_JPEG_QUALITY,cfg.jpeg_quality]);tmp.replace(target)

@@ -5,7 +5,7 @@ import typer, yaml
 from prism_fas.config.models import DatasetDefinition, load_paths, resolve_config
 from prism_fas.data.audit.audit import audit_dataset, write_audits
 from prism_fas.utils.core import atomic_json_write
-from prism_fas.data.preprocess_m2 import load_m2_config, SCRFDDetector
+from prism_fas.data.preprocess_m2 import load_m2_config, SCRFDDetector, resolve_detector_path
 from prism_fas.data.m2_runner import run as run_m2a, run_preprocessing
 from prism_fas.data.manifests.repository import ManifestRepository
 from prism_fas.data.package import M3APackageConfig, build_package, build_priors, finalize_lock, load_m2_samples, load_package_config, validate_package, validate_source_m2_hashes
@@ -26,7 +26,7 @@ from prism_fas.utils.core import sha256_file
 
 def build_preprocessing_run_context(paths, cfg, profile, dataset, run_id, *, all_records=False, limit_records=None, limit_samples=None, resume=False, dry_run=False, partial=False, root=None):
     root=root or profile_root(paths.work_root,cfg.preprocessing_version,cfg.config_hash,profile); layout=M2OutputLayout.from_root(root); role='target' if dataset=='siw_mv2' else 'source'
-    return PreprocessingRunContext(project_root=paths.project_root,work_root=paths.work_root,run_profile=profile.name,output_namespace=profile.output_namespace,output_root=layout.output_root,crops_root=layout.crops_root,frames_root=layout.frames_root,manifests_root=layout.manifests_root,state_root=layout.state_root,reports_root=layout.reports_root,logs_root=layout.logs_root,run_id=run_id or f'{profile.name}-{dataset}',dataset=dataset,dataset_role=role,preprocessing_version=cfg.preprocessing_version,preprocessing_config_hash=cfg.config_hash,detector_model_path=cfg.scrfd_model_path,detector_model_sha256=sha256_file(cfg.scrfd_model_path),detector_input_size=cfg.scrfd_input_size,detector_threshold=cfg.detection_threshold,all_records=all_records,record_limit=limit_records,sample_limit=limit_samples,resume=resume,dry_run=dry_run,partial_full_profile=partial,command='prism data preprocess run')
+    return PreprocessingRunContext(project_root=paths.project_root,work_root=paths.work_root,run_profile=profile.name,output_namespace=profile.output_namespace,output_root=layout.output_root,crops_root=layout.crops_root,frames_root=layout.frames_root,manifests_root=layout.manifests_root,state_root=layout.state_root,reports_root=layout.reports_root,logs_root=layout.logs_root,run_id=run_id or f'{profile.name}-{dataset}',dataset=dataset,dataset_role=role,preprocessing_version=cfg.preprocessing_version,preprocessing_config_hash=cfg.config_hash,detector_model_path=resolve_detector_path(cfg.scrfd_model_path),detector_model_sha256=sha256_file(resolve_detector_path(cfg.scrfd_model_path)),detector_input_size=cfg.scrfd_input_size,detector_threshold=cfg.detection_threshold,all_records=all_records,record_limit=limit_records,sample_limit=limit_samples,resume=resume,dry_run=dry_run,partial_full_profile=partial,command='prism data preprocess run')
 class ProgressRecords(list):
     """Canonical records that log run progress as the runner consumes them.
 
@@ -82,14 +82,14 @@ def preprocess_run(dataset:str=typer.Option(...), config:Path=typer.Option(...,e
         holder={}
         def repository_factory(manifests_root,metadata):
             holder['repository']=ManifestRepository(manifests_root,metadata);return holder['repository']
-        detector=SCRFDDetector(cfg.scrfd_model_path,cfg.scrfd_input_size,cfg.detector.get('provider','CPUExecutionProvider'))
+        detector=SCRFDDetector(resolve_detector_path(cfg.scrfd_model_path),cfg.scrfd_input_size,cfg.detector.get('provider','CPUExecutionProvider'))
         result=run_preprocessing(context,ProgressRecords(records if all_records else records[:limit_records],dataset,holder),detector=detector,repository_factory=repository_factory)
         typer.echo(result.model_dump_json());return
     typer.echo(json.dumps(run_m2a(dataset,config,preprocess_config,limit_records or profile.default_record_limit,dry_run,resume,force),default=str))
 @preprocess_app.command("build-completed-index")
 def preprocess_build_completed_index(config:Path=typer.Option(...,exists=True),preprocess_config:Path=typer.Option(...,exists=True))->None:
     paths=load_paths(config); cfg=load_m2_config(preprocess_config); root=paths.work_root/'m2'/cfg.preprocessing_version/cfg.config_hash
-    typer.echo(json.dumps(build_completed_index(root/'manifests',root,cfg,sha256_file(cfg.scrfd_model_path),paths.reports_root/'m2b1b'),default=str))
+    typer.echo(json.dumps(build_completed_index(root/'manifests',root,cfg,sha256_file(resolve_detector_path(cfg.scrfd_model_path)),paths.reports_root/'m2b1b'),default=str))
 @preprocess_app.command("validate")
 def preprocess_validate(config:Path=typer.Option(...,exists=True),preprocess_config:Path=typer.Option(...,exists=True),output_root:Path|None=None,report_json:Path|None=None,report_md:Path|None=None,strict:bool=True,validation_profile:str=typer.Option('small_acceptance','--validation-profile',help='small_acceptance or full_preprocessing'))->None:
     if validation_profile not in {'small_acceptance','full_preprocessing'}: raise typer.BadParameter('unknown validation profile')

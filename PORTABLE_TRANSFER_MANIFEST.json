@@ -1,0 +1,299 @@
+{
+  "c3_recipe_banks": {
+    "det": {
+      "bytes": 216622,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 2,
+      "manifest_sha256": "0fe9471477876bdee566607eb4e7bda5c49c946a29e6a20c19dd4cd18929e23e"
+    },
+    "llm": {
+      "bytes": 217263,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 2,
+      "manifest_sha256": "a76a19fd3dd84f5f3598f023f07c83e6f2b56801c28141d1c6d3a4a4ea1b374a"
+    },
+    "rnd": {
+      "bytes": 218428,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 2,
+      "manifest_sha256": "53ebcd9bf6df63b47c35c351afefd04d14eadc873dd719d092b5d1b313da4c5a"
+    }
+  },
+  "critical_files": {
+    "configs/search/lr_anchor_decision.yaml": "a55059d35aef5624823c0c61ddae6201dad15d44e24d0e50a60160af8a6dd00d",
+    "reports/c0/VERSION_B_INTEGRITY_SNAPSHOT.json": "52f8b2ccc3cc3758799f0f706bdbfa845f8d62f6cc8fc3d88708936a1e980a78",
+    "reports/c3/C3_BANK_LOCK.json": "a755f88058a7ebbd60dd784444b3319baefd9d163d1fd970e47335525578eab8",
+    "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3",
+    "reports/c3/v15_selection_contract/C3_BANK_CONTRACT_LOCK.json": "8f92230bb6d57eb119eaabf8008bcf4bcb6b8f893a892cfe31503416d6b85db1"
+  },
+  "datasets": {
+    "casia_fasd": {
+      "bytes": 2174621978,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 123533,
+      "manifest_sha256": "67fd51008b2051a75f47cf8ade011a60fff79bd5c570cbb0d28569c4f9491bd8",
+      "path": "data/raw/casia_fasd",
+      "present": true
+    },
+    "msu_mfsd": {
+      "bytes": 11171264770,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 607,
+      "manifest_sha256": "0202cbbc72b54a1f50c3761202c89e08a64eb73a9bde8f28bb016e94bc13235b",
+      "path": "data/raw/msu_mfsd",
+      "present": true
+    },
+    "siw_mv2": {
+      "bytes": 20394222613,
+      "claim": "path+size manifest digest, not per-file content hashes",
+      "files": 1702,
+      "manifest_sha256": "3843d84b2920c068222c1ef769c8760b43fd873b086dc12dc321c48feac5b92a",
+      "path": "data/raw/siw_mv2",
+      "present": true
+    }
+  },
+  "excluded_from_transfer": [
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    "data/raw/msu_mfsd/MSU-MFSD-Publish.zip.0*  (split archives; the extracted tree beside them is what the adapter reads)"
+  ],
+  "frozen_weights": [
+    {
+      "bytes": 2705,
+      "expected_sha256": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3",
+      "inside_project": true,
+      "logical_name": "c3_scientific_bank_lock",
+      "matches_frozen_pin": true,
+      "path": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+      "required_stage": "C4",
+      "sha256": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3"
+    },
+    {
+      "bytes": 4712,
+      "expected_sha256": "a55059d35aef5624823c0c61ddae6201dad15d44e24d0e50a60160af8a6dd00d",
+      "inside_project": true,
+      "logical_name": "lr_anchor_decision",
+      "matches_frozen_pin": true,
+      "path": "configs/search/lr_anchor_decision.yaml",
+      "required_stage": "C4",
+      "sha256": "a55059d35aef5624823c0c61ddae6201dad15d44e24d0e50a60160af8a6dd00d"
+    },
+    {
+      "bytes": 2039,
+      "expected_sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1",
+      "inside_project": true,
+      "logical_name": "gpat_training_config",
+      "matches_frozen_pin": true,
+      "path": "configs/synthesis/gpat_m8.yaml",
+      "required_stage": "C4",
+      "sha256": "106b03a3f1fa45a124919f2345adfde94acc0b7bc6c87b61407b67ceffaceec1"
+    },
+    {
+      "bytes": 1533,
+      "expected_sha256": "25191a0388440bbe6960d169e0f9028e4eebb34ff8a17c8cbcaca2c81ac994ec",
+      "inside_project": true,
+      "logical_name": "physics_engine_config",
+      "matches_frozen_pin": true,
+      "path": "configs/synthesis/physics_m7.yaml",
+      "required_stage": "C5",
+      "sha256": "25191a0388440bbe6960d169e0f9028e4eebb34ff8a17c8cbcaca2c81ac994ec"
+    },
+    {
+      "bytes": 2336,
+      "expected_sha256": "98da2325e930563821b6fd94b58fda9b7fb09f62281534069e546ae2d66f8773",
+      "inside_project": true,
+      "logical_name": "synthetic_bank_config",
+      "matches_frozen_pin": true,
+      "path": "configs/synthesis/synthetic_bank_m8.yaml",
+      "required_stage": "C5",
+      "sha256": "98da2325e930563821b6fd94b58fda9b7fb09f62281534069e546ae2d66f8773"
+    },
+    {
+      "bytes": 3284,
+      "expected_sha256": "721875cb1fc9a061032f3a2b11c9d261e0788fbf09ee470db523aea19cecbe41",
+      "inside_project": true,
+      "logical_name": "quality_gate_config",
+      "matches_frozen_pin": true,
+      "path": "configs/synthesis/quality_gate_m8.yaml",
+      "required_stage": "C6",
+      "sha256": "721875cb1fc9a061032f3a2b11c9d261e0788fbf09ee470db523aea19cecbe41"
+    },
+    {
+      "bytes": 7144,
+      "expected_sha256": "a811901e6d153df56e28365d7e50be337f7b43f50a2deace82e3c22a9e5a52e7",
+      "inside_project": true,
+      "logical_name": "detector_model_config",
+      "matches_frozen_pin": true,
+      "path": "configs/models/m9_detector.yaml",
+      "required_stage": "C7",
+      "sha256": "a811901e6d153df56e28365d7e50be337f7b43f50a2deace82e3c22a9e5a52e7"
+    },
+    {
+      "bytes": 4390,
+      "expected_sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315",
+      "inside_project": true,
+      "logical_name": "detector_training_config",
+      "matches_frozen_pin": true,
+      "path": "configs/train/m9_reference.yaml",
+      "required_stage": "C7",
+      "sha256": "dafdcfdea2f583e1334099e12d465c7a53fbe89d84d255d46a4d8bddf2938315"
+    },
+    {
+      "bytes": 14484,
+      "expected_sha256": "0edb46218a58d6e9c27fbd69bb95becffcb70ca1af2bc87e131ec76963a9a70d",
+      "inside_project": true,
+      "logical_name": "experiment_matrix_config",
+      "matches_frozen_pin": true,
+      "path": "configs/experiments/m10_matrix.yaml",
+      "required_stage": "C8",
+      "sha256": "0edb46218a58d6e9c27fbd69bb95becffcb70ca1af2bc87e131ec76963a9a70d"
+    },
+    {
+      "bytes": 8054,
+      "expected_sha256": "81eb88dab520656ddc50c570e1d9048f47ea64f868fa43b8c71f80f3cf53b535",
+      "inside_project": true,
+      "logical_name": "target_evaluation_config",
+      "matches_frozen_pin": true,
+      "path": "configs/evaluation/m10_target.yaml",
+      "required_stage": "C10",
+      "sha256": "81eb88dab520656ddc50c570e1d9048f47ea64f868fa43b8c71f80f3cf53b535"
+    },
+    {
+      "bytes": 7810,
+      "expected_sha256": "d898e10c4f694ab51286096a1a7c95d6c143e2902314874d3cdb7dc6238321fe",
+      "inside_project": true,
+      "logical_name": "recipe_ontology",
+      "matches_frozen_pin": true,
+      "path": "configs/recipes/ontology_m7.yaml",
+      "required_stage": "C4",
+      "sha256": "d898e10c4f694ab51286096a1a7c95d6c143e2902314874d3cdb7dc6238321fe"
+    },
+    {
+      "bytes": 7613,
+      "expected_sha256": "f0d5066767cfd8a4fb0525b8b303eff10e6b61043681e52b1eae2577e86f51d1",
+      "inside_project": true,
+      "logical_name": "environment_contract",
+      "matches_frozen_pin": true,
+      "path": "configs/environment/environment_contract.yaml",
+      "required_stage": "C0",
+      "sha256": "f0d5066767cfd8a4fb0525b8b303eff10e6b61043681e52b1eae2577e86f51d1"
+    },
+    {
+      "bytes": 14847232,
+      "expected_sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb",
+      "inside_project": true,
+      "logical_name": "convnextv2_atto_local_branch",
+      "matches_frozen_pin": true,
+      "path": "weights/backbones/model.safetensors",
+      "required_stage": "C7",
+      "sha256": "6389c2f5a427b01a922e66e6d352c707424cccb62390c6936bc612e3d10b7ebb"
+    },
+    {
+      "bytes": 174611121,
+      "expected_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+      "inside_project": true,
+      "logical_name": "adaface_identity_backbone",
+      "matches_frozen_pin": true,
+      "path": "weights/face_identity/pretrained_model/model.pt",
+      "required_stage": "C4",
+      "sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    },
+    {
+      "bytes": 16923827,
+      "expected_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+      "inside_project": true,
+      "logical_name": "scrfd_face_detector",
+      "matches_frozen_pin": true,
+      "path": "weights/face_detectors/scrfd_10g_bnkps.onnx",
+      "required_stage": "C6",
+      "sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+    },
+    {
+      "bytes": 1104869851,
+      "expected_sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d",
+      "inside_project": true,
+      "logical_name": "facexformer_parsing",
+      "matches_frozen_pin": true,
+      "path": "weights/face_geometry/ckpts/model.pt",
+      "required_stage": "C6",
+      "sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+    },
+    {
+      "bytes": 253,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/config.json",
+      "required_stage": "C7",
+      "sha256": "fe8b5fe6d5734360678fd71c11c21e1ea3364bd8598d34295d9206335973ffd7"
+    },
+    {
+      "bytes": 1500800904,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/model.safetensors",
+      "required_stage": "C7",
+      "sha256": "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b"
+    },
+    {
+      "bytes": 394,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/preprocessor_config.json",
+      "required_stage": "C7",
+      "sha256": "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc"
+    },
+    {
+      "bytes": 636,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/special_tokens_map.json",
+      "required_stage": "C7",
+      "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+    },
+    {
+      "bytes": 34363039,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/tokenizer.json",
+      "required_stage": "C7",
+      "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+    },
+    {
+      "bytes": 4241003,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/tokenizer.model",
+      "required_stage": "C7",
+      "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+    },
+    {
+      "bytes": 47164,
+      "expected_sha256": null,
+      "inside_project": true,
+      "logical_name": "siglip2_frozen_global_tower",
+      "matches_frozen_pin": null,
+      "path": "weights/pretrained/m9/siglip2/tokenizer_config.json",
+      "required_stage": "C7",
+      "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+    }
+  ],
+  "generated_at_utc": "2026-08-18T05:12:43Z",
+  "how_to_verify": "python -m prism_fas.cli.main verify-transfer  (or re-run transfer_manifest() and compare this file field by field)",
+  "note": "dataset entries are path+size manifest digests, not per-frame content hashes; frozen weights and critical files are full SHA256.",
+  "purpose": "verify a copied folder on the destination machine BEFORE training",
+  "schema_version": "prism-portable-transfer-v1",
+  "source_project_root_is_provenance_only": true
+}

@@ -484,8 +484,8 @@ def test_a_config_naming_another_machine_is_replaced(project: Path,
         "no path from the machine the folder left may survive")
 
 
-def test_a_config_that_already_names_this_folder_is_left_alone(project: Path) -> None:
-    authored = _write(project / "configs" / "paths.local.yaml", yaml.safe_dump({
+def _external_config(project: Path) -> Path:
+    return _write(project / "configs" / "paths.local.yaml", yaml.safe_dump({
         "workspace_root": str(project.parent),
         "project_root": str(project),
         "raw_datasets": {"casia_fasd": "/mnt/big/casia",
@@ -497,13 +497,74 @@ def test_a_config_that_already_names_this_folder_is_left_alone(project: Path) ->
         "package_root": str(project / "data" / "packages"),
         "runs_root": str(project / "runs"),
         "reports_root": str(project / "reports")}))
-    before = authored.read_text(encoding="utf-8")
+
+
+def test_an_in_folder_copy_supersedes_an_external_root(project: Path) -> None:
+    """The point of copying the assets in: the in-folder copy must win.
+
+    A config naming this folder used to be treated as authoritative outright. That
+    left a folder whose datasets had been copied inside still reading them from the
+    machine they came from, which is the whole defect this closure removes.
+    """
+    _external_config(project)          # the `project` fixture has in-folder raw+weights
 
     result = portable_paths.ensure_local_paths(project)
 
-    assert result["action"] == portable_paths.REUSED
-    assert authored.read_text(encoding="utf-8") == before, (
-        "an operator's deliberate external roots must survive")
+    assert result["action"] == portable_paths.REWRITTEN
+    written = yaml.safe_load(
+        (project / "configs" / "paths.local.yaml").read_text(encoding="utf-8"))
+    assert Path(written["raw_datasets"]["casia_fasd"]) == project / "data/raw/casia_fasd"
+    assert Path(written["model_cache"]) == project / "weights"
+    assert "/mnt/big" not in json.dumps(written)
+
+
+def test_an_external_root_survives_when_no_in_folder_copy_exists(project: Path) -> None:
+    """The override is still honoured where it is the only answer.
+
+    A machine that legitimately keeps its corpora elsewhere must keep working;
+    in-folder only wins when there is something in the folder to win with.
+    """
+    external = project.parent / "elsewhere" / "casia"
+    _write(external / "README.txt", "external")
+    _rmtree(project / "data" / "raw" / "casia_fasd")
+    _rmtree(project / "weights")
+    _write(project / "configs" / "paths.local.yaml", yaml.safe_dump({
+        "workspace_root": str(project.parent), "project_root": str(project),
+        "raw_datasets": {"casia_fasd": str(external),
+                         "msu_mfsd": str(project / "data/raw/msu_mfsd"),
+                         "siw_mv2": str(project / "data/raw/siw_mv2")},
+        "model_cache": str(project / "weights"),
+        "work_root": str(project / "data" / "work"),
+        "processed_root": str(project / "data" / "processed"),
+        "package_root": str(project / "data" / "packages"),
+        "runs_root": str(project / "runs"),
+        "reports_root": str(project / "reports")}))
+
+    portable_paths.ensure_local_paths(project)
+
+    written = yaml.safe_load(
+        (project / "configs" / "paths.local.yaml").read_text(encoding="utf-8"))
+    assert Path(written["raw_datasets"]["casia_fasd"]) == external, (
+        "with no in-folder copy, the declared external root is the only answer")
+
+
+def test_every_write_root_is_forced_inside_the_project(project: Path) -> None:
+    """A write root left outside would put this run's outputs on the old machine."""
+    _write(project / "configs" / "paths.local.yaml", yaml.safe_dump({
+        "workspace_root": "/old", "project_root": str(project),
+        "raw_datasets": {"casia_fasd": "/old/casia", "msu_mfsd": "/old/msu",
+                         "siw_mv2": "/old/siw"},
+        "model_cache": "/old/models", "work_root": "/old/work",
+        "processed_root": "/old/processed", "package_root": "/old/packages",
+        "runs_root": "/old/runs", "reports_root": "/old/reports"}))
+
+    portable_paths.ensure_local_paths(project)
+
+    written = yaml.safe_load(
+        (project / "configs" / "paths.local.yaml").read_text(encoding="utf-8"))
+    for key in ("work_root", "processed_root", "package_root", "runs_root",
+                "reports_root"):
+        assert Path(written[key]).is_relative_to(project), f"{key} escaped the project"
 
 
 def test_the_builders_are_handed_the_generated_config(project: Path,
@@ -512,6 +573,52 @@ def test_the_builders_are_handed_the_generated_config(project: Path,
     m2_calls = [call for call in builders.calls if call["step"] == "m2_preprocess"]
     assert all(call["config_path"] == project / "configs" / "paths.local.yaml"
                for call in m2_calls)
+
+
+# --- G2. the SCRFD path inside a hashed config --------------------------------
+
+def test_the_m2_config_hash_does_not_move_when_the_detector_is_found_elsewhere() -> None:
+    """The declared path is inside config_hash, so only the lookup may move.
+
+    `scrfd_model_path` is an absolute path from the authoring machine and it is
+    hashed into `config_hash`, which names the M2 work tree and is stamped into
+    every manifest row. Repointing the string would change a frozen identity, so
+    resolution falls back to the in-folder copy instead and the string stays put.
+    """
+    from prism_fas.data.preprocess_m2 import M2Config, load_m2_config
+
+    declared = load_m2_config(REPO / "configs" / "data" / "preprocess_m2.yaml")
+    raw = yaml.safe_load(
+        (REPO / "configs" / "data" / "preprocess_m2.yaml").read_text(encoding="utf-8"))
+    raw["scrfd_model_path"] = "D:/no-such-machine/face_detectors/scrfd_10g_bnkps.onnx"
+    relocated = M2Config.model_validate(raw)
+
+    # The hash follows the DECLARED string, which is the point: it is an identity,
+    # not a location, and this test would fail if resolution leaked into it.
+    assert relocated.config_hash != declared.config_hash, (
+        "sanity: a different declared string is a different config")
+    assert declared.config_hash == load_m2_config(
+        REPO / "configs" / "data" / "preprocess_m2.yaml").config_hash
+
+    resolved = relocated.resolved_scrfd_model_path
+    if (REPO / "weights" / "face_detectors" / "scrfd_10g_bnkps.onnx").is_file():
+        assert resolved.is_file(), "an absent declared path must fall back in-folder"
+        assert resolved.parent == REPO / "weights" / "face_detectors"
+    else:
+        pytest.skip("no in-folder detector copy in this checkout")
+
+
+def test_nothing_that_hashes_the_config_uses_the_resolved_path() -> None:
+    """The resolved path must never reach an identity. Checked in the source."""
+    import inspect
+
+    from prism_fas.data import preprocess_m2
+
+    source = inspect.getsource(preprocess_m2.M2Config)
+    hash_body = source[source.index("def config_hash"):]
+    hash_body = hash_body[:hash_body.index("\n    @property", 1)
+                          if "\n    @property" in hash_body[1:] else len(hash_body)]
+    assert "resolved_scrfd_model_path" not in hash_body
 
 
 # --- H. relocation ------------------------------------------------------------

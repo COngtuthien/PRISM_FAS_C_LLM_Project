@@ -119,8 +119,20 @@ def build_assets(repo: Path) -> list[Asset]:
     """Enumerate every asset, resolved against this project root."""
     repo = Path(repo)
     paths = _paths_config(repo)
-    raw = dict(paths.get("raw_datasets") or {})
-    cache = Path(str(paths.get("model_cache", ""))) if paths.get("model_cache") else None
+    # The in-folder copy wins over the declared machine root, and is the ONLY
+    # source when no paths config travelled with the folder. Reading the config
+    # alone reported every pinned weight missing on a fresh copy, which is the
+    # exact machine this inventory exists to describe.
+    from prism_fas.pipeline import portable_paths
+
+    resolution = portable_paths.resolve(repo)
+    raw = {name: str(root.path) for name, root in resolution.raw.items()
+           if root.present and root.path is not None}
+    raw = {**dict(paths.get("raw_datasets") or {}), **raw}
+    cache = (resolution.weights.path
+             if resolution.weights and resolution.weights.present
+             and resolution.weights.path is not None
+             else (Path(str(paths["model_cache"])) if paths.get("model_cache") else None))
     assets: list[Asset] = []
 
     def in_git(name: str, relative: str, stage: str, *, rehearsal: bool, science: bool,

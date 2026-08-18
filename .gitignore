@@ -21,6 +21,15 @@ Dataset/
 dataset/
 model_cache/
 
+# The PORTABLE in-folder copies of the same licensed assets. These are physically
+# present so the folder can be copied to a GPU host as one unit, and they are
+# deliberately NOT tracked: ~34 GB of third-party video and frozen checkpoints
+# belong in the folder, never in the history. Git and physical portability are
+# different concerns (§31). Their identity is carried by
+# PORTABLE_TRANSFER_MANIFEST.json instead, which IS tracked.
+data/raw/
+weights/
+
 # Generated reports, run logs and validation evidence.
 # Inherited Version-B report trees (reports/m2 .. reports/m10, reports/paper, ...) stay
 # ignored: they are the frozen Version-B evidence and are referenced by identity, never

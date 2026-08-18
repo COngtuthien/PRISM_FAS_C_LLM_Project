@@ -271,16 +271,51 @@ def test_the_preflight_summary_names_the_intent_and_the_firewall() -> None:
     assert "reports/rehearsal/" in text
 
 
-def test_a_blocked_plan_lists_what_is_missing() -> None:
-    plan = runner.resolve(REPO, {"profile_supports_scientific_execution": True,
+def _scientific_plan(repo=REPO):
+    return runner.resolve(repo, {"profile_supports_scientific_execution": True,
                                  "profile_id": "cuda-cu129",
-                                 "gpu": {"available": True, "name": "NVIDIA GeForce RTX 5090",
+                                 "gpu": {"available": True,
+                                         "name": "NVIDIA GeForce RTX 5090",
                                          "driver_version": "580.88"}})
-    # The derived data trees are genuinely absent here, so the scientific plan
-    # must refuse rather than start and fail hours later.
+
+
+def test_absent_derived_trees_do_not_block_a_scientific_plan() -> None:
+    """They are what the run BUILDS, so requiring them up front never starts it.
+
+    This assertion used to be the opposite, written before preparation existed:
+    the plan refused because data/processed and data/packages were absent. On the
+    destination machine they are absent every time, and the step that creates them
+    runs after this gate — so the old rule blocked the run from ever producing
+    what the rule demanded.
+    """
+    plan = _scientific_plan()
+    generated = {"preprocessed_source_data", "source_packages", "gpat_pair_plan",
+                 "target_label_artifact"}
+    assert generated & {item["logical_name"]
+                        for item in plan.bundle["produced_by_the_run"]} == generated
+    assert plan.ready, plan.blockers
+    assert not plan.blockers
+
+
+def test_a_missing_operator_supplied_asset_still_blocks(tmp_path) -> None:
+    """The guarantee the old test was protecting, in its still-true form.
+
+    Preparation can derive data/processed from the raw corpora; it cannot invent
+    the raw corpora or a frozen weight. Those must still stop the run at the gate
+    rather than hours in.
+    """
+    empty = tmp_path / "PRISM_FAS_C_LLM_Project"
+    (empty / "configs").mkdir(parents=True)
+    (empty / "data").mkdir()
+    for name in ("runs", "reports", "state"):
+        (empty / name).mkdir()
+
+    plan = _scientific_plan(empty)
     assert not plan.ready
     assert plan.blockers
-    text = runner.preflight_summary(REPO, plan)
+    missing = {item["logical_name"] for item in plan.bundle["missing"]}
+    assert missing, "a folder with no raw data and no weights must name what it lacks"
+    text = runner.preflight_summary(empty, plan)
     assert "BLOCKED — nothing was executed" in text
     assert "MISSING" in text
 

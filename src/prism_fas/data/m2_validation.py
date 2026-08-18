@@ -7,6 +7,7 @@ import cv2, pyarrow.parquet as pq
 from prism_fas.data.manifests.leakage import find_target_leakage
 from prism_fas.data.manifests.resume import RunState
 from prism_fas.utils.core import sha256_file, git_commit, atomic_json_write
+from prism_fas.data.preprocess_m2 import resolve_detector_path
 
 EXPECTED={'source_frames':24,'source_crops':24,'target_frames':12,'target_crops':12,'preprocessing_failures':0,'completed_samples':36}
 def _check(checks:list,ident:str,category:str,description:str,expected:Any,actual:Any,severity='error',affected_samples=None,details=None):
@@ -19,7 +20,7 @@ def validate_full_profile(paths,cfg,output_root:Path)->dict:
     requires no legacy completed-index/run-state/M2A artifacts; it validates
     internal consistency of whatever the run actually produced.
     """
-    root=Path(output_root);manifests=root/'manifests';checks=[];tables={};model_hash=sha256_file(cfg.scrfd_model_path)
+    root=Path(output_root);manifests=root/'manifests';checks=[];tables={};model_hash=sha256_file(resolve_detector_path(cfg.scrfd_model_path))
     _check(checks,'config.hash','config','frozen config hash',cfg.config_hash,cfg.config_hash)
     _check(checks,'detector.hash','config','detector SHA256','5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91',model_hash)
     _check(checks,'detector.input','config','SCRFD input size',320,cfg.scrfd_input_size);_check(checks,'detector.threshold','config','threshold',.5,cfg.detection_threshold)
@@ -79,7 +80,7 @@ def validate_full_profile(paths,cfg,output_root:Path)->dict:
     return {'validation_version':'m2f1a-full-v1','profile':'full_preprocessing','output_root':str(root),'preprocessing_version':cfg.preprocessing_version,'preprocessing_config_hash':cfg.config_hash,'expected_config_hash':cfg.config_hash,'detector_model_sha256':model_hash,'expected_detector_model_sha256':'5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91','detector_input_size':cfg.scrfd_input_size,'detector_threshold':cfg.detection_threshold,'manifests':{k:len(v) for k,v in tables.items()},'completed_index':None,'run_state':{},'lock_state':'absent','crops_on_disk':len(on_disk),'failures_by_code':codes,'target_isolation':{'passed':not leaks and not token_hits,'matches':leaks,'token_matches':token_hits},'crop_integrity':{'checked':len(manifest_paths),'missing':missing,'sha_mismatch':mismatch,'unreadable':unreadable,'wrong_dimensions':dimensions,'orphans':orphans,'temporary':temporary,'passed':not (missing or mismatch or unreadable or dimensions or orphans or temporary)},'checks':checks,'errors':errors,'warnings':[],'passed':passed,'validated_at':datetime.now(timezone.utc).isoformat(),'git_commit':git_commit(paths.project_root)}
 def validate_m2(paths,cfg,output_root:Path|None=None)->dict:
     root=output_root or paths.work_root/'m2'/cfg.preprocessing_version/cfg.config_hash; manifests=root/'manifests';checks=[];errors=[]; tables={}
-    model_hash=sha256_file(cfg.scrfd_model_path)
+    model_hash=sha256_file(resolve_detector_path(cfg.scrfd_model_path))
     _check(checks,'config.hash','config','frozen config hash',cfg.config_hash,cfg.config_hash)
     _check(checks,'detector.hash','config','detector SHA256','5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91',model_hash)
     _check(checks,'detector.input','config','SCRFD input size',320,cfg.scrfd_input_size);_check(checks,'detector.threshold','config','threshold',.5,cfg.detection_threshold)

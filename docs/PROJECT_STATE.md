@@ -28,10 +28,10 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: PREPARATION_PIPELINE_COVERAGE_CLOSURE
-current_substage: derived-data preparation unit/integration coverage, and the three
-                  production defects it exposed — COMPLETE
-previous_milestone: FINAL_FULL_PATH_CUDA_PORTABILITY_ONE_FOLDER_DATA_CLOSURE
+current_milestone: PHYSICAL_ONE_FOLDER_ASSET_CLOSURE
+current_substage: raw datasets and frozen weights physically copied into the project;
+                  external-root dependency removed — COMPLETE
+previous_milestone: PREPARATION_PIPELINE_COVERAGE_CLOSURE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -580,7 +580,218 @@ final_full_path_closure:
   target_labels_opened: 0
   datasets_opened: 0
 
-# --- preparation pipeline coverage closure (this milestone) ------------------
+# --- physical one-folder asset closure (this milestone) ----------------------
+physical_asset_closure:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as asset/path/portability engineering
+
+  why_data_was_empty: >-
+    INTENTIONAL EXTERNAL ROOTS, never a deletion. `data/` and `weights/` were
+    never tracked by Git and never populated: every large input was resolved
+    through absolute paths in the Git-ignored configs/paths.local.yaml, pointing
+    at D:\AI on IOT\Anti_spoofing\Dataset and \model_cache. The project-relative
+    layout was added later by portable_paths.py, but nothing ever copied the
+    bytes in, so resolution silently kept falling back to `paths_local` — and the
+    bundle manifest reported present=true from those external paths, which is
+    why the folder looked ready while being physically bound to this machine.
+  version_b_was_never_a_data_source: true   # the raw roots are a shared external
+                                            # Dataset/ tree, not inside Version B
+
+  sources_classified:
+    casia_fasd: {class: A_ORIGINAL_RAW, source: "D:/AI on IOT/Anti_spoofing/Dataset/casia-fasd"}
+    msu_mfsd:   {class: A_ORIGINAL_RAW, source: "D:/AI on IOT/Anti_spoofing/Dataset/MSU-MFSD"}
+    siw_mv2:    {class: A_ORIGINAL_RAW, source: "D:/AI on IOT/Anti_spoofing/Dataset/SiW-Mv2"}
+    weights:    {class: A_ORIGINAL_RAW, source: "D:/AI on IOT/Anti_spoofing/model_cache"}
+  version_b_artifacts_copied: 0     # policy §4: raw only; no B processed/checkpoint/result
+
+  copied_in:
+    casia_fasd: {path: data/raw/casia_fasd, files: 123533, bytes: 2174621978,
+                 verdict: IDENTICAL,
+                 evidence: "count + total bytes + path/size manifest digest equal;
+                            SHA256 of all non-image files and every 50th image
+                            (2471 files) — a sampled claim, stated as such"}
+    msu_mfsd:   {path: data/raw/msu_mfsd, files: 607, bytes: 11171264770,
+                 verdict: IDENTICAL,
+                 evidence: "SHA256 of every one of the 606 copied files"}
+    siw_mv2:    {path: data/raw/siw_mv2, files: 1702, bytes: 20394222613,
+                 verdict: IDENTICAL,
+                 evidence: "SHA256 of every one of the 1702 files"}
+    weights:    {path: weights/, files: 11, bytes: 2850705424,
+                 verdict: IDENTICAL,
+                 evidence: "SHA256 source == destination == frozen pin, all 11"}
+  copy_method: robocopy physical copy; no symlink, junction or shortcut
+  sources_left_intact: true         # COPY only; nothing moved or deleted
+  msu_split_archives_excluded: >-
+    the MSU source root also holds MSU-MFSD-Publish.zip.001..016 (10.33 GB), which
+    are the compressed form of the extracted tree that was copied. The adapter
+    reads the extracted tree, so carrying both would duplicate 10 GB for nothing.
+
+  frozen_weight_identity_mismatch: 0
+  weights_required_and_present:
+    siglip2_frozen_global_tower: {path: weights/pretrained/m9/siglip2, files: 7, stage: C7}
+    convnextv2_atto_local_branch: {path: weights/backbones/model.safetensors, stage: C7}
+    adaface_identity_backbone: {path: weights/face_identity/pretrained_model/model.pt, stage: C4}
+    scrfd_face_detector: {path: weights/face_detectors/scrfd_10g_bnkps.onnx, stage: C6}
+    facexformer_parsing: {path: weights/face_geometry/ckpts/model.pt, stage: C6}
+  weight_list_derived_from: code and configs, not from the names in the request
+
+  # --- the part copying alone did NOT fix -----------------------------------
+  production_fixes: 4
+  fixes:
+    - id: stale_paths_config_kept_pointing_outside
+      was: >-
+        ensure_local_paths treated any config naming this project_root as
+        authoritative. After the copy it therefore kept resolving the datasets and
+        weights on the machine they came from, leaving the folder physically
+        self-contained and functionally not.
+      now: >-
+        a config is also stale when an in-folder copy exists and it points that
+        root elsewhere. The in-folder copy wins; a root with NO in-folder copy
+        keeps its declared external value, so a machine that legitimately stores
+        corpora elsewhere still works; write roots are always inside the project.
+    - id: assets_read_the_config_instead_of_the_resolver
+      was: >-
+        build_assets read model_cache and raw_datasets straight from
+        paths.local.yaml. On a fresh copy that file does not exist, so the cache
+        was None and all five pinned weights were reported MISSING — on exactly
+        the machine the inventory exists to describe.
+      now: resolved through portable_paths first, config as fallback
+    - id: bundle_preflight_required_what_the_run_produces
+      severity: WOULD_HAVE_BLOCKED_THE_GPU_HOST
+      was: >-
+        bundle_readiness counted data/processed, data/packages, gpat_pairs and the
+        evaluation-only label artifact as prerequisites. They are GENERATED_BY_
+        PIPELINE, absent on every fresh copy, so `python train.py` on the GPU
+        machine would have returned BLOCKED before ever reaching preparation —
+        the step that creates them.
+      now: >-
+        assets whose origin is GENERATED_BY_PIPELINE are reported as
+        `produced_by_the_run` and never counted against readiness. Each is still
+        gated where it matters: preparation blocks with MISSING_RAW_DATA if it
+        cannot build, and every C4-C13 stage re-checks its own inputs.
+
+    - id: scrfd_path_hard_coded_inside_a_hashed_config
+      severity: WOULD_HAVE_FAILED_AT_THE_FIRST_PREPROCESSING_STEP
+      found_by: the §17 external-reference audit, after the copy
+      was: >-
+        configs/data/preprocess_m2.yaml line 10 hard-codes
+        scrfd_model_path: D:/AI on IOT/.../model_cache/face_detectors/scrfd_10g_bnkps.onnx.
+        M2 opens it, so preprocessing on the destination machine would die on a
+        path that does not exist there.
+      why_the_obvious_fix_was_refused: >-
+        that string is inside M2Config.config_hash, which names the work tree and
+        is stamped into every M2 manifest row as preprocessing_config_hash.
+        Editing the YAML would change a frozen scientific identity, which this
+        task does not authorize.
+      now: >-
+        the declared string is untouched and only the LOOKUP moves:
+        M2Config.resolved_scrfd_model_path falls back to the in-folder
+        weights/face_detectors/ copy when the declared path is absent. Every site
+        that opens the file uses it; nothing that hashes uses it.
+      identity_evidence:
+        config_hash_before: 8f1e68ef5bc646a24f5b636261c7741c08b79bc9ba46904e3490f111d348c5dd
+        config_hash_after: 8f1e68ef5bc646a24f5b636261c7741c08b79bc9ba46904e3490f111d348c5dd
+        yaml_bytes_changed: false
+        detector_bytes_identical: true      # both copies sha256 5838f7fe...
+        matches_frozen_pin: true
+      simulated_destination: >-
+        with the declared path pointed at a non-existent machine, resolution
+        returns the in-folder copy and its sha256 is exactly the frozen pin.
+      first_attempt_broke_nine_tests: >-
+        the resolver was first added as an M2Config property and the consumers
+        were switched to `cfg.resolved_scrfd_model_path`. Several inherited call
+        sites pass a duck-typed stand-in config that defines `scrfd_model_path`
+        and nothing else, so seven test_full_profile_validation and two
+        test_m2_validation_profile_crop_paths cases died with AttributeError.
+        Caught by the broad regression, not by the focused suite. The resolver is
+        now a module-level `resolve_detector_path(declared)` taking the path
+        rather than the config, which works for both shapes; the property remains
+        as a convenience. No test was edited to accommodate it.
+
+  # --- verification ---------------------------------------------------------
+  active_external_data_dependencies: 0
+  active_external_weight_dependencies: 0
+  version_b_runtime_dependency: 0
+  version_b_independence_evidence: >-
+    with checks.VERSION_B_PATH pointed at a non-existent drive, the GPU scientific
+    plan resolves ready=True first_stage=C4 with no blockers, and the C0/C1
+    adapters pass — they read the committed reports/c0/VERSION_B_INTEGRITY_
+    SNAPSHOT.json, not the Version-B repository. The only live reader is
+    check_version_b_integrity, which belongs to `--profile validate` alone.
+  version_b_caveat: >-
+    `python train.py --profile validate` WILL report version_b_integrity FAIL on a
+    host without Version B. That is correct and intended — that command audits the
+    CLAUDE.md invariant and cannot verify an absent repository — and it is not on
+    the normal workflow. Version B was not modified, moved or deleted.
+
+  relocation_test:
+    method: same resolver, different absolute root, no .venv, no paths.local.yaml
+    raw_and_weights_resolved: in_folder for all four roots
+    assets_resolving_outside: 0
+    generated_config_roots_inside_project: 10 of 10
+    original_D_path_present_in_generated_config: false
+  bundle_preflight:
+    cpu_rehearsal: {ready: true, required: 16, present: 16}
+    gpu_scientific_full: {ready: true, required: 24, present: 24}
+    produced_by_the_run: [preprocessed_source_data, source_packages, gpat_pair_plan,
+                          target_label_artifact]
+    bundle_ready_for_full: "YES"
+    blockers: []
+
+  manifests:
+    bundle: PORTABLE_BUNDLE_MANIFEST.json    # now records physically_in_folder,
+                                             # file_count, size_bytes, identity_relevant
+    transfer: PORTABLE_TRANSFER_MANIFEST.json  # NEW; verifies a copied folder
+                                               # before training
+    transfer_contents: >-
+      full SHA256 for 23 identity-critical files (the 11 weight files and the
+      frozen configs/locks) and 5 critical files; path+size manifest digests for
+      the three datasets, which is a corruption check rather than a byte-identity
+      claim and says so.
+
+  sizes_gb:
+    casia_fasd: 2.03
+    msu_mfsd: 10.4
+    siw_mv2: 18.99
+    weights: 2.65
+    venv: 1.2
+    total_folder: 35.32
+    recommended_transfer_excluding_venv: 34.12
+  safe_to_exclude_from_transfer: [.venv, __pycache__, .pytest_cache,
+                                  "data/raw/msu_mfsd/*.zip.0NN split archives"]
+  git_bytes_added: 0        # data/raw/ and weights/ are gitignored; 8 files tracked
+  license_review: >-
+    UNKNOWN, not PROHIBITED. CASIA-FASD, MSU-MFSD and SiW-Mv2 are research
+    datasets normally obtained under a signed academic agreement, and no licence
+    metadata travels in the trees. This is local machine-to-machine packaging and
+    nothing was uploaded anywhere. Whether the destination machine and its
+    operator are covered by the existing agreement is the user's call, not a
+    technical one — flagged, not decided here.
+
+  tests:
+    broad_regression_exact_command: >-
+      python -m pytest -q --no-header -p no:cacheprovider
+      --continue-on-collection-errors
+    broad_regression: {passed: 1932, failed: 7, skipped: 101, seconds: 540.75}
+    previous_broad_regression: {passed: 1930, failed: 7, skipped: 101}
+    inherited_failure_set_identical: true    # test-id by test-id
+    new_unexplained_failures: 0
+    skipped_drift: 0
+    pipeline_suite: {passed: 476, failed: 0, skipped: 0}
+    preparation_suite: {passed: 54, failed: 0, skipped: 0}
+    tests_weakened_to_obtain_green: 0
+    tests_replaced_because_their_contract_changed: 2
+
+  gpu_seconds: 0
+  modal_usage: 0
+  gemini_calls: 0
+  real_target_scoring: 0
+  target_labels_opened: 0
+  real_preparation_executed: false     # §25: not run in this task
+
+# --- preparation pipeline coverage closure (previous milestone) --------------
 preparation_coverage_closure:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -1025,16 +1236,16 @@ historical_live_provider_calls:
 
 tests:
   latest_exact_command: python -m pytest -q --no-header -p no:cacheprovider --continue-on-collection-errors
-  passed: 1927
+  passed: 1932
   failed: 7
   skipped: 101
-  measured_at_utc: 2026-08-17   # after the preparation coverage closure
+  measured_at_utc: 2026-08-18   # after the physical one-folder asset closure
   milestone_suites: {C0: 32, C1: 138, C2: 43, C2B: 41, C2C: 54, C3: 156, C7: 19,
                      pipeline: 313}
   new_tests_this_milestone: 97   # 26 search engine + 35 portability/contracts +
                                  # 19 decision contract + 17 pipeline
   pipeline_suite_exact_command: python -m pytest tests/pipeline -q --no-header -p no:cacheprovider
-  pipeline_suite: {passed: 471, failed: 0, skipped: 0}
+  pipeline_suite: {passed: 476, failed: 0, skipped: 0}
   c7_suite_exact_command: python -m pytest tests/c7 -q --no-header -p no:cacheprovider
   c7_suite: {passed: 19, failed: 0, skipped: 0}
   pipeline_offline: >-
@@ -1184,8 +1395,17 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  USER REVIEW before copying the complete portable bundle to an external NVIDIA CUDA
-  machine and running exactly `python train.py`. Nothing else is authorized.
+  COPY THE COMPLETE PORTABLE VERSION-C PROJECT FOLDER TO THE EXTERNAL NVIDIA CUDA
+  MACHINE AND RUN: `python train.py`
+
+  Transfer ~34.12 GB and EXCLUDE `.venv` (machine, OS and CUDA specific; the
+  bootstrap builds a fresh one). `configs/paths.local.yaml` need not travel — it is
+  regenerated from wherever the folder lands. Verify the copy against
+  PORTABLE_TRANSFER_MANIFEST.json before starting.
+
+  Nothing else is authorized. What follows below was true before this milestone and
+  still is: no CUDA hardware has ever been validated, no reports/full/c4..c13
+  artifact has ever been written, and the real full-data preparation has never run.
 
   What review is being asked to confirm: C4-C13 now have a real production FULL code
   path with zero placeholders; C8 under full schedules all 42 declared rows of the

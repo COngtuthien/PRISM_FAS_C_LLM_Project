@@ -14,6 +14,39 @@ class M2Config(BaseModel):
     image_extensions:list[str]; video_decoder_priority:list[str]; scrfd_model_path:Path; scrfd_input_size:int; detection_threshold:float; detector:dict[str,Any]=Field(default_factory=dict); face_selection_policy:Literal["largest_valid_face"]; min_face_size:int; crop_padding:float; crop_output_size:int; output_image_format:Literal["jpg","png"]; jpeg_quality:int; materialize_frames:bool; overwrite_policy:str; resume_policy:str; failure_policy:str; hash_policy:str; worker_count:int; device:str
     @property
     def config_hash(self)->str:return stable_json_hash(self.model_dump(mode="json"))
+
+    @property
+    def resolved_scrfd_model_path(self) -> Path:
+        return resolve_detector_path(self.scrfd_model_path)
+
+
+def resolve_detector_path(declared: Path | str) -> Path:
+    """Where the SCRFD file actually is, without changing what was declared.
+
+    `scrfd_model_path` is an absolute path from the machine the config was written
+    on, and it is inside `M2Config.config_hash` — which names the M2 work tree and
+    is stamped into every manifest row as `preprocessing_config_hash`. Editing the
+    string would change a frozen identity, so it is left exactly as it is and only
+    the LOOKUP moves: when the declared file is absent, the in-folder `weights/`
+    copy is used.
+
+    This is safe because the detector's scientific identity is its content, not its
+    location. `detector_model_sha256` is recorded from the bytes and validated
+    against the frozen pin, and the in-folder copy is byte-identical to the
+    declared one. Without this, a copied folder fails on the destination machine at
+    the first preprocessing step.
+
+    Takes the declared path rather than the config, because several call sites pass
+    a duck-typed stand-in that has `scrfd_model_path` and nothing else.
+    """
+    path = Path(declared)
+    if path.exists():
+        return path
+    for root in (Path.cwd(), Path(__file__).resolve().parents[3]):
+        candidate = root / "weights" / "face_detectors" / path.name
+        if candidate.exists():
+            return candidate
+    return path
 def load_m2_config(path:Path)->M2Config:
     return M2Config.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 def uniform_indices(count:int, frames:int, start:float=0,end:float=0)->list[int]:

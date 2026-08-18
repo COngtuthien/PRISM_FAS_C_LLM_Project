@@ -80,7 +80,7 @@ def plan(config: Path = typer.Option(PATHS, "--config", exists=True, dir_okay=Fa
          preprocess_config: Path = typer.Option(PREPROCESS, "--preprocess-config", exists=True, dir_okay=False),
          resume: bool = typer.Option(True, "--resume/--no-resume")) -> None:
     """Full dry-run before ~6800 frames of processing. Writes nothing."""
-    from prism_fas.data.preprocess_m2 import load_m2_config
+    from prism_fas.data.preprocess_m2 import load_m2_config, resolve_detector_path
     paths = load_paths(config); layout = _layout(); cfg = load_m2_config(preprocess_config)
     audit = _audit(paths, layout)
     profile, root = _profile_root(paths, cfg)
@@ -135,7 +135,7 @@ def extract(config: Path = typer.Option(PATHS, "--config", exists=True, dir_okay
                "output_root": str(root), "resume": resume, "written": []})
         return
     layout_paths = M2OutputLayout.from_root(root)
-    detector = SCRFDDetector(cfg.scrfd_model_path, cfg.scrfd_input_size,
+    detector = SCRFDDetector(resolve_detector_path(cfg.scrfd_model_path), cfg.scrfd_input_size,
                              cfg.detector.get("provider", "CPUExecutionProvider"))
     started = time.time(); totals = {"selected": 0, "successful": 0, "failed": 0, "frames": 0, "crops": 0}
     codes: dict[str, int] = {}
@@ -149,7 +149,7 @@ def extract(config: Path = typer.Option(PATHS, "--config", exists=True, dir_okay
             reports_root=layout_paths.reports_root, logs_root=layout_paths.logs_root,
             run_id=f"m10-target-eval-v2", dataset="siw_mv2", dataset_role="target",
             preprocessing_version=cfg.preprocessing_version, preprocessing_config_hash=cfg.config_hash,
-            detector_model_path=cfg.scrfd_model_path, detector_model_sha256=sha256_file(cfg.scrfd_model_path),
+            detector_model_path=resolve_detector_path(cfg.scrfd_model_path), detector_model_sha256=sha256_file(resolve_detector_path(cfg.scrfd_model_path)),
             detector_input_size=cfg.scrfd_input_size, detector_threshold=cfg.detection_threshold,
             all_records=limit_records is None, record_limit=limit_records, sample_limit=None,
             resume=resume, dry_run=False, partial_full_profile=limit_records is not None,

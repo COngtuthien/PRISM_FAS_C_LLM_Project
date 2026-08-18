@@ -2,119 +2,181 @@
   "blockers": [],
   "bundle_ready_for_full": "YES",
   "counts": {
-    "created_during_run": 4,
+    "created_during_run": 3,
     "must_copy": 4,
+    "optional_engineering_only": 1,
     "rebuildable": 3,
-    "target_stage_only": 1
+    "target_stage_only": 1,
+    "unclassified": 0
   },
   "items": [
     {
       "classification": "MUST_COPY",
       "description": "code, configs, frozen C3 recipe banks, locks and all committed evidence",
+      "file_count": null,
+      "identity_relevant": false,
       "name": "repository",
       "needed_from_stage": "C0",
       "path": ".",
+      "physically_in_folder": true,
+      "portability_policy": "MUST_COPY",
       "present": true,
-      "rebuild": null
+      "rebuild": null,
+      "size_bytes": null
     },
     {
       "classification": "MUST_COPY",
       "description": "the CASIA-FASD raw dataset",
+      "file_count": 123533,
+      "identity_relevant": false,
       "name": "raw_casia_fasd",
       "needed_from_stage": "C4",
       "path": "data/raw/casia_fasd",
+      "physically_in_folder": true,
+      "portability_policy": "MUST_COPY",
       "present": true,
-      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it",
+      "size_bytes": 2174621978
     },
     {
       "classification": "MUST_COPY",
       "description": "the MSU-MFSD raw dataset",
+      "file_count": 607,
+      "identity_relevant": false,
       "name": "raw_msu_mfsd",
       "needed_from_stage": "C4",
       "path": "data/raw/msu_mfsd",
+      "physically_in_folder": true,
+      "portability_policy": "MUST_COPY",
       "present": true,
-      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it",
+      "size_bytes": 11171264770
     },
     {
       "classification": "NOT_REQUIRED_UNTIL_TARGET_STAGE",
       "description": "the SIW-MV2 raw dataset (held-out target; not opened before C10)",
+      "file_count": 1702,
+      "identity_relevant": false,
       "name": "raw_siw_mv2",
       "needed_from_stage": "C10",
       "path": "data/raw/siw_mv2",
+      "physically_in_folder": true,
+      "portability_policy": "NOT_REQUIRED_UNTIL_TARGET_STAGE",
       "present": true,
-      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it"
+      "rebuild": "copy the dataset into this path, or point configs/paths.local.yaml at it",
+      "size_bytes": 20394222613
     },
     {
       "classification": "MUST_COPY",
       "description": "the pinned SigLIP2, ConvNeXt, AdaFace, SCRFD and FaceXFormer weights",
+      "file_count": 11,
+      "identity_relevant": false,
       "name": "weights",
       "needed_from_stage": "C4",
       "path": "weights",
+      "physically_in_folder": true,
+      "portability_policy": "MUST_COPY",
       "present": true,
-      "rebuild": "copy the model cache into ./weights, or point configs/paths.local.yaml at it"
+      "rebuild": "copy the model cache into ./weights, or point configs/paths.local.yaml at it",
+      "size_bytes": 2850705424
     },
     {
       "classification": "REBUILDABLE_FROM_COPIED_RAW",
       "description": "the derived processed tree",
+      "file_count": null,
+      "identity_relevant": false,
       "name": "derived_processed",
       "needed_from_stage": "C4",
       "path": "data/processed",
+      "physically_in_folder": false,
+      "portability_policy": "REBUILDABLE_FROM_COPIED_RAW",
       "present": false,
-      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines",
+      "size_bytes": null
     },
     {
       "classification": "REBUILDABLE_FROM_COPIED_RAW",
       "description": "the derived packages tree",
+      "file_count": null,
+      "identity_relevant": false,
       "name": "derived_packages",
       "needed_from_stage": "C4",
       "path": "data/packages",
+      "physically_in_folder": false,
+      "portability_policy": "REBUILDABLE_FROM_COPIED_RAW",
       "present": false,
-      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines",
+      "size_bytes": null
     },
     {
       "classification": "REBUILDABLE_FROM_COPIED_RAW",
       "description": "the derived gpat_pairs tree",
+      "file_count": null,
+      "identity_relevant": false,
       "name": "derived_gpat_pairs",
       "needed_from_stage": "C4",
       "path": "data/packages/gpat_pairs",
+      "physically_in_folder": false,
+      "portability_policy": "REBUILDABLE_FROM_COPIED_RAW",
       "present": false,
-      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines"
+      "rebuild": "built automatically by `python train.py` from the raw datasets; never copied between machines",
+      "size_bytes": null
     },
     {
       "classification": "CREATED_DURING_RUN",
       "description": "the runs tree, written by the run itself",
+      "file_count": 30,
+      "identity_relevant": false,
       "name": "runs",
       "needed_from_stage": "C0",
       "path": "runs",
+      "physically_in_folder": true,
+      "portability_policy": "CREATED_DURING_RUN",
       "present": true,
-      "rebuild": null
+      "rebuild": null,
+      "size_bytes": 22554736
     },
     {
       "classification": "CREATED_DURING_RUN",
       "description": "the reports tree, written by the run itself",
+      "file_count": 412,
+      "identity_relevant": false,
       "name": "reports",
       "needed_from_stage": "C0",
       "path": "reports",
+      "physically_in_folder": true,
+      "portability_policy": "CREATED_DURING_RUN",
       "present": true,
-      "rebuild": null
+      "rebuild": null,
+      "size_bytes": 4860197
     },
     {
       "classification": "CREATED_DURING_RUN",
       "description": "the state tree, written by the run itself",
+      "file_count": 3,
+      "identity_relevant": false,
       "name": "state",
       "needed_from_stage": "C0",
       "path": "state",
+      "physically_in_folder": true,
+      "portability_policy": "CREATED_DURING_RUN",
       "present": true,
-      "rebuild": null
+      "rebuild": null,
+      "size_bytes": 1363006
     },
     {
-      "classification": "CREATED_DURING_RUN",
-      "description": "the venv tree, written by the run itself",
+      "classification": "OPTIONAL_ENGINEERING_ONLY",
+      "description": "this machine's interpreter; EXCLUDE from the transfer",
+      "file_count": 37843,
+      "identity_relevant": false,
       "name": "venv",
       "needed_from_stage": "C0",
       "path": ".venv",
+      "physically_in_folder": true,
+      "portability_policy": "OPTIONAL_ENGINEERING_ONLY",
       "present": true,
-      "rebuild": null
+      "rebuild": "recreated automatically by bootstrap.py on the destination machine",
+      "size_bytes": 1289324758
     }
   ],
   "note": "a REBUILDABLE item absent with its raw source present is not a blocker: `python train.py` builds it before C4 and resumes an interrupted build rather than restarting it",
@@ -149,36 +211,36 @@
     "policy": "the in-folder location wins when it exists; otherwise the absolute root from configs/paths.local.yaml is used",
     "raw_datasets": {
       "casia_fasd": {
-        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/casia-fasd",
+        "declared": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/data/raw/casia_fasd",
         "identity_relevant": false,
         "name": "casia_fasd",
-        "origin": "paths_local",
-        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\casia-fasd",
+        "origin": "in_folder",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\data\\raw\\casia_fasd",
         "present": true
       },
       "msu_mfsd": {
-        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/MSU-MFSD",
+        "declared": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/data/raw/msu_mfsd",
         "identity_relevant": false,
         "name": "msu_mfsd",
-        "origin": "paths_local",
-        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\MSU-MFSD",
+        "origin": "in_folder",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\data\\raw\\msu_mfsd",
         "present": true
       },
       "siw_mv2": {
-        "declared": "D:/AI on IOT/Anti_spoofing/Dataset/SiW-Mv2",
+        "declared": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/data/raw/siw_mv2",
         "identity_relevant": false,
         "name": "siw_mv2",
-        "origin": "paths_local",
-        "path": "D:\\AI on IOT\\Anti_spoofing\\Dataset\\SiW-Mv2",
+        "origin": "in_folder",
+        "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\data\\raw\\siw_mv2",
         "present": true
       }
     },
     "weights": {
-      "declared": "D:/AI on IOT/Anti_spoofing/model_cache",
+      "declared": "D:/AI on IOT/Anti_spoofing/PRISM_FAS_C_LLM_Project/weights",
       "identity_relevant": false,
       "name": "model_cache",
-      "origin": "paths_local",
-      "path": "D:\\AI on IOT\\Anti_spoofing\\model_cache",
+      "origin": "in_folder",
+      "path": "D:\\AI on IOT\\Anti_spoofing\\PRISM_FAS_C_LLM_Project\\weights",
       "present": true
     }
   },

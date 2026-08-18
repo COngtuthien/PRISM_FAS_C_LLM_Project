@@ -7,7 +7,7 @@ import cv2, yaml
 import pyarrow.parquet as pq
 from prism_fas.config.models import DatasetDefinition, load_paths
 from prism_fas.data.adapters import adapter_for
-from prism_fas.data.preprocess_m2 import load_m2_config
+from prism_fas.data.preprocess_m2 import load_m2_config, resolve_detector_path
 from prism_fas.data.manifests.leakage import find_target_leakage
 from prism_fas.data.manifests.parquet_writer import write_parquet_atomic
 from prism_fas.data.manifests.schemas import MODELS
@@ -32,7 +32,7 @@ def _relative(record: Any, raw_root: Path) -> str:
     return record.source_path.relative_to(raw_root).as_posix()
 def _verify(rows: dict[str,list[dict[str,Any]]], m2a_root: Path, cfg: Any, report: dict[str,Any]) -> None:
     allids=set(); errors=[]
-    expected_model=sha256_file(cfg.scrfd_model_path)
+    expected_model=sha256_file(resolve_detector_path(cfg.scrfd_model_path))
     for dataset,items in rows.items():
         for row in items:
             sid=row.get("sample_id"); prefix=f"{dataset}:{sid}"
@@ -78,7 +78,7 @@ def migrate_m2a(config_path:Path, preprocess_path:Path, m2a_root:Path, output_ro
     leakage=find_target_leakage(target_frames)+find_target_leakage(target_crops)
     isolation={"passed":not leakage,"violations":leakage,"target_rows":len(target_frames)}; atomic_json_write(reports/"target_isolation_report.json",isolation)
     if leakage: raise ValueError(f"target leakage detected: {leakage}")
-    output_root.mkdir(parents=True,exist_ok=True); timestamp=datetime.now(timezone.utc).isoformat(); modelhash=sha256_file(cfg.scrfd_model_path)
+    output_root.mkdir(parents=True,exist_ok=True); timestamp=datetime.now(timezone.utc).isoformat(); modelhash=sha256_file(resolve_detector_path(cfg.scrfd_model_path))
     metadata={"manifest_schema_version":"m2b1a-v1","preprocessing_version":cfg.preprocessing_version,"preprocessing_config_hash":cfg.config_hash,"detector_model_sha256":modelhash,"detector_input_size":str(cfg.scrfd_input_size),"detector_threshold":str(cfg.detection_threshold),"git_commit":_git(project),"created_at":timestamp,"dataset_roles":"casia_fasd,msu_mfsd=source;siw_mv2=target"}
     collections={"source_frames":source_frames,"source_crops":source_crops,"target_frames":target_frames,"target_crops":target_crops,"preprocessing_failures":failures}
     output={}
