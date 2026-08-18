@@ -30,7 +30,7 @@
   "execution_context": "rehearsal",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T16:01:51.943952Z",
+  "generated_at_utc": "2026-08-18T05:38:21.428846Z",
   "mode": "EXECUTE_ROWS",
   "note": "a bounded sample of the preregistered matrix, run on fixtures to exercise the per-run artifact contract. No scientific comparison is possible from these numbers (L.1)",
   "profile_config": "configs/execution/rehearsal.yaml",

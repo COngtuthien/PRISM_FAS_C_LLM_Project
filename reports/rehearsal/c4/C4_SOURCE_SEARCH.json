@@ -165,10 +165,10 @@
   "engineering_only": true,
   "execution_profile": "rehearsal",
   "expansion_policy": "expanding a candidate set or starting a second pass is USER_APPROVAL_REQUIRED (§15.2.2)",
-  "finished_at_utc": "2026-08-17T16:00:37.731865Z",
+  "finished_at_utc": "2026-08-18T05:37:13.290756Z",
   "finite_valid_trials": 9,
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T16:00:37.732330Z",
+  "generated_at_utc": "2026-08-18T05:37:13.291260Z",
   "leaderboard": [
     {
       "artifacts": [],
@@ -191,6 +191,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -242,6 +243,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -271,6 +273,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -322,6 +325,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -351,6 +355,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -402,6 +407,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -431,6 +437,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -482,6 +489,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -511,6 +519,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -554,7 +563,7 @@
     "low_frequency_geometry_drift",
     "outside_mask_error"
   ],
-  "started_at_utc": "2026-08-17T16:00:37.720918Z",
+  "started_at_utc": "2026-08-18T05:37:13.281609Z",
   "status": "COMPLETED",
   "tie_break": "canonical_config_sha256_ascending",
   "tie_break_trace": [

@@ -1,16 +1,16 @@
 {
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "bootstrap": {
-    "bootstrap_mean_delta": 0.03815991471307894,
+    "bootstrap_mean_delta": 0.051874763848950206,
     "bootstrap_plan_identity": "cb85e69b33cb3c60e26067af64fc7a12b22afee6bd7bc472ba13f48d7ca970e3",
-    "bootstrap_std_delta": 0.12381821204174223,
-    "ci_high": 0.25,
-    "ci_low": -0.20084041625803634,
+    "bootstrap_std_delta": 0.11590252731141507,
+    "ci_high": 0.2782643160932633,
+    "ci_low": -0.17274436090225562,
     "confidence_level": 0.95,
     "interval": "percentile",
     "n_units": 40,
-    "observed_delta": 0.050000000000000044,
-    "p_value": 0.75,
+    "observed_delta": 0.04999999999999993,
+    "p_value": 0.6875,
     "paired": true,
     "schema_version": "m10-bootstrap-v1",
     "seed_material_sha256": "f465b4cbd355249d1d43d3749ee1637de7702a2689bdedbc64671c627b924a9c",
@@ -28,7 +28,7 @@
   },
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T16:01:52.921094Z",
+  "generated_at_utc": "2026-08-18T05:38:22.337674Z",
   "holm": {
     "adjusted": {
       "C-H1": 0.03,

@@ -304,10 +304,10 @@
   "engineering_only": true,
   "execution_profile": "rehearsal",
   "expansion_policy": "expanding a candidate set or starting a second pass is USER_APPROVAL_REQUIRED (§15.2.2)",
-  "finished_at_utc": "2026-08-17T16:01:51.825029Z",
+  "finished_at_utc": "2026-08-18T05:38:21.312197Z",
   "finite_valid_trials": 20,
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T16:01:51.826263Z",
+  "generated_at_utc": "2026-08-18T05:38:21.313542Z",
   "leaderboard": [
     {
       "artifacts": [],
@@ -335,6 +335,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -391,6 +392,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -425,6 +427,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -481,6 +484,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -515,6 +519,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -571,6 +576,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -605,6 +611,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -660,6 +667,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -694,6 +702,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -748,6 +757,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -792,6 +802,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -826,6 +837,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -882,6 +894,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -916,6 +929,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -970,6 +984,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -1004,6 +1019,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -1058,6 +1074,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -1092,6 +1109,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -1146,6 +1164,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -1180,6 +1199,7 @@
       },
       "notes": [
         "deterministic analytic objective; an engineering probe of the search algorithm and never a scientific measurement",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -1227,6 +1247,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "62d0022507e732ba89618845fab2c63fec2b7b07f6817b2d541a4f500f459d7b",
@@ -1263,7 +1284,7 @@
     "mean_domain_ECE",
     "epoch"
   ],
-  "started_at_utc": "2026-08-17T16:01:51.793946Z",
+  "started_at_utc": "2026-08-18T05:38:21.288468Z",
   "status": "COMPLETED",
   "tie_break": "canonical_config_sha256_ascending",
   "tie_break_trace": [

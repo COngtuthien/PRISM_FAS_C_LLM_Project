@@ -36,7 +36,7 @@
   },
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-17T16:01:52.960298Z",
+  "generated_at_utc": "2026-08-18T05:38:22.388354Z",
   "mode": "ARTIFACT_INTEGRITY",
   "problems": [],
   "profile_config": "configs/execution/rehearsal.yaml",

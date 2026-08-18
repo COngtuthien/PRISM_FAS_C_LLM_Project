@@ -448,7 +448,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T16:00:38.033682Z",
+  "finished_at_utc": "2026-08-18T05:37:13.549766Z",
   "mandatory_full_outputs": "per-arm and per-recipe route render manifests, synthetic candidate identities, failures, C5_ACCEPTANCE",
   "notes": [],
   "phase": "scientific",
@@ -461,7 +461,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C5",
-  "started_at_utc": "2026-08-17T16:00:37.754054Z",
+  "started_at_utc": "2026-08-18T05:37:13.306961Z",
   "substages": [],
   "title": "Route rendering and synthetic candidates",
   "validate_checks": [

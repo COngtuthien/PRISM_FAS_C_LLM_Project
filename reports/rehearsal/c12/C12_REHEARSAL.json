@@ -380,7 +380,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T16:01:52.937843Z",
+  "finished_at_utc": "2026-08-18T05:38:22.354286Z",
   "mandatory_full_outputs": "frame and video metrics, bootstrap and Holm, hypotheses, scorer isolation and unlock evidence, C12_ACCEPTANCE",
   "notes": [],
   "phase": "target-eval",
@@ -393,7 +393,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C12",
-  "started_at_utc": "2026-08-17T16:01:52.492731Z",
+  "started_at_utc": "2026-08-18T05:38:22.016468Z",
   "substages": [],
   "title": "Scoring, statistics and hypothesis tests",
   "validate_checks": [

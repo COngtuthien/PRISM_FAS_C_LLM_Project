@@ -5,7 +5,7 @@
     "cpu_count": 16,
     "cuda_available": false,
     "device": "cpu",
-    "disk_free_gb": 101.07,
+    "disk_free_gb": 66.59,
     "enters_scientific_identity": false,
     "platform": "Windows-11-10.0.26200-SP0",
     "precision": "fp32",

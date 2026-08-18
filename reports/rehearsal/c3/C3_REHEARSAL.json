@@ -160,7 +160,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-17T16:00:31.852142Z",
+  "finished_at_utc": "2026-08-18T05:37:08.960637Z",
   "mandatory_full_outputs": "all 384 raw slots per arm, selected and rejected manifests, selector audit, 256 banks per arm, locks and identities, C3_ACCEPTANCE",
   "notes": [],
   "phase": "preflight",
@@ -173,7 +173,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C3",
-  "started_at_utc": "2026-08-17T16:00:31.630396Z",
+  "started_at_utc": "2026-08-18T05:37:08.710680Z",
   "substages": [
     "C3"
   ],

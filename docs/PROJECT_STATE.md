@@ -784,6 +784,92 @@ physical_asset_closure:
     tests_weakened_to_obtain_green: 0
     tests_replaced_because_their_contract_changed: 2
 
+  # --- the post-physical-bundle verification rehearsal (executed) -----------
+  post_bundle_rehearsal:
+    executed: true
+    executed_at_utc: 2026-08-18
+    command: "python train.py"          # zero arguments
+    verified_at_head: fc58eb2
+    exit_code: 0
+    wall_clock_seconds: 84
+    resolved_intent: CPU_FULL_REHEARSAL
+    scientific_eligible: false
+    resolved_gpu_scientific_full: false  # correct: no CUDA device on this host
+    environment: REUSED
+    stages: 14
+    substage_modes: 56                  # the corrected figure, reproduced
+    all_stages_pass: true
+    disk_free_gb_after_the_34gb_copy: 66.59
+
+    # THE point of this run: the assets are now read from inside the folder.
+    physical_resolution:
+      casia_fasd: {origin: in_folder, root: data/raw/casia_fasd}
+      msu_mfsd: {origin: in_folder, root: data/raw/msu_mfsd}
+      siw_mv2: {origin: in_folder, root: data/raw/siw_mv2}
+      weights: {origin: in_folder, root: weights}
+      active_external_data_dependencies: 0
+      active_external_weight_dependencies: 0
+    paths_local_yaml_rewritten_this_run: false   # it already named in-folder roots,
+                                                 # so ensure_local_paths never ran
+    configs_namespace_unchanged: true
+
+    preparation_outcome: WOULD_BUILD
+    preparation_steps_executed: 0
+    derived_trees_created: 0            # data/processed, data/packages,
+                                        # gpat_pairs, data/work all still absent
+    real_full_data_preparation: NOT_RUN
+
+    raw_data_unmodified: true
+    raw_data_evidence: >-
+      path+size inventory digest per root, compared before and after, rather than
+      a second 34 GB content hash: casia 123533 files / 2174621978 B, msu 607 /
+      11171264770, siw 1702 / 20394222613, weights 11 / 2850705424 — all identical.
+
+    c8_sampled_rows: [C-G-RND-P1-s20260806, C-G-RND-P1-s20260807]
+    c8_state: {planned: 42, pending: 40, skipped: 2, rows_executed_here: 2}
+    c8_rows_reused: true                # both SKIP_VALID_COMPLETE
+    c8_matrix_identity_unchanged: true
+    counter_drift: 0
+
+    scientific_outputs_modified: 0
+    scientific_namespaces_verified_unchanged: [reports/full, runs/full,
+                                               assets/recipe_banks, reports/c0,
+                                               reports/c1, reports/c2, reports/c3,
+                                               configs]
+    master_index_rows_claiming_eligibility: 1   # unchanged: the 2026-08-16 C3 run
+    writes_confined_to: [reports/rehearsal/, runs/rehearsal/, reports/preflight/,
+                         state/]
+
+    target_firewall_with_siw_physically_present:
+      target_labels_resolved: 0
+      target_metrics_computed: 0
+      target_paths_resolved: 0
+      target_labels_opened: false
+      real_siw_labels_opened: false
+      c10_fixture_contains_real_target_data: false
+      note: >-
+        the whole point of this check. SiW bytes now sit inside data/raw, and the
+        rehearsal still never resolves a target label or computes a target metric.
+
+    bundle_preflight:
+      cpu_rehearsal: {ready: true, required: 16, present: 16}
+      gpu_scientific_full: {ready: true, required: 24, present: 24}
+      bundle_ready_for_full: "YES"
+    version_b_runtime_dependency_normal_workflow: 0
+    version_b_evidence: >-
+      with checks.VERSION_B_PATH pointed at an absent drive the normal workflow
+      resolves ready with no blockers and C0/C1 pass. `--profile validate` was NOT
+      run, per instruction.
+
+    live_provider_calls: 0
+    gpu_seconds: 0
+    report_html: reports/rehearsal/final/report.html
+    report_renders: true
+    report_self_contained: true         # 4 embedded figures, 0 external src
+    report_leaks_dataset_paths: false
+    git_dataset_or_weight_files_visible: 0
+    working_tree_after_run: rehearsal and state outputs only
+
   gpu_seconds: 0
   modal_usage: 0
   gemini_calls: 0
