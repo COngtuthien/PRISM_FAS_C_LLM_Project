@@ -21,6 +21,12 @@ project environment exists, so everything above the re-exec point is stdlib only
 — a single third-party import here would break the entrypoint on exactly the host
 it is meant to serve.
 
+The interpreter that runs this file is not necessarily the interpreter that runs
+the project. On Windows, PATH `python` may be MSYS2/MinGW Python, which builds a
+POSIX-scheme environment and cannot host the CUDA wheels; `bootstrap` classifies
+it, finds a supported standard Windows CPython through the Python Launcher and
+builds `.venv` with that instead. The command the operator types never changes.
+
 Zero-argument execution resolves one of two intents, and the difference is a
 safety boundary rather than a convenience:
 
@@ -105,7 +111,7 @@ def _bootstrap_and_reexec(argv: list[str], *, quiet: bool) -> int | None:
         report = boot.ensure_environment(quiet=quiet)
     except boot.BootstrapError as error:
         print(f"\n[{error.reason}] {error}", file=sys.stderr)
-        return EXIT_BLOCKED if error.reason == boot.CUDA_NOT_VALIDATED else EXIT_USAGE
+        return EXIT_BLOCKED if error.reason in boot.BLOCKING_REASONS else EXIT_USAGE
 
     interpreter = Path(report["interpreter"])
     if not interpreter.exists():
@@ -113,9 +119,24 @@ def _bootstrap_and_reexec(argv: list[str], *, quiet: bool) -> int | None:
               f"{interpreter}", file=sys.stderr)
         return EXIT_USAGE
 
+    host = report.get("host_interpreter") or {}
+    if host.get("fallback"):
+        # The operator typed `python train.py` and got a different interpreter.
+        # Saying so is the difference between a runner that works and a runner
+        # that appears to ignore the environment it was started in.
+        fallback = host["fallback"]
+        print(f"  host interpreter    {fallback['from_classification']} at "
+              f"{fallback['from']}")
+        print(f"  using instead       standard Windows CPython "
+              f"{fallback.get('to_version')} at {fallback['to']}")
+    recovery = report.get("venv_recovery") or {}
+    if recovery.get("rebuilt"):
+        print(f"  environment         REBUILT  ({recovery.get('state')}: "
+              f"{recovery.get('why')})")
     if report["action"] == "INSTALLED":
         print(f"  environment         INSTALLED  profile={report['profile_id']}  "
               f"id={report['environment_identity'][:16]}")
+    sys.stdout.flush()          # the child writes to the same stream
     environment = {**os.environ, REEXEC_FLAG: "1"}
     completed = subprocess.run([str(interpreter), str(REPO / "train.py"), *argv],
                                cwd=str(REPO), env=environment)
@@ -135,7 +156,7 @@ def _zero_argument(args: argparse.Namespace) -> int:
         environment = boot.ensure_environment(quiet=True, allow_install=False)
     except boot.BootstrapError as error:
         print(f"\n[{error.reason}] {error}", file=sys.stderr)
-        return EXIT_BLOCKED if error.reason == boot.CUDA_NOT_VALIDATED else EXIT_USAGE
+        return EXIT_BLOCKED if error.reason in boot.BLOCKING_REASONS else EXIT_USAGE
 
     plan = runner.resolve(REPO, environment)
     print(runner.preflight_summary(REPO, plan, git_identity=_git_identity()))

@@ -21,4 +21,11 @@
 torch==2.13.0
 torchvision==0.28.0
 
-onnxruntime==1.24.0
+# SCRFD face detection runs through ONNX Runtime during M2 preprocessing, so
+# this pin is a preprocessing input, not a packaging detail.
+#
+# 1.24.1 is the SMALLEST release in the 1.24 family: 1.24.0 was never published
+# to PyPI, which is why a fresh Windows deployment failed here with "no matching
+# distribution". Verified against the index: cp311-cp314 wheels for win_amd64,
+# manylinux_2_28 (x86_64, aarch64) and macOS arm64.
+onnxruntime==1.24.1

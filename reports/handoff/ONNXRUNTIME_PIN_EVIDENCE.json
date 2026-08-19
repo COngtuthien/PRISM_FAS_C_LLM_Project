@@ -1,0 +1,441 @@
+{
+  "ab_comparison": {
+    "candidate_runtime": "1.24.1",
+    "dataset": "casia_fasd",
+    "declared_tolerances": {
+      "box_max_abs_pixels": 0.0001,
+      "crop_box_max_abs_pixels": 0,
+      "detection_count_delta": 0,
+      "landmark_max_abs_pixels": 0.0001,
+      "raw_tensor_max_abs": 1e-06,
+      "score_max_abs": 1e-06
+    },
+    "domain": "SOURCE",
+    "fixture_count": 24,
+    "limitation": "the pin being replaced (1.24.0) cannot be instantiated because it does not exist. The reference arm is 1.20.1, the runtime the frozen Version-B M2 preprocessing declared (configs/cloud/modal_m8.yaml, modal_m8.py), which is the strongest historical evidence available. This is a comparison against the last runtime this project's preprocessing actually ran under, not against the unusable pin.",
+    "method": "identical input tensors and identical frozen model bytes fed to two isolated environments differing only in the ONNX Runtime version; postprocessing, face selection and crop geometry recomputed from each runtime's raw outputs",
+    "model": "weights/face_detectors/scrfd_10g_bnkps.onnx",
+    "model_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "observed": {
+      "box_max_abs_pixels": 0.0,
+      "crop_box_max_abs_pixels": 0,
+      "detection_count_mismatches": 0,
+      "landmark_max_abs_pixels": 0.0,
+      "raw_tensor_max_abs": 0.0,
+      "score_max_abs": 0.0,
+      "selected_face_mismatches": 0
+    },
+    "per_fixture": [
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__bs10v1f0",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__bs14v2f40",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__bs1v1f38",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__bs5v1f16",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__bs9v2f99",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__fs14v2f4",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__fs1v1f37",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__fs5v1f15",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__fs9v2f98",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__s14v2f39",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__s1v1f36",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "live__s5v1f145",
+        "label": "live",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s10v3f0",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s11vHR_1f32",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s12vHR_4f50",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s14vHR_2f129",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s16vHR_1f168",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s18v7f21",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s1v4f20",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s20vHR_1f62",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s3v4f61",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s4vHR_3f1",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s6v8f133",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      },
+      {
+        "box_max_abs": 0.0,
+        "crop_box_max_abs": 0,
+        "detections_candidate": 0,
+        "detections_reference": 0,
+        "key": "spoof__s8v4f153",
+        "label": "spoof",
+        "landmark_max_abs": 0.0,
+        "score_max_abs": 0.0,
+        "selected_candidate": null,
+        "selected_reference": null
+      }
+    ],
+    "reference_runtime": "1.20.1",
+    "runtime_environments": {
+      "1.20.1": {
+        "executable": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\D--AI-on-IOT-Anti-spoofing-PRISM-FAS-C-LLM-Project\\91d8851c-3718-48e3-952c-9d8532b9edea\\scratchpad\\ort1_20_1\\Scripts\\python.exe",
+        "input_name": "input.1",
+        "numpy": "2.5.2",
+        "onnxruntime": "1.20.1",
+        "output_names": [
+          "448",
+          "471",
+          "494",
+          "451",
+          "474",
+          "497",
+          "454",
+          "477",
+          "500"
+        ],
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "python": "3.13.11",
+        "tag": "1.20.1",
+        "tensor_count": 216
+      },
+      "1.24.1": {
+        "executable": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\D--AI-on-IOT-Anti-spoofing-PRISM-FAS-C-LLM-Project\\91d8851c-3718-48e3-952c-9d8532b9edea\\scratchpad\\ort1_24_1\\Scripts\\python.exe",
+        "input_name": "input.1",
+        "numpy": "2.5.2",
+        "onnxruntime": "1.24.1",
+        "output_names": [
+          "448",
+          "471",
+          "494",
+          "451",
+          "474",
+          "497",
+          "454",
+          "477",
+          "500"
+        ],
+        "providers": [
+          "CPUExecutionProvider"
+        ],
+        "python": "3.13.11",
+        "tag": "1.24.1",
+        "tensor_count": 216
+      }
+    },
+    "target_data_touched": false,
+    "target_metrics_consulted": false,
+    "tensors_bit_identical": 216,
+    "tensors_compared": 216
+  },
+  "classification": "NUMERICALLY_EQUIVALENT_WITHIN_DECLARED_TOLERANCE",
+  "generated_utc": "2026-08-19T15:41:15.567440+00:00",
+  "index_availability": {
+    "1.24.0_file_count": 0,
+    "1.24.0_present": false,
+    "1.24_family_published": [
+      "1.24.1",
+      "1.24.2",
+      "1.24.3",
+      "1.24.4"
+    ],
+    "index": "https://pypi.org/pypi/onnxruntime/json",
+    "queried_utc": "2026-08-19T15:41:16.057058+00:00",
+    "reference_for_ab": "1.20.1",
+    "reference_published": true,
+    "selected": "1.24.1",
+    "selected_linux_cp_tags": [
+      "cp311",
+      "cp312",
+      "cp313",
+      "cp313",
+      "cp314",
+      "cp314"
+    ],
+    "selected_wheels": [
+      "onnxruntime-1.24.1-cp311-cp311-macosx_14_0_arm64.whl",
+      "onnxruntime-1.24.1-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "onnxruntime-1.24.1-cp311-cp311-win_amd64.whl",
+      "onnxruntime-1.24.1-cp312-cp312-macosx_14_0_arm64.whl",
+      "onnxruntime-1.24.1-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "onnxruntime-1.24.1-cp312-cp312-win_amd64.whl",
+      "onnxruntime-1.24.1-cp313-cp313-macosx_14_0_arm64.whl",
+      "onnxruntime-1.24.1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "onnxruntime-1.24.1-cp313-cp313-win_amd64.whl",
+      "onnxruntime-1.24.1-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "onnxruntime-1.24.1-cp314-cp314-macosx_14_0_arm64.whl",
+      "onnxruntime-1.24.1-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "onnxruntime-1.24.1-cp314-cp314-win_amd64.whl",
+      "onnxruntime-1.24.1-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "onnxruntime-1.24.1-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+    ],
+    "selected_windows_cp_tags": [
+      "cp311",
+      "cp312",
+      "cp313",
+      "cp314"
+    ],
+    "smallest_installable_in_family": "1.24.1"
+  },
+  "pin": {
+    "classification": "INTENDED_BUT_UNINSTALLABLE_PIN",
+    "previous": "1.24.0",
+    "selected": "1.24.1",
+    "selection_rule": "smallest installable patch in the same release family, verified against the index",
+    "why": "onnxruntime 1.24.0 was never published to PyPI; the 1.24 family begins at 1.24.1. The pin was declared with the requirements tree and never installed anywhere."
+  },
+  "question": "Is the repaired ONNX Runtime pin safe for SCRFD preprocessing?",
+  "schema_version": "prism-onnxruntime-pin-evidence-v1",
+  "scientific_impact": {
+    "c4_to_c13_scientific_status": "NOT_RUN",
+    "data_processed_exists": false,
+    "note": "no Version-C artifact was produced under any ONNX Runtime, so the pin change cannot invalidate existing evidence; it binds the runtime for preprocessing that has not started.",
+    "version_c_preprocessing_ever_run": false
+  }
+}

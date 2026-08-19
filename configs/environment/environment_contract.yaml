@@ -22,20 +22,91 @@ python:
   maximum_exclusive: "3.14"
   tested_on: "3.13.11"
   implementation: CPython
+  # Deterministic preference when a host offers several supported interpreters.
+  # Newest-wins is deliberately NOT the rule. The build laptop has 3.14 installed
+  # and set as the launcher default; 3.14 is outside the range above, and a host
+  # that also has 3.12 must resolve to 3.12 rather than fail or guess.
+  preferred_minors: ["3.13", "3.12", "3.11"]
   on_unsupported: >-
     stop with a concise actionable message naming the found and required
     versions. Never install, replace or shim the host interpreter.
+
+# What kind of Python may build the project environment, and what to do when the
+# one on PATH is not it.
+#
+# This section exists because of a real deployment. On a Windows GPU laptop,
+# PATH `python` resolved to C:\msys64\mingw64\bin\python.exe. MSYS2/MinGW Python
+# reports os.name == "nt" and sys.platform == "win32" like any Windows CPython,
+# and then creates a POSIX-scheme environment: .venv/bin/python.exe rather than
+# .venv/Scripts/python.exe. Every later step looked for a file that was not
+# there. `os.name` is therefore never the classification.
+#
+# The deciding fact is the scheme `venv` itself uses. Since 3.11 the venv module
+# asks sysconfig for get_path("scripts", scheme="venv"); the bootstrap asks the
+# candidate interpreter the same question and reads the answer. "Scripts" is a
+# standard Windows CPython, "bin" on a Windows-like host is MSYS2/MinGW.
+host_interpreter:
+  classifications: [STANDARD_WINDOWS_CPYTHON, MSYS2_MINGW_PYTHON, POSIX_CPYTHON,
+                    UNKNOWN_PYTHON]
+  may_build_the_environment: [STANDARD_WINDOWS_CPYTHON, POSIX_CPYTHON]
+  refused: [MSYS2_MINGW_PYTHON, UNKNOWN_PYTHON]
+  decided_by: venv_scripts_scheme
+  corroborating_signals_only: [installation_path_markers, MSYSTEM,
+                               sysconfig_build_platform]
+  venv_scheme:
+    STANDARD_WINDOWS_CPYTHON: windows      # .venv/Scripts/python.exe
+    POSIX_CPYTHON: posix                   # .venv/bin/python
+  hybrid_layouts_are_defects: true         # .venv/bin/python.exe is never built
+  windows_fallback:
+    enabled: true
+    discovery_order: [py_launcher, well_known_install_roots]
+    py_launcher_query: "py -0p"
+    selection: python.preferred_minors      # never "the newest installed"
+    on_not_found: SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND
+    why: >-
+      the final user command must stay `python train.py`. When PATH python
+      cannot build the environment the runner finds a supported standard Windows
+      CPython itself and re-execs; the operator never types `py -3.12`.
+  msys2_scientific_execution: false
+  msys2_note: >-
+    MSYS2/MinGW Python can create a virtual environment, which is exactly why it
+    is dangerous here: it succeeds and produces the wrong layout. It is not a
+    supported host for PyTorch/CUDA scientific execution and is refused before
+    any package is installed.
 
 virtual_environment:
   path: .venv
   # Project-local on purpose: the folder is meant to be copied whole, and a venv
   # outside the project root would not travel with it.
   create_with: "python -m venv"
+  # Validation after creation, because exit code 0 only says the command ran.
+  validated_by: [interpreter_exists_at_the_scheme_path, interpreter_launches,
+                 sys_prefix_is_the_project_venv, prefix_differs_from_base_prefix,
+                 python_minor_matches_the_host_interpreter]
+  # An environment that arrived from elsewhere, or was left half-built, is
+  # classified and repaired rather than handed back to the operator to delete.
+  recovery_states: [ABSENT, VALID, PARTIAL_NO_INTERPRETER, INTERPRETER_WILL_NOT_RUN,
+                    WRONG_SCHEME_FOR_HOST, INCOMPATIBLE_PYTHON_VERSION,
+                    NOT_THIS_PROJECT_VENV, DEPENDENCIES_INCOMPLETE]
+  recovery_actions: [CREATE, REUSE, INSTALL_INTO, REBUILD]
+  manual_deletion_required: false
+  rebuild_scope: >-
+    only <project>/.venv, only when it carries a virtual-environment layout, and
+    never while the interpreter executing the bootstrap lives inside it. No
+    environment outside the project is ever deleted.
+  self_recreation: REFUSED   # SELF_RECREATION_REFUSED
   pip:
     minimum: "24.0"
-    upgrade_policy: >-
-      upgrade pip only when it is below the minimum, and only to the latest
-      compatible release. Never upgrade setuptools/wheel opportunistically.
+    maximum_exclusive: "27.0"
+    upgrade_policy: BOUNDED_MINIMUM_ONLY
+    upgrade_setuptools: false
+    upgrade_wheel: false
+    note: >-
+      upgrade pip only when it is below the minimum, and then only within
+      [minimum, maximum_exclusive). An unbounded `pip install --upgrade pip`
+      makes the resolver that chose this project's dependency set whichever pip
+      was newest that day, which a deterministic bootstrap cannot have. The
+      resolved pip version is recorded in state/ENVIRONMENT_MANIFEST.json.
 
 profiles:
   cpu:
@@ -87,6 +158,42 @@ profiles:
     example_gpus: ["NVIDIA GeForce RTX 4090", "NVIDIA A100", "NVIDIA RTX A6000",
                    "NVIDIA L40S", "NVIDIA RTX 6000 Ada"]
     supports_scientific_execution: true
+
+# Result-affecting dependency pins the contract is authoritative about.
+#
+# Everything else is pinned in requirements/constraints.txt alone. ONNX Runtime
+# is named here because it executes the frozen SCRFD face detector during M2
+# preprocessing, so its version is a preprocessing input rather than a packaging
+# detail, and because the pin it replaces was a defect worth recording.
+dependencies:
+  onnxruntime:
+    pin: "1.24.1"
+    declared_in: [requirements/base-independent profiles cpu/cuda-cu126/cuda-cu129,
+                  requirements/constraints.txt]
+    previous_pin: "1.24.0"
+    previous_pin_classification: INTENDED_BUT_UNINSTALLABLE_PIN
+    previous_pin_evidence: >-
+      onnxruntime 1.24.0 does not exist on PyPI. The 1.24 family begins at
+      1.24.1. The pin was introduced with the requirements tree in e5fca49 and
+      was never installed on any machine: this project's own .venv has no
+      onnxruntime at all, and a fresh Windows deployment failed at exactly this
+      line. It was a declared assumption, not a proven runtime.
+    selection_rule: >-
+      the smallest installable patch in the SAME release family, verified against
+      the package index rather than assumed. Not "latest".
+    availability_verified: >-
+      cp311/cp312/cp313/cp314 wheels for win_amd64, manylinux_2_28 x86_64 and
+      aarch64, macosx_14_0 arm64. Covers the whole declared Python range on both
+      supported platforms.
+    result_affecting: true
+    why_result_affecting: >-
+      prism_fas.data.preprocess_m2.SCRFDDetector runs the frozen
+      weights/face_detectors/scrfd_10g_bnkps.onnx through an ORT InferenceSession;
+      detections, landmarks and therefore crop geometry come out of it.
+    scientific_impact: >-
+      none to date. No Version-C preprocessing has ever run: data/processed does
+      not exist and no C4-C13 scientific execution has occurred. The pin change
+      binds a runtime for work that has not started.
 
 # What must actually import before an existing .venv is adopted as ready.
 #

@@ -41,7 +41,8 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+import sysconfig
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 REPO = Path(__file__).resolve().parent
@@ -56,6 +57,13 @@ SCHEMA_VERSION = "prism-environment-manifest-v1"
 UNSUPPORTED_PYTHON = "UNSUPPORTED_PYTHON"
 CUDA_NOT_VALIDATED = "CUDA_ENVIRONMENT_NOT_VALIDATED"
 BOOTSTRAP_FAILED = "BOOTSTRAP_FAILED"
+SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND = "SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND"
+SELF_RECREATION_REFUSED = "SELF_RECREATION_REFUSED"
+VENV_NOT_VALIDATED = "VENV_NOT_VALIDATED"
+
+#: Reasons the caller should treat as "this host cannot run the project", as
+#: opposed to "this invocation was wrong".
+BLOCKING_REASONS = (CUDA_NOT_VALIDATED, SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND)
 
 
 class BootstrapError(RuntimeError):
@@ -178,36 +186,497 @@ def read_contract(path: Path = CONTRACT) -> dict[str, Any]:
     return normalize(root)
 
 
+# --- host interpreter classification -----------------------------------------
+#
+# `os.name == "nt"` is NOT enough to know what a Windows interpreter will do.
+# MSYS2/MinGW Python is a native Windows executable that reports `os.name == "nt"`
+# and `sys.platform == "win32"`, and then creates a POSIX-scheme virtual
+# environment: `.venv/bin/python.exe` instead of `.venv/Scripts/python.exe`. A
+# real deployment hit exactly that, because PATH `python` resolved to
+# `C:\msys64\mingw64\bin\python.exe`.
+#
+# The decisive fact is not the platform string but the scheme `venv` itself uses.
+# Since 3.11 `venv` asks sysconfig for `get_path("scripts", scheme="venv", ...)`,
+# so asking the same question is a measurement of what the interpreter would
+# actually do rather than an inference from what it calls itself.
+
+STANDARD_WINDOWS_CPYTHON = "STANDARD_WINDOWS_CPYTHON"
+MSYS2_MINGW_PYTHON = "MSYS2_MINGW_PYTHON"
+POSIX_CPYTHON = "POSIX_CPYTHON"
+UNKNOWN_PYTHON = "UNKNOWN_PYTHON"
+
+#: The two canonical virtual-environment layouts. There is no third, and a
+#: hybrid such as `.venv\bin\python.exe` is a defect, never a layout.
+WINDOWS_SCHEME = "windows"        # .venv/Scripts/python.exe
+POSIX_SCHEME = "posix"            # .venv/bin/python
+SCRIPTS_DIR = {WINDOWS_SCHEME: "Scripts", POSIX_SCHEME: "bin"}
+
+#: Path segments that appear only inside an MSYS2/MinGW/Cygwin installation.
+#: Corroborating evidence only — never the deciding fact, because a standard
+#: CPython launched *from* an MSYS2 shell is still a standard CPython.
+MSYS_PATH_MARKERS = ("msys64", "msys32", "mingw64", "mingw32", "ucrt64",
+                     "clang64", "clang32", "clangarm64", "cygwin64", "cygwin")
+
+POSIX_PLATFORM_PREFIXES = ("linux", "darwin", "freebsd", "openbsd", "netbsd",
+                           "aix", "sunos")
+
+_PROBE_BASE = "__prism_probe_base__"
+
+#: Emitted by a candidate interpreter so the classification measures *it* rather
+#: than whichever interpreter happens to be running this module.
+_EVIDENCE_PROBE = """
+import json, os, platform, sys, sysconfig
+base = "@BASE@"
+try:
+    scripts = sysconfig.get_path("scripts", scheme="venv", vars={
+        "base": base, "platbase": base,
+        "installed_base": base, "installed_platbase": base})
+except Exception as error:
+    scripts = "UNAVAILABLE: %s" % error
+print(json.dumps({
+    "executable": sys.executable,
+    "version": platform.python_version(),
+    "version_info": list(sys.version_info[:3]),
+    "implementation": platform.python_implementation(),
+    "sys_platform": sys.platform,
+    "os_name": os.name,
+    "sysconfig_platform": sysconfig.get_platform(),
+    "default_scheme": sysconfig.get_default_scheme(),
+    "venv_scripts_path": scripts,
+    "prefix": sys.prefix,
+    "base_prefix": sys.base_prefix,
+    "msystem": os.environ.get("MSYSTEM"),
+}))
+"""
+
+
+def _venv_scripts_path(base: str = _PROBE_BASE) -> str:
+    """What `python -m venv <base>` would call its scripts directory, here."""
+    try:
+        return sysconfig.get_path("scripts", scheme="venv", vars={
+            "base": base, "platbase": base,
+            "installed_base": base, "installed_platbase": base})
+    except Exception as error:                               # noqa: BLE001 - reported
+        return f"UNAVAILABLE: {error}"
+
+
+def local_interpreter_evidence() -> dict[str, Any]:
+    """Facts about the interpreter executing this function."""
+    return {
+        "executable": sys.executable,
+        "version": platform.python_version(),
+        "version_info": list(sys.version_info[:3]),
+        "implementation": platform.python_implementation(),
+        "sys_platform": sys.platform,
+        "os_name": os.name,
+        "sysconfig_platform": sysconfig.get_platform(),
+        "default_scheme": sysconfig.get_default_scheme(),
+        "venv_scripts_path": _venv_scripts_path(),
+        "prefix": sys.prefix,
+        "base_prefix": sys.base_prefix,
+        "msystem": os.environ.get("MSYSTEM"),
+        "probe": "in-process",
+        "usable": True,
+    }
+
+
+def interpreter_evidence(executable: str | Path | None = None, *,
+                         timeout: int = 60) -> dict[str, Any]:
+    """Facts about any interpreter, measured by running it.
+
+    The local interpreter is measured in process; anything else is measured by a
+    subprocess, because a claim about another interpreter that was not obtained
+    from that interpreter is a guess.
+    """
+    if executable is None:
+        return local_interpreter_evidence()
+    candidate = Path(executable)
+    try:
+        if candidate.resolve() == Path(sys.executable).resolve():
+            return local_interpreter_evidence()
+    except OSError:
+        pass
+    probe = _EVIDENCE_PROBE.replace("@BASE@", _PROBE_BASE)
+    try:
+        output = subprocess.check_output([str(candidate), "-c", probe], text=True,
+                                         stderr=subprocess.DEVNULL, timeout=timeout)
+        payload = json.loads(output.strip().splitlines()[-1])
+    except Exception as error:                               # noqa: BLE001 - reported
+        return {"executable": str(candidate), "probe": "subprocess",
+                "usable": False, "error": f"{type(error).__name__}: {error}"}
+    payload["probe"] = "subprocess"
+    payload["usable"] = True
+    return payload
+
+
+def classify_interpreter(evidence: dict[str, Any]) -> dict[str, Any]:
+    """Name what kind of Python this is, and what venv layout it would produce.
+
+    Pure: it reads a dictionary, so the MSYS2 case is testable on a machine that
+    has never had MSYS2 installed. The order of the checks is the argument —
+    `sys.platform` and `os.name` are consulted last, because they are exactly the
+    fields MSYS2 Python answers like a standard Windows CPython.
+    """
+    executable = str(evidence.get("executable") or "")
+    sys_platform = str(evidence.get("sys_platform") or "")
+    os_name = str(evidence.get("os_name") or "")
+    implementation = str(evidence.get("implementation") or "")
+    sysconfig_platform = str(evidence.get("sysconfig_platform") or "")
+    scripts_path = str(evidence.get("venv_scripts_path") or "")
+    scripts_dir = PurePosixPath(scripts_path.replace("\\", "/")).name if scripts_path else ""
+
+    signals: list[str] = []
+    parts = {part.lower() for part in re.split(r"[\\/]+", executable) if part}
+    markers = sorted(parts & set(MSYS_PATH_MARKERS))
+    if markers:
+        signals.append(f"installation path contains {markers}")
+    if evidence.get("msystem"):
+        signals.append(f"MSYSTEM={evidence['msystem']} in the environment")
+    if sysconfig_platform.lower().startswith(("mingw", "msys", "cygwin")):
+        signals.append(f"sysconfig platform {sysconfig_platform!r}")
+    if sys_platform in ("msys", "cygwin"):
+        signals.append(f"sys.platform={sys_platform!r}")
+
+    windows_like = os_name == "nt" or sys_platform == "win32"
+    posix_like = os_name == "posix" or any(
+        sys_platform.startswith(prefix) for prefix in POSIX_PLATFORM_PREFIXES)
+
+    def result(classification: str, scheme: str, why: str) -> dict[str, Any]:
+        return {"classification": classification, "venv_scheme": scheme,
+                "scripts_dir": SCRIPTS_DIR[scheme],
+                "measured_scripts_dir": scripts_dir or None,
+                "why": why, "signals": signals, "evidence": evidence,
+                "may_build_the_project_environment":
+                    classification in (STANDARD_WINDOWS_CPYTHON, POSIX_CPYTHON)}
+
+    if sys_platform in ("msys", "cygwin"):
+        return result(MSYS2_MINGW_PYTHON, POSIX_SCHEME,
+                      f"sys.platform is {sys_platform!r}, which is never a standard "
+                      "Windows CPython")
+
+    if windows_like:
+        # The scheme `venv` itself would use is the deciding fact. A standard
+        # Windows CPython answers "Scripts"; MSYS2/MinGW answers "bin", which is
+        # precisely the defect that produced `.venv/bin/python.exe` on Windows.
+        mingw_build = sysconfig_platform.lower().startswith(("mingw", "msys", "cygwin"))
+        if scripts_dir and scripts_dir.lower() != "scripts":
+            return result(MSYS2_MINGW_PYTHON, POSIX_SCHEME,
+                          "a Windows-like interpreter whose venv scheme puts scripts "
+                          f"in {scripts_dir!r}, not 'Scripts'")
+        if mingw_build:
+            return result(MSYS2_MINGW_PYTHON, POSIX_SCHEME,
+                          "sysconfig reports the MinGW build platform "
+                          f"{sysconfig_platform!r}")
+        if not scripts_dir:
+            return result(UNKNOWN_PYTHON, WINDOWS_SCHEME,
+                          "the interpreter did not report a venv scripts scheme")
+        if implementation != "CPython":
+            return result(UNKNOWN_PYTHON, WINDOWS_SCHEME,
+                          f"implementation is {implementation!r}, not CPython")
+        return result(STANDARD_WINDOWS_CPYTHON, WINDOWS_SCHEME,
+                      "a CPython whose venv scheme is the standard Windows layout "
+                      "(Scripts/)")
+
+    if posix_like:
+        if implementation != "CPython":
+            return result(UNKNOWN_PYTHON, POSIX_SCHEME,
+                          f"implementation is {implementation!r}, not CPython")
+        if scripts_dir and scripts_dir.lower() != "bin":
+            return result(UNKNOWN_PYTHON, POSIX_SCHEME,
+                          "a POSIX host whose venv scheme puts scripts in "
+                          f"{scripts_dir!r}, not 'bin'")
+        return result(POSIX_CPYTHON, POSIX_SCHEME,
+                      "a CPython on a POSIX host with the standard bin/ layout")
+
+    return result(UNKNOWN_PYTHON, POSIX_SCHEME if os_name == "posix" else WINDOWS_SCHEME,
+                  f"unrecognised host: os.name={os_name!r}, "
+                  f"sys.platform={sys_platform!r}")
+
+
+# --- finding a standard Windows CPython --------------------------------------
+
+def _py_launcher_candidates() -> list[dict[str, Any]]:
+    """Ask the Windows Python Launcher what is installed (`py -0p`)."""
+    launcher = shutil.which("py")
+    if launcher is None:
+        return []
+    for arguments in (["-0p"], ["--list-paths"]):
+        try:
+            output = subprocess.check_output([launcher, *arguments], text=True,
+                                             stderr=subprocess.STDOUT, timeout=60)
+        except Exception:                                    # noqa: BLE001
+            continue
+        found: list[dict[str, Any]] = []
+        for line in output.splitlines():
+            text = line.strip()
+            if not text or text.lower().startswith(("installed", "no python")):
+                continue
+            match = re.search(r"(?P<path>[A-Za-z]:[\\/].*?python(?:w)?\.exe)", text)
+            if match is None:
+                continue
+            tag = re.match(r"^-(?:V:)?(?P<tag>\d+\.\d+)", text)
+            head = text.split(match.group("path"))[0]
+            found.append({"source": "py_launcher",
+                          "tag": tag.group("tag") if tag else None,
+                          "executable": match.group("path").strip(),
+                          "default": "*" in head})
+        if found:
+            return found
+    return []
+
+
+def _well_known_candidates() -> list[dict[str, Any]]:
+    """Standard CPython install locations, for a host with no `py.exe`."""
+    roots: list[Path] = []
+    for variable in ("LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)"):
+        value = os.environ.get(variable)
+        if value:
+            roots.append(Path(value) / "Programs" / "Python")
+            roots.append(Path(value))
+    roots.append(Path("C:/"))
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for root in roots:
+        try:
+            if not root.is_dir():
+                continue
+            entries = sorted(root.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if not re.fullmatch(r"Python3\d+", entry.name, flags=re.IGNORECASE):
+                continue
+            candidate = entry / "python.exe"
+            key = str(candidate).lower()
+            if candidate.is_file() and key not in seen:
+                seen.add(key)
+                found.append({"source": "well_known_install_root", "tag": None,
+                              "executable": str(candidate), "default": False})
+    return found
+
+
+def discover_windows_interpreters() -> list[dict[str, Any]]:
+    """Every plausible standard Windows CPython this host offers, deduplicated."""
+    candidates = _py_launcher_candidates() + _well_known_candidates()
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(Path(candidate["executable"])).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(candidate)
+    return ordered
+
+
+def _supported_range(contract: dict[str, Any]) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    block = dict(contract.get("python") or {})
+    return (_version_tuple(block.get("minimum", "3.11")),
+            _version_tuple(block.get("maximum_exclusive", "3.14")))
+
+
+def _preferred_minors(contract: dict[str, Any]) -> list[str]:
+    block = dict(contract.get("python") or {})
+    declared = block.get("preferred_minors") or []
+    if isinstance(declared, str):
+        declared = [declared]
+    return [str(item) for item in declared]
+
+
+def _minor(version_info: Any) -> str:
+    return ".".join(str(part) for part in tuple(version_info)[:2])
+
+
+def select_windows_cpython(contract: dict[str, Any], *,
+                           candidates: list[dict[str, Any]] | None = None,
+                           probe: Any = None) -> dict[str, Any]:
+    """Pick one supported standard Windows CPython, deterministically.
+
+    Newest-wins is explicitly not the rule. The contract declares a preference
+    order, so a host that has 3.14 installed (outside the supported range) and
+    3.12 installed resolves to 3.12 rather than failing or guessing.
+    """
+    probe = probe or interpreter_evidence
+    candidates = discover_windows_interpreters() if candidates is None else candidates
+    minimum, maximum = _supported_range(contract)
+    preferred = _preferred_minors(contract)
+
+    examined: list[dict[str, Any]] = []
+    usable: list[dict[str, Any]] = []
+    for candidate in candidates:
+        evidence = probe(candidate["executable"])
+        if not evidence.get("usable", True):
+            examined.append({**candidate, "classification": UNKNOWN_PYTHON,
+                             "rejected_because": evidence.get(
+                                 "error", "could not be launched")})
+            continue
+        verdict = classify_interpreter(evidence)
+        version_info = tuple(evidence.get("version_info") or ())
+        entry = {**candidate, "version": evidence.get("version"),
+                 "classification": verdict["classification"],
+                 "venv_scheme": verdict["venv_scheme"]}
+        if verdict["classification"] != STANDARD_WINDOWS_CPYTHON:
+            entry["rejected_because"] = verdict["why"]
+        elif not (minimum <= version_info < maximum):
+            entry["rejected_because"] = (
+                f"Python {evidence.get('version')} is outside the supported range")
+        else:
+            entry["minor"] = _minor(version_info)
+            entry["evidence"] = evidence
+            usable.append(entry)
+        examined.append({key: value for key, value in entry.items()
+                         if key != "evidence"})
+
+    result = {"selected": None, "examined": examined,
+              "supported_range": [".".join(map(str, minimum)),
+                                  ".".join(map(str, maximum))],
+              "preferred_minors": preferred}
+    if not usable:
+        return result
+
+    def rank(entry: dict[str, Any]) -> tuple[int, tuple[int, ...]]:
+        minor = entry.get("minor") or ""
+        position = preferred.index(minor) if minor in preferred else len(preferred)
+        # Within an undeclared minor, lower wins: the project has never been run
+        # on the newest thing a host happens to have installed.
+        return (position, tuple(entry["evidence"]["version_info"]))
+
+    usable.sort(key=rank)
+    result["selected"] = usable[0]
+    return result
+
+
+def resolve_host_interpreter(contract: dict[str, Any], *,
+                             evidence: dict[str, Any] | None = None,
+                             selector: Any = None) -> dict[str, Any]:
+    """Decide which interpreter is allowed to build the project environment.
+
+    Returns the executable to create `.venv` with, its classification, the venv
+    scheme it will produce, and how it was chosen. Raises rather than proceeding
+    when a Windows host offers nothing but MSYS2 Python.
+    """
+    evidence = local_interpreter_evidence() if evidence is None else evidence
+    verdict = classify_interpreter(evidence)
+    classification = verdict["classification"]
+    minimum, maximum = _supported_range(contract)
+    version_info = tuple(evidence.get("version_info") or ())
+    in_range = bool(version_info) and minimum <= version_info < maximum
+
+    if classification in (STANDARD_WINDOWS_CPYTHON, POSIX_CPYTHON) and in_range:
+        return {"executable": str(evidence.get("executable")),
+                "classification": classification,
+                "venv_scheme": verdict["venv_scheme"],
+                "scripts_dir": verdict["scripts_dir"],
+                "selection": "CURRENT_INTERPRETER",
+                "why": verdict["why"], "signals": verdict["signals"],
+                "evidence": evidence, "host_classification": classification,
+                "fallback": None}
+
+    windows_like = (str(evidence.get("os_name")) == "nt"
+                    or str(evidence.get("sys_platform")) == "win32"
+                    or classification == MSYS2_MINGW_PYTHON)
+    if not windows_like:
+        # A POSIX host has no launcher to fall back to; the operator installs a
+        # supported interpreter. This is the pre-existing behaviour, unchanged.
+        raise BootstrapError(
+            UNSUPPORTED_PYTHON,
+            f"Python {evidence.get('version')} at {evidence.get('executable')} is "
+            f"classified {classification} and is outside the supported range "
+            f"[{'.'.join(map(str, minimum))}, {'.'.join(map(str, maximum))}). "
+            "Install a supported interpreter and run `python train.py` again. "
+            "This project never installs or replaces the host Python.",
+            {"classification": classification, "evidence": evidence})
+
+    selector = selector or select_windows_cpython
+    search = selector(contract)
+    best = search.get("selected")
+    if best is None:
+        discovered = "\n".join(
+            f"    {item.get('executable')}  "
+            f"{item.get('version') or 'unknown version'}  "
+            f"{item.get('classification', UNKNOWN_PYTHON)}"
+            + (f"  - {item['rejected_because']}" if item.get("rejected_because") else "")
+            for item in search.get("examined", [])) or "    (none discovered)"
+        raise BootstrapError(
+            SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND,
+            "no supported standard Windows CPython could be found, and this host's "
+            "PATH Python cannot build the project environment.\n"
+            f"    detected interpreter   {evidence.get('executable')}\n"
+            f"    classification         {classification}\n"
+            f"    reason                 {verdict['why']}\n"
+            f"    supported Python       [{'.'.join(map(str, minimum))}, "
+            f"{'.'.join(map(str, maximum))})  preferred "
+            f"{search.get('preferred_minors')}\n"
+            "  Interpreters discovered:\n" + discovered +
+            "\n  MSYS2/MinGW Python creates a POSIX-scheme environment on Windows and "
+            "is\n  not supported for scientific execution. Install a standard Windows "
+            "CPython\n  from python.org (a version in the range above) and run "
+            "`python train.py` again.\n"
+            "  No package was installed and no environment was created.",
+            {"detected_interpreter": evidence.get("executable"),
+             "classification": classification,
+             "supported_range": search.get("supported_range"),
+             "preferred_minors": search.get("preferred_minors"),
+             "interpreters_discovered": search.get("examined", [])})
+
+    return {"executable": best["executable"],
+            "classification": best["classification"],
+            "venv_scheme": best["venv_scheme"],
+            "scripts_dir": SCRIPTS_DIR[best["venv_scheme"]],
+            "selection": "WINDOWS_CPYTHON_FALLBACK",
+            "why": f"PATH python is {classification}; the Windows Python Launcher "
+                   f"offered a supported standard CPython {best.get('version')}",
+            "signals": verdict["signals"],
+            "evidence": best.get("evidence", {}),
+            "host_classification": classification,
+            "fallback": {"from": str(evidence.get("executable")),
+                         "from_classification": classification,
+                         "to": best["executable"],
+                         "to_version": best.get("version"),
+                         "examined": search.get("examined", [])}}
+
+
 # --- python version ----------------------------------------------------------
 
 def _version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in re.findall(r"\d+", str(text))[:3])
 
 
-def check_python(contract: dict[str, Any]) -> dict[str, Any]:
-    """Refuse an interpreter outside the declared range, with the exact numbers."""
+def check_python(contract: dict[str, Any],
+                 evidence: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Refuse an interpreter outside the declared range, with the exact numbers.
+
+    `evidence` names WHICH interpreter is being judged. With none it judges the
+    running one, which is what a bare `python train.py` starts with; the
+    bootstrap passes the interpreter it actually resolved, so the recorded
+    version is the one that will build the environment rather than the one that
+    happened to launch the entrypoint.
+    """
     block = dict(contract.get("python") or {})
     minimum = _version_tuple(block.get("minimum", "3.11"))
     maximum = _version_tuple(block.get("maximum_exclusive", "3.14"))
-    current = sys.version_info[:3]
+    evidence = local_interpreter_evidence() if evidence is None else evidence
+    current = tuple(evidence.get("version_info") or ())
+    verdict = classify_interpreter(evidence)
 
-    if not (minimum <= current[:len(minimum)] or current >= minimum):
-        pass
-    ok = minimum <= current < maximum
+    ok = bool(current) and minimum <= current < maximum
     detail = {
-        "found": platform.python_version(),
+        "found": evidence.get("version"),
         "found_tuple": list(current),
         "required_minimum": block.get("minimum"),
         "required_maximum_exclusive": block.get("maximum_exclusive"),
+        "preferred_minors": _preferred_minors(contract),
         "tested_on": block.get("tested_on"),
-        "implementation": platform.python_implementation(),
-        "executable": sys.executable,
+        "implementation": evidence.get("implementation"),
+        "executable": evidence.get("executable"),
+        "classification": verdict["classification"],
+        "venv_scheme": verdict["venv_scheme"],
         "supported": ok,
     }
     if not ok:
         raise BootstrapError(
             UNSUPPORTED_PYTHON,
-            f"Python {platform.python_version()} is outside the supported range "
+            f"Python {evidence.get('version')} is outside the supported range "
             f"[{block.get('minimum')}, {block.get('maximum_exclusive')}). "
             f"Install a supported interpreter and run `python train.py` again. "
             f"This project never installs or replaces the host Python.",
@@ -458,9 +927,203 @@ def environment_identity(profile_id: str, profile: dict[str, Any],
             "files": [path.relative_to(REPO).as_posix() for path in files]}
 
 
-def venv_python(venv: Path = VENV) -> Path:
-    return (venv / "Scripts" / "python.exe" if os.name == "nt"
-            else venv / "bin" / "python")
+def venv_python(venv: Path = VENV, *, scheme: str | None = None) -> Path:
+    """The canonical interpreter path for one layout.
+
+    Two layouts exist and no third is ever constructed. `.venv\\bin\\python.exe`
+    — what MSYS2 Python produces on Windows — is a defect, not a layout, and is
+    recognised only in order to be rejected.
+    """
+    scheme = scheme or (WINDOWS_SCHEME if os.name == "nt" else POSIX_SCHEME)
+    if scheme == WINDOWS_SCHEME:
+        return venv / "Scripts" / "python.exe"
+    return venv / "bin" / "python"
+
+
+#: What an existing `.venv` turned out to be.
+VENV_ABSENT = "ABSENT"
+VENV_VALID = "VALID"
+VENV_NO_INTERPRETER = "PARTIAL_NO_INTERPRETER"
+VENV_INTERPRETER_UNUSABLE = "INTERPRETER_WILL_NOT_RUN"
+VENV_WRONG_SCHEME = "WRONG_SCHEME_FOR_HOST"
+VENV_WRONG_VERSION = "INCOMPATIBLE_PYTHON_VERSION"
+VENV_FOREIGN_PREFIX = "NOT_THIS_PROJECT_VENV"
+VENV_DEPENDENCIES_INCOMPLETE = "DEPENDENCIES_INCOMPLETE"
+
+#: What to do about it. REBUILD is the only one that deletes anything, and it
+#: deletes only this project's own `.venv`.
+VENV_CREATE = "CREATE"
+VENV_REUSE = "REUSE"
+VENV_INSTALL_INTO = "INSTALL_INTO"
+VENV_REBUILD = "REBUILD"
+
+
+def existing_venv_interpreter(venv: Path = VENV) -> tuple[Path | None, str | None]:
+    """Find whatever interpreter an existing `.venv` actually contains.
+
+    Both canonical layouts are probed, plus the hybrid `bin/python.exe` that
+    MSYS2 Python leaves on Windows, because a folder that arrived from another
+    machine is exactly the case this function exists for.
+    """
+    for scheme in (WINDOWS_SCHEME, POSIX_SCHEME):
+        candidate = venv_python(venv, scheme=scheme)
+        if candidate.exists():
+            return candidate, scheme
+    hybrid = venv / "bin" / "python.exe"
+    if hybrid.exists():
+        return hybrid, POSIX_SCHEME
+    return None, None
+
+
+def _is_empty(directory: Path) -> bool:
+    try:
+        return not any(directory.iterdir())
+    except OSError:
+        return False
+
+
+def classify_venv(venv: Path = VENV, *, expected_scheme: str,
+                  expected_minor: str | None = None,
+                  dependencies_ok: bool | None = None,
+                  probe: Any = None) -> dict[str, Any]:
+    """Grade an existing `.venv` and say what should be done about it.
+
+    Every state below was seen or is reachable on a real destination machine: a
+    half-written environment from an interrupted install, a Linux `.venv` inside
+    a copied folder, an MSYS2-scheme `.venv` on Windows, an interpreter whose
+    base Python has been uninstalled. The operator should never have to delete
+    anything by hand, so each state carries the action that repairs it.
+    """
+    probe = probe or interpreter_evidence
+    detail: dict[str, Any] = {"path": str(venv), "expected_scheme": expected_scheme,
+                              "expected_python_minor": expected_minor}
+
+    if not venv.exists() or _is_empty(venv):
+        return {**detail, "state": VENV_ABSENT, "action": VENV_CREATE,
+                "why": "no virtual environment is present"}
+
+    interpreter, scheme = existing_venv_interpreter(venv)
+    if interpreter is None:
+        return {**detail, "state": VENV_NO_INTERPRETER, "action": VENV_REBUILD,
+                "why": "a .venv directory exists but contains no interpreter, which "
+                       "is what an interrupted creation leaves behind"}
+    detail["found_interpreter"] = str(interpreter)
+    detail["found_scheme"] = scheme
+
+    if scheme != expected_scheme:
+        return {**detail, "state": VENV_WRONG_SCHEME, "action": VENV_REBUILD,
+                "why": f"the environment uses the {scheme} layout "
+                       f"({interpreter.name} under {interpreter.parent.name}/) but "
+                       f"this host needs the {expected_scheme} layout; a .venv "
+                       "cannot be carried between the two"}
+
+    evidence = probe(interpreter)
+    detail["interpreter_evidence"] = evidence
+    if not evidence.get("usable", True):
+        return {**detail, "state": VENV_INTERPRETER_UNUSABLE, "action": VENV_REBUILD,
+                "why": f"the interpreter will not run: {evidence.get('error')}"}
+
+    try:
+        prefix_matches = Path(str(evidence.get("prefix"))).resolve() == venv.resolve()
+    except OSError:
+        prefix_matches = False
+    if not prefix_matches or evidence.get("prefix") == evidence.get("base_prefix"):
+        return {**detail, "state": VENV_FOREIGN_PREFIX, "action": VENV_REBUILD,
+                "why": f"sys.prefix is {evidence.get('prefix')!r}, which is not this "
+                       "project's .venv; the interpreter is not the environment it "
+                       "appears to be in"}
+
+    found_minor = _minor(evidence.get("version_info") or ())
+    detail["found_python_minor"] = found_minor
+    if expected_minor and found_minor != expected_minor:
+        return {**detail, "state": VENV_WRONG_VERSION, "action": VENV_REBUILD,
+                "why": f"the environment is Python {found_minor} but the host "
+                       f"interpreter is {expected_minor}; the ABI differs and the "
+                       "installed wheels would not load"}
+
+    if dependencies_ok is False:
+        return {**detail, "state": VENV_DEPENDENCIES_INCOMPLETE,
+                "action": VENV_INSTALL_INTO,
+                "why": "the environment is structurally sound but its declared "
+                       "dependencies do not all import, which is what an interrupted "
+                       "pip install leaves behind"}
+
+    return {**detail, "state": VENV_VALID, "action": VENV_REUSE,
+            "why": "the environment matches this host and its interpreter runs"}
+
+
+def validate_venv(venv: Path = VENV, *, expected_scheme: str,
+                  expected_minor: str | None = None,
+                  probe: Any = None) -> dict[str, Any]:
+    """Prove an environment is usable. Exit code 0 from `venv` is not proof.
+
+    A subprocess that returned 0 says the command ran. This says the interpreter
+    exists where this platform puts it, launches, and reports a `sys.prefix`
+    inside the project environment rather than the host Python it was built from.
+    """
+    report = classify_venv(venv, expected_scheme=expected_scheme,
+                           expected_minor=expected_minor, probe=probe)
+    report["valid"] = report["state"] == VENV_VALID
+    report["expected_interpreter"] = str(venv_python(venv, scheme=expected_scheme))
+    return report
+
+
+def assert_not_self_recreation(host_executable: str | Path,
+                               venv: Path = VENV) -> None:
+    """A project venv interpreter must never be asked to recreate its own venv."""
+    try:
+        host = Path(host_executable).resolve()
+        target = venv.resolve()
+    except OSError:
+        return
+    if host == target or target in host.parents:
+        raise BootstrapError(
+            SELF_RECREATION_REFUSED,
+            f"refusing to recreate {target} using {host}, which lives inside it. "
+            "An environment cannot rebuild itself in place: the files being "
+            "replaced are the ones executing. Re-run `python train.py` with the "
+            "host interpreter, or delete the environment while nothing is using it.",
+            {"host_executable": str(host), "venv": str(target)})
+
+
+def remove_venv(venv: Path = VENV, *, repo: Path = REPO) -> dict[str, Any]:
+    """Delete this project's own `.venv`, and refuse to delete anything else.
+
+    Three guards, because the blast radius of a wrong answer here is somebody's
+    system Python or a colleague's environment: the path must be `<repo>/.venv`,
+    it must look like a virtual environment, and the interpreter running this
+    code must not be inside it.
+    """
+    resolved = venv.resolve()
+    if resolved.name != ".venv" or resolved.parent != repo.resolve():
+        raise BootstrapError(
+            BOOTSTRAP_FAILED,
+            f"refusing to delete {resolved}: only this project's own .venv "
+            f"({repo.resolve() / '.venv'}) may be rebuilt.")
+    try:
+        inside = (Path(sys.prefix).resolve() == resolved
+                  or resolved in Path(sys.executable).resolve().parents)
+    except OSError:
+        inside = False
+    if inside:
+        raise BootstrapError(
+            SELF_RECREATION_REFUSED,
+            f"refusing to delete {resolved} while executing from inside it.")
+    if _is_empty(resolved):
+        return {"removed": False, "reason": "the directory was already empty",
+                "path": str(resolved)}
+    looks_like_venv = (resolved / "pyvenv.cfg").exists() or any(
+        (resolved / name).exists()
+        for name in ("Scripts", "bin", "Lib", "lib", "Include", "include"))
+    if not looks_like_venv:
+        raise BootstrapError(
+            BOOTSTRAP_FAILED,
+            f"refusing to delete {resolved}: it does not look like a virtual "
+            "environment (no pyvenv.cfg and no interpreter layout). Inspect it by "
+            "hand rather than letting the bootstrap remove unknown files.")
+    shutil.rmtree(resolved)
+    return {"removed": True, "path": str(resolved),
+            "reason": "rebuilt because the environment did not match this host"}
 
 
 def read_manifest(path: Path = MANIFEST) -> dict[str, Any] | None:
@@ -512,30 +1175,107 @@ def _run(command: list[str], *, quiet: bool) -> None:
             f"command failed with exit {result.returncode}: {' '.join(command[:4])}...{tail}")
 
 
-def create_venv(venv: Path = VENV, *, quiet: bool = False) -> Path:
-    if not venv_python(venv).exists():
-        _run([sys.executable, "-m", "venv", str(venv)], quiet=quiet)
-    python = venv_python(venv)
-    if not python.exists():
-        raise BootstrapError(BOOTSTRAP_FAILED,
-                             f"the virtual environment was created but {python} is absent")
-    return python
+def create_venv(venv: Path = VENV, *, quiet: bool = False,
+                host_executable: str | Path | None = None,
+                expected_scheme: str | None = None,
+                expected_minor: str | None = None) -> Path:
+    """Create `.venv` with a named host interpreter, then prove it works.
+
+    The host interpreter is passed in rather than assumed to be `sys.executable`,
+    because on Windows the interpreter that launched `train.py` may be MSYS2
+    Python — which would produce `.venv/bin/python.exe` and leave every later
+    step looking for a file that is not there.
+    """
+    host_executable = str(host_executable or sys.executable)
+    assert_not_self_recreation(host_executable, venv)
+    if expected_scheme is None:
+        expected_scheme = classify_interpreter(
+            interpreter_evidence(host_executable))["venv_scheme"]
+
+    if not venv_python(venv, scheme=expected_scheme).exists():
+        _run([host_executable, "-m", "venv", str(venv)], quiet=quiet)
+
+    validation = validate_venv(venv, expected_scheme=expected_scheme,
+                               expected_minor=expected_minor)
+    if not validation["valid"]:
+        raise BootstrapError(
+            VENV_NOT_VALIDATED,
+            f"the virtual environment at {venv} was created but did not validate: "
+            f"{validation['why']}. Expected interpreter "
+            f"{validation['expected_interpreter']}.",
+            validation)
+    return venv_python(venv, scheme=expected_scheme)
+
+
+def _pip_version(python: Path) -> str | None:
+    try:
+        output = subprocess.check_output([str(python), "-m", "pip", "--version"],
+                                         text=True, stderr=subprocess.DEVNULL,
+                                         timeout=120)
+    except Exception:                                        # noqa: BLE001
+        return None
+    match = re.search(r"pip\s+(\d+(?:\.\d+)*)", output)
+    return match.group(1) if match else None
+
+
+def pip_policy(contract: dict[str, Any]) -> dict[str, Any]:
+    """The declared bootstrap-tooling policy, read rather than assumed."""
+    block = dict((contract.get("virtual_environment") or {}).get("pip") or {})
+    maximum = block.get("maximum_exclusive")
+    return {"minimum": str(block.get("minimum", "24.0")),
+            "maximum_exclusive": str(maximum) if maximum else None,
+            "upgrade_policy": str(block.get("upgrade_policy",
+                                            "BOUNDED_MINIMUM_ONLY")),
+            "upgrade_setuptools": bool(block.get("upgrade_setuptools", False)),
+            "upgrade_wheel": bool(block.get("upgrade_wheel", False))}
+
+
+def ensure_pip_tooling(python: Path, contract: dict[str, Any], *,
+                       quiet: bool = False) -> dict[str, Any]:
+    """Bring pip up to the declared floor, and no further.
+
+    The previous behaviour was an unbounded `pip install --upgrade pip`, which
+    meant the resolver that chose this project's dependency set was whichever
+    pip happened to be newest on the day. A deterministic bootstrap cannot have
+    an undeclared component, so the upgrade is bounded on both sides and only
+    happens when pip is actually below the floor. setuptools and wheel are never
+    touched opportunistically.
+    """
+    policy = pip_policy(contract)
+    before = _pip_version(python)
+    report = {"policy": policy, "pip_before": before, "pip_after": before,
+              "action": "KEPT", "requirement": None}
+    if before and _version_tuple(before) >= _version_tuple(policy["minimum"]):
+        report["why"] = (f"pip {before} already satisfies the declared floor "
+                         f"{policy['minimum']}")
+        return report
+    requirement = f"pip>={policy['minimum']}"
+    if policy["maximum_exclusive"]:
+        requirement += f",<{policy['maximum_exclusive']}"
+    _run([str(python), "-m", "pip", "install", "--upgrade", requirement], quiet=quiet)
+    report.update({"action": "UPGRADED_TO_POLICY_FLOOR", "requirement": requirement,
+                   "pip_after": _pip_version(python),
+                   "why": f"pip {before} is below the declared floor "
+                          f"{policy['minimum']}"})
+    return report
 
 
 def install_requirements(python: Path, profile: dict[str, Any], *,
-                         quiet: bool = False) -> dict[str, Any]:
+                         quiet: bool = False,
+                         contract: dict[str, Any] | None = None) -> dict[str, Any]:
     """Install the profile's locked set, offline from a wheelhouse when present."""
     requirements = REPO / str(profile.get("requirements"))
     offline = WHEELHOUSE.exists() and any(WHEELHOUSE.glob("*.whl"))
     command = [str(python), "-m", "pip", "install", "-r", str(requirements)]
     if offline:
         command += ["--no-index", "--find-links", str(WHEELHOUSE)]
-    _run([str(python), "-m", "pip", "install", "--upgrade", "pip"], quiet=quiet)
+    tooling = ensure_pip_tooling(python, contract or read_contract(), quiet=quiet)
     _run(command, quiet=quiet)
     # The project itself, so `import prism_fas` resolves without PYTHONPATH.
     _run([str(python), "-m", "pip", "install", "-e", ".", "--no-deps"], quiet=quiet)
     return {"requirements": requirements.relative_to(REPO).as_posix(),
-            "offline_wheelhouse_used": offline}
+            "offline_wheelhouse_used": offline,
+            "bootstrap_tooling": tooling}
 
 
 def verify_imports(python: Path, contract: dict[str, Any], *,
@@ -588,50 +1328,131 @@ def installed_packages(python: Path) -> dict[str, str]:
 
 # --- the entry point train.py calls -----------------------------------------
 
+def import_groups(contract: dict[str, Any], *, scientific: bool) -> list[str]:
+    """Which declared import groups must resolve before an environment is ready.
+
+    A CPU rehearsal substitutes a fixture tower and never opens an ONNX session,
+    so it does not need `science_only`. A scientific profile does — and that is
+    precisely the environment where a half-finished pip install must NOT be
+    adopted as complete.
+    """
+    checks = dict(contract.get("import_checks") or {})
+    key = "required_for_science" if scientific else "required_for_rehearsal"
+    groups = checks.get(key) or ["core", "reporting"]
+    return list(groups) if isinstance(groups, list) else [str(groups)]
+
+
 def ensure_environment(*, quiet: bool = False, allow_install: bool = True
                        ) -> dict[str, Any]:
     """Prepare the environment and return what the caller needs to re-exec.
 
-    Returns a report with `python` (the interpreter to use), `action`
-    (`REUSED` / `INSTALLED` / `CURRENT`) and the full provenance that goes into
-    the run's environment record.
+    Returns a report with `interpreter` (the interpreter to use), `action`
+    (`REUSED` / `ADOPTED` / `INSTALLED` / `INSTALL_REQUIRED`) and the full
+    provenance that goes into the run's environment record.
+
+    The order matters. The host interpreter is classified and, on Windows,
+    replaced by a standard CPython BEFORE anything is created, because the
+    interpreter decides the venv layout; an existing `.venv` is then graded
+    against that decision rather than assumed to fit it.
     """
     contract = read_contract()
-    python_report = check_python(contract)
+    inside = running_inside_project_venv()
+    if inside:
+        # Already the project environment: it is the answer, not a candidate.
+        evidence = local_interpreter_evidence()
+        verdict = classify_interpreter(evidence)
+        host = {"executable": sys.executable,
+                "classification": verdict["classification"],
+                "venv_scheme": verdict["venv_scheme"],
+                "scripts_dir": verdict["scripts_dir"],
+                "selection": "PROJECT_VENV", "why": verdict["why"],
+                "signals": verdict["signals"], "evidence": evidence,
+                "host_classification": verdict["classification"], "fallback": None}
+    else:
+        host = resolve_host_interpreter(contract)
+
+    python_report = check_python(contract, host["evidence"])
     gpu = detect_gpu()
     selection = select_profile(contract, gpu)
     profile_id, profile = selection["profile_id"], selection["profile"]
-    identity = environment_identity(profile_id, profile, platform.python_version())
+    identity = environment_identity(profile_id, profile,
+                                    str(python_report["found"]))
+    scientific = bool(profile.get("supports_scientific_execution"))
+    groups = import_groups(contract, scientific=scientific)
 
-    manifest = read_manifest()
-    interpreter = venv_python()
-    matches = bool(manifest
-                   and manifest.get("environment_identity") == identity["identity"]
-                   and interpreter.exists())
+    scheme = host["venv_scheme"]
+    interpreter = venv_python(VENV, scheme=scheme)
+    expected_minor = None if inside else _minor(
+        host["evidence"].get("version_info") or ())
 
+    manifest = read_manifest(MANIFEST)
+    identity_matches = bool(manifest
+                            and manifest.get("environment_identity")
+                            == identity["identity"])
+
+    venv_state = classify_venv(VENV, expected_scheme=scheme,
+                               expected_minor=expected_minor)
     action = "REUSED"
     install: dict[str, Any] = {}
     imports: dict[str, Any] = {}
-    if not matches:
+    recovery: dict[str, Any] = {"state": venv_state["state"],
+                                "action": venv_state["action"],
+                                "why": venv_state["why"],
+                                "rebuilt": False}
+
+    if identity_matches and venv_state["state"] == VENV_VALID:
+        # The recorded identity still describes this environment. Nothing is
+        # installed and no package index is contacted.
+        action = "REUSED"
+    elif venv_state["action"] == VENV_REUSE:
         # An existing .venv with no matching manifest is the ordinary case for a
         # folder that was prepared by hand or copied mid-flight. Rather than
         # reinstalling on every invocation, verify what actually imports and
-        # adopt it when it is complete — §8's "verify its environment identity
-        # before using it", answered by measurement instead of by a hash alone.
-        adoptable = interpreter.exists() and (
-            running_inside_project_venv() or not allow_install)
-        if adoptable:
-            imports = verify_imports(interpreter, contract,
-                                     groups=["core", "reporting"])
-            action = "ADOPTED" if imports.get("ok") else "INSTALL_REQUIRED"
+        # adopt it when it is complete - section 8's "verify its environment
+        # identity before using it", answered by measurement rather than a hash.
+        imports = verify_imports(interpreter, contract, groups=groups)
+        if imports.get("ok"):
+            action = "ADOPTED"
         elif not allow_install:
             action = "INSTALL_REQUIRED"
+            recovery.update({"state": VENV_DEPENDENCIES_INCOMPLETE,
+                             "action": VENV_INSTALL_INTO,
+                             "why": "declared imports are missing: "
+                                    f"{imports.get('missing')}"})
         else:
-            create_venv(quiet=quiet)
-            install = install_requirements(interpreter, profile, quiet=quiet)
-            imports = verify_imports(interpreter, contract,
-                                     groups=["core", "reporting"])
+            # Structurally sound, dependencies incomplete: install into it. An
+            # interrupted `pip install` costs the remaining packages, not a
+            # rebuild, and never asks the operator to delete anything.
+            recovery.update({"state": VENV_DEPENDENCIES_INCOMPLETE,
+                             "action": VENV_INSTALL_INTO,
+                             "why": "declared imports are missing: "
+                                    f"{imports.get('missing')}"})
+            install = install_requirements(interpreter, profile, quiet=quiet,
+                                           contract=contract)
+            imports = verify_imports(interpreter, contract, groups=groups)
             action = "INSTALLED"
+    elif not allow_install:
+        action = "INSTALL_REQUIRED"
+    else:
+        if venv_state["action"] == VENV_REBUILD:
+            recovery["removed"] = remove_venv(VENV)
+            recovery["rebuilt"] = True
+        create_venv(VENV, quiet=quiet, host_executable=host["executable"],
+                    expected_scheme=scheme, expected_minor=expected_minor)
+        install = install_requirements(interpreter, profile, quiet=quiet,
+                                       contract=contract)
+        imports = verify_imports(interpreter, contract, groups=groups)
+        action = "INSTALLED"
+
+    if action in ("INSTALLED", "ADOPTED") and not imports.get("ok", True):
+        # Never record an environment as ready when the thing that fails at run
+        # time - the import - still fails.
+        raise BootstrapError(
+            BOOTSTRAP_FAILED,
+            f"the environment at {VENV} is still incomplete after installation: "
+            f"{imports.get('missing')} did not import. "
+            f"Requirements: {profile.get('requirements')}.",
+            {"imports": imports, "install": install, "venv": venv_state["state"]})
 
     report = {
         "schema_version": SCHEMA_VERSION,
@@ -640,17 +1461,22 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
         "requirement_files": identity["files"],
         "profile_id": profile_id,
         "profile_status": profile.get("status"),
-        "profile_supports_scientific_execution":
-            bool(profile.get("supports_scientific_execution")),
+        "profile_supports_scientific_execution": scientific,
         "selection_reason": selection["reason"],
         "candidates_considered": selection.get("candidates_considered", []),
         "python": python_report,
+        "host_interpreter": {key: value for key, value in host.items()
+                             if key != "evidence"},
+        "host_interpreter_evidence": host["evidence"],
+        "venv_scheme": scheme,
+        "venv_recovery": recovery,
         "gpu": gpu,
         "gpu_family": selection.get("family"),
         "venv": str(VENV.relative_to(REPO)) if VENV.is_relative_to(REPO) else str(VENV),
         "interpreter": str(interpreter),
         "action": action,
         "install": install,
+        "required_import_groups": groups,
         "science_imports": None,
         "network_contacted": action == "INSTALLED" and not install.get(
             "offline_wheelhouse_used", False),
@@ -658,24 +1484,42 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
     report["imports"] = imports
     if action in ("INSTALLED", "ADOPTED"):
         report["installed_packages"] = installed_packages(interpreter)
-        write_manifest(report)
-    elif matches and manifest:
+        write_manifest(report, MANIFEST)
+    elif identity_matches and manifest:
         report["installed_packages"] = manifest.get("installed_packages", {})
     return report
 
 
 def running_inside_project_venv() -> bool:
-    """True when the current interpreter already IS the project environment."""
+    """True when the current interpreter already IS the project environment.
+
+    Compares prefixes rather than executable paths, so it answers correctly
+    whichever layout the environment uses and whichever alias (python, python3,
+    python3.12) started it.
+    """
     try:
-        return Path(sys.executable).resolve() == venv_python().resolve()
+        return Path(sys.prefix).resolve() == VENV.resolve()
     except OSError:
         return False
 
 
 __all__ = ["REPO", "CONTRACT", "VENV", "MANIFEST", "WHEELHOUSE", "SCHEMA_VERSION",
            "UNSUPPORTED_PYTHON", "CUDA_NOT_VALIDATED", "BOOTSTRAP_FAILED",
+           "SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND", "SELF_RECREATION_REFUSED",
+           "VENV_NOT_VALIDATED", "BLOCKING_REASONS",
+           "STANDARD_WINDOWS_CPYTHON", "MSYS2_MINGW_PYTHON", "POSIX_CPYTHON",
+           "UNKNOWN_PYTHON", "WINDOWS_SCHEME", "POSIX_SCHEME", "SCRIPTS_DIR",
+           "VENV_ABSENT", "VENV_VALID", "VENV_NO_INTERPRETER",
+           "VENV_INTERPRETER_UNUSABLE", "VENV_WRONG_SCHEME", "VENV_WRONG_VERSION",
+           "VENV_FOREIGN_PREFIX", "VENV_DEPENDENCIES_INCOMPLETE",
+           "VENV_CREATE", "VENV_REUSE", "VENV_INSTALL_INTO", "VENV_REBUILD",
            "BootstrapError", "read_contract", "check_python", "detect_gpu",
            "gpu_family", "select_profile", "requirement_files", "environment_identity",
-           "venv_python", "read_manifest", "write_manifest", "create_venv",
+           "local_interpreter_evidence", "interpreter_evidence", "classify_interpreter",
+           "discover_windows_interpreters", "select_windows_cpython",
+           "resolve_host_interpreter", "venv_python", "existing_venv_interpreter",
+           "classify_venv", "validate_venv", "assert_not_self_recreation",
+           "remove_venv", "pip_policy", "ensure_pip_tooling", "import_groups",
+           "read_manifest", "write_manifest", "create_venv",
            "install_requirements", "installed_packages", "ensure_environment",
            "running_inside_project_venv"]

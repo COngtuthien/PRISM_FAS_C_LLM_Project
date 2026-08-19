@@ -47,6 +47,12 @@ Jinja2==3.1.6
 markdown-it-py==4.2.0
 colorama==0.4.6
 matplotlib==3.11.1
+
+# ONNX Runtime is pinned by every hardware profile as well; it is repeated here
+# so a profile file that drifts becomes a resolution error instead of a silently
+# different preprocessing runtime. 1.24.0 was pinned for months and never
+# existed on PyPI - see configs/environment/environment_contract.yaml.
+onnxruntime==1.24.1
 contourpy==1.3.3
 cycler==0.12.1
 fonttools==4.63.0
