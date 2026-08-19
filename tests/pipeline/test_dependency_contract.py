@@ -326,3 +326,182 @@ def test_an_environment_missing_a_declared_import_is_not_recorded_as_ready(
         boot.ensure_environment(quiet=True, allow_install=True)
     assert "onnxruntime" in str(caught.value)
     assert not (tmp_path / "ENVIRONMENT_MANIFEST.json").exists()
+
+
+# --- the platform a profile can actually be installed on ---------------------
+#
+# Auditing the CUDA plan turned up a third defect, latent behind the two the
+# deployment reported: the cu129 index publishes torch 2.13.0 for Linux only.
+# On Windows that profile would not have failed loudly, because the CUDA
+# requirement files carry --extra-index-url and PyPI stays in the resolution
+# set: pip would have installed a different build while the manifest went on
+# naming the CUDA index it never used.
+
+CUDA_EVIDENCE = REPO / "reports" / "handoff" / "CUDA_DEPENDENCY_PLAN_EVIDENCE.json"
+
+
+@pytest.fixture(scope="module")
+def cuda_evidence() -> dict:
+    assert CUDA_EVIDENCE.exists(), (
+        "the CUDA dependency-plan evidence is missing "
+        "(scripts/audit_cuda_dependency_plan.py)")
+    return json.loads(CUDA_EVIDENCE.read_text(encoding="utf-8"))
+
+
+def test_every_profile_declares_the_platforms_it_publishes_for(contract: dict) -> None:
+    for profile_id, profile in contract["profiles"].items():
+        assert profile.get("platforms"), profile_id
+
+
+def test_the_declared_platforms_match_the_measured_index(contract: dict,
+                                                         cuda_evidence: dict) -> None:
+    """The contract may not claim a wheel the index does not publish."""
+    published = contract["platform_wheels"]["published"]
+    for profile_id, profile in contract["profiles"].items():
+        measured = cuda_evidence["profiles"][profile_id][
+            "platforms_with_a_declared_wheel"]
+        declared = set(profile["platforms"])
+        assert declared <= set(measured), (profile_id, sorted(declared), measured)
+        for platform, claimed in published[profile_id].items():
+            assert claimed == (platform in declared), (profile_id, platform)
+
+
+def test_the_windows_gap_that_started_this_is_recorded_not_papered_over(
+        contract: dict, cuda_evidence: dict) -> None:
+    assert contract["platform_wheels"]["published"]["cuda-cu129"]["win_amd64"] is False
+    assert "win_amd64" not in contract["profiles"]["cuda-cu129"]["platforms"]
+    assert "win_amd64" in cuda_evidence["profiles"]["cuda-cu129"][
+        "platforms_missing_a_declared_wheel"]
+
+
+def test_a_profile_with_no_wheel_for_the_host_is_incompatible(contract: dict) -> None:
+    verdict = boot.classify_candidate(contract["profiles"]["cuda-cu129"],
+                                      capability="12.0", driver=(580, 88),
+                                      platform_tag=boot.WIN_AMD64)
+    assert verdict["grade"] == boot.INCOMPATIBLE
+    assert "no win_amd64 wheel" in verdict["why"]
+    assert verdict["platform_satisfied"] is False
+    # ... and the same card on Linux is fine, so the gate is about the platform.
+    assert boot.classify_candidate(contract["profiles"]["cuda-cu129"],
+                                   capability="12.0", driver=(580, 88),
+                                   platform_tag=boot.LINUX_X86_64
+                                   )["grade"] != boot.INCOMPATIBLE
+
+
+def test_a_windows_blackwell_host_resolves_to_a_profile_that_has_a_windows_wheel(
+        contract: dict) -> None:
+    gpu = {"available": True, "name": "NVIDIA GeForce RTX 5090",
+           "driver_version": "580.88", "compute_capability": "12.0"}
+    selection = boot.select_profile(contract, gpu, platform_tag=boot.WIN_AMD64)
+    assert selection["profile_id"] == "cuda-cu130"
+    assert boot.WIN_AMD64 in contract["profiles"]["cuda-cu130"]["platforms"]
+    assert selection["supports_scientific_execution"] is True
+
+
+def test_the_linux_plan_is_exactly_what_it_was_before_the_platform_gate(
+        contract: dict) -> None:
+    """Windows was not fixed by moving Linux."""
+    for driver, capability, expected in (("580.88", "12.0", "cuda-cu129"),
+                                         ("572.00", "12.0", "cuda-cu129"),
+                                         ("575.00", "9.0", "cuda-cu129"),
+                                         ("550.54", "8.9", "cuda-cu126"),
+                                         ("535.10", "8.0", "cuda-cu126")):
+        gpu = {"available": True, "name": "NVIDIA Test", "driver_version": driver,
+               "compute_capability": capability}
+        selection = boot.select_profile(contract, gpu,
+                                        platform_tag=boot.LINUX_X86_64)
+        assert selection["profile_id"] == expected, (driver, capability)
+
+
+def test_a_windows_host_with_no_installable_profile_blocks_and_says_why(
+        contract: dict) -> None:
+    """Blackwell on a driver too old for CUDA 13 has nowhere to go on Windows."""
+    gpu = {"available": True, "name": "NVIDIA GeForce RTX 5070",
+           "driver_version": "575.00", "compute_capability": "12.0"}
+    with pytest.raises(boot.BootstrapError) as caught:
+        boot.select_profile(contract, gpu, platform_tag=boot.WIN_AMD64)
+    assert caught.value.reason == boot.CUDA_NOT_VALIDATED
+    assert "win_amd64" in str(caught.value)
+    assert "publishes no win_amd64 wheel" in str(caught.value)
+
+
+@pytest.mark.parametrize("sysconfig_platform,expected", [
+    ("win-amd64", "win_amd64"),
+    ("linux-x86_64", "linux_x86_64"),
+    ("linux-aarch64", "linux_aarch64"),
+    ("macosx-14.0-arm64", "macosx_arm64"),
+    ("mingw_x86_64_ucrt", "unknown_platform"),
+])
+def test_the_host_platform_is_read_from_the_wheel_platform_string(
+        sysconfig_platform: str, expected: str) -> None:
+    """MSYS2 reports its own build platform, and it is not a wheel target here."""
+    assert boot.host_platform_tag(
+        {"sysconfig_platform": sysconfig_platform}) == expected
+
+
+def test_the_cuda_requirement_file_and_the_contract_name_the_same_index(
+        cuda_evidence: dict) -> None:
+    for profile_id, entry in cuda_evidence["profiles"].items():
+        assert entry["index_matches_contract"], profile_id
+        assert entry["torch_matches_contract"], profile_id
+
+
+# --- what was installed, not what was asked for ------------------------------
+
+TORCH_PROBE_OUTPUT = '{"version": "%s", "cuda": "%s"}\n'
+
+
+def test_a_torch_build_carrying_the_declared_tag_is_accepted(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(boot.subprocess, "check_output",
+                        lambda *_a, **_k: TORCH_PROBE_OUTPUT % ("2.13.0+cu130", "13.0"))
+    report = boot.verify_torch_build(Path("python"), {"cuda_tag": "cu130"})
+    assert report["verdict"] == "MATCHES_DECLARED_PROFILE"
+    assert report["local_version_label"] == "cu130"
+
+
+def test_a_silently_substituted_pypi_wheel_is_caught(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The PyPI wheel carries no local version label; the profile's build does."""
+    monkeypatch.setattr(boot.subprocess, "check_output",
+                        lambda *_a, **_k: TORCH_PROBE_OUTPUT % ("2.13.0", "13.0"))
+    report = boot.verify_torch_build(Path("python"), {"cuda_tag": "cu129"})
+    assert report["verdict"] == "SUBSTITUTED_BUILD"
+    assert "cu129" in report["why"]
+
+
+def test_a_wheel_from_the_wrong_cuda_index_is_caught(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(boot.subprocess, "check_output",
+                        lambda *_a, **_k: TORCH_PROBE_OUTPUT % ("2.13.0+cu126", "12.6"))
+    assert boot.verify_torch_build(Path("python"), {"cuda_tag": "cu130"}
+                                   )["verdict"] == "SUBSTITUTED_BUILD"
+
+
+def test_the_cpu_profile_has_no_build_tag_to_verify() -> None:
+    assert boot.verify_torch_build(Path("python"), {})["verdict"] == "NOT_APPLICABLE"
+
+
+def test_a_substituted_build_blocks_the_run_rather_than_being_recorded(
+        contract: dict, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(boot, "VENV", tmp_path / ".venv")
+    monkeypatch.setattr(boot, "MANIFEST", tmp_path / "ENVIRONMENT_MANIFEST.json")
+    monkeypatch.setattr(boot, "running_inside_project_venv", lambda: False)
+    monkeypatch.setattr(boot, "read_manifest", lambda *_a, **_k: None)
+    monkeypatch.setattr(boot, "detect_gpu", lambda: {
+        "available": True, "name": "NVIDIA GeForce RTX 5090",
+        "driver_version": "580.88", "compute_capability": "12.0"})
+    monkeypatch.setattr(boot, "classify_venv",
+                        lambda *_a, **_k: {"state": boot.VENV_VALID,
+                                           "action": boot.VENV_REUSE, "why": "stub"})
+    monkeypatch.setattr(boot, "verify_imports", lambda *_a, **_k: {
+        "ok": True, "missing": [], "modules": [], "groups": []})
+    monkeypatch.setattr(boot, "verify_torch_build", lambda *_a, **_k: {
+        "verdict": "SUBSTITUTED_BUILD", "declared_cuda_tag": "cu130",
+        "installed_version": "2.13.0", "installed_cuda": "13.0", "why": "stub"})
+
+    with pytest.raises(boot.BootstrapError) as caught:
+        boot.ensure_environment(quiet=True, allow_install=False)
+    assert caught.value.reason == boot.CUDA_NOT_VALIDATED
+    assert "not the build this profile declares" in str(caught.value)
+    assert not (tmp_path / "ENVIRONMENT_MANIFEST.json").exists()

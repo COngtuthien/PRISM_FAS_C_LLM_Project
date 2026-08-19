@@ -162,6 +162,12 @@ def selector(_contract):
 
 
 host = boot.resolve_host_interpreter(contract, evidence=msys, selector=selector)
+blackwell = {"available": True, "name": "NVIDIA GeForce RTX 5090",
+             "driver_version": "580.88", "compute_capability": "12.0"}
+windows_profile = boot.select_profile(contract, blackwell,
+                                      platform_tag=boot.WIN_AMD64)
+linux_profile = boot.select_profile(contract, blackwell,
+                                    platform_tag=boot.LINUX_X86_64)
 print(json.dumps({
     "msys2_classified": verdict["classification"],
     "msys2_may_build": verdict["may_build_the_project_environment"],
@@ -171,9 +177,11 @@ print(json.dumps({
     "venv_interpreter": str(boot.venv_python(boot.VENV, scheme=host["venv_scheme"])),
     "pip_policy": boot.pip_policy(contract),
     "onnxruntime_pin": contract["dependencies"]["onnxruntime"]["pin"],
+    "windows_blackwell_profile": windows_profile["profile_id"],
+    "linux_blackwell_profile": linux_profile["profile_id"],
     "requirement_closure": sorted(
         path.name for path in boot.requirement_files(
-            contract["profiles"]["cuda-cu129"])),
+            contract["profiles"][windows_profile["profile_id"]])),
     "science_import_groups": boot.import_groups(contract, scientific=True),
 }))
 """
@@ -189,6 +197,9 @@ print(json.dumps({
             and behaviour["venv_interpreter"].endswith("Scripts\\python.exe")
             and behaviour["onnxruntime_pin"] == "1.24.1"
             and behaviour["pip_policy"]["upgrade_policy"] == "BOUNDED_MINIMUM_ONLY"
+            and behaviour["windows_blackwell_profile"] == "cuda-cu130"
+            and behaviour["linux_blackwell_profile"] == "cuda-cu129"
+            and "cuda-cu130.txt" in behaviour["requirement_closure"]
             and "science_only" in behaviour["science_import_groups"])
 
         findings["files_applied"] = applied

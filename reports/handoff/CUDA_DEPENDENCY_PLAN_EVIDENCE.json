@@ -1,0 +1,328 @@
+{
+  "generated_utc": "2026-08-19T16:14:02.100964+00:00",
+  "profiles": {
+    "cpu": {
+      "contract_index": "https://download.pytorch.org/whl/cpu",
+      "cuda_tag": "cpu",
+      "declared_index": "https://download.pytorch.org/whl/cpu",
+      "declared_platforms": [
+        "win_amd64",
+        "linux_x86_64",
+        "linux_aarch64"
+      ],
+      "index_matches_contract": true,
+      "platforms_missing_a_declared_wheel": [
+        "macosx_arm64"
+      ],
+      "platforms_with_a_declared_wheel": [
+        "linux_aarch64",
+        "linux_x86_64",
+        "win_amd64"
+      ],
+      "requirements": "requirements/cpu.txt",
+      "torch": "2.13.0",
+      "torch_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torch_index_wheels": 31,
+      "torch_matches_contract": true,
+      "torchvision": "0.28.0",
+      "torchvision_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torchvision_index_wheels": 18
+    },
+    "cuda-cu126": {
+      "contract_index": "https://download.pytorch.org/whl/cu126",
+      "cuda_tag": "cu126",
+      "declared_index": "https://download.pytorch.org/whl/cu126",
+      "declared_platforms": [
+        "win_amd64",
+        "linux_x86_64",
+        "linux_aarch64"
+      ],
+      "index_matches_contract": true,
+      "platforms_missing_a_declared_wheel": [
+        "macosx_arm64"
+      ],
+      "platforms_with_a_declared_wheel": [
+        "linux_aarch64",
+        "linux_x86_64",
+        "win_amd64"
+      ],
+      "requirements": "requirements/cuda-cu126.txt",
+      "torch": "2.13.0",
+      "torch_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torch_index_wheels": 22,
+      "torch_matches_contract": true,
+      "torchvision": "0.28.0",
+      "torchvision_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torchvision_index_wheels": 18
+    },
+    "cuda-cu129": {
+      "contract_index": "https://download.pytorch.org/whl/cu129",
+      "cuda_tag": "cu129",
+      "declared_index": "https://download.pytorch.org/whl/cu129",
+      "declared_platforms": [
+        "linux_x86_64",
+        "linux_aarch64"
+      ],
+      "index_matches_contract": true,
+      "platforms_missing_a_declared_wheel": [
+        "macosx_arm64",
+        "win_amd64"
+      ],
+      "platforms_with_a_declared_wheel": [
+        "linux_aarch64",
+        "linux_x86_64"
+      ],
+      "requirements": "requirements/cuda-cu129.txt",
+      "torch": "2.13.0",
+      "torch_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ]
+      },
+      "torch_index_wheels": 16,
+      "torch_matches_contract": true,
+      "torchvision": "0.28.0",
+      "torchvision_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torchvision_index_wheels": 12
+    },
+    "cuda-cu130": {
+      "contract_index": "https://download.pytorch.org/whl/cu130",
+      "cuda_tag": "cu130",
+      "declared_index": "https://download.pytorch.org/whl/cu130",
+      "declared_platforms": [
+        "win_amd64",
+        "linux_x86_64",
+        "linux_aarch64"
+      ],
+      "index_matches_contract": true,
+      "platforms_missing_a_declared_wheel": [
+        "macosx_arm64"
+      ],
+      "platforms_with_a_declared_wheel": [
+        "linux_aarch64",
+        "linux_x86_64",
+        "win_amd64"
+      ],
+      "requirements": "requirements/cuda-cu130.txt",
+      "torch": "2.13.0",
+      "torch_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314",
+          "cp315"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torch_index_wheels": 22,
+      "torch_matches_contract": true,
+      "torchvision": "0.28.0",
+      "torchvision_index_platforms": {
+        "linux_aarch64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "linux_x86_64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ],
+        "win_amd64": [
+          "cp310",
+          "cp311",
+          "cp312",
+          "cp313",
+          "cp314"
+        ]
+      },
+      "torchvision_index_wheels": 18
+    }
+  },
+  "pypi_fallback": {
+    "pypi_torch_2_13_0_platforms": {
+      "linux_aarch64": [
+        "cp310",
+        "cp311",
+        "cp312",
+        "cp313",
+        "cp314"
+      ],
+      "linux_x86_64": [
+        "cp310",
+        "cp311",
+        "cp312",
+        "cp313",
+        "cp314"
+      ],
+      "macosx_arm64": [
+        "cp310",
+        "cp311",
+        "cp312",
+        "cp313",
+        "cp314"
+      ],
+      "win_amd64": [
+        "cp310",
+        "cp311",
+        "cp312",
+        "cp313",
+        "cp314"
+      ]
+    },
+    "why_it_matters": "the CUDA requirement files use --extra-index-url, so PyPI stays in the resolution set. A profile whose own index has no wheel for the host platform therefore does not fail loudly: pip installs the PyPI build instead, and the environment manifest goes on naming the CUDA index it did not use."
+  },
+  "question": "does every declared hardware profile have a real wheel for every platform it can be selected on?",
+  "schema_version": "prism-cuda-dependency-plan-evidence-v1",
+  "supported_python_tags": [
+    "cp311",
+    "cp312",
+    "cp313"
+  ],
+  "verdict_per_profile": {
+    "cpu": "OK",
+    "cuda-cu126": "OK",
+    "cuda-cu129": "OK",
+    "cuda-cu130": "OK"
+  }
+}

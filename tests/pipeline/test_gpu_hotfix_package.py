@@ -74,6 +74,7 @@ def test_the_package_carries_the_whole_fix_and_not_a_subset(manifest: dict) -> N
         "configs/environment/environment_contract.yaml",  # what it enforces
         "requirements/constraints.txt",                # the shared pin
         "requirements/cpu.txt",
+        "requirements/cuda-cu130.txt",           # the Windows CUDA path
         "requirements/cuda-cu129.txt",
         "requirements/cuda-cu126.txt",
     }

@@ -1,0 +1,36 @@
+# CUDA 13.0 profile — the Windows path for NVIDIA Blackwell (RTX 50-series),
+# Hopper, Ada and Ampere.
+#
+#     pip install -r requirements/cuda-cu130.txt
+#
+# This profile exists because of a real gap, not a preference. The cu129 index
+# publishes torch 2.13.0 for Linux only: there is no win_amd64 wheel at any
+# supported Python tag. Because the CUDA profiles use --extra-index-url, a
+# Windows host selecting cu129 would NOT fail — pip would quietly install the
+# PyPI torch instead, and the environment manifest would go on naming a CUDA
+# index it never used. cu130 publishes cp311-cp314 win_amd64 AND manylinux_2_28
+# wheels for the same torch/torchvision pins, so a Windows Blackwell host gets
+# the build its profile actually declares.
+#
+# Recorded evidence: reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json
+#
+# NOT VALIDATED ON THE MACHINE THAT WROTE THIS FILE. This project's accepted
+# evidence was produced on a CPU-only host. The pin is declared from the pinned
+# torch minor and the vendor's published index; the external-GPU preflight is
+# what turns it from declared into validated.
+-r base.txt
+-c constraints.txt
+
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+torch==2.13.0
+torchvision==0.28.0
+
+# SCRFD face detection runs through ONNX Runtime during M2 preprocessing, so
+# this pin is a preprocessing input, not a packaging detail.
+#
+# 1.24.1 is the SMALLEST release in the 1.24 family: 1.24.0 was never published
+# to PyPI, which is why a fresh Windows deployment failed here with "no matching
+# distribution". Verified against the index: cp311-cp314 wheels for win_amd64,
+# manylinux_2_28 (x86_64, aarch64) and macOS arm64.
+onnxruntime==1.24.1

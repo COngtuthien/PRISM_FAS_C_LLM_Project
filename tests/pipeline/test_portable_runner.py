@@ -73,13 +73,13 @@ def test_the_contract_parses_without_pyyaml(contract: dict) -> None:
 def test_only_cuda_profiles_may_do_science(contract: dict) -> None:
     profiles = contract["profiles"]
     assert profiles["cpu"]["supports_scientific_execution"] is False
-    for name in ("cuda-cu129", "cuda-cu126"):
+    for name in ("cuda-cu130", "cuda-cu129", "cuda-cu126"):
         assert profiles[name]["supports_scientific_execution"] is True
 
 
 def test_cuda_profiles_are_declared_not_claimed_validated(contract: dict) -> None:
     """Honesty check: no CUDA wheel has been validated on this machine."""
-    for name in ("cuda-cu129", "cuda-cu126"):
+    for name in ("cuda-cu130", "cuda-cu129", "cuda-cu126"):
         assert contract["profiles"][name]["status"] == "DECLARED_NOT_VALIDATED_HERE"
     assert contract["profiles"]["cpu"]["status"] == "VALIDATED"
 
@@ -99,21 +99,31 @@ def test_an_unsupported_interpreter_is_refused_with_the_numbers() -> None:
 
 # --- hardware to profile, without searching ---------------------------------
 
-@pytest.mark.parametrize("name,driver,capability,expected", [
-    ("NVIDIA GeForce RTX 5090", "580.88", "12.0", "cuda-cu129"),
-    ("NVIDIA GeForce RTX 5080", "572.00", "12.0", "cuda-cu129"),
-    ("NVIDIA H100 80GB HBM3", "575.00", "9.0", "cuda-cu129"),
-    ("NVIDIA GeForce RTX 4090", "550.54", "8.9", "cuda-cu126"),
-    ("NVIDIA A100-SXM4-80GB", "535.10", "8.0", "cuda-cu126"),
+@pytest.mark.parametrize("platform_tag,name,driver,capability,expected", [
+    # Linux keeps exactly the plan it had.
+    ("linux_x86_64", "NVIDIA GeForce RTX 5090", "580.88", "12.0", "cuda-cu129"),
+    ("linux_x86_64", "NVIDIA GeForce RTX 5080", "572.00", "12.0", "cuda-cu129"),
+    ("linux_x86_64", "NVIDIA H100 80GB HBM3", "575.00", "9.0", "cuda-cu129"),
+    ("linux_x86_64", "NVIDIA GeForce RTX 4090", "550.54", "8.9", "cuda-cu126"),
+    ("linux_x86_64", "NVIDIA A100-SXM4-80GB", "535.10", "8.0", "cuda-cu126"),
+    # Windows cannot use cu129: that index publishes no win_amd64 wheel for the
+    # pinned torch, so a Blackwell card resolves to the CUDA 13.0 profile and an
+    # Ada or Ampere card to CUDA 12.6.
+    ("win_amd64", "NVIDIA GeForce RTX 5090", "580.88", "12.0", "cuda-cu130"),
+    ("win_amd64", "NVIDIA H100 80GB HBM3", "580.00", "9.0", "cuda-cu130"),
+    ("win_amd64", "NVIDIA GeForce RTX 4090", "550.54", "8.9", "cuda-cu126"),
+    ("win_amd64", "NVIDIA A100-SXM4-80GB", "535.10", "8.0", "cuda-cu126"),
 ])
-def test_a_declared_gpu_selects_its_declared_profile(contract: dict, name: str,
+def test_a_declared_gpu_selects_its_declared_profile(contract: dict,
+                                                     platform_tag: str, name: str,
                                                      driver: str, capability: str,
                                                      expected: str) -> None:
     gpu = {"available": True, "name": name, "driver_version": driver,
            "compute_capability": capability, "memory_total_mb": 32768}
-    selection = boot.select_profile(contract, gpu)
+    selection = boot.select_profile(contract, gpu, platform_tag=platform_tag)
     assert selection["profile_id"] == expected
     assert selection["supports_scientific_execution"] is True
+    assert platform_tag in contract["profiles"][expected]["platforms"]
 
 
 def test_a_5090_on_an_old_driver_is_refused_rather_than_downgraded(contract: dict) -> None:
@@ -121,7 +131,7 @@ def test_a_5090_on_an_old_driver_is_refused_rather_than_downgraded(contract: dic
     gpu = {"available": True, "name": "NVIDIA GeForce RTX 5090",
            "driver_version": "520.00", "compute_capability": "12.0"}
     with pytest.raises(boot.BootstrapError) as caught:
-        boot.select_profile(contract, gpu)
+        boot.select_profile(contract, gpu, platform_tag=boot.LINUX_X86_64)
     assert caught.value.reason == boot.CUDA_NOT_VALIDATED
     assert "will NOT guess a CUDA wheel" in str(caught.value)
     assert "will NOT fall back to CPU" in str(caught.value)
@@ -131,7 +141,7 @@ def test_an_unknown_accelerator_matches_nothing(contract: dict) -> None:
     gpu = {"available": True, "name": "Some Unreleased Accelerator",
            "driver_version": "999.0", "compute_capability": "13.0"}
     with pytest.raises(boot.BootstrapError) as caught:
-        boot.select_profile(contract, gpu)
+        boot.select_profile(contract, gpu, platform_tag=boot.LINUX_X86_64)
     assert caught.value.detail["family"] == "UNRECOGNISED_NAME"
 
 
@@ -161,7 +171,7 @@ def test_a_card_whose_name_is_unlisted_is_still_selected_on_capability(
     gpu = {"available": True, "name": "NVIDIA Some-New-Datacenter-Part",
            "driver_version": "560.00", "compute_capability": "8.9",
            "memory_total_mb": 49152}
-    selection = boot.select_profile(contract, gpu)
+    selection = boot.select_profile(contract, gpu, platform_tag=boot.LINUX_X86_64)
     assert selection["profile_id"] == "cuda-cu126"
     assert selection["supports_scientific_execution"] is True
     assert selection["family"] == "UNRECOGNISED_NAME"
@@ -173,7 +183,7 @@ def test_a_capability_inside_the_range_but_unlisted_is_a_candidate(
     """Plausible is reported as plausible, not promoted to validated."""
     gpu = {"available": True, "name": "NVIDIA Whatever", "driver_version": "575.00",
            "compute_capability": "8.7", "memory_total_mb": 24576}
-    selection = boot.select_profile(contract, gpu)
+    selection = boot.select_profile(contract, gpu, platform_tag=boot.LINUX_X86_64)
     assert selection["grade"] == boot.UNVALIDATED_COMPATIBLE_CANDIDATE
 
 

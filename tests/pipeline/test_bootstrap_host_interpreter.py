@@ -702,7 +702,10 @@ def test_an_msys2_host_builds_a_windows_layout_venv_end_to_end(
     assert report["python"]["found"] == "3.12.8"
     assert report["python"]["classification"] == boot.STANDARD_WINDOWS_CPYTHON
     # A CUDA host must require the ONNX import before the environment is ready.
-    assert report["profile_id"] == "cuda-cu129"
+    # cu130, not cu129: this is a Windows host, and the cu129 index publishes no
+    # win_amd64 wheel for the pinned torch.
+    assert report["host_platform"] == boot.WIN_AMD64
+    assert report["profile_id"] == "cuda-cu130"
     assert "science_only" in report["required_import_groups"]
     assert manifest_path.exists()
 

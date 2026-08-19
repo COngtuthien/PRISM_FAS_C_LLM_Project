@@ -65,9 +65,18 @@ RUNTIME_FILES: list[dict[str, object]] = [
         "scientific_identity_affected": False,
     },
     {
+        "path": "requirements/cuda-cu130.txt",
+        "reason": "NEW profile. The CUDA 12.9 index publishes torch 2.13.0 for "
+                  "Linux only, so a Windows Blackwell host had no profile with a "
+                  "real wheel; cu130 publishes cp311-cp314 win_amd64 builds of the "
+                  "same pins and is what such a host now resolves to",
+        "required": True,
+        "scientific_identity_affected": False,
+    },
+    {
         "path": "requirements/cuda-cu129.txt",
-        "reason": "same pin repair on the CUDA 12.9 profile, which is the one a "
-                  "Blackwell or Ada card selects",
+        "reason": "same ONNX Runtime pin repair; the profile is now declared "
+                  "Linux-only, which is what its index actually publishes",
         "required": True,
         "scientific_identity_affected": False,
     },
@@ -102,6 +111,16 @@ EXCLUDED: list[dict[str, str]] = [
     {"path": "scripts/build_gpu_bootstrap_hotfix.py",
      "category": "tooling",
      "why_not_shipped": "builds this package; nothing on the GPU laptop calls it"},
+    {"path": "scripts/verify_gpu_hotfix_independence.py",
+     "category": "tooling",
+     "why_not_shipped": "verifies this package on the build machine"},
+    {"path": "scripts/audit_cuda_dependency_plan.py",
+     "category": "tooling",
+     "why_not_shipped": "queries the wheel indices from the build machine"},
+    {"path": "reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json",
+     "category": "evidence",
+     "why_not_shipped": "the record of the per-platform wheel audit; read, never "
+                        "executed"},
 ]
 
 
@@ -167,7 +186,7 @@ preserving relative paths, and overwrite when asked:
     ├── train.py
     ├── bootstrap.py
     ├── configs/environment/environment_contract.yaml
-    └── requirements/{{constraints,cpu,cuda-cu126,cuda-cu129}}.txt
+    └── requirements/{{constraints,cpu,cuda-cu126,cuda-cu129,cuda-cu130}}.txt
 
 Or let the script do it and verify every hash:
 
@@ -180,7 +199,21 @@ It never starts training.
 documentation and tooling for this package. Do **not** copy them into the project
 root — the PowerShell script already excludes them.
 
-## 4. The half-finished `.venv`
+## 4. The CUDA profile your card will get
+
+A third problem turned up while auditing the plan, before it could bite you: the
+CUDA 12.9 index publishes torch 2.13.0 for Linux only. On Windows that profile
+would not have failed — pip would have installed a different build from PyPI
+while the environment manifest went on naming an index it never used. The host
+platform is now checked first, and a Windows Blackwell card resolves to the new
+`cuda-cu130` profile, which does publish Windows wheels. An Ada or Ampere card
+resolves to `cuda-cu126` as before. After installing, the runner reads back what
+torch actually is and refuses a build that is not the one the profile named.
+
+CUDA 13.0 needs an R580 driver or newer. If your driver is older and your card is
+Blackwell, the run stops and says so; update the driver and run again.
+
+## 5. The half-finished `.venv`
 
 **You do not need to delete `.venv`.** The failed run left one that exists, runs,
 and is missing packages. The new bootstrap classifies that as
@@ -190,7 +223,7 @@ POSIX `bin/` layout MSYS2 Python produces, a Python of the wrong minor version,
 an interpreter that will not launch), it rebuilds `<project>/.venv` itself and
 says so. It will never delete anything outside the project.
 
-## 5. Run it
+## 6. Run it
 
     python train.py
 
@@ -208,7 +241,7 @@ interpreter it found, why it was refused, the supported version range and every
 interpreter it discovered. Install a CPython from python.org in that range
 (3.11-3.13, 3.12 or 3.13 preferred) and run the same command again.
 
-## 6. What you should see
+## 7. What you should see
 
     host interpreter    MSYS2_MINGW_PYTHON at C:\\msys64\\mingw64\\bin\\python.exe
     using instead       standard Windows CPython 3.12.x at C:\\...\\Python312\\python.exe
@@ -316,7 +349,10 @@ Write-Host "NEXT_COMMAND = python train.py"
 def main() -> int:
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     commit = git("rev-parse", "HEAD")
-    base = git("rev-parse", "HEAD~1")
+    # The commit the deployed copy was taken from, so `previous_sha256` describes
+    # what that machine most likely still holds. Passed explicitly rather than
+    # guessed as HEAD~1, which stops meaning anything after the second commit.
+    base = git("rev-parse", sys.argv[1] if len(sys.argv) > 1 else "HEAD~1")
 
     if PACKAGE.exists():
         for item in sorted(PACKAGE.rglob("*"), reverse=True):
@@ -374,6 +410,18 @@ def main() -> int:
                     "release family, verified against the package index and "
                     "measured bit-identical to the historical runtime on the "
                     "frozen SCRFD detector"},
+            {"id": "CUDA_PROFILE_WITH_NO_WINDOWS_WHEEL",
+             "symptom": "latent, found by auditing the plan rather than by "
+                        "failing: the cu129 index publishes torch 2.13.0 for "
+                        "Linux only, and --extra-index-url would have let pip "
+                        "install a different build from PyPI while the manifest "
+                        "went on naming the CUDA index it never used",
+             "fix": "the host wheel platform is now a selection gate checked "
+                    "before compute capability; every profile declares the "
+                    "platforms its index actually publishes; a Windows Blackwell "
+                    "host resolves to the new cuda-cu130 profile; and the "
+                    "installed torch build is read back and refused if it does "
+                    "not carry the selected profile's CUDA tag"},
             {"id": "PARTIAL_VENV_NOT_RECOVERABLE",
              "symptom": "the failed install left a .venv that existed, ran and was "
                         "missing packages",

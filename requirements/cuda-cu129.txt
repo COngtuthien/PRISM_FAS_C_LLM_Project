@@ -1,6 +1,14 @@
 # CUDA 12.9 profile — NVIDIA Blackwell (RTX 50-series, including the RTX 5090)
 # and any newer architecture the cu129 wheel supports.
 #
+# LINUX ONLY. This index publishes torch 2.13.0 for manylinux_2_28 x86_64 and
+# aarch64 at every supported Python tag, and for no Windows tag at all. The
+# environment contract declares that, and a Windows host is refused this
+# profile and offered cuda-cu130 instead — because --extra-index-url would
+# otherwise let pip satisfy the pin from PyPI with a different build while the
+# manifest went on naming this index.
+# Evidence: reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json
+#
 #     pip install -r requirements/cuda-cu129.txt
 #
 # Blackwell is sm_120. A CPU wheel, or a CUDA wheel built before sm_120 kernels

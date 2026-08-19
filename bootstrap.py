@@ -747,6 +747,39 @@ def gpu_family(name: str | None, contract: dict[str, Any]) -> str:
     return "UNRECOGNISED_NAME"
 
 
+#: Wheel platforms this project can be installed on. A profile that publishes
+#: nothing for the host's tag cannot be selected on it, whatever its GPU says.
+WIN_AMD64 = "win_amd64"
+LINUX_X86_64 = "linux_x86_64"
+LINUX_AARCH64 = "linux_aarch64"
+MACOS_ARM64 = "macosx_arm64"
+UNKNOWN_PLATFORM = "unknown_platform"
+
+
+def host_platform_tag(evidence: dict[str, Any] | None = None) -> str:
+    """Name the wheel platform the host actually needs a build for.
+
+    Derived from the interpreter's own `sysconfig.get_platform()` rather than
+    from `sys.platform`, because that is the string the wheel tags are built
+    from — and, on Windows, because an MSYS2 interpreter reports `win32` while
+    needing a completely different set of artifacts.
+    """
+    evidence = local_interpreter_evidence() if evidence is None else evidence
+    platform_name = str(evidence.get("sysconfig_platform") or "").lower()
+    machine = platform_name.rsplit("-", 1)[-1]
+    if platform_name.startswith("win"):
+        return WIN_AMD64 if machine in ("amd64", "x86_64") else UNKNOWN_PLATFORM
+    if platform_name.startswith("linux"):
+        if machine in ("x86_64", "amd64"):
+            return LINUX_X86_64
+        if machine in ("aarch64", "arm64"):
+            return LINUX_AARCH64
+        return UNKNOWN_PLATFORM
+    if platform_name.startswith("macosx"):
+        return MACOS_ARM64 if machine in ("arm64", "universal2") else UNKNOWN_PLATFORM
+    return UNKNOWN_PLATFORM
+
+
 #: How well a host matches a declared profile.
 VALIDATED_PROFILE = "VALIDATED_PROFILE"
 COMPATIBLE_DECLARED_PROFILE = "COMPATIBLE_DECLARED_PROFILE"
@@ -762,10 +795,18 @@ def _capability_tuple(value: str) -> tuple[int, ...]:
 
 
 def classify_candidate(profile: dict[str, Any], *, capability: str,
-                       driver: tuple[int, ...]) -> dict[str, Any]:
+                       driver: tuple[int, ...],
+                       platform_tag: str | None = None) -> dict[str, Any]:
     """Grade one declared profile against the detected hardware.
 
-    Compute capability is the primary key and the driver floor is the second.
+    The host's wheel platform is checked first, then compute capability, then
+    the driver floor. Platform comes first because it is the only one of the
+    three that cannot be argued with: a profile whose index publishes no build
+    for this platform cannot be installed from it at all, and — since the CUDA
+    requirement files carry --extra-index-url — would not even fail loudly. pip
+    would fall through to the PyPI wheel while the manifest went on naming the
+    CUDA index it never used. That is what happened to cuda-cu129 on Windows.
+
     A capability inside the profile's declared range but not in its enumerated
     list is a CANDIDATE rather than a match: the kernels are almost certainly
     present, but nobody has run it, and the difference between "should work" and
@@ -774,12 +815,22 @@ def classify_candidate(profile: dict[str, Any], *, capability: str,
     declared = [str(item) for item in (profile.get("compute_capabilities") or [])]
     minimum_driver = _version_tuple(profile.get("minimum_driver_version") or "0")
     driver_ok = driver >= minimum_driver
+    platforms = [str(item) for item in (profile.get("platforms") or [])]
+    platform_ok = not platforms or not platform_tag or platform_tag in platforms
 
     detail = {"profile_id": profile.get("id"),
               "declared_capabilities": declared,
               "detected_capability": capability or "unreported",
               "minimum_driver_version": profile.get("minimum_driver_version"),
-              "driver_satisfied": driver_ok}
+              "driver_satisfied": driver_ok,
+              "declared_platforms": platforms,
+              "host_platform": platform_tag,
+              "platform_satisfied": platform_ok}
+
+    if not platform_ok:
+        return {**detail, "grade": INCOMPATIBLE,
+                "why": f"this profile's index publishes no {platform_tag} wheel "
+                       f"(it declares {platforms})"}
 
     if not driver_ok:
         return {**detail, "grade": INCOMPATIBLE,
@@ -813,7 +864,8 @@ def classify_candidate(profile: dict[str, Any], *, capability: str,
                    f"declared range"}
 
 
-def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, Any]:
+def select_profile(contract: dict[str, Any], gpu: dict[str, Any], *,
+                   platform_tag: str | None = None) -> dict[str, Any]:
     """Match the host to an already-declared profile. Never search for one.
 
     Returns the selected profile plus the reasoning, so a refusal can explain
@@ -824,12 +876,13 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
     order = selection.get("order") or []
     if isinstance(order, str):
         order = [order]
+    platform_tag = platform_tag or host_platform_tag()
 
     if not gpu.get("available"):
         cpu = dict(profiles.get("cpu") or {})
         return {"profile_id": "cpu", "profile": cpu, "reason": "no CUDA GPU detected",
                 "gpu": gpu, "family": "NONE", "supports_scientific_execution": False,
-                "candidates_considered": []}
+                "host_platform": platform_tag, "candidates_considered": []}
 
     family = gpu_family(gpu.get("name"), contract)
     driver = _version_tuple(gpu.get("driver_version") or "0")
@@ -841,7 +894,8 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
         if not profile:
             continue
         considered.append(classify_candidate(profile, capability=capability,
-                                             driver=driver))
+                                             driver=driver,
+                                             platform_tag=platform_tag))
 
     # An exactly-declared capability wins over a merely-plausible one, whichever
     # order the profiles are listed in. The GPU's model name is recorded but
@@ -860,7 +914,7 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
                 "grade": best["grade"],
                 "reason": f"compute capability {capability or 'unreported'} with driver "
                           f"{gpu.get('driver_version')}: {best['why']} ({best['grade']})",
-                "gpu": gpu, "family": family,
+                "gpu": gpu, "family": family, "host_platform": platform_tag,
                 "supports_scientific_execution":
                     bool(profile.get("supports_scientific_execution")),
                 "candidates_considered": considered}
@@ -871,6 +925,7 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
     raise BootstrapError(
         CUDA_NOT_VALIDATED,
         "the detected GPU satisfies no declared environment profile.\n"
+        f"    host platform       {platform_tag}\n"
         f"    GPU                 {gpu.get('name')}  (name is provenance, not a gate)\n"
         f"    driver              {gpu.get('driver_version')}\n"
         f"    compute capability  {gpu.get('compute_capability') or 'unreported'}\n"
@@ -882,7 +937,8 @@ def select_profile(contract: dict[str, Any], gpu: dict[str, Any]) -> dict[str, A
         "  extend configs/environment/environment_contract.yaml deliberately.\n"
         "  This runner will NOT guess a CUDA wheel and will NOT fall back to CPU\n"
         "  for scientific execution.",
-        {"gpu": gpu, "family": family, "candidates_considered": considered})
+        {"gpu": gpu, "family": family, "host_platform": platform_tag,
+         "candidates_considered": considered})
 
 
 # --- environment identity ----------------------------------------------------
@@ -1316,6 +1372,47 @@ def verify_imports(python: Path, contract: dict[str, Any], *,
             "ok": not missing}
 
 
+def verify_torch_build(python: Path, profile: dict[str, Any]) -> dict[str, Any]:
+    """Read the torch build that is actually installed, and judge it.
+
+    A requirement file names an index; it cannot make pip use it. With
+    `--extra-index-url` in play, PyPI stays in the resolution set, so a profile
+    whose own index lacks a wheel for the host is satisfied silently by a
+    different build. The manifest would then record a CUDA tag that nothing had
+    ever verified. This asks the installed torch what it is.
+    """
+    tag = str(profile.get("cuda_tag") or "")
+    report = {"declared_cuda_tag": tag or None, "checked": bool(tag)}
+    if not tag:
+        report["verdict"] = "NOT_APPLICABLE"
+        return report
+
+    probe = ("import json, torch; print(json.dumps({'version': torch.__version__, "
+             "'cuda': torch.version.cuda}))")
+    try:
+        output = subprocess.check_output([str(python), "-c", probe], text=True,
+                                         stderr=subprocess.DEVNULL, timeout=600)
+        payload = json.loads(output.strip().splitlines()[-1])
+    except Exception as error:                               # noqa: BLE001 - reported
+        report.update({"verdict": "UNREADABLE",
+                       "error": f"{type(error).__name__}: {error}"})
+        return report
+
+    version = str(payload.get("version") or "")
+    local = version.partition("+")[2]
+    report.update({"installed_version": version, "installed_cuda": payload.get("cuda"),
+                   "local_version_label": local or None})
+    if local == tag:
+        report["verdict"] = "MATCHES_DECLARED_PROFILE"
+        return report
+    report["verdict"] = "SUBSTITUTED_BUILD"
+    report["why"] = (
+        f"the installed torch is {version!r}, whose build label is "
+        f"{local or '(none)'!r}, but the selected profile declares {tag!r}. "
+        "pip satisfied the pin from somewhere other than the profile's index.")
+    return report
+
+
 def installed_packages(python: Path) -> dict[str, str]:
     try:
         output = subprocess.check_output(
@@ -1373,7 +1470,8 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
 
     python_report = check_python(contract, host["evidence"])
     gpu = detect_gpu()
-    selection = select_profile(contract, gpu)
+    selection = select_profile(contract, gpu,
+                               platform_tag=host_platform_tag(host["evidence"]))
     profile_id, profile = selection["profile_id"], selection["profile"]
     identity = environment_identity(profile_id, profile,
                                     str(python_report["found"]))
@@ -1385,6 +1483,7 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
     expected_minor = None if inside else _minor(
         host["evidence"].get("version_info") or ())
 
+    platform_tag = host_platform_tag(host["evidence"])
     manifest = read_manifest(MANIFEST)
     identity_matches = bool(manifest
                             and manifest.get("environment_identity")
@@ -1444,6 +1543,27 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
         imports = verify_imports(interpreter, contract, groups=groups)
         action = "INSTALLED"
 
+    torch_build: dict[str, Any] = {}
+    if scientific and action in ("INSTALLED", "ADOPTED"):
+        torch_build = verify_torch_build(interpreter, profile)
+        if torch_build.get("verdict") == "SUBSTITUTED_BUILD":
+            raise BootstrapError(
+                CUDA_NOT_VALIDATED,
+                "the installed PyTorch is not the build this profile declares.\n"
+                f"    profile             {profile_id}  "
+                f"({profile.get('torch_index')})\n"
+                f"    declared build      {torch_build['declared_cuda_tag']}\n"
+                f"    installed           {torch_build.get('installed_version')}  "
+                f"(CUDA {torch_build.get('installed_cuda')})\n"
+                "  The requirement file names an index; it cannot make pip use it. "
+                "A wheel\n  that came from somewhere else may run and may not, and "
+                "the environment\n  manifest would record a CUDA tag nobody "
+                "verified. Extend\n  configs/environment/environment_contract.yaml "
+                "deliberately, or install a\n  driver that satisfies a profile whose "
+                "index publishes a wheel for this host.",
+                {"profile_id": profile_id, "torch_build": torch_build,
+                 "host_platform": platform_tag})
+
     if action in ("INSTALLED", "ADOPTED") and not imports.get("ok", True):
         # Never record an environment as ready when the thing that fails at run
         # time - the import - still fails.
@@ -1470,6 +1590,8 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
         "host_interpreter_evidence": host["evidence"],
         "venv_scheme": scheme,
         "venv_recovery": recovery,
+        "host_platform": platform_tag,
+        "torch_build": torch_build,
         "gpu": gpu,
         "gpu_family": selection.get("family"),
         "venv": str(VENV.relative_to(REPO)) if VENV.is_relative_to(REPO) else str(VENV),
@@ -1520,6 +1642,9 @@ __all__ = ["REPO", "CONTRACT", "VENV", "MANIFEST", "WHEELHOUSE", "SCHEMA_VERSION
            "resolve_host_interpreter", "venv_python", "existing_venv_interpreter",
            "classify_venv", "validate_venv", "assert_not_self_recreation",
            "remove_venv", "pip_policy", "ensure_pip_tooling", "import_groups",
+           "host_platform_tag", "verify_torch_build", "classify_candidate",
+           "WIN_AMD64", "LINUX_X86_64", "LINUX_AARCH64", "MACOS_ARM64",
+           "UNKNOWN_PLATFORM",
            "read_manifest", "write_manifest", "create_venv",
            "install_requirements", "installed_packages", "ensure_environment",
            "running_inside_project_venv"]
