@@ -140,16 +140,24 @@ def git(*arguments: str) -> str:
         return ""
 
 
-def previous_hash(relative: str, base: str) -> str | None:
-    """What the deployed copy most likely still holds, if Git can tell us."""
+def previous_hashes(relative: str, base: str) -> dict[str, str | None]:
+    """What the deployed copy most likely still holds, if Git can tell us.
+
+    Two values, because they are genuinely different numbers. Git stores text
+    with LF; a Windows checkout writes CRLF. The deployed folder is a Windows
+    checkout, so the hash an operator would compute there is the CRLF one — the
+    blob hash is included because it is what Git itself reports.
+    """
     if not base:
-        return None
+        return {"git_blob_lf": None, "windows_checkout_crlf": None}
     try:
         blob = subprocess.check_output(["git", "show", f"{base}:{relative}"],
                                        cwd=str(REPO), stderr=subprocess.DEVNULL)
     except (OSError, subprocess.CalledProcessError):
-        return None
-    return hashlib.sha256(blob).hexdigest()
+        return {"git_blob_lf": None, "windows_checkout_crlf": None}
+    crlf = blob.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    return {"git_blob_lf": hashlib.sha256(blob).hexdigest(),
+            "windows_checkout_crlf": hashlib.sha256(crlf).hexdigest()}
 
 
 README = """# Applying the bootstrap hotfix to the GPU laptop
@@ -195,9 +203,10 @@ Or let the script do it and verify every hash:
 It prints `HOTFIX_APPLIED = PASS` and `FILES_VERIFIED = {count}/{count}`.
 It never starts training.
 
-`HOTFIX_MANIFEST.json`, `README_APPLY_HOTFIX.md` and `APPLY_HOTFIX.ps1` are
-documentation and tooling for this package. Do **not** copy them into the project
-root — the PowerShell script already excludes them.
+`HOTFIX_MANIFEST.json`, `README_APPLY_HOTFIX.md`, `APPLY_HOTFIX.ps1` and
+`HOTFIX_INDEPENDENCE_CHECK.json` are documentation and tooling for this package.
+Do **not** copy them into the project root — the PowerShell script already
+excludes them.
 
 ## 4. The CUDA profile your card will get
 
@@ -245,7 +254,10 @@ interpreter it discovered. Install a CPython from python.org in that range
 
     host interpreter    MSYS2_MINGW_PYTHON at C:\\msys64\\mingw64\\bin\\python.exe
     using instead       standard Windows CPython 3.12.x at C:\\...\\Python312\\python.exe
-    environment         INSTALLED  profile=cuda-cu129  id=...
+    environment         INSTALLED  profile=cuda-cu130  id=...
+
+(`cuda-cu126` instead of `cuda-cu130` if your card is Ada or Ampere, or if
+your driver is below R580. Never `cuda-cu129` on Windows — see section 4.)
 
 then the preflight table, the GPU preflight, derived-data preparation and the
 pipeline. The first run installs packages and needs the network; later runs do
@@ -374,10 +386,16 @@ def main() -> int:
             "bytes": source.stat().st_size,
             "reason": spec["reason"],
             "required_on_gpu_laptop": spec["required"],
-            "previous_sha256": previous_hash(relative, base),
-            "previous_sha256_source": f"git {base[:12]} (the commit the deployed "
-                                      f"copy was taken from, if unchanged since)"
-                                      if base else None,
+            "previous_sha256": previous_hashes(relative, base)[
+                "windows_checkout_crlf"],
+            "previous_sha256_git_blob_lf": previous_hashes(relative, base)[
+                "git_blob_lf"],
+            "previous_sha256_source": (
+                f"git {base[:12]}, the commit the deployed copy was taken from. "
+                "`previous_sha256` is the CRLF form a Windows checkout writes, "
+                "which is what you would measure on that machine; "
+                "`previous_sha256_git_blob_lf` is the LF form Git stores."
+                if base else None),
             "scientific_identity_affected": spec["scientific_identity_affected"],
         })
 
@@ -394,6 +412,9 @@ def main() -> int:
         "previous_commit_for_old_hashes": base,
         "hotfix_identity": identity,
         "file_count": len(entries),
+        "line_endings": "CRLF, as checked out on Windows. `sha256` in each entry "
+                        "is over the exact bytes shipped, so APPLY_HOTFIX.ps1's "
+                        "post-copy verification is byte-for-byte.",
         "full_project_recopy_required": False,
         "defects_fixed": [
             {"id": "MSYS2_HOST_PYTHON",

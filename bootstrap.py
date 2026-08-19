@@ -1469,9 +1469,9 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
         host = resolve_host_interpreter(contract)
 
     python_report = check_python(contract, host["evidence"])
+    platform_tag = host_platform_tag(host["evidence"])
     gpu = detect_gpu()
-    selection = select_profile(contract, gpu,
-                               platform_tag=host_platform_tag(host["evidence"]))
+    selection = select_profile(contract, gpu, platform_tag=platform_tag)
     profile_id, profile = selection["profile_id"], selection["profile"]
     identity = environment_identity(profile_id, profile,
                                     str(python_report["found"]))
@@ -1483,7 +1483,6 @@ def ensure_environment(*, quiet: bool = False, allow_install: bool = True
     expected_minor = None if inside else _minor(
         host["evidence"].get("version_info") or ())
 
-    platform_tag = host_platform_tag(host["evidence"])
     manifest = read_manifest(MANIFEST)
     identity_matches = bool(manifest
                             and manifest.get("environment_identity")
