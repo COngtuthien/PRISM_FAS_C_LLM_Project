@@ -49,7 +49,7 @@
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-18T05:38:22.391449Z",
+  "generated_at_utc": "2026-08-18T15:27:11.416318Z",
   "is_c_acceptance": false,
   "meaning": "engineering evidence that the C13 machinery runs and refuses correctly. It is not a Version-C result and contains no claim",
   "mode": "FINAL_REPORT",

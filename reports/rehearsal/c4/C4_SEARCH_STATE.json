@@ -44,6 +44,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -73,6 +74,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -126,6 +128,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -155,6 +158,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -208,6 +212,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -237,6 +242,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -290,6 +296,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -319,6 +326,7 @@
       },
       "notes": [
         "engineering trial: one optimizer step on a fixture batch; the metric values may never select a scientific winner (L.1)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
@@ -372,6 +380,7 @@
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)",
+        "reused from recorded state by config identity; not re-executed (L.11)",
         "reused from recorded state by config identity; not re-executed (L.11)"
       ],
       "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
@@ -384,5 +393,5 @@
   "schema_version": "prism-coordinate-search-v1",
   "search_plan_identity": "ab77e964d9c035cf2c3bed209ffac307aebd85c6735879bc3fa3c5efce20d0ec",
   "status": "COMPLETED",
-  "updated_utc": "2026-08-18T05:37:13.289274Z"
+  "updated_utc": "2026-08-18T15:26:07.463158Z"
 }

@@ -2,7 +2,7 @@
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-18T05:37:13.534269Z",
+  "generated_at_utc": "2026-08-18T15:26:07.723307Z",
   "mode": "CANDIDATE_IDENTITY",
   "physics_renders": 6,
   "profile_config": "configs/execution/rehearsal.yaml",

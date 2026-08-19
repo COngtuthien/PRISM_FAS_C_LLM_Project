@@ -231,7 +231,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-18T05:38:21.848394Z",
+  "finished_at_utc": "2026-08-18T15:27:10.837037Z",
   "mandatory_full_outputs": "validated SOURCE_MATRIX_LOCK_C plus ancestry and index of every frozen source-side artifact, C9_ACCEPTANCE",
   "notes": [],
   "phase": "source-freeze",
@@ -244,7 +244,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C9",
-  "started_at_utc": "2026-08-18T05:38:21.511332Z",
+  "started_at_utc": "2026-08-18T15:27:10.595214Z",
   "substages": [],
   "title": "Source matrix freeze",
   "validate_checks": [

@@ -4,16 +4,16 @@
   "execution_profile": "rehearsal",
   "first_pass": {
     "C-G-LLM": {
-      "logical_identity": "269d0648ba3e381a55050783c1a696e2238b0e981ea3932733faaf02a9eeb944",
+      "logical_identity": "3a06bf29085f6f1e0523b21ca583dde46b214f5be1bd900a98f42bbc6c5e8d82",
       "valid": true
     },
     "C-R-LLM": {
-      "logical_identity": "53fa465f599e3aa8b2c4761632e672363fda81d77d5dbd7f3134ecc629e35d4c",
+      "logical_identity": "af50515e765e707440de6a5f1feba0f89ff52c76ff857198793701b9157f7122",
       "valid": true
     }
   },
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-18T05:38:22.006480Z",
+  "generated_at_utc": "2026-08-18T15:27:10.954093Z",
   "mode": "DOUBLE_VALIDATION",
   "profile_config": "configs/execution/rehearsal.yaml",
   "profile_identity": "a07b3cd398299dafc300cbf0d54f3030ce9a91951cece1ffdc2e4214c3050e4d",
@@ -21,11 +21,11 @@
   "scientific_eligible": false,
   "second_pass": {
     "C-G-LLM": {
-      "logical_identity": "269d0648ba3e381a55050783c1a696e2238b0e981ea3932733faaf02a9eeb944",
+      "logical_identity": "3a06bf29085f6f1e0523b21ca583dde46b214f5be1bd900a98f42bbc6c5e8d82",
       "valid": true
     },
     "C-R-LLM": {
-      "logical_identity": "53fa465f599e3aa8b2c4761632e672363fda81d77d5dbd7f3134ecc629e35d4c",
+      "logical_identity": "af50515e765e707440de6a5f1feba0f89ff52c76ff857198793701b9157f7122",
       "valid": true
     }
   }

@@ -1,7 +1,7 @@
 {
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "rehearsal",
-  "generated_at_utc": "2026-08-18T05:38:21.432058Z",
+  "generated_at_utc": "2026-08-18T15:27:10.523525Z",
   "mode": "EXECUTE_ROWS",
   "note": "every executed arm, not a representative one: a single-arm rollup would name whichever arm happened to finish last",
   "profile_config": "configs/execution/rehearsal.yaml",

@@ -22,7 +22,7 @@
     "ground_truth"
   ],
   "forbidden_fields_found": [],
-  "generated_at_utc": "2026-08-18T05:38:22.001040Z",
+  "generated_at_utc": "2026-08-18T15:27:10.949742Z",
   "mode": "LABEL_ISOLATION_AUDIT",
   "procedural_note": "this is procedural isolation of the Version-C prediction process. It is not a claim that researchers have never seen SiW labels historically (§19.1)",
   "profile_config": "configs/execution/rehearsal.yaml",

@@ -2,14 +2,14 @@
   "artifact_kind": "ENGINEERING_FIXTURE_NOT_SCIENTIFIC_EVIDENCE",
   "by_status": {
     "BLOCKED": 12,
-    "PASS": 1461,
+    "PASS": 1517,
     "SKIPPED_VALID": 10
   },
   "c2b_negative_preserved": true,
   "execution_profile": "rehearsal",
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-18T05:38:22.381284Z",
-  "index_rows": 1483,
+  "generated_at_utc": "2026-08-18T15:27:11.387994Z",
+  "index_rows": 1539,
   "mode": "NEGATIVE_PRESERVATION",
   "non_pass_rows": 12,
   "profile_config": "configs/execution/rehearsal.yaml",

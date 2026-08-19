@@ -25,7 +25,7 @@
   "execution_profile": "rehearsal",
   "failures": [],
   "fixture_backed": true,
-  "generated_at_utc": "2026-08-18T05:37:13.397038Z",
+  "generated_at_utc": "2026-08-18T15:26:07.584743Z",
   "image_note": "a deterministic noise field, not a face",
   "mode": "RENDER_PHYSICS",
   "profile_config": "configs/execution/rehearsal.yaml",

@@ -405,7 +405,7 @@
   "checks_run": 0,
   "engineering_status": "SMOKE_PASS",
   "execution_profile": "rehearsal",
-  "finished_at_utc": "2026-08-18T05:38:21.511285Z",
+  "finished_at_utc": "2026-08-18T15:27:10.595187Z",
   "mandatory_full_outputs": "all P1/P2/P3-ready source runs by arm/track/config/seed, complete source leaderboard and selection evidence, calibration stability, C8_ACCEPTANCE",
   "notes": [],
   "phase": "scientific",
@@ -418,7 +418,7 @@
   "scientific_status": "NOT_RUN",
   "scientifically_complete": false,
   "stage_id": "C8",
-  "started_at_utc": "2026-08-18T05:38:21.337996Z",
+  "started_at_utc": "2026-08-18T15:27:10.438173Z",
   "substages": [],
   "title": "Source matrix over arms, tracks, configs and seeds",
   "validate_checks": [
