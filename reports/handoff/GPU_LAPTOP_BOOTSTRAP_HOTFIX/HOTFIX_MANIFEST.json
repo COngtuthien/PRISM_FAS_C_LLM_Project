@@ -1,0 +1,201 @@
+{
+  "schema_version": "prism-gpu-bootstrap-hotfix-v1",
+  "title": "Windows MSYS2 host-Python and ONNX Runtime bootstrap hotfix",
+  "created_utc": "2026-08-19T16:25:48.023212+00:00",
+  "authoritative_branch": "portable-one-command-full-run",
+  "authoritative_commit": "8d810aab0cfc0157784e8d124b7ae7f637d79715",
+  "previous_commit_for_old_hashes": "608a2c74c8b98d31699d5a9ee36f884097b8c76b",
+  "hotfix_identity": "8f0fc9467972abfbb422669e909dd2434eca4ef0874772f4b52a9b35c26b779c",
+  "file_count": 8,
+  "line_endings": "CRLF, as checked out on Windows. `sha256` in each entry is over the exact bytes shipped, so APPLY_HOTFIX.ps1's post-copy verification is byte-for-byte.",
+  "full_project_recopy_required": false,
+  "defects_fixed": [
+    {
+      "id": "MSYS2_HOST_PYTHON",
+      "symptom": "PATH `python` resolved to C:\\msys64\\mingw64\\bin\\python.exe, which reports os.name == 'nt' and then creates a POSIX-scheme .venv/bin/python.exe on Windows",
+      "fix": "explicit host-interpreter classification decided by the venv scripts scheme, plus an automatic fallback to a supported standard Windows CPython found through the Python Launcher"
+    },
+    {
+      "id": "ONNXRUNTIME_PIN_NEVER_EXISTED",
+      "symptom": "pip reported no matching distribution for onnxruntime==1.24.0 after resolving torch",
+      "fix": "pinned to 1.24.1, the smallest published patch in the same release family, verified against the package index and measured bit-identical to the historical runtime on the frozen SCRFD detector"
+    },
+    {
+      "id": "CUDA_PROFILE_WITH_NO_WINDOWS_WHEEL",
+      "symptom": "latent, found by auditing the plan rather than by failing: the cu129 index publishes torch 2.13.0 for Linux only, and --extra-index-url would have let pip install a different build from PyPI while the manifest went on naming the CUDA index it never used",
+      "fix": "the host wheel platform is now a selection gate checked before compute capability; every profile declares the platforms its index actually publishes; a Windows Blackwell host resolves to the new cuda-cu130 profile; and the installed torch build is read back and refused if it does not carry the selected profile's CUDA tag"
+    },
+    {
+      "id": "PARTIAL_VENV_NOT_RECOVERABLE",
+      "symptom": "the failed install left a .venv that existed, ran and was missing packages",
+      "fix": "the environment is classified and repaired: dependencies are installed into a structurally sound .venv, and only an unusable one is rebuilt. No manual deletion."
+    }
+  ],
+  "operator_contract": {
+    "command": "python train.py",
+    "manual_py_launcher_required": false,
+    "manual_venv_activation_required": false,
+    "manual_venv_deletion_required": false,
+    "manual_pip_required": false
+  },
+  "scientific_impact": {
+    "protocols_or_constants_changed": false,
+    "scientific_identity_affected": false,
+    "c4_to_c13_scientific_status": "NOT_RUN",
+    "target_access": 0,
+    "evidence": "reports/handoff/ONNXRUNTIME_PIN_EVIDENCE.json (on the build repository)"
+  },
+  "must_not_be_touched": [
+    "data/",
+    "weights/",
+    "assets/",
+    "runs/",
+    "reports/",
+    "state/",
+    ".git/"
+  ],
+  "not_shipped": [
+    {
+      "path": "tests/pipeline/test_bootstrap_host_interpreter.py",
+      "category": "test",
+      "why_not_shipped": "the GPU laptop runs the pipeline, not the suite; ship it only if you intend to run pytest there"
+    },
+    {
+      "path": "tests/pipeline/test_dependency_contract.py",
+      "category": "test",
+      "why_not_shipped": "same"
+    },
+    {
+      "path": "tests/pipeline/test_gpu_hotfix_package.py",
+      "category": "test",
+      "why_not_shipped": "verifies this package on the build machine"
+    },
+    {
+      "path": "reports/handoff/ONNXRUNTIME_PIN_EVIDENCE.json",
+      "category": "evidence",
+      "why_not_shipped": "the record of why the pin changed; read on the build machine, never executed"
+    },
+    {
+      "path": "docs/PROJECT_STATE.md",
+      "category": "state",
+      "why_not_shipped": "derived handoff state, not runtime input"
+    },
+    {
+      "path": "scripts/build_gpu_bootstrap_hotfix.py",
+      "category": "tooling",
+      "why_not_shipped": "builds this package; nothing on the GPU laptop calls it"
+    },
+    {
+      "path": "scripts/verify_gpu_hotfix_independence.py",
+      "category": "tooling",
+      "why_not_shipped": "verifies this package on the build machine"
+    },
+    {
+      "path": "scripts/audit_cuda_dependency_plan.py",
+      "category": "tooling",
+      "why_not_shipped": "queries the wheel indices from the build machine"
+    },
+    {
+      "path": "reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json",
+      "category": "evidence",
+      "why_not_shipped": "the record of the per-platform wheel audit; read, never executed"
+    }
+  ],
+  "package_own_files": [
+    "HOTFIX_MANIFEST.json",
+    "README_APPLY_HOTFIX.md",
+    "APPLY_HOTFIX.ps1",
+    "HOTFIX_INDEPENDENCE_CHECK.json"
+  ],
+  "expected_next_command": "python train.py",
+  "files": [
+    {
+      "destination": "train.py",
+      "sha256": "8f09a7d382557b50b43760dd7fb36e1e3b273b909011da669e4dc682cb6a3dbd",
+      "bytes": 16477,
+      "reason": "entrypoint: maps the new SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND blocker to a BLOCKED exit, and reports the host-interpreter fallback and any .venv rebuild before handing over",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "e68962e8ab4b64c962f4b1f01e612dda611f55bd5a4a1549a7333c6d8627e226",
+      "previous_sha256_git_blob_lf": "85ff000834aff502b0a223a333650515905ac9f626d6d64789b3299541371cb2",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "bootstrap.py",
+      "sha256": "261499157fdaab1897d3a5430cb3a3a65f8e78ad0d505a0c1258680547aade27",
+      "bytes": 77522,
+      "reason": "the fix itself: host-interpreter classification, the Windows standard-CPython fallback, venv layout validation, partial and foreign .venv recovery, the self-recreation guard and the bounded pip policy",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "41e15a87368dc5451b39ab7753faea84923bb76c9dfab662af438d7c870b554d",
+      "previous_sha256_git_blob_lf": "256fdc32576117da96ef66690ff58ee8e45740a0413b7cc07c30491d5d0545d1",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "configs/environment/environment_contract.yaml",
+      "sha256": "42303bf8e57b2671127c499d3a06712b9df022fbb6a34f76b17c3b9f7c5aa327",
+      "bytes": 17663,
+      "reason": "declares what bootstrap.py now enforces: the interpreter classifications, the preferred Python minors, the venv recovery states, the bounded pip policy and the ONNX Runtime pin record",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "f0d5066767cfd8a4fb0525b8b303eff10e6b61043681e52b1eae2577e86f51d1",
+      "previous_sha256_git_blob_lf": "c753b71b612c130dac0a0fd98ad0f438a1f7a466d1360657288cfb9877c26811",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "requirements/constraints.txt",
+      "sha256": "bb9069acfb4cc7ed2b90e95c9c15b348c93a5a8c5e4d4003e1dedde302a87bdf",
+      "bytes": 2012,
+      "reason": "adds the onnxruntime pin so a drifting profile file becomes a resolution error instead of a different preprocessing runtime",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "fb1ea2d472ce614ae44d618caf98820ae3afb3388b3ceb7523d40f264c4364ff",
+      "previous_sha256_git_blob_lf": "d0b5b7a630dfcb9755e1f3f83d6ef0c60f2907b910015e2b33875778f7cf3e5c",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "requirements/cpu.txt",
+      "sha256": "3bf15c64e574405a193f8d80dda2dc79984832897e80f1dae331ba02dff277ea",
+      "bytes": 951,
+      "reason": "onnxruntime 1.24.0 -> 1.24.1; 1.24.0 does not exist on PyPI and is what the deployment install died on",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "f75de4c3d127204718b8d42034400d22cf6641a8d1f88dbcb6e578f398c984f3",
+      "previous_sha256_git_blob_lf": "0128497268ab16826d0f36dda3b067f6f61293e93de7b1b3697d4b2d0c74fba2",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "requirements/cuda-cu130.txt",
+      "sha256": "3cc47d06c316560367566c878a4b3a755ebb3db4f1738442ed33b88b73ac488d",
+      "bytes": 1681,
+      "reason": "NEW profile. The CUDA 12.9 index publishes torch 2.13.0 for Linux only, so a Windows Blackwell host had no profile with a real wheel; cu130 publishes cp311-cp314 win_amd64 builds of the same pins and is what such a host now resolves to",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": null,
+      "previous_sha256_git_blob_lf": null,
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "requirements/cuda-cu129.txt",
+      "sha256": "173289b1af1c0824e1f4a56c0f8ed6f1c3d6a6d83e773b236ad876bf30b18b0e",
+      "bytes": 1956,
+      "reason": "same ONNX Runtime pin repair; the profile is now declared Linux-only, which is what its index actually publishes",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "ccd216de677a3d22dbceced82df2dbb651c6ba52271164cea736dcf90963422b",
+      "previous_sha256_git_blob_lf": "e5bc8c190ed02497b3a1dad7a267c15f746f982108b102b5191caefe663a8270",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "requirements/cuda-cu126.txt",
+      "sha256": "36ed62ab227bc362b15507f0169e60b78a32eca6e882b9924fcb7c0dfd703052",
+      "bytes": 876,
+      "reason": "same pin repair on the CUDA 12.6 profile; which profile applies is decided by the GPU detected on that machine, not from here",
+      "required_on_gpu_laptop": true,
+      "previous_sha256": "b3f57a2c6518ce05cb0e7874a3e690d7c62ad48b7a2715947d50b9906b2b0d76",
+      "previous_sha256_git_blob_lf": "e9eb25425d43d9f7f10f535cddbb8426f689a7aaf90bd19b68b282e53d3f985b",
+      "previous_sha256_source": "git 608a2c74c8b9, the commit the deployed copy was taken from. `previous_sha256` is the CRLF form a Windows checkout writes, which is what you would measure on that machine; `previous_sha256_git_blob_lf` is the LF form Git stores.",
+      "scientific_identity_affected": false
+    }
+  ]
+}

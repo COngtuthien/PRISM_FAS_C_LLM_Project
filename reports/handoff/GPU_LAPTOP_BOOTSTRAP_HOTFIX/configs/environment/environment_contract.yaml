@@ -1,0 +1,351 @@
+# The environment contract: what a host must provide, and which dependency
+# profile the bootstrap is allowed to install on it.
+#
+# The rule this file exists to enforce is in §10 of the closure task: the
+# bootstrap may INSPECT non-secret system information (nvidia-smi, driver, GPU
+# model) and then select an ALREADY-DECLARED profile. It may never perform an
+# open-ended package-version search at execution time. If a host matches no
+# declared profile the run stops with CUDA_ENVIRONMENT_NOT_VALIDATED rather than
+# guessing, and never falls back to CPU for scientific execution.
+#
+# Honesty note carried through every entry below: the accepted C0-C13 evidence
+# was produced on a CPU-only Windows host. The CPU profile is VALIDATED. Every
+# CUDA profile is DECLARED — pinned from the same torch minor and the vendor's
+# published CUDA matrix — and becomes validated only when the external-GPU
+# preflight runs on the real hardware.
+schema_version: "prism-environment-contract-v1"
+
+python:
+  # 3.11 is the floor pyproject already declared. 3.14 is excluded because no
+  # dependency in the constraints file has been tested against it here.
+  minimum: "3.11"
+  maximum_exclusive: "3.14"
+  tested_on: "3.13.11"
+  implementation: CPython
+  # Deterministic preference when a host offers several supported interpreters.
+  # Newest-wins is deliberately NOT the rule. The build laptop has 3.14 installed
+  # and set as the launcher default; 3.14 is outside the range above, and a host
+  # that also has 3.12 must resolve to 3.12 rather than fail or guess.
+  preferred_minors: ["3.13", "3.12", "3.11"]
+  on_unsupported: >-
+    stop with a concise actionable message naming the found and required
+    versions. Never install, replace or shim the host interpreter.
+
+# What kind of Python may build the project environment, and what to do when the
+# one on PATH is not it.
+#
+# This section exists because of a real deployment. On a Windows GPU laptop,
+# PATH `python` resolved to C:\msys64\mingw64\bin\python.exe. MSYS2/MinGW Python
+# reports os.name == "nt" and sys.platform == "win32" like any Windows CPython,
+# and then creates a POSIX-scheme environment: .venv/bin/python.exe rather than
+# .venv/Scripts/python.exe. Every later step looked for a file that was not
+# there. `os.name` is therefore never the classification.
+#
+# The deciding fact is the scheme `venv` itself uses. Since 3.11 the venv module
+# asks sysconfig for get_path("scripts", scheme="venv"); the bootstrap asks the
+# candidate interpreter the same question and reads the answer. "Scripts" is a
+# standard Windows CPython, "bin" on a Windows-like host is MSYS2/MinGW.
+host_interpreter:
+  classifications: [STANDARD_WINDOWS_CPYTHON, MSYS2_MINGW_PYTHON, POSIX_CPYTHON,
+                    UNKNOWN_PYTHON]
+  may_build_the_environment: [STANDARD_WINDOWS_CPYTHON, POSIX_CPYTHON]
+  refused: [MSYS2_MINGW_PYTHON, UNKNOWN_PYTHON]
+  decided_by: venv_scripts_scheme
+  corroborating_signals_only: [installation_path_markers, MSYSTEM,
+                               sysconfig_build_platform]
+  venv_scheme:
+    STANDARD_WINDOWS_CPYTHON: windows      # .venv/Scripts/python.exe
+    POSIX_CPYTHON: posix                   # .venv/bin/python
+  hybrid_layouts_are_defects: true         # .venv/bin/python.exe is never built
+  windows_fallback:
+    enabled: true
+    discovery_order: [py_launcher, well_known_install_roots]
+    py_launcher_query: "py -0p"
+    selection: python.preferred_minors      # never "the newest installed"
+    on_not_found: SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND
+    why: >-
+      the final user command must stay `python train.py`. When PATH python
+      cannot build the environment the runner finds a supported standard Windows
+      CPython itself and re-execs; the operator never types `py -3.12`.
+  msys2_scientific_execution: false
+  msys2_note: >-
+    MSYS2/MinGW Python can create a virtual environment, which is exactly why it
+    is dangerous here: it succeeds and produces the wrong layout. It is not a
+    supported host for PyTorch/CUDA scientific execution and is refused before
+    any package is installed.
+
+virtual_environment:
+  path: .venv
+  # Project-local on purpose: the folder is meant to be copied whole, and a venv
+  # outside the project root would not travel with it.
+  create_with: "python -m venv"
+  # Validation after creation, because exit code 0 only says the command ran.
+  validated_by: [interpreter_exists_at_the_scheme_path, interpreter_launches,
+                 sys_prefix_is_the_project_venv, prefix_differs_from_base_prefix,
+                 python_minor_matches_the_host_interpreter]
+  # An environment that arrived from elsewhere, or was left half-built, is
+  # classified and repaired rather than handed back to the operator to delete.
+  recovery_states: [ABSENT, VALID, PARTIAL_NO_INTERPRETER, INTERPRETER_WILL_NOT_RUN,
+                    WRONG_SCHEME_FOR_HOST, INCOMPATIBLE_PYTHON_VERSION,
+                    NOT_THIS_PROJECT_VENV, DEPENDENCIES_INCOMPLETE]
+  recovery_actions: [CREATE, REUSE, INSTALL_INTO, REBUILD]
+  manual_deletion_required: false
+  rebuild_scope: >-
+    only <project>/.venv, only when it carries a virtual-environment layout, and
+    never while the interpreter executing the bootstrap lives inside it. No
+    environment outside the project is ever deleted.
+  self_recreation: REFUSED   # SELF_RECREATION_REFUSED
+  pip:
+    minimum: "24.0"
+    maximum_exclusive: "27.0"
+    upgrade_policy: BOUNDED_MINIMUM_ONLY
+    upgrade_setuptools: false
+    upgrade_wheel: false
+    note: >-
+      upgrade pip only when it is below the minimum, and then only within
+      [minimum, maximum_exclusive). An unbounded `pip install --upgrade pip`
+      makes the resolver that chose this project's dependency set whichever pip
+      was newest that day, which a deterministic bootstrap cannot have. The
+      resolved pip version is recorded in state/ENVIRONMENT_MANIFEST.json.
+
+profiles:
+  cpu:
+    id: cpu
+    requirements: requirements/cpu.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cpu"
+    platforms: [win_amd64, linux_x86_64, linux_aarch64]
+    status: VALIDATED
+    validated_by: >-
+      the accepted C0-C13 engineering-readiness evidence: validate PASS (21
+      checks) and smoke PASS (242 adapter checks) on this profile
+    supports: [validate, smoke, CPU_FULL_REHEARSAL, plots, tables, reports,
+               static_model_complexity]
+    supports_scientific_execution: false
+    why_not: >-
+      §L.2 gives the full profile gpu: required. A CPU host may rehearse the
+      implementation; it may not produce scientific evidence.
+
+  cuda-cu130:
+    id: cuda-cu130
+    requirements: requirements/cuda-cu130.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cu130"
+    cuda_tag: cu130
+    # The only Blackwell-capable profile with a Windows wheel. See the
+    # platform_wheels block below for why that sentence had to be written.
+    platforms: [win_amd64, linux_x86_64, linux_aarch64]
+    status: DECLARED_NOT_VALIDATED_HERE
+    minimum_driver_version: "580.00"
+    compute_capabilities: ["12.0", "10.0", "9.0", "8.9", "8.6", "8.0"]
+    # Provenance only. Selection reads compute_capabilities, never these.
+    gpu_families: [Blackwell, Hopper, Ada, Ampere]
+    example_gpus: ["NVIDIA GeForce RTX 5090", "NVIDIA GeForce RTX 5080",
+                   "NVIDIA GeForce RTX 5070", "NVIDIA H100",
+                   "NVIDIA GeForce RTX 4090"]
+    supports_scientific_execution: true
+    note: >-
+      CUDA 13.0 requires an R580 driver or newer. On Linux both this profile and
+      cuda-cu129 apply and cu129 is preferred by selection order, so the Linux
+      plan is unchanged; on Windows cu129 has no wheel and this is the profile a
+      Blackwell or Ada card resolves to.
+
+  cuda-cu129:
+    id: cuda-cu129
+    requirements: requirements/cuda-cu129.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cu129"
+    cuda_tag: cu129
+    # LINUX ONLY, and this is measured rather than assumed: the cu129 index
+    # publishes torch 2.13.0 for manylinux_2_28 x86_64 and aarch64 at every
+    # supported Python tag, and for no Windows tag at all.
+    platforms: [linux_x86_64, linux_aarch64]
+    status: DECLARED_NOT_VALIDATED_HERE
+    minimum_driver_version: "570.00"
+    compute_capabilities: ["12.0", "10.0", "9.0", "8.9", "8.6", "8.0"]
+    # Provenance only. Selection reads compute_capabilities, never these.
+    gpu_families: [Blackwell, Hopper, Ada, Ampere]
+    example_gpus: ["NVIDIA GeForce RTX 5090", "NVIDIA GeForce RTX 5080",
+                   "NVIDIA H100", "NVIDIA GeForce RTX 4090"]
+    supports_scientific_execution: true
+    note: >-
+      Blackwell is sm_120 and needs a wheel built with those kernels. Selecting
+      an older CUDA tag on a 50-series card imports cleanly and then fails at the
+      first kernel launch, after the data is loaded.
+
+  cuda-cu126:
+    id: cuda-cu126
+    requirements: requirements/cuda-cu126.txt
+    torch: "2.13.0"
+    torch_index: "https://download.pytorch.org/whl/cu126"
+    cuda_tag: cu126
+    platforms: [win_amd64, linux_x86_64, linux_aarch64]
+    status: DECLARED_NOT_VALIDATED_HERE
+    minimum_driver_version: "525.60"
+    compute_capabilities: ["9.0", "8.9", "8.6", "8.0", "7.5"]
+    # Provenance only. Selection reads compute_capabilities, never these.
+    gpu_families: [Hopper, Ada, Ampere, Turing]
+    example_gpus: ["NVIDIA GeForce RTX 4090", "NVIDIA A100", "NVIDIA RTX A6000",
+                   "NVIDIA L40S", "NVIDIA RTX 6000 Ada"]
+    supports_scientific_execution: true
+
+# Result-affecting dependency pins the contract is authoritative about.
+#
+# Everything else is pinned in requirements/constraints.txt alone. ONNX Runtime
+# is named here because it executes the frozen SCRFD face detector during M2
+# preprocessing, so its version is a preprocessing input rather than a packaging
+# detail, and because the pin it replaces was a defect worth recording.
+dependencies:
+  onnxruntime:
+    pin: "1.24.1"
+    declared_in: [requirements/base-independent profiles cpu/cuda-cu126/cuda-cu129,
+                  requirements/constraints.txt]
+    previous_pin: "1.24.0"
+    previous_pin_classification: INTENDED_BUT_UNINSTALLABLE_PIN
+    previous_pin_evidence: >-
+      onnxruntime 1.24.0 does not exist on PyPI. The 1.24 family begins at
+      1.24.1. The pin was introduced with the requirements tree in e5fca49 and
+      was never installed on any machine: this project's own .venv has no
+      onnxruntime at all, and a fresh Windows deployment failed at exactly this
+      line. It was a declared assumption, not a proven runtime.
+    selection_rule: >-
+      the smallest installable patch in the SAME release family, verified against
+      the package index rather than assumed. Not "latest".
+    availability_verified: >-
+      cp311/cp312/cp313/cp314 wheels for win_amd64, manylinux_2_28 x86_64 and
+      aarch64, macosx_14_0 arm64. Covers the whole declared Python range on both
+      supported platforms.
+    result_affecting: true
+    why_result_affecting: >-
+      prism_fas.data.preprocess_m2.SCRFDDetector runs the frozen
+      weights/face_detectors/scrfd_10g_bnkps.onnx through an ORT InferenceSession;
+      detections, landmarks and therefore crop geometry come out of it.
+    scientific_impact: >-
+      none to date. No Version-C preprocessing has ever run: data/processed does
+      not exist and no C4-C13 scientific execution has occurred. The pin change
+      binds a runtime for work that has not started.
+
+# Which platforms each profile can actually be installed on.
+#
+# A profile is a promise that a specific torch build exists for the host it will
+# be selected on, and nothing had ever checked that promise. One of them was
+# false: the CUDA 12.9 index publishes torch 2.13.0 for Linux only. Because the
+# CUDA requirement files use --extra-index-url, a Windows host selecting cu129
+# would NOT have failed loudly — pip would have installed the PyPI torch instead,
+# and state/ENVIRONMENT_MANIFEST.json would have gone on naming a CUDA index that
+# was never used. A silent substitution is worse than a refusal.
+#
+# So the host platform is now a gate, checked before compute capability, and
+# every profile declares the platforms its own index actually publishes.
+#
+# Recorded evidence: reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json,
+# regenerated by scripts/audit_cuda_dependency_plan.py.
+platform_wheels:
+  audited_utc: "2026-08-19"
+  audited_python_tags: [cp311, cp312, cp313]
+  torch: "2.13.0"
+  torchvision: "0.28.0"
+  published:
+    cpu:
+      win_amd64: true
+      linux_x86_64: true
+      linux_aarch64: true
+    cuda-cu130:
+      win_amd64: true
+      linux_x86_64: true
+      linux_aarch64: true
+    cuda-cu129:
+      win_amd64: false      # the finding: no Windows wheel at any Python tag
+      linux_x86_64: true
+      linux_aarch64: true
+    cuda-cu126:
+      win_amd64: true
+      linux_x86_64: true
+      linux_aarch64: true
+  on_no_wheel_for_the_host_platform: INCOMPATIBLE
+  pypi_fallback_is_not_a_substitute: >-
+    the PyPI torch wheel is a different build from any of these. It is allowed to
+    satisfy the pin only when the selected profile is the one that named it.
+  installed_build_is_verified: >-
+    after installation the bootstrap reads torch.__version__ from the environment
+    and refuses a build whose local version does not carry the profile's declared
+    CUDA tag. That is the check that would have caught this by measurement rather
+    than by reading an index.
+
+# What must actually import before an existing .venv is adopted as ready.
+#
+# §8 requires verifying an existing environment's identity before using it. A
+# hash over requirement bytes proves what was ASKED for; these groups prove what
+# is actually IMPORTABLE, which is the thing that fails at run time.
+#
+# The groups are separated because they gate different intents. A CPU rehearsal
+# substitutes a fixture SigLIP2 tower and never touches ONNX preprocessing, so it
+# does not need `science_only`; the full scientific profile does.
+import_checks:
+  core: [torch, numpy, yaml, pydantic, pyarrow, PIL, cv2, timm, scipy, pandas]
+  reporting: [matplotlib]
+  science_only: [transformers, onnxruntime]
+  required_for_rehearsal: [core, reporting]
+  required_for_science: [core, reporting, science_only]
+
+# How a detected GPU is matched to a profile.
+#
+# Compatibility is decided by COMPUTE CAPABILITY and DRIVER VERSION. The GPU's
+# model name is recorded as operational provenance and is never a gate: refusing
+# an otherwise-capable datacenter card because nobody typed its marketing string
+# into a list would be a portability bug, not a safety measure.
+#
+# Each profile is graded against the host, and the best grade wins:
+#
+#   VALIDATED_PROFILE                 declared, and evidence exists that it ran
+#   COMPATIBLE_DECLARED_PROFILE       the capability is enumerated by the profile
+#   UNVALIDATED_COMPATIBLE_CANDIDATE  the capability falls inside the profile's
+#                                     declared range but is not itself listed;
+#                                     the kernels are almost certainly present,
+#                                     but nobody has run it
+#   INCOMPATIBLE                      driver below the floor, capability outside
+#                                     the range, or capability unreported
+#
+# An unreported capability is never graded upward. The failure that would cause
+# happens at the first kernel launch, after the data has loaded.
+selection:
+  # Order decides only between profiles that are equally graded. cu129 stays
+  # ahead of cu130 so the Linux plan is exactly what it was; on Windows cu129
+  # is removed by the platform gate and cu130 takes its place.
+  order: [cuda-cu129, cuda-cu130, cuda-cu126]
+  match_on: [host_platform, compute_capability, driver_version]
+  model_name_is_a_gate: false
+  platform_is_a_gate: true
+  cpu_fallback_for_bootstrap: true
+  cpu_fallback_for_science: false
+  on_no_match: CUDA_ENVIRONMENT_NOT_VALIDATED
+  on_no_match_action: >-
+    stop and print the detected GPU name, driver, compute capability and every
+    declared profile with its requirement, so the operator can either install a
+    supported driver or extend this contract deliberately.
+
+# Family inference from the reported GPU name, for readable output only. An
+# unrecognised name yields UNRECOGNISED_NAME, which blocks nothing: the card is
+# still selected on its compute capability and driver.
+family_patterns:
+  Blackwell: ["RTX 50", "RTX PRO 6000", "B200", "GB200"]
+  Hopper: ["H100", "H200", "H800"]
+  Ada: ["RTX 40", "L40", "L4", "RTX 6000 Ada"]
+  Ampere: ["RTX 30", "A100", "A40", "A30", "A10", "RTX A"]
+  Turing: ["RTX 20", "T4", "GTX 16", "Quadro RTX"]
+
+network:
+  bootstrap_requires_network: true
+  training_requires_network: false
+  after_bootstrap: >-
+    the installed environment is recorded in state/ENVIRONMENT_MANIFEST.json and
+    a matching identity skips installation entirely, so later runs contact no
+    package index.
+  offline_wheelhouse:
+    path: vendor/wheels
+    optional: true
+    status: NOT_PREPARED
+    note: >-
+      if a wheelhouse is present the bootstrap installs from it with
+      --no-index --find-links, which removes the last network requirement.
+      Multi-GB wheels are never committed to Git.

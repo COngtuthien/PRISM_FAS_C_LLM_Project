@@ -28,10 +28,10 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: PHYSICAL_ONE_FOLDER_ASSET_CLOSURE
-current_substage: raw datasets and frozen weights physically copied into the project;
-                  external-root dependency removed — COMPLETE
-previous_milestone: PREPARATION_PIPELINE_COVERAGE_CLOSURE
+current_milestone: GPU_DEPLOYMENT_BOOTSTRAP_HOTFIX
+current_substage: two bootstrap defects found by the physical deployment to the GPU
+                  laptop are fixed, tested and packaged for that machine — COMPLETE
+previous_milestone: PHYSICAL_ONE_FOLDER_ASSET_CLOSURE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -580,7 +580,276 @@ final_full_path_closure:
   target_labels_opened: 0
   datasets_opened: 0
 
-# --- physical one-folder asset closure (this milestone) ----------------------
+# --- GPU deployment bootstrap hotfix (this milestone) ------------------------
+#
+# The first thing the transfer proved is that the one-command promise had never
+# been tested on a machine this project did not build. It failed twice on the GPU
+# laptop before any science could start, and both failures were real defects
+# here, not operator error.
+gpu_deployment_bootstrap_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as a deployment/bootstrap engineering hotfix
+  discovered_by: >-
+    a physical copy of this project running on a second Windows laptop with an
+    NVIDIA GPU. Neither defect is reproducible on the build machine by accident;
+    both were reported from that host with exact command output.
+
+  defect_1_msys2_host_python:
+    symptom: >-
+      PATH `python` on the GPU laptop resolved to C:\msys64\mingw64\bin\python.exe.
+      A normal Windows CPython 3.12 existed and `py -3.12 train.py` worked, but the
+      documented command `python train.py` did not.
+    root_cause: >-
+      bootstrap.venv_python() chose the environment layout from `os.name == "nt"`
+      alone. MSYS2/MinGW Python is a native Windows executable that reports
+      os.name == "nt" and sys.platform == "win32" exactly like a standard Windows
+      CPython, and then creates a POSIX-scheme environment: .venv/bin/python.exe
+      instead of .venv/Scripts/python.exe. `python -m venv` returned 0, so nothing
+      detected the mismatch until create_venv looked for an interpreter that was
+      never going to be there.
+    why_it_was_never_caught_here: >-
+      every interpreter on the build machine is a standard Windows CPython, so the
+      wrong premise and the right answer coincided.
+    fix:
+      - explicit host-interpreter classification over measured evidence, returning
+        STANDARD_WINDOWS_CPYTHON | MSYS2_MINGW_PYTHON | POSIX_CPYTHON | UNKNOWN_PYTHON
+      - >-
+        the deciding fact is the scheme `venv` itself uses. Since 3.11 the venv
+        module asks sysconfig for get_path("scripts", scheme="venv"); the bootstrap
+        asks each candidate interpreter the same question and reads the answer.
+        "Scripts" is a standard Windows CPython; "bin" on a Windows-like host is
+        MSYS2/MinGW. Path markers, MSYSTEM and the sysconfig build platform are
+        recorded as corroborating signals and decide nothing — a standard CPython
+        launched from an MSYS2 shell exports MSYSTEM and is still standard, which
+        is live in this repository's own Git-Bash tooling.
+      - >-
+        on Windows, an interpreter that cannot build the environment triggers an
+        automatic search for a supported standard CPython through the Python
+        Launcher (`py -0p`), with well-known install roots as a fallback. The
+        chosen version follows the contract's declared preference, never "newest
+        installed" — verified on this machine, where the launcher default is 3.14
+        (outside the supported range) and the runner correctly resolved 3.13.
+      - >-
+        when nothing supported can be found the run stops with
+        SUPPORTED_WINDOWS_CPYTHON_NOT_FOUND before any package is installed, and
+        prints the detected interpreter, its classification, the supported range
+        and every interpreter it discovered.
+    msys2_is_not_a_scientific_host: true   # it can create a venv, which is exactly
+                                           # why it is dangerous; it is refused
+
+  defect_2_onnxruntime_pin_never_existed:
+    symptom: >-
+      after `py -3.12 train.py` created .venv\Scripts\python.exe, the install
+      failed at onnxruntime==1.24.0 with "no matching distribution", after pip had
+      already reached the CUDA index and begun resolving torch 2.13.0.
+    root_cause: >-
+      onnxruntime 1.24.0 has never been published to PyPI. The 1.24 family begins
+      at 1.24.1. The pin arrived with the requirements tree in e5fca49 and was
+      never installed anywhere: this project's own .venv contains no onnxruntime at
+      all, because the CPU rehearsal profile does not require the science_only
+      import group. It was a declared assumption that no run had ever exercised.
+    classification: INTENDED_BUT_UNINSTALLABLE_PIN
+    selected_pin: "1.24.1"
+    selection_rule: >-
+      the smallest published patch in the SAME release family, verified against the
+      package index rather than assumed. Not latest: 1.24.2/1.24.3/1.24.4 exist and
+      were not taken.
+    availability_verified: >-
+      cp311/cp312/cp313/cp314 wheels for win_amd64, manylinux_2_28 x86_64 and
+      aarch64, macOS arm64 — the whole declared Python range on both supported
+      platforms.
+    declared_in: [requirements/cpu.txt, requirements/cuda-cu126.txt,
+                  requirements/cuda-cu129.txt, requirements/constraints.txt,
+                  configs/environment/environment_contract.yaml]
+
+  onnxruntime_scientific_safety:
+    result_affecting: true    # SCRFDDetector runs the frozen detector through ORT
+    verdict: NUMERICALLY_EQUIVALENT_WITHIN_DECLARED_TOLERANCE
+    evidence: reports/handoff/ONNXRUNTIME_PIN_EVIDENCE.json
+    method: >-
+      identical input tensors and identical frozen model bytes
+      (weights/face_detectors/scrfd_10g_bnkps.onnx) fed to two isolated
+      environments differing only in the ONNX Runtime version. Detections, the
+      selected face, its landmarks and the crop geometry were recomputed from each
+      runtime's raw outputs by the canonical postprocessing.
+    fixtures: 24 CASIA-FASD train frames (12 live, 12 spoof) — SOURCE domain only
+    observed: >-
+      216/216 output tensors bit-identical; max absolute difference 0.0 on raw
+      tensors, scores, boxes and landmarks; 0 detection-count differences; 0
+      selected-face differences; 0-pixel crop-geometry difference.
+    stated_limitation: >-
+      the pin being replaced cannot be instantiated, because it does not exist. The
+      reference arm is 1.20.1 — the runtime the frozen Version-B M2 preprocessing
+      declared (configs/cloud/modal_m8.yaml, modal_m8.py) — which is the strongest
+      historical evidence available. This is a comparison against the last runtime
+      this project's preprocessing actually ran under, NOT against the unusable pin,
+      and it is recorded as such rather than presented as a direct A/B of 1.24.0.
+    target_access: 0
+    scientific_impact: >-
+      none. No Version-C preprocessing has ever run: data/processed does not exist
+      and C4-C13 have never executed scientifically. The pin binds a runtime for
+      work that has not started; it cannot invalidate evidence that does not exist.
+
+  defect_3_cuda_profile_with_no_windows_wheel:
+    found_by: >-
+      auditing the declared CUDA plan against the indices it names, rather than
+      assuming it was fine because pip had begun resolving torch. This one had
+      not fired yet: it was the next thing that would have gone wrong, and it
+      would have gone wrong silently.
+    finding: >-
+      the cu129 index publishes torch 2.13.0 for manylinux_2_28 x86_64 and
+      aarch64 at every supported Python tag, and for NO Windows tag at all.
+      cuda-cu129 is the profile a Blackwell or Hopper card selects.
+    why_it_would_not_have_failed_loudly: >-
+      the CUDA requirement files carry --extra-index-url, so PyPI stays in the
+      resolution set. pip would have installed the PyPI torch 2.13.0 win_amd64
+      wheel — a different build — while state/ENVIRONMENT_MANIFEST.json went on
+      recording profile_id cuda-cu129 and its index. A silent substitution is
+      worse than a refusal.
+    fix:
+      - >-
+        the host wheel platform is a selection gate, checked BEFORE compute
+        capability, because it is the one criterion that cannot be argued with.
+      - >-
+        every profile declares the platforms its own index publishes, measured
+        rather than assumed. Evidence:
+        reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json, regenerated by
+        scripts/audit_cuda_dependency_plan.py.
+      - >-
+        a new cuda-cu130 profile carries the SAME torch 2.13.0 / torchvision
+        0.28.0 pins from the CUDA 13.0 index, which publishes cp311-cp314
+        win_amd64 wheels as well as manylinux.
+      - >-
+        after installation the bootstrap reads torch.__version__ back out of the
+        environment and refuses a build whose local version label is not the
+        selected profile's CUDA tag. Reading an index is a claim; this is the
+        measurement.
+    selection_outcomes:
+      windows_blackwell: cuda-cu130      # was cuda-cu129, which has no Windows wheel
+      windows_ada_or_ampere: cuda-cu126  # unchanged
+      windows_blackwell_driver_below_580: BLOCKED_CUDA_ENVIRONMENT_NOT_VALIDATED
+      linux_blackwell_or_hopper: cuda-cu129   # unchanged
+      linux_ada_or_ampere: cuda-cu126         # unchanged
+    linux_plan_changed: false     # cu129 stays ahead of cu130 in selection order
+    torch_version_changed: false  # 2.13.0 / 0.28.0 on every profile, as before
+    new_profile: cuda-cu130
+    new_profile_status: DECLARED_NOT_VALIDATED_HERE
+
+  venv_recovery:
+    why: >-
+      the GPU laptop currently holds a .venv that exists, runs and is missing
+      packages, because pip died part-way. Telling the operator to delete it by
+      hand would break the one-command contract.
+    states: [ABSENT, VALID, PARTIAL_NO_INTERPRETER, INTERPRETER_WILL_NOT_RUN,
+             WRONG_SCHEME_FOR_HOST, INCOMPATIBLE_PYTHON_VERSION,
+             NOT_THIS_PROJECT_VENV, DEPENDENCIES_INCOMPLETE]
+    actions: [CREATE, REUSE, INSTALL_INTO, REBUILD]
+    dependency_incomplete_is_topped_up_not_rebuilt: true
+    manual_deletion_required: false
+    rebuild_scope: >-
+      only <project>/.venv, only when it carries a virtual-environment layout, and
+      never while the interpreter executing the bootstrap is inside it. Three
+      guards, because a wrong answer here would delete somebody's system Python.
+    self_recreation: REFUSED    # SELF_RECREATION_REFUSED
+    validation_after_creation: >-
+      exit code 0 from `python -m venv` is not evidence. The interpreter must exist
+      at the scheme's path, launch, report a sys.prefix inside the project .venv,
+      differ from its base_prefix, and match the host interpreter's Python minor.
+
+  pip_tooling_policy:
+    was: unbounded `pip install --upgrade pip` on every install
+    observed_on_the_deployment: pip 24.0 -> 26.2.1
+    now: BOUNDED_MINIMUM_ONLY
+    detail: >-
+      pip is upgraded only when it is below the declared floor (24.0) and then only
+      within [24.0, 27.0). The deployment's own pip 24.0 already met the floor, so
+      the upgrade bought nothing and silently made the resolver that chose this
+      project's dependency set a different program from the one it was pinned
+      under. setuptools and wheel are never touched. The resolved pip version is
+      recorded in state/ENVIRONMENT_MANIFEST.json.
+
+  windows_and_linux_both_supported: true
+  layouts: {windows: .venv/Scripts/python.exe, posix: .venv/bin/python}
+  hybrid_layout_never_constructed: true    # .venv/bin/python.exe is a defect
+  absolute_path_in_scientific_identity: 0
+
+  files_changed_runtime: 8
+  files_changed_runtime_list: [train.py, bootstrap.py,
+                               configs/environment/environment_contract.yaml,
+                               requirements/constraints.txt, requirements/cpu.txt,
+                               requirements/cuda-cu126.txt,
+                               requirements/cuda-cu129.txt,
+                               requirements/cuda-cu130.txt]
+
+  gpu_laptop_hotfix_package:
+    path: reports/handoff/GPU_LAPTOP_BOOTSTRAP_HOTFIX/
+    runtime_files: 8
+    full_project_recopy_required: false
+    contains: [HOTFIX_MANIFEST.json, README_APPLY_HOTFIX.md, APPLY_HOTFIX.ps1,
+               HOTFIX_INDEPENDENCE_CHECK.json]
+    built_by: scripts/build_gpu_bootstrap_hotfix.py
+    independence_verified_by: scripts/verify_gpu_hotfix_independence.py
+    independence_method: >-
+      the pre-fix tree is reconstructed from Git into a temporary fixture with
+      sentinel files standing in for the datasets and weights, ONLY the package is
+      applied, and the fix is then exercised inside that fixture. A hidden
+      dependency on some other changed file would surface as an error rather than
+      as an opinion.
+    operator_command: python train.py
+    manual_py_launcher_required: false
+    manual_venv_activation_required: false
+    manual_venv_deletion_required: false
+    manual_pip_required: false
+
+  tests:
+    new_tests_this_milestone: 98
+    new_suites: [tests/pipeline/test_bootstrap_host_interpreter.py,
+                 tests/pipeline/test_dependency_contract.py,
+                 tests/pipeline/test_gpu_hotfix_package.py]
+    focused: {passed: 98, failed: 0, skipped: 0}
+    pipeline_suite: {passed: 578, failed: 0, skipped: 0}
+    broad_regression: {passed: 2034, failed: 7, skipped: 101, seconds: 606.55}
+    previous_broad_regression: {passed: 1932, failed: 7, skipped: 101}
+    inherited_failure_set_identical: true    # test-id by test-id, not by count
+    new_unexplained_failures: 0
+
+  bounded_environment_check_on_this_machine:
+    command: python train.py --preflight-only
+    path_python_was: C:\Python314\python.exe (3.14.7, outside the supported range)
+    resolved_to: C:\Users\Admin\AppData\Local\Programs\Python\Python313\python.exe
+    outcome: PASS   # CPU_FULL_REHEARSAL preflight, environment REUSED, nothing executed
+    packages_installed: 0
+    network_contacted_by_the_runner: 0
+    gpu_allocated: false
+
+  cuda_dependency_plan_audit:
+    evidence: reports/handoff/CUDA_DEPENDENCY_PLAN_EVIDENCE.json
+    regenerated_by: scripts/audit_cuda_dependency_plan.py
+    checked: [supported_python_tags, torch, torchvision, declared_index,
+              contract_index, per_platform_wheel_availability]
+    gpu_allocated: false          # index queries only; this is plan validation
+    per_profile:
+      cpu:        {win_amd64: true,  linux_x86_64: true,  linux_aarch64: true}
+      cuda-cu130: {win_amd64: true,  linux_x86_64: true,  linux_aarch64: true}
+      cuda-cu129: {win_amd64: false, linux_x86_64: true,  linux_aarch64: true}
+      cuda-cu126: {win_amd64: true,  linux_x86_64: true,  linux_aarch64: true}
+    index_matches_contract: all
+    torch_pin_matches_contract: all
+
+  what_did_not_change:
+    scientific_protocols_or_constants: 0
+    ontology_prompt_schema_route_policy_quotas_selection_rule_seeds: unchanged
+    c3_banks_locks_identities: untouched
+    search_plans_or_lr_decisions: untouched
+    dataset_bytes_or_frozen_weights: untouched
+    c4_to_c13_scientific_status: NOT_RUN
+    target_access: 0
+    gemini_calls: 0
+    modal_jobs: 0
+
+# --- physical one-folder asset closure (previous milestone) ------------------
 physical_asset_closure:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -1481,41 +1750,38 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  COPY THE COMPLETE PORTABLE VERSION-C PROJECT FOLDER TO THE EXTERNAL NVIDIA CUDA
-  MACHINE AND RUN: `python train.py`
+  APPLY reports/handoff/GPU_LAPTOP_BOOTSTRAP_HOTFIX/ TO THE DEPLOYED GPU LAPTOP AND
+  RUN: `python train.py`
 
-  Transfer ~34.12 GB and EXCLUDE `.venv` (machine, OS and CUDA specific; the
-  bootstrap builds a fresh one). `configs/paths.local.yaml` need not travel — it is
-  regenerated from wherever the folder lands. Verify the copy against
-  PORTABLE_TRANSFER_MANIFEST.json before starting.
+  Copy the 7 runtime files in that package over the existing project folder,
+  preserving relative paths — or run its APPLY_HOTFIX.ps1, which copies exactly
+  those files and verifies every SHA256. The ~34 GB of datasets and weights is NOT
+  recopied and must not be touched. The partial .venv left by the failed install
+  does NOT need to be deleted: the new bootstrap classifies it as
+  DEPENDENCIES_INCOMPLETE and installs the remainder into it.
 
-  Nothing else is authorized. What follows below was true before this milestone and
-  still is: no CUDA hardware has ever been validated, no reports/full/c4..c13
-  artifact has ever been written, and the real full-data preparation has never run.
+  Then `python train.py`, with no arguments. Not `py -3.12 train.py`, not `pip
+  install`, not an activated .venv. The first run installs the CUDA profile for the
+  detected GPU and needs the network; later runs do not.
 
-  What review is being asked to confirm: C4-C13 now have a real production FULL code
-  path with zero placeholders; C8 under full schedules all 42 declared rows of the
-  frozen matrix a777671f... and cannot see the rehearsal sampler; a rehearsal cannot
-  serve as a scientific ancestor through any of four independent barriers; the runner
-  grades any NVIDIA host on compute capability and driver rather than on model name;
-  and the folder needs no pip command, no dataset-preparation command and no
-  train.py argument.
+  Nothing else is authorized. What follows was true before this hotfix and still
+  is: no CUDA hardware has ever been validated, no reports/full/c4..c13 artifact
+  has ever been written, and the real full-data preparation has never run. The
+  first external-GPU run is the first execution of that path and should be watched
+  rather than left alone.
 
-  What review must NOT read into it: no CUDA hardware has ever been validated, no
-  reports/full/c4..c13 artifact has ever been written, the production output audit
-  is structural rather than observed, and derived-data preparation has been
-  exercised only against stub builders — never against the real corpora. The first
-  external-GPU run is therefore the first execution of that path, and it should be
-  watched rather than left alone.
+  What review is being asked to confirm: `python train.py` on a Windows host whose
+  PATH python cannot build the environment now finds a supported standard CPython
+  itself and says so; a half-installed, foreign-layout or wrong-version .venv is
+  classified and repaired without the operator deleting anything; the ONNX Runtime
+  pin is one value in five places, installable for every declared interpreter on
+  both platforms, and measured bit-identical to the historical runtime on the
+  frozen SCRFD detector; and the hotfix package is provably sufficient on its own.
 
-  What changed since the last review: the preparation coverage gap is closed, and
-  closing it found three real defects — a TypeError that would have aborted every
-  genuine M3A build, a paths config that could not survive the folder being copied,
-  and an interrupted package that looked complete to C4. All three would have
-  fired on the collaborator's machine rather than here.
+  What review must NOT read into it: no scientific protocol, constant, lock, bank
+  or identity changed; the ONNX equivalence was measured on SOURCE fixtures against
+  1.20.1 because the pin being replaced does not exist and cannot be run; and this
+  milestone executed no C4-C13 work, allocated no GPU and touched no target label.
 
-  No C4-C13 scientific execution, GPU allocation, Modal spend, target access or
-  Gemini call has been performed or is authorized.
-
-last_updated_utc: 2026-08-17   # final full-path / CUDA-portability / one-folder closure
+last_updated_utc: 2026-08-19   # GPU deployment bootstrap hotfix
 ```
