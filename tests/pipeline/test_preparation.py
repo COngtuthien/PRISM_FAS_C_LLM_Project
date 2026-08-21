@@ -989,6 +989,32 @@ def test_a_preparation_error_stops_before_the_orchestrator(
     assert exit_code == module.EXIT_BLOCKED
 
 
+def test_an_autograd_failure_stops_before_c4(
+        train_module, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """The RTX 5090 case. The probe raising must end the run before preparation
+    and before any stage, with the reason code and the stop line the operator
+    reads from the terminal."""
+    from prism_fas.pipeline import gpu_preflight
+
+    module, calls = train_module
+
+    def failing(repo, *, strict):
+        calls["order"].append("gpu_preflight")
+        raise gpu_preflight.GPUPreflightError(
+            gpu_preflight.AUTOGRAD_FAILED,
+            "the representative model could not complete a forward/backward step")
+
+    monkeypatch.setattr(gpu_preflight, "run_preflight", failing)
+    exit_code = _zero_argument(module, scientific=True, monkeypatch=monkeypatch)
+
+    assert calls["order"] == ["gpu_preflight"], (
+        "neither preparation nor any scientific stage may start after AUTOGRAD_FAILED")
+    assert exit_code == module.EXIT_BLOCKED
+    stderr = capsys.readouterr().err
+    assert "[AUTOGRAD_FAILED]" in stderr
+    assert "Stopped BEFORE C4" in stderr
+
+
 # --- M. the report is never scientific evidence -------------------------------
 
 def test_every_report_declares_itself_scientifically_ineligible(

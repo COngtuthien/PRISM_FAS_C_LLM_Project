@@ -1,0 +1,145 @@
+{
+  "schema_version": "prism-linux-autograd-hotfix-v1",
+  "title": "Linux RTX 5090 autograd preflight input-contract hotfix",
+  "created_utc": "2026-08-21T17:36:05.416584+00:00",
+  "authoritative_branch": "portable-one-command-full-run",
+  "authoritative_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
+  "runtime_files_introduced_in_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
+  "previous_base_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
+  "previous_base_commit_short": "1f2e24f",
+  "file_count": 2,
+  "line_endings": "LF, as a Linux checkout writes them. Each `sha256` is over the exact bytes shipped.",
+  "preferred_deployment": {
+    "method": "git",
+    "commands": [
+      "git fetch origin",
+      "git checkout <authoritative_commit>"
+    ],
+    "why": "moves exactly the changed files and leaves data, weights, .venv and caches untouched"
+  },
+  "full_project_recopy_required": false,
+  "dataset_recopy_required": false,
+  "weights_recopy_required": false,
+  "venv_recopy_required": false,
+  "cache_recopy_required": false,
+  "defects_fixed": [
+    {
+      "id": "AUTOGRAD_PROBE_WRONG_INPUT_CONTRACT",
+      "symptom": "[AUTOGRAD_FAILED] the representative model could not complete a forward/backward step: AttributeError: 'Tensor' object has no attribute 'image'",
+      "root_cause": "the preflight built the real PRISMDetector and then called it with torch.randn(2,3,224,224). PRISMDetector.forward takes a DetectorBatch and reads batch.image and batch.region_priors, so the probe had invented an input contract the trainer does not use",
+      "fix": "the probe now builds its batch through the real contract \u2014 batch_contract_for('G5', M9TrainingConfig(...)) then audit_batch(variant, contract).to(device) \u2014 runs the real loss graph via compute_losses, and asserts a scalar finite loss, a finite gradient on every trainable parameter, and that batch, output, loss, parameters and gradients all sit on the selected CUDA device",
+      "scientific_model_changed": false
+    },
+    {
+      "id": "AUDIT_STUB_TOWER_STAYED_ON_THE_HOST",
+      "symptom": "latent; it would have been the next failure once the input contract was correct",
+      "root_cause": "_StubTower drew its tokens with a seeded CPU generator and returned them unmoved, so a model on CUDA would have concatenated host tensors with device tensors inside region_embeddings",
+      "fix": "the draw still uses the same seeded CPU generator, then moves to pixel_values.device. CPU values are unchanged",
+      "scientific_model_changed": false
+    }
+  ],
+  "preflight_contract": {
+    "runs_before_stage": "C4",
+    "on_failure": "AUTOGRAD_FAILED, then 'Stopped BEFORE C4. No scientific work was started.', exit BLOCKED",
+    "proves": [
+      "forward on the selected CUDA device",
+      "a scalar finite loss from the real loss graph",
+      "backward completes",
+      "every trainable parameter receives a gradient",
+      "every gradient is finite",
+      "batch, output, loss, parameters and gradients are on the selected CUDA device",
+      "no silent CPU fallback"
+    ],
+    "writes": "nothing. The checkpoint round-trip probe writes one temporary file under state/preflight and deletes it; the autograd probe writes nothing at all",
+    "opens_dataset": false,
+    "resolves_target": false
+  },
+  "scientific_impact": {
+    "protocols_or_constants_changed": false,
+    "scientific_identity_affected": false,
+    "frozen_configs_changed": false,
+    "c3_banks_changed": false,
+    "c4_to_c13_scientific_status": "NOT_RUN",
+    "scientific_execution": "NOT_RUN",
+    "target_access": 0
+  },
+  "must_not_be_touched": [
+    "data/",
+    "weights/",
+    "assets/",
+    "runs/",
+    "reports/",
+    "state/",
+    ".venv/",
+    ".git/"
+  ],
+  "not_shipped": [
+    {
+      "path": "tests/pipeline/test_gpu_preflight_autograd.py",
+      "category": "test",
+      "why_not_shipped": "the regression suite for this fix; the GPU host runs the pipeline, not pytest. It arrives with the git checkout anyway and costs nothing there"
+    },
+    {
+      "path": "tests/pipeline/test_preparation.py",
+      "category": "test",
+      "why_not_shipped": "carries the AUTOGRAD_FAILED stop-before-C4 test; same reason"
+    },
+    {
+      "path": "scripts/build_linux_autograd_hotfix.py",
+      "category": "tooling",
+      "why_not_shipped": "builds this package; nothing on the GPU host calls it"
+    },
+    {
+      "path": "docs/PROJECT_STATE.md",
+      "category": "state",
+      "why_not_shipped": "derived handoff state, not runtime input"
+    }
+  ],
+  "package_own_files": [
+    "HOTFIX_MANIFEST.json",
+    "README_APPLY_HOTFIX.md"
+  ],
+  "expected_next_command": "python train.py",
+  "files": [
+    {
+      "destination": "src/prism_fas/pipeline/gpu_preflight.py",
+      "sha256": "39f876bafe131513ba6afb1dba3cf66bf470649b292e83170a3a513d4ad6ca6e",
+      "bytes": 20224,
+      "reason": "the fix itself: the autograd probe now builds a real DetectorBatch through batch_contract_for/audit_batch instead of handing the detector a bare image tensor, runs the real loss graph, and verifies scalar loss, per-parameter finite gradients and the selected CUDA device before C4",
+      "required_on_gpu_host": true,
+      "previous_sha256_lf": "14be3b1c06a385935aec6740e9fef9a12c2d743b4f65743eff96d4bc7cbfa655",
+      "previous_bytes": 13709,
+      "previous_sha256_source": "git 1f2e24f:src/prism_fas/pipeline/gpu_preflight.py, the commit the deployed copy was taken from. Both hashes are over LF bytes, which is what a Linux checkout writes and what you would measure on that host.",
+      "scientific_identity_affected": false
+    },
+    {
+      "destination": "src/prism_fas/evaluation/variant_audit.py",
+      "sha256": "69c285294e5a07f45db71aa953c046f7908d4959f09ba0b6cb4f1b7f44579fb4",
+      "bytes": 25911,
+      "reason": "the second, latent CUDA defect: the audit stub tower drew its tokens on the host and returned them unmoved, so the region path would have mixed CPU and CUDA tensors on the first real forward. It now follows the input image's device. CPU values are bit-identical \u2014 the draw still uses the same seeded CPU generator and .to('cpu') is a no-op",
+      "required_on_gpu_host": true,
+      "previous_sha256_lf": "6b21a16c1e494881cec63cea2562b458c60b250f5f878d91d9c69eb8cb187577",
+      "previous_bytes": 25430,
+      "previous_sha256_source": "git 1f2e24f:src/prism_fas/evaluation/variant_audit.py, the commit the deployed copy was taken from. Both hashes are over LF bytes, which is what a Linux checkout writes and what you would measure on that host.",
+      "scientific_identity_affected": false
+    }
+  ],
+  "handoff_files": [
+    {
+      "path": "README_APPLY_HOTFIX.md",
+      "sha256": "9fdc67cec0c8ec160db4c57c79d7afe6ca875e0fa3bc021433fd5c8fafabf287",
+      "bytes": 5322
+    },
+    {
+      "path": "src/prism_fas/evaluation/variant_audit.py",
+      "sha256": "69c285294e5a07f45db71aa953c046f7908d4959f09ba0b6cb4f1b7f44579fb4",
+      "bytes": 25911
+    },
+    {
+      "path": "src/prism_fas/pipeline/gpu_preflight.py",
+      "sha256": "39f876bafe131513ba6afb1dba3cf66bf470649b292e83170a3a513d4ad6ca6e",
+      "bytes": 20224
+    }
+  ],
+  "handoff_files_note": "HOTFIX_MANIFEST.json is absent from this list because a manifest cannot carry its own hash. Its identity is the Git blob at authoritative_commit."
+}

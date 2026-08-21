@@ -28,10 +28,10 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: GPU_DEPLOYMENT_BOOTSTRAP_HOTFIX
-current_substage: two bootstrap defects found by the physical deployment to the GPU
-                  laptop are fixed, tested and packaged for that machine — COMPLETE
-previous_milestone: PHYSICAL_ONE_FOLDER_ASSET_CLOSURE
+current_milestone: LINUX_RTX5090_AUTOGRAD_PREFLIGHT_HOTFIX
+current_substage: the autograd preflight defect that stopped the real RTX 5090 run
+                  before C4 is fixed, tested and packaged for that host — COMPLETE
+previous_milestone: GPU_DEPLOYMENT_BOOTSTRAP_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -586,6 +586,134 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+linux_rtx5090_autograd_preflight_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as an engineering preflight hotfix
+  base_commit_on_gpu_host: 1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2
+  discovered_by: >-
+    the real remote Linux RTX 5090 host, running the deployed copy. Not
+    reproducible on the build machine by accident: the probe that failed only
+    executes when torch.cuda.is_available(), and this laptop carries the CPU wheel.
+  host:
+    os: Linux
+    python: 3.12.3
+    torch: 2.13.0+cu129
+    gpu: NVIDIA GeForce RTX 5090
+    vram_mb: 32607
+    driver: 591.86
+    compute_capability: "12.0"
+  gates_passed_before_the_failure:
+    - environment: cuda-cu129
+    - device: CUDA
+    - bundle: PASS 24/24
+    - disk: PASS
+    - write_access: PASS
+    - target_firewall: ARMED
+    - execution_intent: GPU_SCIENTIFIC_FULL
+    - stage_range: C4 -> C13
+
+  defect_1_autograd_probe_wrong_input_contract:
+    symptom: >-
+      [AUTOGRAD_FAILED] the representative model could not complete a
+      forward/backward step: AttributeError: 'Tensor' object has no attribute
+      'image'. Stopped BEFORE C4; no scientific work started.
+    root_cause: >-
+      gpu_preflight._model_roundtrip built the real PRISMDetector under
+      TRACK_R_FLAGS and then called it with torch.randn(2, 3, 224, 224).
+      PRISMDetector.forward takes a DetectorBatch and reads batch.image and
+      batch.region_priors on its first two lines. The probe had invented an input
+      contract the trainer does not use, so it could only ever have passed by
+      accident.
+    incorrect_old_input_type: torch.Tensor [2,3,224,224]
+    expected_input_type: prism_fas.detector.contracts.DetectorBatch
+    why_it_was_never_caught_here: >-
+      the probe body is unreachable without CUDA. The CPU rehearsal path returns
+      from run_preflight at the cuda_is_available gate with strict=False, so no
+      test and no rehearsal on this machine had ever executed those lines.
+    fix: >-
+      the probe now builds its batch through the SAME public contract the trainer
+      uses — batch_contract_for("G5", M9TrainingConfig(...)) for the composition,
+      audit_batch(variant, contract) for the tensors, then .to(device) — and runs
+      the real loss graph through compute_losses with enabled_terms("G5", variant).
+      The scientific model's forward API was NOT changed to accept a bare tensor.
+    proves_before_c4:
+      - forward completes on the selected CUDA device
+      - the loss is a scalar and finite
+      - backward completes
+      - every trainable parameter receives a gradient (not "some parameter")
+      - every gradient is finite
+      - batch, output, loss, parameters and gradients are all on the selected device
+      - no silent CPU fallback
+    writes: nothing
+    opens_dataset: false
+    resolves_target: false
+
+  defect_2_audit_stub_tower_stayed_on_the_host:
+    found_by: >-
+      tracing the device semantics of the corrected path rather than waiting for
+      the GPU host to fail a second time. It had not fired yet; it was the next
+      thing that would have gone wrong.
+    root_cause: >-
+      variant_audit._StubTower drew its tokens with a seeded CPU generator and
+      returned them unmoved. A detector on CUDA would then have mixed host tokens
+      with device tensors inside region_embeddings.
+    fix: >-
+      the draw still uses the same seeded CPU generator — a CUDA generator under
+      the same seed draws different numbers — and the result is then moved to
+      pixel_values.device. On a CPU host .to("cpu") is a no-op, so every existing
+      CPU audit value is bit-identical and no C7 readiness number changes.
+
+  scientific_safety:
+    scientific_model_changed: false
+    frozen_configs_changed: false
+    c3_banks_changed: false
+    protocols_or_constants_changed: false
+    preflight_disabled_or_weakened: false
+    fail_closed_preserved: true      # AUTOGRAD_FAILED, "Stopped BEFORE C4", BLOCKED
+    target_access: 0
+    c4_to_c13_scientific_status: NOT_RUN
+    gemini_calls: 0
+    modal_jobs: 0
+
+  tests:
+    focused_suite: tests/pipeline/test_gpu_preflight_autograd.py   # 19 passed
+    focused_covers:
+      - the probe builds a DetectorBatch, not a tensor
+      - its composition equals batch_contract_for("G5", ...) exactly
+      - a bare tensor is STILL rejected by the detector (the regression itself)
+      - the audit stub tower follows the image device, CPU values unchanged
+      - forward, scalar finite loss, backward
+      - every trainable parameter receives a gradient
+      - every gradient is finite
+      - a missing gradient is rejected
+      - a non-finite gradient is rejected
+      - a model with nothing to train is rejected
+      - CUDA device verification, including the wrong CUDA index
+      - a CPU tensor under a CUDA selection is refused as a silent fallback
+      - the probe writes no artifact and resolves no target
+    stop_before_c4_test: >-
+      tests/pipeline/test_preparation.py::test_an_autograd_failure_stops_before_c4
+      — asserts order == [gpu_preflight], EXIT_BLOCKED, "[AUTOGRAD_FAILED]" and
+      "Stopped BEFORE C4" on stderr
+    pipeline_suite: {passed: 598, failed: 0, skipped: 0}    # tests/pipeline
+    detector_suites: {passed: 223, failed: 0, skipped: 1}   # tests/c7, m9, m10 variants
+    broad_regression: {passed: 2054, failed: 7, skipped: 101, seconds: 713.14}
+    inherited_failure_set_identical: true   # test-id by test-id vs reports/c0/C0_TEST_SUITE.json
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+
+  handoff_package: reports/handoff/LINUX_RTX5090_AUTOGRAD_HOTFIX/
+  changed_runtime_files:
+    - src/prism_fas/pipeline/gpu_preflight.py
+    - src/prism_fas/evaluation/variant_audit.py
+  full_project_recopy_required: false
+  dataset_recopy_required: false
+  weights_recopy_required: false
+  venv_recopy_required: false
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 gpu_deployment_bootstrap_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -1750,38 +1878,44 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  APPLY reports/handoff/GPU_LAPTOP_BOOTSTRAP_HOTFIX/ TO THE DEPLOYED GPU LAPTOP AND
-  RUN: `python train.py`
+  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RUN: `python train.py`
 
-  Copy the 7 runtime files in that package over the existing project folder,
-  preserving relative paths — or run its APPLY_HOTFIX.ps1, which copies exactly
-  those files and verifies every SHA256. The ~34 GB of datasets and weights is NOT
-  recopied and must not be touched. The partial .venv left by the failed install
-  does NOT need to be deleted: the new bootstrap classifies it as
-  DEPENDENCIES_INCOMPLETE and installs the remainder into it.
+  On that host:
 
-  Then `python train.py`, with no arguments. Not `py -3.12 train.py`, not `pip
-  install`, not an activated .venv. The first run installs the CUDA profile for the
-  detected GPU and needs the network; later runs do not.
+      cd /path/to/PRISM_FAS_C_LLM_Project
+      git fetch origin
+      git checkout <NEW_HEAD>
+
+  Git is the preferred route: it moves exactly the two changed runtime files —
+  src/prism_fas/pipeline/gpu_preflight.py and
+  src/prism_fas/evaluation/variant_audit.py — and touches nothing else. NO recopy
+  of the ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
+  rebuild of .venv, NO reinstall: this hotfix changes no dependency pin, and the
+  cuda-cu129 environment already installed there is the right one. If that host
+  has no route to the remote, copy the two files from
+  reports/handoff/LINUX_RTX5090_AUTOGRAD_HOTFIX/ preserving relative paths and
+  check the SHA256s printed in its README.
+
+  Then `python train.py`, with no arguments. The preflight runs again first. If it
+  passes, the run continues into C4 — which is the first scientific execution this
+  project has ever attempted past C3, so watch it rather than leaving it alone.
 
   Nothing else is authorized. What follows was true before this hotfix and still
-  is: no CUDA hardware has ever been validated, no reports/full/c4..c13 artifact
-  has ever been written, and the real full-data preparation has never run. The
-  first external-GPU run is the first execution of that path and should be watched
-  rather than left alone.
+  is: no reports/full/c4..c13 artifact has ever been written, and the real
+  full-data preparation has never run.
 
-  What review is being asked to confirm: `python train.py` on a Windows host whose
-  PATH python cannot build the environment now finds a supported standard CPython
-  itself and says so; a half-installed, foreign-layout or wrong-version .venv is
-  classified and repaired without the operator deleting anything; the ONNX Runtime
-  pin is one value in five places, installable for every declared interpreter on
-  both platforms, and measured bit-identical to the historical runtime on the
-  frozen SCRFD detector; and the hotfix package is provably sufficient on its own.
+  What review is being asked to confirm: the autograd probe now drives the real
+  DetectorBatch contract and the real loss graph rather than a bare tensor it
+  invented, and proves forward, scalar finite loss, backward, a finite gradient on
+  EVERY trainable parameter, and that the work executed on the selected CUDA
+  device with no silent CPU fallback — before C4, failing closed with
+  AUTOGRAD_FAILED and "Stopped BEFORE C4" exactly as before.
 
-  What review must NOT read into it: no scientific protocol, constant, lock, bank
-  or identity changed; the ONNX equivalence was measured on SOURCE fixtures against
-  1.20.1 because the pin being replaced does not exist and cannot be run; and this
-  milestone executed no C4-C13 work, allocated no GPU and touched no target label.
+  What review must NOT read into it: the scientific model's forward API was not
+  changed to accept the probe's old input; the preflight was not disabled,
+  bypassed or weakened to let the run proceed; no scientific protocol, constant,
+  config, lock, bank or identity changed; and this milestone executed no C4-C13
+  work, called no provider, allocated no Modal job and touched no target label.
 
-last_updated_utc: 2026-08-19   # GPU deployment bootstrap hotfix
+last_updated_utc: 2026-08-22   # Linux RTX 5090 autograd preflight hotfix
 ```
