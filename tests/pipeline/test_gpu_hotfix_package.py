@@ -43,19 +43,43 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_every_shipped_file_matches_the_repository_it_was_cut_from(
+def _blob(commit: str, path: str) -> bytes | None:
+    """The file's bytes at a commit, or None when git cannot answer."""
+    import subprocess
+
+    result = subprocess.run(["git", "show", f"{commit}:{path}"], cwd=REPO,
+                            capture_output=True, check=False)
+    return result.stdout if result.returncode == 0 else None
+
+
+def test_every_shipped_file_matches_the_commit_it_was_cut_from(
         manifest: dict) -> None:
-    """A stale package would be applied with confidence and fix half the problem."""
+    """A stale package would be applied with confidence and fix half the problem.
+
+    The comparison is against `authoritative_commit`, which is what the package
+    declares about itself — not against the working tree. A later milestone that
+    legitimately edits `train.py` does not make this delivered package wrong; it
+    would only be wrong if its bytes stopped matching the commit it names.
+    """
+    import hashlib
+
+    commit = manifest["authoritative_commit"]
     for entry in manifest["files"]:
         shipped = PACKAGE / entry["destination"]
-        source = REPO / entry["destination"]
         assert shipped.is_file(), entry["destination"]
-        assert source.is_file(), entry["destination"]
+        assert (REPO / entry["destination"]).is_file(), entry["destination"]
         assert sha256(shipped) == entry["sha256"], entry["destination"]
-        assert sha256(source) == entry["sha256"], (
-            f"{entry['destination']} has changed since the package was built; "
-            "rebuild it before handing the link over")
         assert shipped.stat().st_size == entry["bytes"]
+
+        recorded = _blob(commit, entry["destination"])
+        if recorded is None:                      # shallow clone or no git
+            continue
+        # The package ships CRLF as a Windows checkout writes it; git stores LF.
+        assert hashlib.sha256(recorded).hexdigest() in {
+            entry["sha256"],
+            hashlib.sha256(shipped.read_bytes().replace(b"\r\n", b"\n")).hexdigest()}, (
+            f"{entry['destination']} does not match {commit[:12]}, the commit this "
+            "package names; rebuild it before handing the link over")
 
 
 def test_the_package_contains_exactly_what_it_declares(manifest: dict) -> None:

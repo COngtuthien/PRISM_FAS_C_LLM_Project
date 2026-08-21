@@ -28,10 +28,11 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: LINUX_RTX5090_AUTOGRAD_PREFLIGHT_HOTFIX
-current_substage: the autograd preflight defect that stopped the real RTX 5090 run
-                  before C4 is fixed, tested and packaged for that host — COMPLETE
-previous_milestone: GPU_DEPLOYMENT_BOOTSTRAP_HOTFIX
+current_milestone: LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX
+current_substage: the M2 producer / M3A consumer path mismatch that stopped the real
+                  RTX 5090 run at derived-data preparation is fixed, tested end to
+                  end and packaged for that host — COMPLETE
+previous_milestone: LINUX_RTX5090_AUTOGRAD_PREFLIGHT_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -586,6 +587,221 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+linux_rtx5090_m2_m3a_contract_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as an engineering derived-data preparation fix
+  base_commit_on_gpu_host: 787b9b28367df039a6b3805a7871f92c60a343ae
+  discovered_by: >-
+    the real Linux RTX 5090 host reaching derived-data preparation for the first
+    time in this project's history and running SCRFD over the source corpora.
+    Not reachable on the build machine: every laptop rehearsal takes
+    `dry_run=not plan.is_scientific`, so the real orchestration branch had never
+    executed anywhere.
+  symptom: >-
+    [PREPARATION_FAILED] derived-data preparation failed at m3a_package:
+    FileNotFoundError: <project>/data/processed/manifests/source_frames.parquet.
+    Stopped BEFORE C4; no scientific work started.
+
+  defect_1_producer_consumer_path_mismatch:
+    producer_before: >-
+      preparation._step_m2 -> m2_runner.run(dataset, ...), the legacy CLI helper,
+      which writes JSONL results and crops under
+      <work_root>/m2/<version>/<config_hash>/m2a/ and never writes a parquet
+      manifest at all.
+    consumer_before: >-
+      preparation._step_m3a -> build_package(paths.processed_root, ...) ->
+      load_m2_samples, which reads <input_root>/manifests/{source,target}_
+      {frames,crops}.parquet.
+    root_cause: >-
+      two independent path expressions for one artifact. data/processed has never
+      held an M2 manifest under any convention this project has used: in the
+      inherited Version-B layout it holds built PACKAGES (prism_data_v1_m3b,
+      prism_target_eval_v2, the M8 synthetic banks) and Version-C preparation
+      writes packages to data/packages. Nothing has ever written
+      data/processed/manifests/.
+    why_tests_missed_it: >-
+      the preparation suite stubbed m2_runner.run with a fake that created
+      data/processed/<dataset>/. The stub wrote where the consumer read, so
+      producer and consumer agreed only inside the test. build_package was
+      stubbed too, so load_m2_samples never ran. Both sides of a contract were
+      replaced by fixtures that agreed with each other and with nothing else.
+    fix: >-
+      both sides resolve the location through one function,
+      preparation.m2_output_root(repo), which delegates to the project's own
+      run_profiles.profile_root under the full_preprocessing profile. The
+      producer is now the production run_preprocessing + PreprocessingRunContext
+      pair — the same pair `prism data preprocess run --run-profile
+      full_preprocessing` drives.
+    authoritative_m2_path: >-
+      <work_root>/m2/<preprocessing_version>/<config_hash>/full_preprocessing
+    why_that_basename: >-
+      build_lock records source_m2_namespace = input_root.name beside a
+      hard-coded source_m2_validation_profile = "full_preprocessing", so any
+      other basename produces an M3A lock that contradicts itself.
+    also_moved: >-
+      build_preprocessing_run_context moved from cli/main.py to
+      data/run_context.py. The preparation path could not reach the canonical
+      constructor without importing the whole CLI, which is why it drifted onto
+      the legacy runner; the CLI now imports it from its new home and its body is
+      unchanged.
+
+  defect_2_completeness_was_directory_presence:
+    found_by: auditing the reuse rule rather than waiting for it to fire
+    root_cause: >-
+      _step_m2 returned REUSED_VALID when data/processed existed and was
+      non-empty — equally true of a tree that died halfway through its first
+      dataset, which M3A would then have consumed.
+    canonical_completion_rule:
+      - all five canonical manifests present under <m2_root>/manifests/
+      - no target rows (source-only before C4; a SiW row is a firewall breach)
+      - source_frames row count equals source_crops row count
+      - every canonical source record walked, measured per (dataset,
+        source_record_id) over source_frames plus preprocessing_failures
+      - a completion marker at state/M2_PREPARATION_COMPLETE.json whose
+        preprocessing_config_hash, detector_model_sha256 and per-dataset record
+        counts still match what the adapters report now
+      - the canonical validate_full_profile (m2f1a-full-v1) passes — crop
+        SHA-256s, decodability, dimensions, orphans, temporaries, target
+        isolation, and the pinned detector hash
+    validator_reused_not_reinvented: prism_fas.data.m2_validation.validate_full_profile
+
+  defect_3_m3a_validated_before_finalize:
+    found_by: running M2 -> M3A end to end for the first time, in a test
+    root_cause: >-
+      build_package writes PACKAGE_LOCK.json with status "building"; _step_m3a
+      then called validate_package(root) with require_validated_status defaulting
+      to True, which can never pass before finalize_lock runs.
+    fix: validate loose, finalize, validate strict — the order the canonical CLI uses
+
+  resume_semantics:
+    unit: canonical record (video), keyed on source_record_id
+    settled_when: >-
+      the record contributed at least frames_per_video rows across source_frames
+      and preprocessing_failures. A failure row counts: a frame that was walked
+      and routed is finished work, and re-walking it every resume would never
+      terminate on a corpus with an undecodable file.
+    known_residual: >-
+      a video so short that uniform_indices yields fewer than frames_per_video
+      samples is re-walked on every resume. Deterministic, idempotent and bounded
+      to a handful of frames; the alternative — trusting a count we cannot verify
+      without opening the media — would let a genuinely truncated record be
+      called done.
+    nothing_is_deleted: true
+    operator_cleanup_required: false
+
+  legacy_m2a_artifacts:
+    reusable_as_m2_input: false
+    why: >-
+      the legacy namespace holds JSONL results, not the canonical parquet
+      manifests M3A reads, and migrate_m2a is contract-locked to the frozen
+      24/24/12/12/0 acceptance counts (m2b1a-v1), so it cannot carry a full
+      corpus across. Adopting it would mean inventing a migration for artifacts
+      whose provenance the contract does not cover.
+    action_taken: >-
+      none. Nothing deletes it and nothing adopts it. `train.py --diagnose-data`
+      names it, counts it and says plainly that it is not reusable.
+    consequence: >-
+      the SCRFD detection the failed remote run performed into the m2a namespace
+      is not reused; the full profile redoes it into its own namespace and
+      resumes from there onward. Stated rather than hidden.
+
+  operator_forensics:
+    command: /usr/bin/python3 train.py --diagnose-data
+    report: reports/preflight/DERIVED_DATA_DIAGNOSIS.json
+    reports_on: [m2 config root, namespaces present, legacy m2a root and crop
+                 count, full_preprocessing root, per-manifest row counts, crops on
+                 disk, completion marker, M2 status and outstanding records,
+                 package and pair-plan state, what data/processed is and is not]
+    read_only: true
+
+  new_reason_codes:
+    M2_INCOMPLETE: >-
+      the M2 tree did not reach completion. Partial work is preserved and a rerun
+      continues from it.
+    TARGET_IN_SOURCE_TREE: >-
+      a target row appeared in the source M2 tree. Not repairable by preprocessing
+      more of it; the run stops for investigation.
+
+  scientific_safety:
+    scientific_configs_changed: false
+    frozen_configs_changed: false
+    datasets_changed: false
+    c3_banks_changed: false
+    lr_or_search_decisions_changed: false
+    scrfd_frozen_policy_changed: false
+    partial_artifacts_deleted: 0
+    m3a_validation_weakened: false
+    target_access: 0
+    siw_mv2_preprocessed: false
+    c4_to_c13_scientific_status: NOT_RUN
+    gemini_calls: 0
+    modal_jobs: 0
+
+  tests:
+    focused_suite: tests/pipeline/test_m2_m3a_contract.py    # 24 passed
+    focused_method: >-
+      nothing stubs the write location. run_preprocessing, ManifestRepository,
+      the routing converters, the real media readers, load_m2_samples,
+      build_package, validate_package and finalize_lock are all the shipping
+      code; only the ONNX session is replaced, and the real frozen SCRFD file is
+      still resolved and hashed so validate_full_profile's pinned-digest check
+      stays switched on.
+    focused_covers:
+      - fresh scientific preparation from raw media to a validated M3A package
+      - the producer writes the manifests the consumer reads
+      - crop_relative_path resolves from the root M3A is given
+      - producer and consumer resolve the same root, named full_preprocessing
+      - the canonical root is never data/processed
+      - non-empty but incomplete is not complete
+      - a missing source_frames.parquet / source_crops.parquet is not complete
+      - an interrupted run names the records that remain
+      - a stale completion marker is not believed
+      - a tampered crop fails the canonical validator
+      - completed records are reused, not reprocessed
+      - partial work survives a failed run
+      - a complete validated tree is REUSED_VALID, and a second pass is byte-identical
+      - M3A refuses an incomplete or tampered M2 tree
+      - no target dataset is preprocessed and no SiW artifact appears in the tree
+      - target rows in the source tree stop the run with their own reason code
+      - a tree the validator refuses stops the run and is not deleted
+      - the diagnosis separates the two namespaces and adopts neither
+    orchestration_suite: tests/pipeline/test_preparation.py  # 57 passed
+    stop_before_c4_tests: >-
+      M2_INCOMPLETE and TARGET_IN_SOURCE_TREE each reach the operator by name
+      on stderr, end the run with EXIT_BLOCKED and 'Stopped BEFORE C4', and
+      let no stage start.
+    pipeline_suite: {passed: 622, failed: 0, skipped: 0}
+    broad_regression: {passed: 2080, failed: 7, skipped: 101, seconds: 588.16}
+    inherited_failure_set_identical: true   # test-id by test-id vs reports/c0/C0_TEST_SUITE.json
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+    test_changes_that_were_not_weakening:
+      - >-
+        test_gpu_hotfix_package now compares the delivered bootstrap package
+        against the commit it names rather than the working tree. A later
+        milestone editing train.py does not make a delivered package wrong; it
+        would only be wrong if its bytes stopped matching the commit it declares.
+      - >-
+        test_train_py_delegates_rather_than_implementing allows _diagnose_data,
+        which is console formatting over preparation.diagnose and owns no
+        pipeline behaviour — the same category the test's own docstring already
+        permits.
+
+  handoff_package: reports/handoff/LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX/
+  changed_runtime_files:
+    - src/prism_fas/pipeline/preparation.py
+    - src/prism_fas/data/run_context.py
+    - src/prism_fas/cli/main.py
+    - train.py
+  full_project_recopy_required: false
+  dataset_recopy_required: false
+  weights_recopy_required: false
+  venv_recopy_required: false
+  manual_cleanup_required: false
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 linux_rtx5090_autograd_preflight_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -1878,44 +2094,58 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RUN: `python train.py`
+  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD, INSPECT ITS DERIVED
+  DATA, THEN RUN: `/usr/bin/python3 train.py`
 
   On that host:
 
-      cd /path/to/PRISM_FAS_C_LLM_Project
+      cd /home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project
       git fetch origin
       git checkout <NEW_HEAD>
+      /usr/bin/python3 train.py --diagnose-data      # read-only; builds nothing
+      /usr/bin/python3 train.py
 
-  Git is the preferred route: it moves exactly the two changed runtime files —
-  src/prism_fas/pipeline/gpu_preflight.py and
-  src/prism_fas/evaluation/variant_audit.py — and touches nothing else. NO recopy
-  of the ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
-  rebuild of .venv, NO reinstall: this hotfix changes no dependency pin, and the
-  cuda-cu129 environment already installed there is the right one. If that host
-  has no route to the remote, copy the two files from
-  reports/handoff/LINUX_RTX5090_AUTOGRAD_HOTFIX/ preserving relative paths and
-  check the SHA256s printed in its README.
+  Git is the preferred route: it moves exactly the four changed runtime files —
+  src/prism_fas/pipeline/preparation.py, src/prism_fas/data/run_context.py,
+  src/prism_fas/cli/main.py and train.py — and touches nothing else. NO recopy of
+  the ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
+  rebuild of .venv, NO reinstall, and NO manual deletion of data/work or
+  data/processed. If that host has no route to the remote, copy the four files
+  from reports/handoff/LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX/ preserving relative
+  paths and verify the SHA256s in its manifest.
 
-  Then `python train.py`, with no arguments. The preflight runs again first. If it
-  passes, the run continues into C4 — which is the first scientific execution this
-  project has ever attempted past C3, so watch it rather than leaving it alone.
+  Run --diagnose-data first. It reports which M2 namespaces that machine actually
+  has, how many crops and manifest rows each holds, and how many records remain.
+  Expect it to show a populated legacy `m2a` tree and an absent
+  `full_preprocessing` tree, and to say that the legacy tree is NOT reusable —
+  the SCRFD hours the failed run spent there are lost, and preparation will redo
+  detection into the canonical namespace. From that first run onward, resume is
+  real and an interruption continues rather than restarting.
 
-  Nothing else is authorized. What follows was true before this hotfix and still
-  is: no reports/full/c4..c13 artifact has ever been written, and the real
-  full-data preparation has never run.
+  Then `/usr/bin/python3 train.py`, with no arguments. Expect bootstrap, GPU
+  preflight, then hours of derived-data preparation with per-dataset progress, M2
+  -> M3A -> M3B -> the GPAT pair plan, then C4 — the first scientific execution
+  this project has ever attempted past C3. Watch it rather than leaving it alone.
 
-  What review is being asked to confirm: the autograd probe now drives the real
-  DetectorBatch contract and the real loss graph rather than a bare tensor it
-  invented, and proves forward, scalar finite loss, backward, a finite gradient on
-  EVERY trainable parameter, and that the work executed on the selected CUDA
-  device with no silent CPU fallback — before C4, failing closed with
-  AUTOGRAD_FAILED and "Stopped BEFORE C4" exactly as before.
+  Nothing else is authorized. What follows is still true: no reports/full/c4..c13
+  artifact has ever been written, and no full-data preparation has ever completed.
 
-  What review must NOT read into it: the scientific model's forward API was not
-  changed to accept the probe's old input; the preflight was not disabled,
-  bypassed or weakened to let the run proceed; no scientific protocol, constant,
-  config, lock, bank or identity changed; and this milestone executed no C4-C13
-  work, called no provider, allocated no Modal job and touched no target label.
+  What review is being asked to confirm: the M2 producer and the M3A consumer
+  resolve ONE location, through preparation.m2_output_root, under the production
+  full_preprocessing profile; M2 completion is measured by the canonical
+  validate_full_profile plus full record coverage plus a marker written last,
+  never by a directory being non-empty; completed records are resumed rather than
+  reprocessed and no partial artifact is deleted; and the whole chain now runs
+  end to end in a test with neither side stubbed.
 
-last_updated_utc: 2026-08-22   # Linux RTX 5090 autograd preflight hotfix
+  What review must NOT read into it: no manifest was fabricated, no empty
+  manifest was created, no file was copied by name, M3A validation was not
+  weakened and M3A was not taught to ignore a missing M2 manifest; the legacy m2a
+  artifacts were neither adopted nor deleted, and their unreusability is recorded
+  rather than worked around; no scientific config, constant, dataset, C3 bank, LR
+  or search decision, or SCRFD policy changed; and this milestone executed no
+  C4-C13 work, called no provider, allocated no Modal job, preprocessed no
+  SiW-Mv2 and touched no target label.
+
+last_updated_utc: 2026-08-22   # Linux RTX 5090 M2 -> M3A contract hotfix
 ```

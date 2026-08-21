@@ -255,8 +255,11 @@ def test_train_py_delegates_rather_than_implementing(repo: Path) -> None:
     tree = ast.parse((repo / "train.py").read_text(encoding="utf-8"))
     functions = {node.name for node in ast.walk(tree)
                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    # `_diagnose_data` is console formatting over `preparation.diagnose`: it
+    # measures nothing itself and owns no pipeline behaviour.
     allowed = {"build_parser", "main", "_bootstrap_and_reexec", "_zero_argument",
-               "_explicit", "_print_stage_table", "_git_identity"}
+               "_explicit", "_print_stage_table", "_git_identity",
+               "_diagnose_data"}
     assert functions <= allowed, f"train.py defines unexpected {sorted(functions - allowed)}"
     forbidden = ("train", "fit", "select", "score", "render", "compile", "freeze",
                  "evaluate", "calibrate", "generate")

@@ -55,14 +55,22 @@ def _write(path: Path, text: str = "fixture") -> Path:
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     """A minimal portable folder: raw inputs and weights present, nothing derived."""
+    import shutil
+
     repo = tmp_path / "PRISM_FAS_C_LLM_Project"
     for dataset in ("casia_fasd", "msu_mfsd", "siw_mv2"):
         _write(repo / "data" / "raw" / dataset / "README.txt", dataset)
     _write(repo / "weights" / "siglip2" / "model.bin", "weights")
     _write(repo / "assets" / "recipe_banks" / "c3" / "llm" / "bank.json", "{}")
-    _write(repo / "configs" / "data" / "preprocess_m2.yaml", "version: 1\n")
     _write(repo / "configs" / "data" / "package_m3a.yaml", "version: 1\n")
     _write(repo / "configs" / "models" / "model_priors.yaml", "version: 1\n")
+    # The M2 configs are the real ones. `m2_output_root` derives the canonical
+    # namespace from `preprocessing_version` and `config_hash`, so a placeholder
+    # here would leave the fixture free to invent its own layout — which is the
+    # class of mistake this whole module now exists to prevent.
+    (repo / "configs" / "data").mkdir(parents=True, exist_ok=True)
+    for name in ("preprocess_m2.yaml", "m2_run_profiles.yaml"):
+        shutil.copyfile(REPO / "configs" / "data" / name, repo / "configs" / "data" / name)
     return repo
 
 
@@ -81,6 +89,7 @@ class Builders:
         self.fail_at: str | None = None
         self.build_nothing_at: str | None = None
         self.validation_passes = True
+        self.m2_complete = False
 
     # -- helpers
     @property
@@ -101,14 +110,50 @@ class Builders:
             _write(path / lock, json.dumps({"status": "validated"}))
 
     # -- the four builders
-    def m2_run(self, dataset: str, config_path: Path, preprocess_path: Path,
-               limit_records: int = 3, dry_run: bool = False,
-               resume: bool = False, force: bool = False) -> dict[str, Any]:
-        self._record("m2_preprocess", dataset=dataset, config_path=Path(config_path),
-                     preprocess_path=Path(preprocess_path), limit_records=limit_records,
-                     dry_run=dry_run, resume=resume, force=force)
-        self._make("m2_preprocess", self.repo / "data" / "processed" / dataset)
-        return {"records": limit_records}
+    #
+    # M2 is stubbed one level higher than the other three: at `_step_m2` rather
+    # than at the runner underneath it, because a fixture cannot cheaply produce
+    # crops whose SHA-256s satisfy the canonical validator. What it must never do
+    # is choose where M2 output lands — the stub asks `m2_output_root` for that,
+    # so a consumer that reads anywhere else still fails here. The unstubbed
+    # producer/consumer contract lives in test_m2_m3a_contract.py.
+    def step_m2(self, repo: Path, *, resume: bool) -> Any:
+        root = preparation.m2_output_root(repo)
+        if self.m2_complete:
+            # The real step's own first branch: a complete, validated tree is
+            # reused and nothing is reprocessed.
+            return preparation.StepOutcome(
+                "m2_preprocess", "REUSED_VALID", "stub reused a complete M2 tree",
+                {"m2_root": root.as_posix()})
+        self._record("m2_preprocess", resume=resume, m2_root=root,
+                     config_path=preparation._paths_config(repo),
+                     datasets=list(preparation.SOURCE_DATASETS))
+        if self.build_nothing_at == "m2_preprocess":
+            return preparation.StepOutcome("m2_preprocess", "BUILT", "stub built nothing")
+        # Completion is recorded in memory rather than as fixture parquet files:
+        # the canonical M2 root nests a 64-character config hash, and on Windows
+        # a pytest tmp path plus that hash exceeds MAX_PATH. The location itself
+        # is still asserted, from `m2_root` above.
+        self.m2_complete = True
+        return preparation.StepOutcome(
+            "m2_preprocess", "BUILT", "stub preprocessed the source corpora",
+            {"m2_root": root.as_posix(),
+             "per_dataset": {name: {"records_total": 617, "records_walked": 617}
+                             for name in preparation.SOURCE_DATASETS}})
+
+    def m2_status(self, repo: Path, *, deep: bool = False,
+                  require_marker: bool = True) -> dict[str, Any]:
+        root = preparation.m2_output_root(repo)
+        complete = self.m2_complete
+        return {"profile": preparation.M2_RUN_PROFILE, "root": root.as_posix(),
+                "manifests_root": (root / "manifests").as_posix(),
+                "manifests_present": {name: complete for name in preparation.M2_MANIFESTS},
+                "counts": {name: (1 if complete and name.startswith("source") else 0)
+                           for name in preparation.M2_MANIFESTS},
+                "outstanding_records": {}, "marker": None,
+                "validation": {"passed": True} if complete and deep else None,
+                "complete": complete,
+                "reason": None if complete else "MANIFESTS_ABSENT"}
 
     def build_package(self, input_root: Path, package_root: Path, config: Any,
                       *, resume: bool = True, **kwargs: Any) -> dict[str, Any]:
@@ -154,12 +199,13 @@ class Builders:
 @pytest.fixture
 def builders(project: Path, monkeypatch: pytest.MonkeyPatch) -> Builders:
     """Patch the real builder modules, so a renamed builder fails these tests."""
-    from prism_fas.data import m2_runner, package
+    from prism_fas.data import package
     from prism_fas.data.package import m3b
     from prism_fas.synthesis import pair_plan
 
     stub = Builders(project)
-    monkeypatch.setattr(m2_runner, "run", stub.m2_run)
+    monkeypatch.setattr(preparation, "_step_m2", stub.step_m2)
+    monkeypatch.setattr(preparation, "m2_status", stub.m2_status)
     monkeypatch.setattr(package, "build_package", stub.build_package)
     monkeypatch.setattr(package, "validate_package", stub.validate_package)
     monkeypatch.setattr(package, "finalize_lock", stub.finalize_lock)
@@ -171,6 +217,7 @@ def builders(project: Path, monkeypatch: pytest.MonkeyPatch) -> Builders:
     # a fixture has no copy of. A distinctive number is used so the assertion that
     # it reaches the builder cannot pass by coincidence.
     monkeypatch.setattr(preparation, "_record_count", lambda repo, dataset: 617)
+    monkeypatch.setattr(preparation, "_records", lambda repo, dataset: [])
     return stub
 
 
@@ -239,7 +286,8 @@ def test_each_step_consumes_the_previous_step_output(project: Path,
     calls = {call["step"]: call for call in builders.calls}
 
     m3a_root = project / "data" / "packages" / "prism_data_v1_m3a"
-    assert calls["m3a_package"]["input_root"] == project / "data" / "processed"
+    assert calls["m3a_package"]["input_root"] == preparation.m2_output_root(project), (
+        "M3A must consume the canonical M2 output root, not data/processed")
     assert calls["m3a_package"]["package_root"] == m3a_root
     assert calls["m3b_priors"]["input_package"] == m3a_root
     assert calls["m3b_priors"]["output_package"] == project / "data" / "packages" / "prism_data_v1_m3b"
@@ -255,6 +303,7 @@ def test_resume_is_propagated_to_every_builder(project: Path,
     assert all(call["resume"] is True for call in resumable)
 
     builders.calls.clear()
+    builders.m2_complete = False
     for tree in ("processed", "packages"):
         _rmtree(project / "data" / tree)
     preparation.prepare(project, resume=False, dry_run=False)
@@ -262,25 +311,33 @@ def test_resume_is_propagated_to_every_builder(project: Path,
     assert all(call["resume"] is False for call in resumable)
 
 
-def test_the_scientific_corpus_is_not_truncated_to_the_builder_default(
-        project: Path, builders: Builders) -> None:
-    """`m2_runner.run` defaults `limit_records=3`; preparation must override it."""
+def test_the_scientific_corpus_is_not_truncated(project: Path,
+                                               builders: Builders) -> None:
+    """L.12 forbids shrinking a scientific input to fit the machine.
+
+    The producer asks for every canonical record: `all_records=True` with no
+    record limit. The legacy helper this replaced defaulted `limit_records=3`,
+    which would have silently preprocessed three videos per dataset.
+    """
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "preparation.py").read_text(
+        encoding="utf-8")
+    assert "all_records=True" in source
+    assert "limit_records=None" in source
+    assert "m2_runner.run(" not in source, (
+        "the legacy m2a runner writes where M3A cannot read")
+
     preparation.prepare(project, dry_run=False)
     m2_calls = [call for call in builders.calls if call["step"] == "m2_preprocess"]
-
-    assert {call["dataset"] for call in m2_calls} == {"casia_fasd", "msu_mfsd"}
-    for call in m2_calls:
-        assert call["limit_records"] == 617, "the record count must reach the builder"
-        assert call["limit_records"] != 3, "the smoke default would truncate the corpus"
-        assert call["dry_run"] is False
-        assert call["force"] is False
+    assert m2_calls and m2_calls[0]["datasets"] == ["casia_fasd", "msu_mfsd"]
 
 
 def test_the_target_dataset_is_never_preprocessed(project: Path,
                                                   builders: Builders) -> None:
     preparation.prepare(project, dry_run=False)
-    datasets = {call["dataset"] for call in builders.calls if call["step"] == "m2_preprocess"}
+    datasets = {name for call in builders.calls
+                for name in call.get("datasets", ())}
     assert "siw_mv2" not in datasets
+    assert "siw_mv2" not in preparation.SOURCE_DATASETS
 
 
 # --- D. resume and idempotency ------------------------------------------------
@@ -630,13 +687,19 @@ def _prepare_at(root: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         _write(repo / "data" / "raw" / dataset / "README.txt", dataset)
     _write(repo / "weights" / "siglip2" / "model.bin", "weights")
     _write(repo / "assets" / "recipe_banks" / "c3" / "llm" / "bank.json", "{}")
+    import shutil
 
-    from prism_fas.data import m2_runner, package
+    (repo / "configs" / "data").mkdir(parents=True, exist_ok=True)
+    for name in ("preprocess_m2.yaml", "m2_run_profiles.yaml"):
+        shutil.copyfile(REPO / "configs" / "data" / name, repo / "configs" / "data" / name)
+
+    from prism_fas.data import package
     from prism_fas.data.package import m3b
     from prism_fas.synthesis import pair_plan
 
     stub = Builders(repo)
-    monkeypatch.setattr(m2_runner, "run", stub.m2_run)
+    monkeypatch.setattr(preparation, "_step_m2", stub.step_m2)
+    monkeypatch.setattr(preparation, "m2_status", stub.m2_status)
     monkeypatch.setattr(package, "build_package", stub.build_package)
     monkeypatch.setattr(package, "validate_package", stub.validate_package)
     monkeypatch.setattr(package, "finalize_lock", stub.finalize_lock)
@@ -702,12 +765,17 @@ def test_raw_present_and_derived_absent_triggers_the_auto_build(
 def test_manual_derived_data_command_is_not_required(project: Path,
                                                      builders: Builders) -> None:
     """The whole contract: one call, from raw to every derived tree."""
-    preparation.prepare(project, dry_run=False)
+    report = preparation.prepare(project, dry_run=False)
 
-    for tree in ("processed", "packages"):
-        assert (project / "data" / tree).is_dir()
+    assert (project / "data" / "packages").is_dir()
     assert (project / "data" / "packages" / "gpat_pairs" / "PAIR_PLAN_LOCK.json").is_file()
     assert preparation.what_is_needed(project)["nothing_to_do"] is True
+    # The preprocessed tree is the M2 profile namespace, not `data/processed`;
+    # the report says where it is rather than leaving the operator to guess.
+    m2_root = Path(next(item for item in report["steps"]
+                        if item["step"] == "m2_preprocess")["m2_root"])
+    assert m2_root == preparation.m2_output_root(project)
+    assert project in m2_root.parents
 
 
 # --- J. the target firewall ---------------------------------------------------
@@ -836,8 +904,8 @@ def test_record_count_matches_the_canonical_adapter_contract() -> None:
     """
     import inspect
 
-    from prism_fas.config.models import load_paths
-    from prism_fas.data.m2_runner import DatasetDefinition, adapter_for
+    from prism_fas.config.models import DatasetDefinition, load_paths
+    from prism_fas.data.adapters import adapter_for
 
     assert list(inspect.signature(load_paths).parameters) == ["path"]
     assert list(inspect.signature(adapter_for).parameters) == ["definition", "root"]
@@ -846,8 +914,10 @@ def test_record_count_matches_the_canonical_adapter_contract() -> None:
         DatasetDefinition(dataset="casia_fasd", adapter_version="v1"),
         Path(".")), "records")
 
-    source = inspect.getsource(preparation._record_count)
+    source = inspect.getsource(preparation._records)
     assert "adapter_for(" in source and ".records()" in source
+    assert inspect.getsource(preparation._record_count).count("_records(") == 1, (
+        "the count must come from the record list the producer actually walks")
     for dataset in ("casia_fasd", "msu_mfsd"):
         assert (REPO / "configs" / "data" / f"{dataset}.yaml").is_file(), (
             "the config _record_count reads must exist in the shipped folder")
@@ -987,6 +1057,28 @@ def test_a_preparation_error_stops_before_the_orchestrator(
 
     assert "orchestrator" not in calls["order"]
     assert exit_code == module.EXIT_BLOCKED
+
+
+@pytest.mark.parametrize("reason", [preparation.M2_INCOMPLETE,
+                                    preparation.TARGET_IN_SOURCE_TREE])
+def test_the_new_preparation_reason_codes_stop_before_c4(
+        train_module, monkeypatch: pytest.MonkeyPatch, capsys, reason: str) -> None:
+    """`M2_INCOMPLETE` and `TARGET_IN_SOURCE_TREE` are new to the runner. They
+    must reach the operator by name and end the run before any stage starts."""
+    module, calls = train_module
+
+    def failing(repo, **kwargs):
+        calls["order"].append("preparation")
+        raise preparation.PreparationError(reason, "the M2 tree is not usable")
+
+    monkeypatch.setattr(preparation, "prepare", failing)
+    exit_code = _zero_argument(module, scientific=True, monkeypatch=monkeypatch)
+
+    assert "orchestrator" not in calls["order"]
+    assert exit_code == module.EXIT_BLOCKED
+    stderr = capsys.readouterr().err
+    assert f"[{reason}]" in stderr
+    assert "Stopped BEFORE C4" in stderr
 
 
 def test_an_autograd_failure_stops_before_c4(
