@@ -67,10 +67,17 @@ bit-identical, so no CPU audit or rehearsal result changes.
 
     cd /path/to/PRISM_FAS_C_LLM_Project
     git fetch origin
-    git checkout <NEW_HEAD>          # the authoritative_commit in HOTFIX_MANIFEST.json
+    git checkout portable-one-command-full-run
+    git pull --ff-only
 
 That moves exactly the two files and leaves everything else alone. It is the
 preferred method: no copying, no hashes to check by hand.
+
+To pin a specific commit instead, `f517eb8` is the one that introduced the fixed
+runtime files (`authoritative_commit` in `HOTFIX_MANIFEST.json`); the branch head
+is one documentation commit further along and carries the same bytes.
+
+    git checkout f517eb8
 
 ## Applying it — manual fallback
 

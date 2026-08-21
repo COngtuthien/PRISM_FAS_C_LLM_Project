@@ -1,10 +1,10 @@
 {
   "schema_version": "prism-linux-autograd-hotfix-v1",
   "title": "Linux RTX 5090 autograd preflight input-contract hotfix",
-  "created_utc": "2026-08-21T17:36:05.416584+00:00",
+  "created_utc": "2026-08-21T17:36:56.230148+00:00",
   "authoritative_branch": "portable-one-command-full-run",
-  "authoritative_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
-  "runtime_files_introduced_in_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
+  "authoritative_commit": "f517eb875f74f8095abb5b838efcacf03c58240c",
+  "runtime_files_introduced_in_commit": "f517eb875f74f8095abb5b838efcacf03c58240c",
   "previous_base_commit": "1f2e24fa6a8c6eddf465c0e55cde6897cf4b5ba2",
   "previous_base_commit_short": "1f2e24f",
   "file_count": 2,
@@ -127,8 +127,8 @@
   "handoff_files": [
     {
       "path": "README_APPLY_HOTFIX.md",
-      "sha256": "9fdc67cec0c8ec160db4c57c79d7afe6ca875e0fa3bc021433fd5c8fafabf287",
-      "bytes": 5322
+      "sha256": "fd32ecaefd481d36ac77324ca0a6073859456a7456ee214431b8f95b821121bc",
+      "bytes": 5571
     },
     {
       "path": "src/prism_fas/evaluation/variant_audit.py",
