@@ -1,10 +1,10 @@
 {
   "schema_version": "prism-m2-m3a-contract-hotfix-v1",
   "title": "Linux RTX 5090 M2 to M3A derived-data contract hotfix",
-  "created_utc": "2026-08-21T18:43:29.275700+00:00",
+  "created_utc": "2026-08-21T18:58:48.646629+00:00",
   "authoritative_branch": "portable-one-command-full-run",
-  "authoritative_commit": "787b9b28367df039a6b3805a7871f92c60a343ae",
-  "runtime_files_introduced_in_commit": "787b9b28367df039a6b3805a7871f92c60a343ae",
+  "authoritative_commit": "eade28938b8e9e2618ff266d6cfb6a53200d8706",
+  "runtime_files_introduced_in_commit": "eade28938b8e9e2618ff266d6cfb6a53200d8706",
   "previous_base_commit": "787b9b28367df039a6b3805a7871f92c60a343ae",
   "previous_base_commit_short": "787b9b2",
   "file_count": 4,
@@ -174,8 +174,8 @@
   "handoff_files": [
     {
       "path": "README_APPLY_HOTFIX.md",
-      "sha256": "4d4d75c05e2ec19ccdf65519b4330bfbaf16197d7316dd7ef2926ab258024180",
-      "bytes": 8143
+      "sha256": "2168355a414a995c75ef52412184ecba2f4aed2ae352615b94f7682602198f45",
+      "bytes": 8467
     },
     {
       "path": "src/prism_fas/cli/main.py",

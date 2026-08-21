@@ -120,7 +120,9 @@ interrupted run continues rather than restarting.
 
     cd /home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project
     git fetch origin
-    git checkout <NEW_HEAD>          # the authoritative_commit in HOTFIX_MANIFEST.json
+    git checkout <NEW_HEAD>          # the branch head, or the
+                                     # authoritative_commit in HOTFIX_MANIFEST.json
+                                     # (eade289, the commit that carries the fix)
     /usr/bin/python3 train.py
 
 That moves exactly the four files and leaves everything else alone. No copying,
