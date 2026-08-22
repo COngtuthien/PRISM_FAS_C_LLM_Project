@@ -329,14 +329,25 @@ def test_the_scientific_lock_binds_every_frozen_identity() -> None:
     assert '"is_scientific_lock": True' in source
 
 
-def test_the_lock_is_not_written_without_a_trained_winner() -> None:
+def test_the_lock_is_not_written_without_verified_trial_evidence() -> None:
+    """The requirement is "valid scientific trial evidence exists and matches
+    this frozen plan", not "was trained in this process" — a resumed run must be
+    able to finalize a trial an earlier process completed. Every gate still
+    precedes the write."""
     tree = ast.parse(C4_SOURCE)
     fn = next(node for node in ast.walk(tree)
               if isinstance(node, ast.FunctionDef) and node.name == "_scientific_finalize")
     source = ast.get_source_segment(C4_SOURCE, fn) or ""
 
-    assert "c4_winner_has_a_trained_checkpoint" in source
-    assert source.index("c4_winner_has_a_trained_checkpoint") < source.index("write_artifact")
+    for gate in ("c4_selected_config_was_actually_evaluated",
+                 "c4_selected_trial_evidence_resolves",
+                 "c4_selected_checkpoint_present",
+                 "c4_selected_checkpoint_hash_is_intact",
+                 "c4_checkpoint_belongs_to_the_selected_config",
+                 "c4_evidence_binds_this_search_plan",
+                 "c4_evidence_binds_the_frozen_inputs"):
+        assert gate in source, gate
+        assert source.index(gate) < source.index("write_artifact"), gate
 
 
 def test_verify_lock_checks_the_checkpoint_hash_and_the_input_identities() -> None:

@@ -38,7 +38,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
+from prism_fas.pipeline.adapters import (AdapterError, AdapterRequest,
+                                         AdapterResult)
 from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
                                                 EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, import_canonical,
@@ -831,6 +832,12 @@ class C4Adapter(EngineeringAdapter):
     #: one binds the LR decision — so this is belt and braces on purpose.
     SCIENTIFIC_SEARCH_STATE = "C4_SCIENTIFIC_SEARCH_STATE.json"
     SCIENTIFIC_LOCK = "GPAT_CONFIG_LOCK.json"
+    #: Written inside each trial's own run root, last, after `fit` returns. This
+    #: is what makes a completed trial survive the process that produced it:
+    #: `coordinate_search(resume=True)` reuses a recorded PASS by config hash
+    #: WITHOUT calling `evaluate`, so an in-memory dictionary populated inside
+    #: `evaluate` is empty for exactly the trials a resumed run needs most.
+    TRIAL_SUMMARY = "TRIAL_SUMMARY.json"
 
     def _scientific_search(self, request: AdapterRequest, inputs: dict[str, Any],
                            state: dict[str, Any], reports: Path,
@@ -850,10 +857,11 @@ class C4Adapter(EngineeringAdapter):
 
             The trial's own run root is keyed by its canonical config SHA, so a
             completed trial is a completed artifact and resume never mixes two
-            configurations in one checkpoint tree.
+            configurations in one checkpoint tree. Its summary is written to that
+            root, so the evidence outlives this process.
             """
             trial_config = _scientific_trial_config(config, trial, decision)
-            run_root = runs / "scientific" / f"trial_{trial.config_sha256[:16]}"
+            run_root = _trial_run_root(runs, trial.config_sha256)
             trainer = GPATTrainer(
                 config=trial_config,
                 package_root=request.repo / inputs["package_root"],
@@ -864,11 +872,14 @@ class C4Adapter(EngineeringAdapter):
             summary = trainer.fit(run_id=f"c4_{trial.config_sha256[:16]}",
                                   resume=request.resume)
             metrics = _selection_metrics(summary, trial_config)
-            trained[trial.config_sha256] = {
-                "run_root": run_root.relative_to(request.repo).as_posix(),
-                "summary": summary, "trial_config": trial_config}
+            record = _write_trial_summary(
+                request.repo, run_root, trial=trial, plan_identity=plan.identity,
+                trial_config=trial_config, summary=summary, metrics=metrics,
+                inputs=inputs)
+            trained[trial.config_sha256] = record
             return TrialResult(
                 trial=trial, status="PASS", metrics=metrics,
+                artifacts=(record["trial_summary"],),
                 notes=("scientific trial: a full GPATTrainer.fit on source_train "
                        "pairs, selected on the frozen validation pair set, with the "
                        "frozen AdaFace identity model",))
@@ -889,6 +900,38 @@ class C4Adapter(EngineeringAdapter):
                                      summary="C4 scientific envelope exhausted")
 
         payload = outcome.as_dict()
+        # An interrupted pass is preserved, not finalized. The state file and
+        # every trainer checkpoint stay exactly where they are and the next run
+        # resumes at the trial that stopped; what must not happen is a lock
+        # written from a bounded envelope that never closed.
+        if outcome.status != "COMPLETED":
+            checks.append(check(
+                "c4_search_completed_before_finalization", False,
+                f"the scientific search ended {outcome.status}; no GPAT_CONFIG_LOCK "
+                "may be written from an envelope that did not close",
+                status=outcome.status,
+                completed_coordinates=outcome.completed_coordinates,
+                reason_code="SEARCH_INCOMPLETE",
+                state_preserved=state_path.relative_to(request.repo).as_posix(),
+                resume="the next `train.py` resumes at the interrupted trial"))
+            artifact = write_artifact(
+                request, reports / "C4_SCIENTIFIC_SOURCE_SEARCH.json",
+                {**payload, "generated_at_utc": utc(), "mode": SOURCE_SEARCH,
+                 "fixture_backed": False, "engineering_only": False,
+                 "finalizable": False})
+            return None, self.result(
+                request, mode=SOURCE_SEARCH, checks=checks,
+                artifacts=[artifact, state_path.relative_to(request.repo).as_posix()],
+                summary="C4 scientific search is incomplete; state preserved")
+
+        checks.append(check(
+            "c4_search_completed_before_finalization", True,
+            "the bounded one-pass envelope closed; every applicable coordinate "
+            "completed",
+            status=outcome.status,
+            completed_coordinates=outcome.completed_coordinates,
+            applicable_coordinates=[item.name for item in plan.coordinates
+                                    if item.applicable]))
         checks.append(check(
             "c4_scientific_search_used_the_real_trainer", True,
             "every trial was a full GPATTrainer.fit; no fixture batch, no "
@@ -901,8 +944,7 @@ class C4Adapter(EngineeringAdapter):
             "the engine was invoked with require_valid_winner=True",
             require_valid_winner=True, winner_config_id=payload["winner_config_id"]))
         checks.append(check(
-            "c4_scientific_search_one_pass",
-            outcome.status in ("COMPLETED", "INTERRUPTED"),
+            "c4_scientific_search_one_pass", bool(plan.one_pass),
             "the envelope executed as one pass in the declared coordinate order",
             status=outcome.status, completed_coordinates=outcome.completed_coordinates))
         checks.append(check(
@@ -935,21 +977,57 @@ class C4Adapter(EngineeringAdapter):
                              state: dict[str, Any], outcome: Any, reports: Path,
                              runs: Path) -> AdapterResult:
         """Write the scientific GPAT_CONFIG_LOCK — only now, only from a winner."""
+        from prism_fas.search.plan import canonical_config_sha256
+
         payload = outcome.as_dict()
         plan, record = state["plan"], state["record"]
-        winner_sha = payload["winner_config_sha256"]
-        won = state.get("trained", {}).get(winner_sha)
         checks: list[dict[str, Any]] = []
 
-        if won is None:
-            checks.append(check(
-                "c4_winner_has_a_trained_checkpoint", False,
-                "the winning configuration has no trained run in this pass; a lock "
-                "may not be written from a configuration that was not trained here",
-                winner_config_sha256=winner_sha,
-                trained=sorted(state.get("trained", {}))))
+        # WHICH configuration is the selection. `best_config` is the accumulator
+        # the coordinate pass produces — start at the anchor, move one coordinate
+        # at a time, carry the winner forward — and it is what §15.2.2 defines a
+        # coordinate search to yield. `winner` is the top row of the leaderboard
+        # of individual trials, which is a diagnostic ranking of probes: a trial
+        # from an EARLY coordinate can rank globally best while its config lacks
+        # every later coordinate's improvement. The two coincide only when the
+        # last coordinate produced the winner, and this adapter used to bind the
+        # winner's CHECKPOINT to best_config's CONFIG, which can cross-bind
+        # configuration A to checkpoint B.
+        selected_config = dict(payload["best_config"])
+        selected_sha = canonical_config_sha256(selected_config)
+        leaderboard_sha = payload["winner_config_sha256"]
+
+        selected_trial = next(
+            (row for row in payload["leaderboard"]
+             if row.get("config_sha256") == selected_sha), None)
+        checks.append(check(
+            "c4_selected_config_was_actually_evaluated", selected_trial is not None
+            and bool(selected_trial.get("finite_valid")),
+            "the coordinate-wise selected configuration corresponds to a trial that "
+            "really ran and reported finite selection metrics",
+            selected_config_sha256=selected_sha,
+            selected_trial_status=(selected_trial or {}).get("status"),
+            selected_trial_finite_valid=(selected_trial or {}).get("finite_valid"),
+            leaderboard_winner_config_sha256=leaderboard_sha,
+            selection_is_the_coordinate_wise_best=True,
+            note="the leaderboard winner is retained for diagnostics only and never "
+                 "becomes the frozen selection"))
+
+        won = _resolve_trial_evidence(request.repo, runs, selected_sha,
+                                      state.get("trained", {}))
+        checks.append(check(
+            "c4_selected_trial_evidence_resolves", won is not None,
+            "the selected configuration has persistent scientific run evidence, "
+            "whether it was trained in this process or reused from a previous one",
+            selected_config_sha256=selected_sha,
+            trial_run_root=_trial_run_root(runs, selected_sha)
+            .relative_to(request.repo).as_posix(),
+            trained_in_this_process=selected_sha in state.get("trained", {})))
+
+        if won is None or selected_trial is None:
             return self.result(request, mode=FINALIZE_GPAT, checks=checks,
-                               summary="C4 winner has no trained checkpoint")
+                               summary="C4 selected configuration has no usable "
+                                       "scientific trial evidence")
 
         summary = won["summary"]
         checkpoint = (request.repo / won["run_root"] / "checkpoints" / "best.pt")
@@ -957,10 +1035,45 @@ class C4Adapter(EngineeringAdapter):
         isolation = summary.get("source_isolation", {})
 
         checks.append(check(
-            "c4_winner_checkpoint_present", checkpoint.is_file() and bool(checkpoint_sha),
-            "the winning scientific checkpoint exists and carries its own SHA256",
+            "c4_selected_checkpoint_present", checkpoint.is_file() and bool(checkpoint_sha),
+            "the selected configuration's scientific checkpoint exists and carries "
+            "its own SHA256",
             checkpoint=won["run_root"] + "/checkpoints/best.pt",
             checkpoint_sha256=checkpoint_sha))
+        measured = (_sha256_file(checkpoint) if checkpoint.is_file() else None)
+        checks.append(check(
+            "c4_selected_checkpoint_hash_is_intact", bool(measured)
+            and measured == checkpoint_sha,
+            "the checkpoint on disk still hashes to what its trial recorded",
+            recorded_sha256=checkpoint_sha, measured_sha256=measured))
+        checks.append(check(
+            "c4_checkpoint_belongs_to_the_selected_config",
+            won.get("trial_config_sha256") == selected_sha
+            and summary["identity"].get("config_hash") == won.get("resolved_config_hash"),
+            "the checkpoint was trained for THIS configuration; a config and a "
+            "checkpoint from different trials can never be bound together",
+            selected_config_sha256=selected_sha,
+            evidence_trial_config_sha256=won.get("trial_config_sha256"),
+            resolved_gpat_config_hash=won.get("resolved_config_hash"),
+            checkpoint_identity_config_hash=summary["identity"].get("config_hash")))
+        checks.append(check(
+            "c4_evidence_binds_this_search_plan",
+            won.get("search_plan_identity") == plan.identity,
+            "the trial evidence was produced under this exact frozen search plan",
+            search_plan_identity=plan.identity,
+            evidence_search_plan_identity=won.get("search_plan_identity")))
+        checks.append(check(
+            "c4_evidence_binds_the_frozen_inputs",
+            summary["identity"].get("package_identity") == inputs["package_identity"]
+            and summary["identity"].get("recipe_bank_identity") == inputs["bank_identity"]
+            and summary["identity"].get("pair_plan_identity") == inputs["pair_plan_identity"],
+            "the trial trained against the same package, bank and pair plan this "
+            "run resolved",
+            expected={"package": inputs["package_identity"],
+                      "bank": inputs["bank_identity"],
+                      "pair_plan": inputs["pair_plan_identity"]},
+            evidence={key: summary["identity"].get(key) for key in
+                      ("package_identity", "recipe_bank_identity", "pair_plan_identity")}))
         checks.append(check(
             "c4_lock_binds_every_frozen_input", True,
             "the lock binds the package, bank, pair plan, AdaFace weight, "
@@ -990,9 +1103,19 @@ class C4Adapter(EngineeringAdapter):
             "tie_break": payload["tie_break"],
             "attempted_config_ids": payload["attempted_config_ids"],
             "trials_by_status": payload["trials_by_status"],
-            "winner_config_id": payload["winner_config_id"],
-            "winner_config_sha256": winner_sha,
-            "selected_config": payload["best_config"],
+            # THE selection: the coordinate-wise accumulator the pass produced,
+            # and its own canonical identity. VERIFY_LOCK recomputes this.
+            "selected_config": selected_config,
+            "selected_config_sha256": selected_sha,
+            "selected_trial_config_id": selected_trial.get("config_id"),
+            "selected_trial_metrics": selected_trial.get("metrics", {}),
+            # Diagnostics only, and named so it cannot be mistaken for the
+            # selection. It is the top row of the individual-trial leaderboard.
+            "leaderboard_winner_config_id": payload["winner_config_id"],
+            "leaderboard_winner_config_sha256": leaderboard_sha,
+            "leaderboard_winner_is_the_selection": leaderboard_sha == selected_sha,
+            "selection_rule": ("the coordinate-wise best_config after one pass "
+                               "(§15.2.2); the leaderboard winner is diagnostic"),
             "tie_break_trace": payload["tie_break_trace"],
             "package_identity": inputs["package_identity"],
             "recipe_bank_identity": inputs["bank_identity"],
@@ -1002,6 +1125,8 @@ class C4Adapter(EngineeringAdapter):
             "config_hash": summary["identity"]["config_hash"],
             "winning_checkpoint": won["run_root"] + "/checkpoints/best.pt",
             "winning_checkpoint_sha256": checkpoint_sha,
+            "winning_trial_run_root": won["run_root"],
+            "winning_trial_summary": won["trial_summary"],
             "best_metrics": summary["best"],
             "epochs_run": summary["epochs_run"],
             "stop_reason": summary["stop_reason"],
@@ -1040,13 +1165,42 @@ class C4Adapter(EngineeringAdapter):
             lock=path.relative_to(request.repo).as_posix(),
             is_scientific_lock=payload.get("is_scientific_lock")))
 
+        # Recompute and COMPARE. This used to assert only that hashing returned
+        # something, which is true of any input and proves nothing.
+        recorded = payload.get("selected_config_sha256")
         recomputed = (canonical_config_sha256(payload["selected_config"])
                       if payload.get("selected_config") else None)
         checks.append(check(
-            "c4_lock_config_reproduces", bool(recomputed),
-            "the locked configuration's identity recomputes from its own bytes",
-            recorded_winner_sha256=payload.get("winner_config_sha256"),
-            recomputed_selected_sha256=recomputed))
+            "c4_lock_config_reproduces",
+            bool(recorded) and recomputed == recorded,
+            "the locked configuration hashes to the identity the lock records",
+            recorded_selected_config_sha256=recorded,
+            recomputed_selected_config_sha256=recomputed))
+
+        # ...and the trial evidence beside it must be for that same config, so a
+        # config and a checkpoint from different trials cannot be cross-bound.
+        summary_path = request.repo / str(payload.get("winning_trial_summary", ""))
+        evidence = read_json(summary_path) or {}
+        checks.append(check(
+            "c4_lock_checkpoint_belongs_to_the_locked_config",
+            bool(evidence) and evidence.get("trial_config_sha256") == recorded
+            and evidence.get("checkpoint_sha256") == payload.get("winning_checkpoint_sha256")
+            and evidence.get("resolved_config_hash") == payload.get("config_hash"),
+            "the trial evidence the lock names was produced for the locked "
+            "configuration and for the checkpoint the lock names",
+            locked_selected_config_sha256=recorded,
+            evidence_trial_config_sha256=evidence.get("trial_config_sha256"),
+            locked_checkpoint_sha256=payload.get("winning_checkpoint_sha256"),
+            evidence_checkpoint_sha256=evidence.get("checkpoint_sha256"),
+            locked_resolved_config_hash=payload.get("config_hash"),
+            evidence_resolved_config_hash=evidence.get("resolved_config_hash")))
+        checks.append(check(
+            "c4_lock_selection_is_not_the_leaderboard_winner_by_accident",
+            payload.get("selection_rule", "").startswith("the coordinate-wise"),
+            "the lock records WHICH object it treats as the selection",
+            selection_rule=payload.get("selection_rule"),
+            leaderboard_winner_is_the_selection=payload.get(
+                "leaderboard_winner_is_the_selection")))
 
         checkpoint = request.repo / str(payload.get("winning_checkpoint", ""))
         measured = sha256_file(checkpoint) if checkpoint.is_file() else None
@@ -1180,15 +1334,146 @@ class C4Adapter(EngineeringAdapter):
                            artifacts=[path.relative_to(request.repo).as_posix()])
 
 
-def _scientific_device() -> str:
-    """CUDA when the host has it. A scientific C4 does not silently fall to CPU.
+class ScientificDeviceUnavailable(AdapterError):
+    """A scientific C4 trial was asked for on a host with no CUDA device."""
 
-    `GPATTrainer` resolves this itself when handed None; naming it here keeps the
-    decision in one place and lets the lock record what actually ran.
+    reason_code = "SCIENTIFIC_DEVICE_UNAVAILABLE"
+
+
+def _scientific_device() -> str:
+    """CUDA, or nothing. A scientific C4 never silently falls back to CPU.
+
+    `resolve_device(None)` returns "cpu" when CUDA is absent, which is the right
+    answer for a rehearsal and the wrong one here: twelve GPAT trials on a CPU
+    would not finish, and if they did they would be scientific evidence produced
+    under a precision contract (`precision.cuda: fp16`) the run never entered.
+
+    The zero-argument runner already refuses a non-CUDA host at the GPU
+    preflight. This is the second lock, for the expert path
+    (`--profile full --from C4`) that does not go through it.
     """
     from prism_fas.synthesis.gpat_trainer import resolve_device
 
-    return resolve_device(None)
+    device = resolve_device(None)
+    if not str(device).startswith("cuda"):
+        raise ScientificDeviceUnavailable(
+            f"scientific C4 requires CUDA and this host resolved {device!r}. A "
+            "scientific GPAT trial may not run on the CPU: it would neither "
+            "finish nor honour the frozen fp16 precision contract. Run the "
+            "rehearsal profile on this machine, or run C4 on the GPU host.")
+    return device
+
+
+def _trial_run_root(runs: Path, config_sha256: str) -> Path:
+    """One deterministic run root per configuration, keyed by its identity.
+
+    Deterministic on purpose: a resumed process must be able to find the
+    evidence a previous process wrote without carrying anything in memory.
+    """
+    return runs / "scientific" / f"trial_{config_sha256[:16]}"
+
+
+def _sha256_file(path: Path) -> str:
+    from prism_fas.synthesis.gpat_checkpoint import sha256_file
+
+    return sha256_file(path)
+
+
+def _write_trial_summary(repo: Path, run_root: Path, *, trial: Any,
+                         plan_identity: str, trial_config: dict[str, Any],
+                         summary: dict[str, Any], metrics: dict[str, Any],
+                         inputs: dict[str, Any]) -> dict[str, Any]:
+    """Persist one completed scientific trial, identity-bound, inside its own root.
+
+    This is what lets finalization work after a restart. `coordinate_search`
+    reuses a recorded PASS by config hash WITHOUT calling `evaluate`, so a
+    dictionary populated inside `evaluate` is empty for exactly the trials a
+    resumed run depends on. Written last, after `fit` returns, so its presence
+    means the trial finished.
+    """
+    from prism_fas.pipeline.state import atomic_write_json
+
+    checkpoint = run_root / "checkpoints" / "best.pt"
+    record = {
+        "schema_version": "c4-scientific-trial-summary-v1",
+        "generated_at_utc": utc(),
+        "trial_config_sha256": trial.config_sha256,
+        "trial_config_id": trial.config_id,
+        "coordinate": trial.coordinate,
+        "value": trial.value,
+        "search_plan_identity": plan_identity,
+        "resolved_config_hash": summary["identity"]["config_hash"],
+        "package_identity": summary["identity"]["package_identity"],
+        "recipe_bank_identity": summary["identity"]["recipe_bank_identity"],
+        "pair_plan_identity": summary["identity"]["pair_plan_identity"],
+        "adaface_weight_sha256": summary["identity"]["adaface_weight_sha256"],
+        "architecture_hash": summary["identity"]["architecture_hash"],
+        "checkpoint": (checkpoint.relative_to(repo).as_posix()
+                       if checkpoint.is_file() else None),
+        "checkpoint_sha256": summary["checkpoints"].get("best_sha256"),
+        "selection_metrics": dict(metrics),
+        "best_metrics": summary["best"],
+        "epochs_run": summary["epochs_run"],
+        "epochs_configured": summary["epochs_configured"],
+        "stop_reason": summary["stop_reason"],
+        "record_set_hashes": summary["record_set_hashes"],
+        "resume_lineage": summary.get("resume_lineage", []),
+        "source_isolation": summary.get("source_isolation", {}),
+        "device": summary.get("device"),
+        "scientific_eligible": True,
+    }
+    path = run_root / C4Adapter.TRIAL_SUMMARY
+    atomic_write_json(path, record)
+    return {"run_root": run_root.relative_to(repo).as_posix(),
+            "trial_summary": path.relative_to(repo).as_posix(),
+            "trial_config_sha256": trial.config_sha256,
+            "search_plan_identity": plan_identity,
+            "resolved_config_hash": record["resolved_config_hash"],
+            "summary": summary, "trial_config": trial_config}
+
+
+def _resolve_trial_evidence(repo: Path, runs: Path, config_sha256: str,
+                            trained: dict[str, Any]) -> dict[str, Any] | None:
+    """The evidence for one configuration, from this process or a previous one.
+
+    In-memory first, because it is already loaded. Otherwise the trial's own
+    `TRIAL_SUMMARY.json`, which is why the requirement is "valid scientific
+    trial evidence exists and matches this frozen plan" rather than "was trained
+    in this pass". A recorded PASS whose evidence is missing returns None and
+    the caller fails closed; nothing here accepts metrics from the search state
+    without the run that produced them.
+    """
+    if config_sha256 in trained:
+        return trained[config_sha256]
+
+    path = _trial_run_root(runs, config_sha256) / C4Adapter.TRIAL_SUMMARY
+    record = read_json(path)
+    if not record or record.get("trial_config_sha256") != config_sha256:
+        return None
+    return {
+        "run_root": _trial_run_root(runs, config_sha256).relative_to(repo).as_posix(),
+        "trial_summary": path.relative_to(repo).as_posix(),
+        "trial_config_sha256": record["trial_config_sha256"],
+        "search_plan_identity": record.get("search_plan_identity"),
+        "resolved_config_hash": record.get("resolved_config_hash"),
+        # Re-shaped into what the finalizer reads from a freshly trained trial,
+        # so both routes go through exactly the same checks below.
+        "summary": {
+            "identity": {key: record.get(key) for key in
+                         ("package_identity", "recipe_bank_identity",
+                          "pair_plan_identity", "adaface_weight_sha256",
+                          "architecture_hash", "resolved_config_hash")}
+            | {"config_hash": record.get("resolved_config_hash")},
+            "checkpoints": {"best_sha256": record.get("checkpoint_sha256")},
+            "best": record.get("best_metrics", {}),
+            "epochs_run": record.get("epochs_run"),
+            "stop_reason": record.get("stop_reason"),
+            "record_set_hashes": record.get("record_set_hashes", {}),
+            "resume_lineage": record.get("resume_lineage", []),
+            "source_isolation": record.get("source_isolation", {}),
+        },
+        "reused_from_previous_process": True,
+    }
 
 
 #: Which searched coordinate maps onto which frozen config scalar. The names on

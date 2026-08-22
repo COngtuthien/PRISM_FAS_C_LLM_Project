@@ -28,13 +28,12 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C4_SCIENTIFIC_EXECUTION_ROUTING_CLOSURE
-current_substage: C4 had one workflow — an engineering rehearsal — and --profile
-                  full ran it, which is why the host saw C4 PASS / sci=NOT_RUN. A
-                  scientific branch now drives the canonical GPATTrainer under the
-                  approved LR decision, and C5-C13 are audited for the same
-                  leakage — COMPLETE
-previous_milestone: LINUX_RTX5090_PACKAGE_LIFECYCLE_HOTFIX
+current_milestone: C4_SCIENTIFIC_SEARCH_CLOSURE_HOTFIX
+current_substage: three execution-correctness defects closed before any GPU hours
+                  are spent — a resumed trial could not be finalized, the selected
+                  config and the checkpoint could cross-bind, and an interrupted
+                  envelope could write the lock — COMPLETE
+previous_milestone: C4_SCIENTIFIC_EXECUTION_ROUTING_CLOSURE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -589,6 +588,114 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+c4_scientific_search_closure_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session
+  base_commit: c9b7ec11d4c4283a09a7218e9fe454b9b5b0fdc9
+  found_by: code audit of c9b7ec1, before the 12 scientific trials were started
+  preserved_from_the_previous_milestone: >-
+    the scientific/engineering split, the GPATTrainer wiring, the approved LR
+    common multiplier, the separated search states and the scientific-only lock
+    are all unchanged. This milestone is execution correctness only.
+
+  defect_1_resumed_trials_could_not_be_finalized:
+    cause: >-
+      `trained` was populated inside evaluate(), and coordinate_search(resume=
+      True) reuses a recorded non-INTERRUPTED TrialResult by config SHA WITHOUT
+      calling evaluate. The dictionary was therefore empty for exactly the trials
+      a resumed run depends on, and _scientific_finalize refused a winner an
+      earlier process had legitimately completed.
+    fix: >-
+      each completed trial writes runs/full/c4/scientific/trial_<sha16>/
+      TRIAL_SUMMARY.json, last, after fit() returns, binding the trial config
+      SHA, the search-plan identity, the resolved GPAT config hash, the package /
+      bank / pair-plan / AdaFace / architecture identities, the best checkpoint
+      path and SHA256, the best metrics, epochs and stop reason, the source-only
+      audit and the resume lineage. TrialResult.artifacts points at it.
+    contract_now: >-
+      "valid scientific trial evidence exists and matches this frozen plan",
+      NOT "was trained in this pass". Missing or mismatched evidence fails
+      closed; nothing accepts metrics from the search state without the run that
+      produced them, and no state is deleted to force recomputation.
+
+  defect_2_config_and_checkpoint_could_cross_bind:
+    cause: >-
+      the finalizer took the checkpoint belonging to payload["winner_config_
+      sha256"] and wrote payload["best_config"] beside it. Those are different
+      objects.
+    authoritative_semantics_audited: >-
+      best_config is the coordinate-wise accumulator the pass produces — start at
+      the inherited anchor, move one coordinate at a time, carry the winner
+      forward — and it is what §15.2.2 defines a coordinate search to yield.
+      SearchOutcome.winner is leaderboard()[0], the top row of the ranking of
+      INDIVIDUAL trials; a trial from an early coordinate can rank globally best
+      while its config lacks every later coordinate's improvement. The project
+      already recorded this: the engineering VERIFY_LOCK note says the two
+      "coincide only when the last coordinate produced the winner".
+    decision: best_config is the scientific C4 selection; the leaderboard winner is diagnostic
+    fix: >-
+      selected_config = best_config; selected_config_sha256 =
+      canonical_config_sha256(selected_config); the trial that evaluated exactly
+      that SHA must exist and be finite-valid; its persistent evidence and its
+      checkpoint are the ones bound. The leaderboard winner is retained under
+      leaderboard_winner_config_sha256 and can never become the selection.
+    no_fallback: >-
+      if no finite-valid trial corresponds to the final selected config, the
+      stage fails closed. It never reaches for the global leaderboard winner.
+    verify_lock_fixed: >-
+      it compared bool(recomputed), which is true of any input. It now requires
+      canonical_config_sha256(selected_config) == selected_config_sha256, and
+      that the trial evidence the lock names carries the same config SHA, the
+      same checkpoint SHA and the same resolved GPAT config hash.
+
+  defect_3_interrupted_search_could_finalize:
+    cause: >-
+      _scientific_search accepted outcome.status in ("COMPLETED","INTERRUPTED")
+      and returned an outcome either way; the workflow finalized any non-None
+      outcome.
+    fix: >-
+      a non-COMPLETED status returns None with c4_search_completed_before_
+      finalization failing and reason_code SEARCH_INCOMPLETE. The state file and
+      every trainer checkpoint are preserved, nothing is deleted, and the next
+      run resumes at the interrupted trial. No GPAT_CONFIG_LOCK is written.
+
+  strict_cuda_gate:
+    was: _scientific_device() returned resolve_device(None), which answers "cpu"
+    now: >-
+      ScientificDeviceUnavailable is raised unless the device is CUDA. Twelve
+      GPAT trials on a CPU would not finish, and if they did they would be
+      scientific evidence produced outside the frozen precision.cuda: fp16
+      contract. The zero-argument runner already refuses a non-CUDA host at the
+      GPU preflight; this is the second lock for the expert path.
+    rehearsal_unchanged: true    # only the scientific trial calls it
+
+  scientific_safety:
+    scientific_contract_changes: 0
+    c4_to_c13_training_executed_on_this_laptop: false
+    target_access: 0
+    c5_c13_guards_preserved: true
+
+  tests:
+    search_closure_suite: tests/pipeline/test_c4_search_closure.py    # 24 passed
+    guards_verified_against_each_defect: >-
+      each defect was reintroduced in turn and the suites failed — resume 2
+      failed, cross-bind 1 failed, interrupt 2 failed — then restored.
+    cross_binding_regression: >-
+      a leaderboard winner deliberately DIFFERENT from the coordinate-wise best,
+      with evidence written for both, asserting the selected config binds its own
+      checkpoint.
+    routing_suite: tests/pipeline/test_c4_scientific_routing.py    # 30 passed
+    leakage_audit: tests/pipeline/test_scientific_fixture_leakage.py    # 25 passed
+    pipeline_suite: {passed: 785, failed: 0, skipped: 0}
+    broad_regression: {passed: 2241, failed: 7, skipped: 101, seconds: 543.24}
+    inherited_failure_set_identical: true
+    new_unexplained_failures: 0
+
+  changed_runtime_files:
+    - src/prism_fas/pipeline/adapters/c4.py
+
 c4_scientific_execution_routing_closure:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2916,10 +3023,20 @@ next_authorized_action: >
   BE PREPARED FOR IT TO STOP. This executor has never run: this laptop is
   CPU-only and holds no source package, so the wiring is proven structurally and
   not by execution. Every defect in this chain so far was found by executing.
-  Two stops are by design rather than by defect: EnvelopeExhausted, if no trial
+  Four stops are by design rather than by defect: EnvelopeExhausted, if no trial
   produces a valid configuration, reports NEEDS_SCIENTIFIC_DECISION and must not
-  be answered by widening the search; and FixtureInScientificContext, if any
-  code path reaches a fixture under a scientific profile.
+  be answered by widening the search; FixtureInScientificContext, if any code
+  path reaches a fixture under a scientific profile; SEARCH_INCOMPLETE, if the
+  pass is interrupted — state and checkpoints are preserved and the next run
+  resumes at that trial, with no lock written; and SCIENTIFIC_DEVICE_UNAVAILABLE
+  if CUDA is absent, because a CPU GPAT trial would neither finish nor honour the
+  frozen fp16 precision contract.
+
+  Interrupting the run is now safe and resumable. Each completed trial writes
+  TRIAL_SUMMARY.json into its own deterministic run root, so a later process can
+  finalize a trial an earlier one completed. Do not delete
+  C4_SCIENTIFIC_SEARCH_STATE.json or any trial run root to "clean up" — that is
+  the resume point, and the run recomputes from it rather than from scratch.
 
   AFTER C4 PASSES, C5 WILL STILL BLOCK, and that is correct. The audit above
   records that C5-C13 have no scientific executor: C5's _render_gpat builds a
@@ -2944,5 +3061,5 @@ next_authorized_action: >
   no anchor was invented for the ABSENT geometry coordinate, which §15.2.3
   skips; and NO C4-C13 scientific training ran on this laptop.
 
-last_updated_utc: 2026-08-22   # C4 scientific execution routing closure
+last_updated_utc: 2026-08-22   # C4 scientific search closure hotfix
 ```
