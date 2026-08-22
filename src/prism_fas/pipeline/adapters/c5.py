@@ -777,9 +777,50 @@ class C5Adapter(EngineeringAdapter):
 
         outcomes: dict[str, Any] = {}
         for arm, plan in plans.items():
-            outcomes[arm] = render_module.render_arm(
-                work_root=work_root, plan=plan, store=store,
-                bank=render_module.route_bank(request.repo, arm), routes=routes)
+            try:
+                outcomes[arm] = render_module.render_arm(
+                    work_root=work_root, plan=plan, store=store,
+                    bank=render_module.route_bank(request.repo, arm), routes=routes)
+            except render_module.RuntimeAttemptFailure as error:
+                # C5_RUNTIME_RECOVERY_V1. The candidate was not consumed and
+                # nothing terminal was written for it; every candidate finished
+                # before this one is still on disk and will be reused. The stage
+                # stops here — no VERIFY_RAW_CANDIDATES, no FINALIZE_C5, no lock —
+                # and `--resume` retries this identical candidate.
+                checks.append(check(
+                    "c5_render_pass_completed", False,
+                    "the render pass aborted on a runtime failure; the candidate "
+                    "was not consumed and no terminal record was written",
+                    error=str(error), **error.as_dict()))
+                checks.append(check(
+                    "c5_runtime_failure_is_not_a_candidate_outcome", True,
+                    "no CANDIDATE.json was written for the failing candidate, so "
+                    "it stays unresolved rather than spending one of the frozen "
+                    "2048",
+                    candidate_id=error.candidate_id,
+                    attempt_record=error.attempt_path,
+                    recovery=("rerun `python train.py --profile full --from C5 "
+                              "--to C5 --resume`; this is recovery-ladder L1, a "
+                              "retry of the identical frozen configuration"),
+                    rule="a runtime failure is never reclassified as a generation "
+                         "failure and never resampled"))
+                write_artifact(request, reports / "C5_RENDER_INCOMPLETE.json", {
+                    "schema_version": "c5-render-incomplete-v1",
+                    "generated_at_utc": utc(), "mode": RENDER_CANDIDATES,
+                    "outcome": "runtime_incomplete", "aborted_at": error.as_dict(),
+                    "arms_completed": sorted(outcomes),
+                    "per_arm": {name: {key: done[key] for key in
+                                       ("planned", "attempted", "rendered", "reused",
+                                        "rebuilt", "failed")}
+                                for name, done in outcomes.items()},
+                    "completed_candidates_preserved": True,
+                    "c5_synthesis_lock_written": False,
+                    "fixture_backed": False})
+                return None, self.result(
+                    request, mode=RENDER_CANDIDATES, checks=checks,
+                    summary=(f"C5 render aborted on a runtime failure at "
+                             f"{error.candidate_id}; completed candidates are "
+                             f"preserved and the candidate is retried on resume"))
 
         attempted = sum(outcome["attempted"] for outcome in outcomes.values())
         planned = sum(plan["planned_candidates"] for plan in plans.values())

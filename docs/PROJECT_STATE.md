@@ -28,12 +28,14 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_SCIENTIFIC_LOCK_C6_HANDOFF_CLOSURE
-current_substage: the strict C5 verifier is shared by C5 and C6; scientific PASS
-                  now requires 6144/6144 usable with every payload byte re-hashed
-                  and every input identity rebuilt from current packages/banks.
+current_milestone: C5_RUNTIME_RECOVERY_V1
+current_substage: the runtime-recovery policy is frozen and implemented. Only a
+                  proven deterministic candidate-semantic failure consumes a
+                  candidate; interruptions propagate; every other exception is
+                  non-terminal operational provenance that aborts the pass and is
+                  retried, identically, by the next run.
                   Nothing has been RENDERED: no GPU, no C4 lock on this host.
-previous_milestone: C5_SCIENTIFIC_RENDER_EXECUTOR
+previous_milestone: C5_SCIENTIFIC_LOCK_C6_HANDOFF_CLOSURE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -747,6 +749,56 @@ c5_source_pair_plan_freeze:
       decision_needed_from_user: >-
         whether to add a render-side failure classifier, and if so which failure
         classes are retryable under recovery-ladder L1.
+      RESOLVED_BY: C5_RUNTIME_RECOVERY_V1
+      resolved_on: 2026-08-22
+
+  # --- FROZEN: C5_RUNTIME_RECOVERY_V1 ----------------------------------------
+  c5_runtime_recovery_v1:
+    status: FROZEN
+    authorized_by: user, in session, closing C5_TRANSIENT_VS_SEMANTIC_GENERATION_FAILURE
+    principle: >-
+      what a candidate IS is separated from what happened while trying to make
+      it. Only a failure proven to be a pure function of the frozen inputs may
+      consume a candidate, because a terminal failure is permanent and, under the
+      C5 completion contract, one lost candidate fails its whole 2048-arm.
+    classes:
+      - name: SemanticGenerationFailure
+        meaning: deterministic candidate-semantic; would recur identically
+        authorized_members: [artifact finalizes to an empty exact mask after uint8
+                             quantization]
+        behaviour: terminal FAILED_GENERATION, CANDIDATE.json written, retained
+                   permanently, never retried, never replaced, arm short by one
+      - name: KeyboardInterrupt / SystemExit
+        meaning: process interruption, not an outcome
+        behaviour: propagate unchanged; no terminal record, not even a runtime
+                   attempt; completed candidates preserved; rerun resumes
+      - name: RuntimeAttemptFailure
+        meaning: everything else - CUDA, OOM, filesystem, codec, unexpected
+                 SyntheticBankError
+        behaviour: append operational attempt provenance, NO CANDIDATE.json,
+                   abort the pass immediately, no later candidate, no in-process
+                   retry, no resampling; the next train.py run is the L1 retry
+    attempt_record:
+      layout: <candidate_dir>/runtime_attempts/RUNTIME_ATTEMPT_<ordinal>.json
+      schema: prism-c5-runtime-attempt-v1
+      outcome_value: runtime_incomplete
+      binds: [candidate_id, generation_identity_sha256, arm, position, route,
+              attempt_ordinal, error_type, sanitized_reason, recorded_at_utc,
+              diagnostics]
+      never_affects: [GenerationIdentity, candidate_id, payload bytes]
+    repeated_failure: >-
+      attempts accumulate, one file each, and stay non-terminal. Repetition is an
+      L0 implementation/environment diagnostic and is never auto-converted into a
+      semantic failure.
+    orphan_payloads: >-
+      CANDIDATE.json is the commit marker and is written last. Payload files
+      without it are not completion evidence; the rerun rebuilds the same
+      candidate identity and overwrites them.
+    adapter_boundary: >-
+      C5 RENDER_CANDIDATES catches RuntimeAttemptFailure, writes
+      C5_RENDER_INCOMPLETE.json, and returns without reaching
+      VERIFY_RAW_CANDIDATES or FINALIZE_C5. No C5_SYNTHESIS_LOCK is written, so
+      C6 stays blocked by the strict verifier.
 
   c5_executor_verified_how: >-
     36 record/plan tests, 36 executor tests, 130 C5 tests in total, all offline.

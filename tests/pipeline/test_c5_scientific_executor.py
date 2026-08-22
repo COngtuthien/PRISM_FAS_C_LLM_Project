@@ -398,23 +398,28 @@ def test_a_rebuilt_candidate_keeps_its_identity(tmp_path: Path) -> None:
         "the same inputs must reproduce the same bytes")
 
 
-def test_a_route_failure_is_retained_and_the_pass_continues(tmp_path: Path) -> None:
+def test_a_semantic_failure_is_retained_and_the_pass_continues(tmp_path: Path) -> None:
+    """`empty_on` produces the one authorized deterministic failure class.
+
+    A generic route exception does NOT come here any more — under
+    C5_RUNTIME_RECOVERY_V1 that aborts the pass instead of consuming a candidate.
+    """
     plan = _plan()
     doomed = plan["candidates"][2]["candidate_id"]
-    outcome = _render(tmp_path, plan, _routes(fail_on={doomed}))
+    outcome = _render(tmp_path, plan, _routes(empty_on={doomed}))
 
     assert outcome["failed"] == 1 and outcome["rendered"] == 3
     record = raw.read_record(
         raw.candidate_dir(tmp_path, "RND", doomed) / raw.RECORD_NAME)
     assert record["status"] == raw.FAILED_GENERATION
     assert record["failure"]["replacement_generated"] is False
-    assert "[redacted-path]" in record["failure"]["sanitized_reason"]
+    assert record["failure"]["deterministic_candidate_semantic"] is True
 
 
-def test_a_retained_failure_is_never_retried_into_a_success(tmp_path: Path) -> None:
+def test_a_retained_semantic_failure_is_never_retried_into_a_success(tmp_path: Path) -> None:
     plan = _plan()
     doomed = plan["candidates"][2]["candidate_id"]
-    _render(tmp_path, plan, _routes(fail_on={doomed}))
+    _render(tmp_path, plan, _routes(empty_on={doomed}))
 
     # The very same plan, on a pass where the route would now succeed.
     routes = _routes()
@@ -435,7 +440,7 @@ def test_an_artifact_too_weak_to_survive_quantization_fails_generation(tmp_path:
         raw.candidate_dir(tmp_path, "RND", doomed) / raw.RECORD_NAME)
     assert outcome["failed"] == 1
     assert record["status"] == raw.FAILED_GENERATION
-    assert record["failure"]["error_type"] == "RenderError"
+    assert record["failure"]["error_type"] == "SemanticGenerationFailure"
     assert "empty exact mask" in record["failure"]["sanitized_reason"]
 
 
@@ -462,10 +467,10 @@ def test_a_complete_pass_reports_complete_and_usable(tmp_path: Path) -> None:
     assert state["generated"] == 4 and state["failed"] == 0
 
 
-def test_a_pass_with_a_failure_is_complete_but_not_usable(tmp_path: Path) -> None:
+def test_a_pass_with_a_semantic_failure_is_complete_but_not_usable(tmp_path: Path) -> None:
     plan = _plan()
     doomed = plan["candidates"][1]["candidate_id"]
-    _render(tmp_path, plan, _routes(fail_on={doomed}))
+    _render(tmp_path, plan, _routes(empty_on={doomed}))
     plans = {"RND": plan}
     state = render_module.completeness(
         plans, render_module.collect_records(tmp_path, plans))

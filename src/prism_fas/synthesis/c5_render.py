@@ -39,6 +39,59 @@ class ScientificDeviceUnavailable(RenderError):
     reason_code = "SCIENTIFIC_DEVICE_UNAVAILABLE"
 
 
+class SemanticGenerationFailure(RenderError):
+    """This candidate cannot exist, and would fail identically on every rerun.
+
+    The deterministic candidate-level failure class. Membership is decided by
+    proof, not by resemblance: a failure belongs here only when it is a pure
+    function of the frozen inputs, so that retrying it could only produce the
+    same answer and retention costs nothing recoverable.
+
+    The one authorized member is the empty exact mask — the artifact did not
+    survive uint8 quantization, so the finalized image is byte-identical to the
+    live image it was rendered from and there is no candidate to keep. A
+    `SyntheticBankError`, a CUDA fault or an OSError is NOT a member merely
+    because it happened during rendering; classifying one as semantic would
+    permanently spend a candidate on something a rerun might well have produced.
+    """
+
+    reason_code = "C5_SEMANTIC_GENERATION_FAILURE"
+
+
+class RuntimeAttemptFailure(RenderError):
+    """The pass could not continue for a reason outside the candidate.
+
+    Raised after the attempt has been recorded, and it aborts the render pass
+    rather than consuming the candidate. Nothing terminal is written, no later
+    candidate is attempted, and no retry happens inside this process: the next
+    `train.py` invocation IS the recovery-ladder L1 retry of the identical
+    frozen configuration.
+    """
+
+    reason_code = "C5_RUNTIME_ATTEMPT_FAILURE"
+
+    def __init__(self, message: str, *, candidate_id: str, arm: str, position: int,
+                 route: str, stage: str, error_type: str, attempt_ordinal: int,
+                 attempt_path: str) -> None:
+        super().__init__(message)
+        self.candidate_id = candidate_id
+        self.arm = arm
+        self.position = position
+        self.route = route
+        self.stage = stage
+        self.error_type = error_type
+        self.attempt_ordinal = attempt_ordinal
+        self.attempt_path = attempt_path
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"reason_code": self.reason_code, "candidate_id": self.candidate_id,
+                "arm": self.arm, "position": self.position, "route": self.route,
+                "stage": self.stage, "error_type": self.error_type,
+                "attempt_ordinal": self.attempt_ordinal,
+                "attempt_record": self.attempt_path,
+                "candidate_consumed": False, "terminal": False}
+
+
 def scientific_device() -> str:
     """CUDA, or nothing. The GPAT route never silently falls back to the CPU.
 
@@ -146,7 +199,9 @@ def render_one(store: Any, bank: dict[str, Any], route: Any,
     result = finalize_discrete(output.image, original, output.requested_support,
                                output.artifact_map)
     if int(result.exact_mask_pixels) == 0:
-        raise RenderError(
+        # Deterministic in the frozen inputs: the same recipe on the same sample
+        # will finalize to the same empty mask every time, so this is terminal.
+        raise SemanticGenerationFailure(
             f"{row['candidate_id']}: the artifact did not survive uint8 "
             f"quantization and finalized to an empty exact mask over "
             f"{int(result.requested_support_pixels)} requested support pixels")
@@ -198,8 +253,7 @@ def render_arm(*, work_root: Path, plan: dict[str, Any], store: Any,
             if progress is not None:
                 progress({"candidate_id": identity.candidate_id, "action": "reused"})
             continue
-        if decision["reason"] == raw.FAILED_GENERATION.upper() or \
-                decision["reason"] == "FAILED_GENERATION":
+        if decision["reason"] == "FAILED_GENERATION":
             # Terminal and retained. Re-running the pass does not resample it.
             failed += 1
             records.append(raw.read_record(directory / raw.RECORD_NAME))
@@ -209,18 +263,56 @@ def render_arm(*, work_root: Path, plan: dict[str, Any], store: Any,
         if decision["reason"] in ("PAYLOAD_MISSING", "PAYLOAD_CHANGED"):
             rebuilt += 1
 
+        stage = f"render_{row['route']}"
+        prior_attempts = len(raw.runtime_attempts(directory))
         try:
             result, trace = render_one(store, bank, routes[row["route"]], row)
             hashes = raw.write_payload_bytes(directory, result)
-            record = raw.CandidateRecord(identity=identity, status=raw.GENERATED,
-                                         payload_sha256=hashes, trace=trace)
+            record = raw.CandidateRecord(
+                identity=identity, status=raw.GENERATED, payload_sha256=hashes,
+                # Operational, never part of the identity or the payload bytes:
+                # a candidate that took three attempts is the same candidate.
+                trace={**trace, "prior_runtime_attempts": prior_attempts})
             rendered += 1
             action = "rendered"
-        except Exception as error:                       # noqa: BLE001 - retained
-            record = raw.failure_record(identity, stage=f"render_{row['route']}",
-                                        error=error)
+
+        except SemanticGenerationFailure as error:
+            # The candidate itself cannot exist. Terminal, retained, and the arm
+            # is short by one; the pass continues with the next candidate.
+            record = raw.failure_record(identity, stage=stage, error=error)
             failed += 1
-            action = "failed"
+            action = "semantic_failure"
+
+        except (KeyboardInterrupt, SystemExit):
+            # Somebody stopped the process. That is not an outcome for this
+            # candidate and not a runtime attempt worth recording: nothing was
+            # learned about the render. Everything already completed stays on
+            # disk, and the next invocation resumes this exact candidate.
+            raise
+
+        except Exception as error:                       # noqa: BLE001
+            # Anything else — CUDA, OOM, filesystem, codec, an unexpected
+            # SyntheticBankError — says nothing about the candidate. Record the
+            # attempt as operational provenance and abort the pass. No
+            # CANDIDATE.json, no in-process retry, no later candidate.
+            attempt = raw.append_runtime_attempt(
+                directory, identity, stage=stage, error=error,
+                diagnostics={"route": row["route"], "arm": plan["arm"],
+                             "prior_runtime_attempts": prior_attempts})
+            if progress is not None:
+                progress({"candidate_id": identity.candidate_id,
+                          "action": "runtime_incomplete"})
+            raise RuntimeAttemptFailure(
+                f"C5 aborted on a runtime failure at {identity.candidate_id} "
+                f"({plan['arm']} position {identity.position}, route "
+                f"{row['route']}): {type(error).__name__}: "
+                f"{raw.sanitize_reason(error)}. The candidate was NOT consumed; "
+                f"rerun to retry this identical candidate.",
+                candidate_id=identity.candidate_id, arm=plan["arm"],
+                position=int(identity.position), route=row["route"], stage=stage,
+                error_type=type(error).__name__,
+                attempt_ordinal=prior_attempts + 1,
+                attempt_path=attempt.as_posix()) from error
 
         # Written last: its presence is what makes the payloads beside it
         # trustworthy to the next process.
@@ -289,5 +381,6 @@ def completeness(plans: dict[str, dict[str, Any]],
 
 
 __all__ = ["ONTOLOGY_CONFIG", "GPAT_CONFIG", "RenderError", "ScientificDeviceUnavailable",
+           "SemanticGenerationFailure", "RuntimeAttemptFailure",
            "scientific_device", "route_bank", "build_routes", "identity_for",
            "render_one", "render_arm", "collect_records", "completeness"]

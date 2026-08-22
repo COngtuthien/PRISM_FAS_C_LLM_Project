@@ -41,9 +41,24 @@ from typing import Any
 SCHEMA_VERSION = "prism-c5-raw-candidate-v1"
 RECORD_NAME = "CANDIDATE.json"
 
-#: Terminal states. A planned candidate ends in exactly one of them.
+#: Terminal states. A planned candidate ends in exactly one of them, and the
+#: presence of RECORD_NAME is what makes an outcome terminal.
 GENERATED = "generated"
 FAILED_GENERATION = "failed_generation"
+
+#: NOT a terminal state, and deliberately not written to RECORD_NAME.
+#:
+#: C5_RUNTIME_RECOVERY_V1 separates what a candidate IS from what happened while
+#: trying to make it. A CUDA fault, an OOM, a filesystem error or an unexpected
+#: RuntimeError says nothing about the candidate. Recording one as
+#: FAILED_GENERATION would spend one of the frozen 2048 on a machine problem and
+#: make the loss permanent, since a terminal failure is never retried. So it is
+#: written beside the candidate as operational provenance, the pass aborts, and
+#: the next invocation retries this exact identity — recovery-ladder L1, "retry
+#: the identical frozen configuration for transient/runtime failure" (§0.1).
+RUNTIME_ATTEMPT_FAILURE = "runtime_incomplete"
+RUNTIME_ATTEMPT_DIR = "runtime_attempts"
+RUNTIME_ATTEMPT_SCHEMA = "prism-c5-runtime-attempt-v1"
 
 #: Payload file names inside a candidate directory. Frozen so a record written by
 #: one process is addressable by the next.
@@ -59,6 +74,20 @@ class RawGenerationError(RuntimeError):
 
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _utc() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def sanitize_reason(error: BaseException) -> str:
+    """An exception can carry a host path; a scientific record may not."""
+    import re
+
+    return re.sub(r"([A-Za-z]:\\|/home/|/Users/)\S*", "[redacted-path]",
+                  str(error))[:400]
 
 
 def sha256_file(path: Path) -> str:
@@ -226,21 +255,90 @@ def write_payload_bytes(directory: Path, result: Any) -> dict[str, str]:
 
 def failure_record(identity: GenerationIdentity, *, stage: str,
                    error: BaseException) -> CandidateRecord:
-    """A retained failure. The budget does not grow to compensate for it.
+    """A retained, TERMINAL failure OF THE CANDIDATE ITSELF.
 
-    The message is sanitized: an exception can carry a host path, and a scientific
-    record may not.
+    Reserved for a deterministic candidate-semantic failure: one that is a pure
+    function of the frozen inputs and would recur identically on every rerun, so
+    that retrying it could only produce the same answer. The budget does not grow
+    to compensate, and the arm is short by one.
+
+    A runtime failure is not this, and must never arrive here. See
+    `runtime_attempt_record`.
     """
-    import re
-
-    message = re.sub(r"([A-Za-z]:\\|/home/|/Users/)\S*", "[redacted-path]", str(error))
     return CandidateRecord(
         identity=identity, status=FAILED_GENERATION,
         failure={"stage": stage, "error_type": type(error).__name__,
-                 "sanitized_reason": message[:400],
+                 "sanitized_reason": sanitize_reason(error),
                  "replacement_generated": False,
+                 "deterministic_candidate_semantic": True,
                  "rule": "the frozen budget is 2048 candidates per arm; a failed "
                          "candidate is retained and never resampled"})
+
+
+def runtime_attempt_dir(directory: Path) -> Path:
+    return Path(directory) / RUNTIME_ATTEMPT_DIR
+
+
+def runtime_attempt_record(identity: GenerationIdentity, *, stage: str,
+                           error: BaseException, ordinal: int,
+                           diagnostics: dict[str, Any] | None = None) -> dict[str, Any]:
+    """One operational attempt that failed for a reason outside the candidate.
+
+    It binds the generation identity so the provenance is addressable, and it
+    carries no field the candidate layer reads as an outcome. The operational
+    fields — the timestamp, the ordinal, the backend diagnostics — are recorded
+    here precisely BECAUSE they may not touch `GenerationIdentity`: a candidate
+    whose identity moved every time the machine hiccuped could not be retried as
+    the same candidate.
+    """
+    return {"schema_version": RUNTIME_ATTEMPT_SCHEMA,
+            "outcome": RUNTIME_ATTEMPT_FAILURE,
+            "attempt_ordinal": int(ordinal),
+            "candidate_id": identity.candidate_id, "arm": identity.arm,
+            "position": int(identity.position), "route": identity.route,
+            "generation_identity_sha256": identity.digest(),
+            "stage": stage, "error_type": type(error).__name__,
+            "sanitized_reason": sanitize_reason(error),
+            "recorded_at_utc": _utc(),
+            "diagnostics": dict(diagnostics or {}),
+            "terminal": False, "candidate_consumed": False,
+            "rule": ("C5_RUNTIME_RECOVERY_V1: a runtime failure is not a candidate "
+                     "outcome. No CANDIDATE.json is written, the pass aborts, and "
+                     "the next invocation retries this exact candidate identity "
+                     "(recovery-ladder L1). It is never reclassified as a "
+                     "generation failure and never resampled.")}
+
+
+def append_runtime_attempt(directory: Path, identity: GenerationIdentity, *,
+                           stage: str, error: BaseException,
+                           diagnostics: dict[str, Any] | None = None) -> Path:
+    """Record an attempt beside the candidate, keeping every earlier one.
+
+    One file per attempt under a subdirectory, so appending cannot lose or
+    rewrite what a previous process observed. Earlier attempts are kept because
+    the SECOND occurrence of the same fault is the evidence that says "stop
+    retrying and diagnose the implementation or the environment" (L0). A file
+    that only ever holds the latest attempt cannot show that.
+    """
+    from prism_fas.pipeline.state import atomic_write_json
+
+    root = runtime_attempt_dir(directory)
+    root.mkdir(parents=True, exist_ok=True)
+    ordinal = len(runtime_attempts(directory)) + 1
+    record = runtime_attempt_record(identity, stage=stage, error=error,
+                                    ordinal=ordinal, diagnostics=diagnostics)
+    path = root / f"RUNTIME_ATTEMPT_{ordinal:04d}.json"
+    atomic_write_json(path, record)
+    return path
+
+
+def runtime_attempts(directory: Path) -> list[dict[str, Any]]:
+    """Every recorded attempt for this candidate, oldest first."""
+    root = runtime_attempt_dir(directory)
+    if not root.is_dir():
+        return []
+    found = [read_record(path) for path in sorted(root.glob("RUNTIME_ATTEMPT_*.json"))]
+    return [item for item in found if item is not None]
 
 
 def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -286,5 +384,8 @@ __all__ = ["SCHEMA_VERSION", "RECORD_NAME", "GENERATED", "FAILED_GENERATION",
            "IMAGE_NAME", "MASK_NAME", "ARTIFACT_MAP_NAME", "PAYLOAD_NAMES",
            "RawGenerationError", "GenerationIdentity", "CandidateRecord",
            "candidate_dir", "read_record", "write_record", "reuse_decision",
+           "RUNTIME_ATTEMPT_FAILURE", "RUNTIME_ATTEMPT_DIR", "RUNTIME_ATTEMPT_SCHEMA",
+           "runtime_attempt_dir", "runtime_attempt_record", "append_runtime_attempt",
+           "runtime_attempts", "sanitize_reason",
            "write_payload_bytes", "failure_record", "summarize", "record_set_digest",
            "payload_set_digest", "sha256_file"]
