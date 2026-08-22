@@ -62,9 +62,13 @@ class C6Adapter(EngineeringAdapter):
         return (
             RequiredInput("quality_gate_config", QUALITY_CONFIG,
                           "the frozen gate metric set and threshold sources"),
-            RequiredInput("quality_calibration", "reports/full/c6/QUALITY_CALIBRATION.json",
-                          "the source_train-fitted NOMINAL thresholds the three profiles "
-                          "are derived from"),
+            # `reports/full/c6/QUALITY_CALIBRATION.json` is NOT listed here. It is
+            # a C6 OUTPUT: §11.4 fits NOMINAL from the source_train benign
+            # population at C6, and this adapter's own docstring says so.
+            # Requiring it as a precondition made C6 depend on itself, so it
+            # could never start — and the only way to satisfy it would have been
+            # to hand-write the scientific calibration, which is exactly what a
+            # fitted threshold must never be.
             # The lock, not the directory. `reports/full/c5` exists as soon as C5
             # writes its first artifact, so requiring the directory would let C6
             # start against a partial or refused render pass.
@@ -88,20 +92,30 @@ class C6Adapter(EngineeringAdapter):
         relative = f"reports/full/c5/{C5Adapter.SCIENTIFIC_LOCK}"
         verification = verify_c5_synthesis_lock(request.repo, request.repo / relative)
         failed = [item["check_id"] for item in verification["checks"] if not item["ok"]]
+        candidates = verification.get("candidates") or {}
         return [{
             "name": "c5_synthesis_verified",
             "path": relative,
-            "present": verification["lock_valid"],
-            "blocking": not verification["lock_valid"],
-            "description": ("a C5 synthesis lock that verifies strictly: every "
-                            "planned candidate usable, the frozen counts exact, "
-                            "every payload byte re-hashed, and every input "
-                            "identity rebuilt from the packages and banks present "
-                            "now"),
+            # `c6_pre_gate_input_ready`, not `c5_scientific_complete`: C6 needs a
+            # verified pool AND enough of it per route to make its exact 512+512
+            # arithmetically possible. A complete pool that is already too small
+            # is valid C5 evidence and is still not something C6 can start on.
+            "present": verification["c6_pre_gate_input_ready"],
+            "blocking": not verification["c6_pre_gate_input_ready"],
+            "description": ("a strictly verified C5 candidate pool: the frozen "
+                            "6144-slot schedule terminal, every generated payload "
+                            "byte re-hashed, every failure record a valid terminal "
+                            "semantic failure, every input identity rebuilt now — "
+                            "and at least 512 generated Physics and 512 generated "
+                            "GPAT in every arm"),
             "verifier": "prism_fas.pipeline.adapters.c5.verify_c5_synthesis_lock",
             "reason": verification["reason"],
             "failed_checks": failed[:12],
-            "usable_as_c6_input": verification["payload"].get("usable_as_c6_input"),
+            "c5_scientific_complete": verification["c5_scientific_complete"],
+            "c6_pre_gate_input_ready": verification["c6_pre_gate_input_ready"],
+            "usable_generated_by_arm_and_route": candidates.get("per_arm") and {
+                arm: dict(counts["generated_by_route"])
+                for arm, counts in candidates["per_arm"].items()},
             "lock_kind": verification["payload"].get("lock_kind"),
         }]
 

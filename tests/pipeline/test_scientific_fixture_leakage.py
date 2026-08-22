@@ -47,7 +47,14 @@ DECLARED_SCIENTIFIC_GAPS: dict[str, dict[str, object]] = {
                    "which is why that path may never be entered under a "
                    "scientific ExecutionContext."},
     "c6": {"scientific_executor": False,
-           "note": "SMOKE_CANDIDATES_PER_ARM=8 caps the quality-gate calibration."},
+           "note": "SMOKE_CANDIDATES_PER_ARM=8 caps the quality-gate calibration, "
+                   "and `full` still reaches the engineering workflow's "
+                   "ENGINEERING_NOMINAL and gate_metrics fixtures. The executor "
+                   "is blocked on one under-specified choice: §11.3 names four "
+                   "balancing dimensions for the deterministic matched-bank "
+                   "selector and no algorithm, and matched_bank_plan returns "
+                   "counts plus a description rather than a selection. Recorded "
+                   "as C6_MATCHED_BANK_SELECTOR / NEEDS_SCIENTIFIC_DECISION."},
     "c7": {"scientific_executor": False,
            "note": "readiness is a CPU fixture obligation by design (requires_gpu "
                    "False); the scientific detector search is not wired."},

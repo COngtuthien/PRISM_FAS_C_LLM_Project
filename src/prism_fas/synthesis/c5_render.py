@@ -364,19 +364,44 @@ def completeness(plans: dict[str, dict[str, Any]],
                  if record["status"] == raw.GENERATED]
     failures = [record for record in by_id.values()
                 if record["status"] == raw.FAILED_GENERATION]
+    by_arm: dict[str, dict[str, Any]] = {}
+    for record in by_id.values():
+        identity = record["generation_identity"]
+        counts = by_arm.setdefault(identity["arm"], {
+            "generated": 0, "semantic_failed": 0,
+            "generated_by_route": {PHYSICS: 0, GPAT: 0},
+            "semantic_failed_by_route": {PHYSICS: 0, GPAT: 0}})
+        if record["status"] == raw.GENERATED:
+            counts["generated"] += 1
+            counts["generated_by_route"][identity["route"]] += 1
+        else:
+            counts["semantic_failed"] += 1
+            counts["semantic_failed_by_route"][identity["route"]] += 1
+
     return {
         "planned": len(planned), "terminal": len(by_id),
-        "generated": len(generated), "failed": len(failures),
+        "generated": len(generated), "semantic_failed": len(failures),
+        # A slot with no terminal record at all. Either the pass has not reached
+        # it yet, or a runtime failure left it resumable — which is the one thing
+        # that stops C5 being complete.
+        "runtime_unresolved": len(missing),
         "missing_candidate_ids": missing[:32], "missing": len(missing),
-        # Every planned position reached an outcome. This is what "the stage ran
-        # to the end" means, and it is the only thing FINALIZE_C5 requires.
+        "per_arm": by_arm,
+        "usable_generated_by_arm_and_route": {
+            arm: dict(counts["generated_by_route"]) for arm, counts in by_arm.items()},
+        # Every planned slot reached a terminal outcome. This IS the C5 stage
+        # predicate: §10.4 fixes the schedule, and §11.3 gives C6 the authority
+        # over whether the resulting pool is large enough.
         "every_planned_candidate_is_terminal": not missing,
-        # ...and this is the separate fact C6 needs, never conflated with it.
+        # Descriptive only, and deliberately no longer an acceptance predicate.
+        # A pool with retained semantic failures is a complete render stage.
         "every_planned_candidate_is_usable": not missing and not failures,
         "failed_candidate_ids": [record["generation_identity"]["candidate_id"]
                                  for record in failures][:32],
-        "rule": ("a generation failure is retained and reported; it is never "
-                 "resampled and the frozen 2048-per-arm budget never grows"),
+        "rule": ("a semantic generation failure is retained and reported; it is "
+                 "never resampled and the frozen 2048-per-arm budget never grows. "
+                 "Whether the surviving pool can still yield C6's exact 512+512 "
+                 "per arm is C6's question, not C5's (§11.3)"),
     }
 
 

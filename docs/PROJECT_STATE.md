@@ -28,7 +28,7 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_RUNTIME_RECOVERY_V1
+current_milestone: C5_TERMINAL_POOL_CORRECTION_AND_C6_AUDIT
 current_substage: the runtime-recovery policy is frozen and implemented. Only a
                   proven deterministic candidate-semantic failure consumes a
                   candidate; interruptions propagate; every other exception is
@@ -751,6 +751,137 @@ c5_source_pair_plan_freeze:
         classes are retryable under recovery-ladder L1.
       RESOLVED_BY: C5_RUNTIME_RECOVERY_V1
       resolved_on: 2026-08-22
+
+  # --- FIRST REAL SCIENTIFIC C4/C5 GPU RUN (immutable observation) -----------
+  first_scientific_gpu_run:
+    c4: {scientific_status: PASS, artifact: reports/full/c4/GPAT_CONFIG_LOCK.json}
+    c5:
+      planned: 6144
+      terminal: 6144
+      generated: 6082
+      semantic_failed: 62
+      runtime_unresolved: 0
+      per_arm:
+        DET: {generated: 2020, physics: 996, gpat: 1024, physics_failures: 28}
+        LLM: {generated: 2034, physics: 1010, gpat: 1024, physics_failures: 14}
+        RND: {generated: 2028, physics: 1004, gpat: 1024, physics_failures: 20}
+      all_failures: >-
+        Physics route, SemanticGenerationFailure, artifact did not survive uint8
+        quantization and the exact mask is empty. GPAT: 3072/3072 generated.
+      immutability: >-
+        the 62 failure records are immutable negative provenance. Never retried,
+        deleted, regenerated, re-paired to another live sample or recipe. The
+        2048-per-arm budget did not grow and PhysicsEngine/quantization/the
+        empty-mask condition are unchanged.
+      c6_pre_gate: FEASIBLE   # 996/1010/1004 Physics all clear the 512 floor
+
+  # --- CORRECTED: C5 owns the pool, C6 owns final cardinality ----------------
+  c5_stage_ownership_correction:
+    defect: >-
+      the implementation required generated == 6144 and failed == 0 before C5
+      could claim completion or unblock C6. That is STRONGER than the frozen
+      contract and would have rejected the real 6082+62 run.
+    spec_evidence:
+      - "§10.4: scientific synthesis budget is fixed at 2048 candidate RENDERS per
+        arm = 256 recipes x 8, with exactly 4 Physics and 4 GPAT per recipe
+        BEFORE the common quality gate. Final accepted bank is exactly 1024/arm."
+      - "C5 hard acceptance (stage table): same base live list / route budget; no
+        target. Nothing about zero failures."
+      - "§11.3: Mỗi arm bắt đầu từ 2048 candidate renders. Nếu một arm không đạt
+        1024 dưới frozen render budget/gate, C6 FAILS thay vì nới gate riêng cho
+        arm đó."
+      - "§11.4: C6 selects the strictest profile that yields >=1024 accepted in
+        EVERY arm with exactly 512 Physics + 512 GPAT feasible. If none
+        qualifies, C6 FAILS."
+    c5_scientific_complete_requires:
+      - 6144 planned positions, 6144 terminal, 0 runtime-unresolved
+      - 2048 terminal slots per arm over the frozen 1024/1024 PLANNED route split
+      - every GENERATED record: current identity, 3 payload files, bytes re-hashed
+      - every FAILED_GENERATION record: current identity, deterministic
+        candidate-semantic, error_type SemanticGenerationFailure,
+        replacement_generated false, and NO declared payloads
+      - generated + semantic_failed == planned
+      - C4 / M3B / C3 / source-pair / ontology / PhysicsEngine identities rebuild now
+      - source_dev unopened, target unopened
+    c5_scientific_complete_does_not_require: [failed == 0, generated == 6144]
+    c6_pre_gate_input_ready_requires: >-
+      additionally >=512 generated Physics and >=512 generated GPAT in EVERY arm.
+      Arithmetic only; no threshold is applied and nothing is accepted or
+      rejected. Below the floor C6 is impossible before the gate runs.
+    lock_schema: >-
+      the lock represents a COMPLETE FROZEN CANDIDATE POOL. planned / terminal /
+      generated / semantic_failed / runtime_unresolved are kept apart, plus
+      usable_generated_by_arm_and_route and c6_pre_gate_route_floor_feasible.
+      `every_planned_candidate_is_usable` survives as DESCRIPTIVE ONLY and is no
+      longer any stage's acceptance predicate.
+    old_lock_preservation: >-
+      _archive_superseded_lock copies an existing lock byte-for-byte to
+      reports/full/c5/superseded/C5_SYNTHESIS_LOCK_<sha16>.json, binds its
+      SHA-256 into the replacement under `supersedes`, and records
+      supersedes_verifier_semantics plus the reason. No CANDIDATE.json and no
+      payload is touched.
+
+  # --- C6 AUDIT (Phase B) ----------------------------------------------------
+  c6_audit:
+    defect_c6_1_self_dependency:
+      status: FIXED
+      was: >-
+        required_inputs demanded reports/full/c6/QUALITY_CALIBRATION.json before
+        C6 could start, but §11.4 fits NOMINAL from the source_train benign
+        population AT C6. It is a C6 OUTPUT, so C6 depended on itself and the
+        only way to satisfy it would have been a hand-written fitted threshold.
+      fix: the RequiredInput was removed; no calibration file was fabricated.
+    defect_c6_2_full_uses_engineering_workflow:
+      status: CONFIRMED_NOT_FIXED
+      why: fixing it means writing the scientific executor, which is blocked below.
+      containment: >-
+        C6 has no _scientific_workflow, claims no scientific_evidence anywhere,
+        and under `full` reaches the shared precondition gate and BLOCKS. The
+        engineering path is unchanged.
+    determined_by_frozen_contract_or_canonical_modules:
+      - source_train reference population: quality_calibration.calibrate
+      - metric backends/weights: QualityBackends, quality_models
+      - inherited Version-B thresholds: gate_profiles NOMINAL inheritance
+      - percentile derivation without an inherited threshold: §11.4 gives
+        10th/5th/1st (higher-is-better) and 90th/95th/99th (lower-is-better)
+      - quantile method: np.percentile as already used by quality_calibration
+      - STRICT/NOMINAL/PERMISSIVE formulas: gate_profiles.derive_profile
+      - range-safe constraints: gate_profiles.RANGE_SAFE
+      - candidate evaluation: synthetic_bank.CandidateEvaluator, quality_gate.evaluate
+      - shortcut/reliability gates: prism_fas.evaluation.reliability (§17.3)
+      - profile selection: gate_profiles.select_profile, conjunctive over arms
+      - BANK_LOCK contents: synthetic_export / existing BANK_LOCK contract
+      - resume/idempotency: the shared identity-aware framework
+
+  open_decisions_c6:
+    - id: C6_MATCHED_BANK_SELECTOR
+      status: NEEDS_SCIENTIFIC_DECISION
+      audited_on: 2026-08-22
+      what_the_spec_says: >-
+        §11.3: "1024 accepted samples/arm, gồm 512 Physics + 512 GPAT, selected
+        deterministically để cân bằng source domain, route, recipe coverage và
+        base live IDs." The route split is exact. The other three balancing
+        dimensions are NAMED and no algorithm is given.
+      what_is_missing:
+        - no priority order among source domain, recipe coverage and base live ID
+        - no target distribution (proportional to the accepted pool? uniform?
+          proportional to the source package?)
+        - no algorithm (greedy round-robin? stratified quota? largest remainder?)
+        - no tie-break when a stratum holds more accepted candidates than its quota
+        - no redistribution rule when a stratum holds fewer than its quota
+      why_it_cannot_be_inferred: >-
+        gate_profiles.matched_bank_plan returns COUNTS and the sentence "balanced
+        deterministically over source domain, route, recipe coverage and base
+        live IDs (§11.3)". It never returns which candidates. No other module
+        selects a subset of accepted candidates, and Version B has none because
+        Version B is the confounded design this rule exists to remove.
+      result_affecting: >-
+        yes. Which 512 Physics candidates enter each arm's bank changes C7
+        training and every downstream number, so a guessed tie-break would be an
+        unrecorded scientific choice.
+      decision_needed_from_user: >-
+        the exact deterministic selector: dimension priority, target
+        distribution, fill algorithm, tie-break and deficit redistribution.
 
   # --- FROZEN: C5_RUNTIME_RECOVERY_V1 ----------------------------------------
   c5_runtime_recovery_v1:

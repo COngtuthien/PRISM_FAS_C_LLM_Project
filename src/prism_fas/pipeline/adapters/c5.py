@@ -912,13 +912,17 @@ class C5Adapter(EngineeringAdapter):
     def _finalize_c5(self, request: AdapterRequest, plans: dict[str, Any],
                      verification: dict[str, Any], records: list[dict[str, Any]],
                      reports: Path, runs: Path | None) -> AdapterResult:
-        """Write the C5 completion lock — only if the stage actually completed.
+        """Write the C5 pool lock — only if the frozen schedule ran to the end.
 
-        Two distinct facts, and the lock carries both rather than one:
-        `every_planned_candidate_is_terminal` says the stage ran to the end, and
-        `every_planned_candidate_is_usable` says C6 has a full bank. A pass with a
-        retained failure is the first and not the second, and a lock that
-        collapsed them would let a short bank read as a complete one.
+        The lock describes a COMPLETE FROZEN CANDIDATE POOL. Five counts are kept
+        apart because they answer different questions: `terminal` says the stage
+        finished, `generated` and `semantic_failed` say what it yielded, and
+        `runtime_unresolved` is the only one that means it did not finish.
+
+        It does not assert that every slot produced a payload, and it must not:
+        §11.3 gives C6 the authority over whether the pool can still yield the
+        exact 512 Physics + 512 GPAT per arm, and makes C6 the stage that FAILS
+        when it cannot.
         """
         from prism_fas.synthesis import c5_raw_generation as raw
         from prism_fas.synthesis import c5_render as render_module
@@ -967,23 +971,34 @@ class C5Adapter(EngineeringAdapter):
             "counts": raw.summarize(records),
             "record_set_digest": raw.record_set_digest(records),
             "payload_set_digest": raw.payload_set_digest(records),
-            # The two facts, kept apart on purpose.
+            # --- the pool, described in the five counts that differ ----------
+            # Collapsing these was the defect. `terminal` is the C5 predicate;
+            # `generated` and `semantic_failed` are the outcome; `runtime_
+            # unresolved` is the only one that means the stage is unfinished.
             "every_planned_candidate_is_terminal": state["every_planned_candidate_is_terminal"],
+            "planned": state["planned"], "terminal": state["terminal"],
+            "generated": state["generated"],
+            "semantic_failed": state["semantic_failed"],
+            "runtime_unresolved": state["runtime_unresolved"],
+            "usable_generated_by_arm_and_route": state["usable_generated_by_arm_and_route"],
+            "per_arm": state["per_arm"],
+            "c6_pre_gate_route_floor": _c6_route_floor(),
+            "c6_pre_gate_route_floor_feasible": all(
+                count >= _c6_route_floor()
+                for routes in state["usable_generated_by_arm_and_route"].values()
+                for count in routes.values()),
+            "lock_kind": "scientific_candidate_pool",
+            "pool_semantics": (
+                "this lock represents a COMPLETE FROZEN CANDIDATE POOL: every "
+                "planned slot of the frozen 6144-slot schedule reached a terminal "
+                "outcome. It does NOT assert that every slot produced a payload. "
+                "§10.4 fixes the planned schedule; §11.3 gives C6 the authority "
+                "over whether the pool yields the exact 512+512 per arm, and C6 "
+                "FAILS if it cannot"),
+            # Descriptive only. Retained so an older reader still finds the field,
+            # but it is NOT the acceptance predicate for any stage.
             "every_planned_candidate_is_usable": state["every_planned_candidate_is_usable"],
-            # Named so no reader has to infer it. A terminal-but-short pass keeps
-            # its evidence — L.8 forbids winner-only cleanup — but the artifact
-            # that preserves it is an audit record, not synthesis input, and
-            # verify_c5_synthesis_lock refuses it.
-            "lock_kind": ("scientific_synthesis"
-                          if state["every_planned_candidate_is_usable"]
-                          else "terminal_audit_record"),
-            "usable_as_c6_input": state["every_planned_candidate_is_usable"],
-            "why_not_usable": (None if state["every_planned_candidate_is_usable"] else
-                               f"{state['failed']} planned candidate(s) reached a "
-                               "terminal generation failure and were retained rather "
-                               "than resampled, so this bank is short of the frozen "
-                               "budget and is not scientific synthesis input"),
-            "generated": state["generated"], "failed": state["failed"],
+            "every_planned_candidate_is_usable_is_descriptive_only": True,
             "failed_candidate_ids": state["failed_candidate_ids"],
             "completion_rule": state["rule"],
             "binds_quality_calibration": False,
@@ -993,6 +1008,13 @@ class C5Adapter(EngineeringAdapter):
             "no_target_capability_proof": {"target_roots_mounted": [],
                                            "target_labels_resolved": 0},
         }
+        superseded = _archive_superseded_lock(request, reports / self.SCIENTIFIC_LOCK)
+        if superseded is not None:
+            lock_payload["supersedes"] = superseded
+            checks.append(check(
+                "c5_superseded_lock_archived", True,
+                "the previous lock was archived byte-for-byte and is bound by SHA-256",
+                **superseded))
         artifact = write_artifact(request, reports / self.SCIENTIFIC_LOCK, lock_payload)
         return self.result(
             request, mode=FINALIZE_C5, checks=checks, artifacts=[artifact],
@@ -1023,7 +1045,20 @@ class C5Adapter(EngineeringAdapter):
                      "physics_engine_version"],
             reason=verification["reason"]))
 
-        passed = verification["lock_valid"] and all(item["ok"] for item in checks)
+        checks.append(check(
+            "c5_pool_completion_is_not_final_cardinality", True,
+            "C5 claims a complete frozen candidate pool; whether that pool yields "
+            "the exact 512+512 accepted per arm is C6's decision and C6's failure",
+            c5_scientific_complete=verification["c5_scientific_complete"],
+            c6_pre_gate_input_ready=verification["c6_pre_gate_input_ready"],
+            rule="§11.3: if an arm cannot reach 1024 accepted under the frozen "
+                 "render budget and gate, C6 FAILS"))
+
+        # The C5 axis follows COMPLETION only. The pre-gate feasibility conclusion
+        # is reported here and consumed by C6, and a pool that is complete but
+        # already too small for C6 is still valid C5 evidence.
+        passed = (verification["c5_scientific_complete"]
+                  and all(item["ok"] for item in checks))
         return self.result(
             request, mode=VERIFY_C5_LOCK, checks=checks,
             artifacts=[path.relative_to(request.repo).as_posix()] if path.exists() else [],
@@ -1187,86 +1222,166 @@ def compare_lock_to_current(payload: dict[str, Any],
 
 def verify_c5_candidates(candidate_root: Path,
                          plans: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Re-read and re-hash every planned candidate's payload files.
+    """Read back every planned candidate and check it reached a valid outcome.
 
-    The planned set comes from `plans` — rebuilt from current inputs — and not
-    from the lock, so a lock cannot shrink the set it is checked against by
-    omitting a candidate. For each planned candidate the canonical
-    `raw.reuse_decision` is what decides: it compares the recorded generation
-    identity, requires all three payload files, and recomputes SHA-256 over their
-    actual bytes.
+    A planned slot has exactly TWO legitimate terminal outcomes, and this counts
+    them apart rather than treating one as a defect:
+
+    * GENERATED — the canonical `raw.reuse_decision` decides: recorded identity
+      matches, all three payload files exist, and their actual bytes re-hash to
+      what the record says.
+    * FAILED_GENERATION — the candidate could not exist. The record must still
+      bind the current generation identity, must be marked deterministic
+      candidate-semantic, must name `SemanticGenerationFailure`, must declare
+      `replacement_generated: False`, and must claim no payloads. A failure
+      record carrying payload hashes would be a fabricated completion.
+
+    Anything else — absent, stale, corrupt, or a runtime attempt with no
+    terminal record — is a problem, because the frozen 6144-slot schedule has
+    not run to the end.
+
+    The planned set comes from `plans`, rebuilt from current inputs, so a lock
+    cannot shrink the set it is checked against by omitting a candidate.
     """
     from prism_fas.synthesis import c5_raw_generation as raw
     from prism_fas.synthesis import c5_render as render_module
     from prism_fas.synthesis.c5_source_pair_plan import CANDIDATES_PER_ARM, GPAT, PHYSICS
 
     candidate_root = Path(candidate_root)
-    per_arm: dict[str, dict[str, int]] = {}
+    per_arm: dict[str, dict[str, Any]] = {}
     problems: list[dict[str, Any]] = []
-    verified = 0
+    generated = semantic_failed = runtime_unresolved = 0
+
+    def _problem(arm: str, candidate_id: str, reason: str, **detail: Any) -> None:
+        if len(problems) < 32:
+            problems.append({"arm": arm, "candidate_id": candidate_id,
+                             "reason": reason, **detail})
 
     for arm in sorted(plans):
         plan = plans[arm]
-        counts = per_arm.setdefault(arm, {"verified": 0, PHYSICS: 0, GPAT: 0,
-                                          "unverified": 0})
+        counts = per_arm.setdefault(arm, {
+            "terminal": 0, "generated": 0, "semantic_failed": 0,
+            "runtime_unresolved": 0, "invalid": 0,
+            "generated_by_route": {PHYSICS: 0, GPAT: 0},
+            "planned_by_route": {PHYSICS: 0, GPAT: 0},
+            "semantic_failed_by_route": {PHYSICS: 0, GPAT: 0}})
         for row in plan["candidates"]:
+            route = row["route"]
+            counts["planned_by_route"][route] += 1
             identity = render_module.identity_for(row, plan)
             directory = raw.candidate_dir(candidate_root, arm, identity.candidate_id)
             decision = raw.reuse_decision(directory, identity)
+
             if decision["reusable"]:
-                counts["verified"] += 1
-                counts[row["route"]] += 1
-                verified += 1
+                counts["terminal"] += 1
+                counts["generated"] += 1
+                counts["generated_by_route"][route] += 1
+                generated += 1
+                continue
+
+            if decision["reason"] == "FAILED_GENERATION":
+                record = raw.read_record(directory / raw.RECORD_NAME) or {}
+                failure = dict(record.get("failure") or {})
+                valid = (failure.get("deterministic_candidate_semantic") is True
+                         and failure.get("error_type") == "SemanticGenerationFailure"
+                         and failure.get("replacement_generated") is False
+                         and not record.get("payload_sha256")
+                         and not record.get("payloads"))
+                counts["terminal"] += 1
+                if valid:
+                    counts["semantic_failed"] += 1
+                    counts["semantic_failed_by_route"][route] += 1
+                    semantic_failed += 1
+                else:
+                    counts["invalid"] += 1
+                    _problem(arm, identity.candidate_id, "INVALID_FAILURE_RECORD",
+                             error_type=failure.get("error_type"),
+                             deterministic_candidate_semantic=failure.get(
+                                 "deterministic_candidate_semantic"),
+                             replacement_generated=failure.get("replacement_generated"),
+                             declared_payloads=bool(record.get("payload_sha256")))
+                continue
+
+            # Not terminal at all. A runtime attempt with no CANDIDATE.json is
+            # the resumable case; the rest are corruption.
+            attempts = raw.runtime_attempts(directory)
+            if attempts:
+                counts["runtime_unresolved"] += 1
+                runtime_unresolved += 1
+                _problem(arm, identity.candidate_id, "RUNTIME_UNRESOLVED",
+                         attempts=len(attempts),
+                         last_error=attempts[-1].get("error_type"))
             else:
-                counts["unverified"] += 1
-                if len(problems) < 32:
-                    problems.append({"arm": arm,
-                                     "candidate_id": identity.candidate_id,
-                                     "reason": decision["reason"],
-                                     "payload": decision.get("payload")})
+                counts["invalid"] += 1
+                _problem(arm, identity.candidate_id, decision["reason"],
+                         payload=decision.get("payload"))
 
     expected_per_route = CANDIDATES_PER_ARM // 2
-    counts_exact = all(
-        counts["verified"] == CANDIDATES_PER_ARM
-        and counts[PHYSICS] == expected_per_route
-        and counts[GPAT] == expected_per_route
-        for counts in per_arm.values()) and len(per_arm) == len(plans)
-    return {"verified": verified, "per_arm": per_arm, "problems": problems,
-            "planned": sum(len(plan["candidates"]) for plan in plans.values()),
-            "counts_exact": counts_exact,
+    planned = sum(len(plan["candidates"]) for plan in plans.values())
+    terminal = generated + semantic_failed
+
+    # The frozen SCHEDULE, not the frozen yield. §10.4 fixes 2048 planned
+    # renders per arm at 1024 Physics + 1024 GPAT; how many of them produce a
+    # payload is an outcome, and §11.3 gives C6 the authority over whether the
+    # outcome suffices.
+    schedule_exact = len(per_arm) == len(plans) and all(
+        counts["terminal"] == CANDIDATES_PER_ARM
+        and counts["planned_by_route"][PHYSICS] == expected_per_route
+        and counts["planned_by_route"][GPAT] == expected_per_route
+        for counts in per_arm.values())
+
+    return {"planned": planned, "terminal": terminal, "generated": generated,
+            "semantic_failed": semantic_failed,
+            "runtime_unresolved": runtime_unresolved,
+            "per_arm": per_arm, "problems": problems,
             "expected_per_arm": CANDIDATES_PER_ARM,
-            "expected_per_route": expected_per_route,
-            "all_verified": not problems and counts_exact}
+            "expected_planned_per_route": expected_per_route,
+            "schedule_exact": schedule_exact,
+            "every_planned_slot_is_terminal": terminal == planned and not problems,
+            # Kept for readers, never used as the C5 acceptance predicate.
+            "every_planned_slot_generated": generated == planned,
+            "pool_complete": schedule_exact and terminal == planned and not problems}
 
 
 def verify_c5_synthesis_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
-    """The one strict C5 verification. C5 runs it, and so does C6.
+    """The one strict C5 verification, reaching TWO separate conclusions.
 
-    A scientific C5 PASS requires ALL of:
+    `c5_scientific_complete` — the frozen 6144-slot schedule ran to the end and
+    every slot's evidence verifies. It does NOT require that every slot produced
+    a payload. §10.4 fixes the SCHEDULE at 2048 renders per arm, 1024 Physics and
+    1024 GPAT; what that schedule yields is an outcome, and §11.3 puts the
+    authority over whether the yield suffices in C6: "Nếu một arm không đạt 1024
+    dưới frozen render budget/gate, C6 FAILS." Requiring `generated == 6144` in
+    C5 was an implementation overconstraint that moved C6's failure into C5 and
+    left a legitimate render stage unable to hand over its own evidence.
 
-        the lock exists, declares itself scientific and is not fixture-backed
-        the C4 lock it inherits verifies NOW
-        the M3B package, schedule, arm plans, C3 banks, ontology, checkpoint SHA
-            and PhysicsEngine version rebuilt NOW all equal what it recorded
-        every planned candidate is terminal AND usable
-        6144 planned, 6144 generated, 0 failed
-        2048 generated per arm, 1024 physics and 1024 GPAT per arm
-        every one of those candidates' three payload files is present and hashes
-            to what its own record says
+    `c6_pre_gate_input_ready` — additionally, every arm has at least 512
+    generated Physics and 512 generated GPAT candidates. This is arithmetic, not
+    quality: §11.3 requires a final bank of exactly 512 + 512 per arm, so below
+    that floor C6 is impossible before a single threshold is applied. It is not
+    the gate and it decides nothing about acceptance.
 
-    Anything less is an audit record. It never returns `lock_valid: True`, so it
-    never produces scientific evidence in C5 and never unblocks C6.
+    Both are computed from candidates rebuilt from current inputs, and neither
+    is read from the lock.
     """
     from prism_fas.synthesis.c5_source_pair_plan import ARMS, CANDIDATES_PER_ARM
 
     repo, lock_path = Path(repo), Path(lock_path)
     payload = read_json(lock_path) or {}
     checks: list[dict[str, Any]] = []
+    gate_checks: list[dict[str, Any]] = []
     expected_total = CANDIDATES_PER_ARM * len(ARMS)
 
     def outcome(**extra: Any) -> dict[str, Any]:
-        ok = all(item["ok"] for item in checks)
-        return {"lock_valid": ok, "ok": ok, "checks": checks, "payload": payload,
+        complete = all(item["ok"] for item in checks)
+        ready = complete and all(item["ok"] for item in gate_checks) and bool(gate_checks)
+        return {"c5_scientific_complete": complete,
+                "c6_pre_gate_input_ready": ready,
+                # `lock_valid` is retained for callers that only ask "is this a
+                # good C5 lock" and means scientific completion, not C6 input.
+                "lock_valid": complete, "ok": complete,
+                "checks": checks + gate_checks, "completion_checks": checks,
+                "pre_gate_checks": gate_checks, "payload": payload,
                 "lock_path": lock_path, "expected_total": expected_total, **extra}
 
     checks.append(check(
@@ -1283,33 +1398,15 @@ def verify_c5_synthesis_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
     if not payload:
         return outcome(reason="LOCK_ABSENT")
 
-    # Terminal and usable are separate facts and both are required. A pass that
-    # ran to the end with 6143 usable candidates is complete and short; short is
-    # not a scientific synthesis bank.
     checks.append(check(
-        "c5_lock_declares_every_candidate_terminal",
+        "c5_lock_declares_every_slot_terminal",
         payload.get("every_planned_candidate_is_terminal") is True,
-        "the lock records that every planned candidate reached an outcome",
+        "the lock records that every planned slot reached a terminal outcome",
         every_planned_candidate_is_terminal=payload.get(
-            "every_planned_candidate_is_terminal")))
-    checks.append(check(
-        "c5_lock_declares_every_candidate_usable",
-        payload.get("every_planned_candidate_is_usable") is True,
-        "the lock records that every planned candidate is usable by C6",
-        every_planned_candidate_is_usable=payload.get(
-            "every_planned_candidate_is_usable"),
-        generated=payload.get("generated"), failed=payload.get("failed"),
-        rule="terminal completion is not usable completion; only the second is "
-             "scientific synthesis input"))
-    checks.append(check(
-        "c5_lock_counts_are_the_frozen_budget",
-        int(payload.get("generated", -1)) == expected_total
-        and int(payload.get("failed", -1)) == 0,
-        f"the lock records {expected_total} generated candidates and no failures",
-        generated=payload.get("generated"), failed=payload.get("failed"),
-        expected_generated=expected_total,
-        rule="the frozen budget is 2048 per arm; a failure is retained and never "
-             "resampled, so a short bank stays short and says so"))
+            "every_planned_candidate_is_terminal"),
+        generated=payload.get("generated"),
+        semantic_failed=payload.get("semantic_failed"),
+        runtime_unresolved=payload.get("runtime_unresolved")))
     checks.append(check(
         "c5_lock_binds_no_calibration",
         payload.get("binds_quality_calibration") is False,
@@ -1325,27 +1422,125 @@ def verify_c5_synthesis_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
 
     root = repo / str(payload.get("candidate_root", ""))
     candidates = verify_c5_candidates(root, current["plans"])
+
     checks.append(check(
-        "c5_every_candidate_payload_verifies", candidates["all_verified"],
-        "every planned candidate's three payload files are present and hash to "
-        "what its own record says",
-        verified=candidates["verified"], planned=candidates["planned"],
+        "c5_frozen_schedule_ran_to_the_end", candidates["schedule_exact"]
+        and candidates["terminal"] == candidates["planned"],
+        f"all {expected_total} planned slots are terminal, {CANDIDATES_PER_ARM} "
+        f"per arm over the frozen {CANDIDATES_PER_ARM // 2}/{CANDIDATES_PER_ARM // 2} "
+        f"planned route split",
+        planned=candidates["planned"], terminal=candidates["terminal"],
+        generated=candidates["generated"],
+        semantic_failed=candidates["semantic_failed"],
+        schedule_exact=candidates["schedule_exact"],
+        rule="§10.4 fixes the planned schedule, not the yield"))
+    checks.append(check(
+        "c5_no_runtime_unresolved_slot", candidates["runtime_unresolved"] == 0,
+        "no slot is left runtime-incomplete; a resumable slot means the pass has "
+        "not finished",
+        runtime_unresolved=candidates["runtime_unresolved"]))
+    checks.append(check(
+        "c5_every_generated_payload_verifies",
+        not [item for item in candidates["problems"]
+             if item["reason"] not in ("RUNTIME_UNRESOLVED",)],
+        "every generated slot's three payload files are present and hash to what "
+        "its own record says, and every failure record is a valid terminal "
+        "semantic failure",
+        generated=candidates["generated"],
+        semantic_failed=candidates["semantic_failed"],
         problems=candidates["problems"],
         candidate_root=str(payload.get("candidate_root", "")),
         rule="the bytes are re-read and re-hashed; hashing the recorded hashes "
              "would agree with itself after the file had been replaced"))
     checks.append(check(
-        "c5_generated_counts_are_exact", candidates["counts_exact"],
-        f"each arm verifies exactly {candidates['expected_per_arm']} candidates, "
-        f"{candidates['expected_per_route']} physics and "
-        f"{candidates['expected_per_route']} GPAT",
-        per_arm=candidates["per_arm"],
-        expected_per_arm=candidates["expected_per_arm"],
-        expected_per_route=candidates["expected_per_route"]))
+        "c5_lock_counts_match_the_pool",
+        int(payload.get("generated", -1)) == candidates["generated"]
+        and int(payload.get("semantic_failed", -1)) == candidates["semantic_failed"],
+        "the counts the lock records are the counts on disk",
+        locked={"generated": payload.get("generated"),
+                "semantic_failed": payload.get("semantic_failed")},
+        measured={"generated": candidates["generated"],
+                  "semantic_failed": candidates["semantic_failed"]}))
+
+    # --- the separate, arithmetic-only C6 feasibility conclusion -------------
+    floor = _c6_route_floor()
+    shortfalls = {
+        arm: {route: counts["generated_by_route"][route] for route in
+              sorted(counts["generated_by_route"])
+              if counts["generated_by_route"][route] < floor}
+        for arm, counts in candidates["per_arm"].items()}
+    shortfalls = {arm: detail for arm, detail in shortfalls.items() if detail}
+    gate_checks.append(check(
+        "c6_pre_gate_route_floor_feasible", not shortfalls,
+        f"every arm carries at least {floor} generated Physics and {floor} "
+        f"generated GPAT candidates, so C6's exact {floor}+{floor} bank is not "
+        f"already arithmetically impossible",
+        floor_per_route=floor, shortfalls=shortfalls,
+        usable_generated_by_arm_and_route={
+            arm: dict(counts["generated_by_route"])
+            for arm, counts in candidates["per_arm"].items()},
+        rule="§11.3 fixes the final bank at 1024/arm = 512 Physics + 512 GPAT; "
+             "this counts candidates and applies no threshold",
+        is_the_quality_gate=False))
 
     return outcome(current=current, candidates=candidates,
-                   reason="VERIFIED" if all(item["ok"] for item in checks)
-                   else "VERIFICATION_FAILED")
+                   reason=("VERIFIED" if all(item["ok"] for item in checks)
+                           else "VERIFICATION_FAILED"))
+
+
+def _archive_superseded_lock(request: AdapterRequest, path: Path) -> dict[str, Any] | None:
+    """Preserve an existing lock byte-for-byte before a new one replaces it.
+
+    The first real GPU run produced a lock under the over-strict verifier that
+    required 6144 generated candidates. Its counts are real measurements of a
+    real render pass and must not vanish because the verifier's contract was
+    corrected afterwards. So the old bytes are copied to a deterministic history
+    path, hashed, and the hash is bound into the replacement — the correction is
+    then auditable rather than silent.
+
+    No CANDIDATE.json and no payload is touched.
+    """
+    import hashlib
+    import shutil
+
+    path = Path(path)
+    if not path.is_file():
+        return None
+    original = path.read_bytes()
+    digest = hashlib.sha256(original).hexdigest()
+    previous = read_json(path) or {}
+    archive = path.parent / "superseded" / f"{path.stem}_{digest[:16]}.json"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if not archive.exists():
+        shutil.copyfile(path, archive)
+    return {
+        "archived_lock": archive.relative_to(request.repo).as_posix(),
+        "archived_lock_sha256": digest,
+        "archived_schema_version": previous.get("schema_version"),
+        "archived_generated_at_utc": previous.get("generated_at_utc"),
+        "archived_counts": {key: previous.get(key) for key in
+                            ("generated", "failed", "semantic_failed",
+                             "every_planned_candidate_is_terminal",
+                             "every_planned_candidate_is_usable")},
+        "supersedes_verifier_semantics": True,
+        "reason": ("implementation contract correction to frozen v1.5 stage "
+                   "ownership: C5 owns the complete frozen candidate pool, and "
+                   "§11.3 gives C6 the authority over final accepted cardinality. "
+                   "The previous verifier required generated == 6144 and "
+                   "failed == 0, which is stronger than the frozen C5 contract"),
+        "candidates_modified": False,
+    }
+
+
+def _c6_route_floor() -> int:
+    """Minimum generated candidates per route per arm for C6 to be possible.
+
+    Derived from the frozen final-bank cardinality rather than written down
+    twice: §11.3 fixes 1024 accepted per arm as 512 Physics + 512 GPAT.
+    """
+    from prism_fas.synthesis.c5_source_pair_plan import CANDIDATES_PER_ARM
+
+    return CANDIDATES_PER_ARM // 4
 
 
 def _scientific_work_root(request: AdapterRequest, runs: Path | None) -> Path:

@@ -464,7 +464,7 @@ def test_a_complete_pass_reports_complete_and_usable(tmp_path: Path) -> None:
 
     assert state["every_planned_candidate_is_terminal"] is True
     assert state["every_planned_candidate_is_usable"] is True
-    assert state["generated"] == 4 and state["failed"] == 0
+    assert state["generated"] == 4 and state["semantic_failed"] == 0
 
 
 def test_a_pass_with_a_semantic_failure_is_complete_but_not_usable(tmp_path: Path) -> None:
@@ -479,7 +479,7 @@ def test_a_pass_with_a_semantic_failure_is_complete_but_not_usable(tmp_path: Pat
         "every planned position reached an outcome")
     assert state["every_planned_candidate_is_usable"] is False, (
         "...but C6 has one candidate fewer than the bank claims")
-    assert state["generated"] == 3 and state["failed"] == 1
+    assert state["generated"] == 3 and state["semantic_failed"] == 1
     assert state["failed_candidate_ids"] == [doomed]
 
 

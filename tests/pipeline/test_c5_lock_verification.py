@@ -176,33 +176,47 @@ def _first_candidate(plans: dict[str, dict[str, Any]]) -> tuple[str, str]:
     return "RND", plan["candidates"][0]["candidate_id"]
 
 
+def _write_semantic_failure(directory: Path, identity: Any) -> None:
+    """A valid terminal semantic failure, as `render_arm` writes one."""
+    from prism_fas.synthesis.c5_render import SemanticGenerationFailure
+
+    for name in raw.PAYLOAD_NAMES:                  # a failure claims no payload
+        (directory / name).unlink(missing_ok=True)
+    record = raw.failure_record(
+        identity, stage="render_physics",
+        error=SemanticGenerationFailure("the artifact did not survive uint8 "
+                                        "quantization; exact mask is empty"))
+    (directory / raw.RECORD_NAME).write_text(json.dumps(record.as_dict()),
+                                             encoding="utf-8")
+
+
 # --- 1, 17, 18. the complete bank verifies -----------------------------------
 
 def test_a_full_6144_candidate_bank_verifies(full_result) -> None:
     result = full_result
 
     assert result["planned"] == EXPECTED_TOTAL == 6144
-    assert result["verified"] == EXPECTED_TOTAL
+    assert result["generated"] == EXPECTED_TOTAL
     assert result["problems"] == []
-    assert result["all_verified"] is True
+    assert result["pool_complete"] is True
 
 
 def test_exactly_2048_verified_candidates_per_arm_is_enforced(full_result) -> None:
     result = full_result
 
     assert result["expected_per_arm"] == 2048
-    assert {arm: counts["verified"] for arm, counts in result["per_arm"].items()} == {
+    assert {arm: counts["generated"] for arm, counts in result["per_arm"].items()} == {
         "RND": 2048, "DET": 2048, "LLM": 2048}
-    assert result["counts_exact"] is True
+    assert result["schedule_exact"] is True
 
 
 def test_exactly_1024_physics_and_1024_gpat_per_arm_is_enforced(full_result) -> None:
     result = full_result
 
-    assert result["expected_per_route"] == 1024
+    assert result["expected_planned_per_route"] == 1024
     for arm, counts in result["per_arm"].items():
-        assert counts[PHYSICS] == 1024, arm
-        assert counts[GPAT] == 1024, arm
+        assert counts["generated_by_route"][PHYSICS] == 1024, arm
+        assert counts["generated_by_route"][GPAT] == 1024, arm
 
 
 def test_a_short_arm_fails_the_count_check(tmp_path: Path) -> None:
@@ -212,58 +226,70 @@ def test_a_short_arm_fails_the_count_check(tmp_path: Path) -> None:
     result = c5_module.verify_c5_candidates(tmp_path, plans)
 
     assert result["problems"] == [], "every candidate present is individually fine"
-    assert result["counts_exact"] is False, "...and the arm is still short"
-    assert result["all_verified"] is False
+    assert result["schedule_exact"] is False, "...and the arm is still short"
+    assert result["pool_complete"] is False
 
 
 # --- 2. one failure is complete and NOT usable -------------------------------
 
-def test_6143_generated_and_one_failed_does_not_verify(full_bank) -> None:
-    """The exact case the previous verification let through."""
+def test_6143_generated_and_one_retained_semantic_failure_is_still_complete(
+        full_bank) -> None:
+    """§10.4 fixes the SCHEDULE; §11.3 gives C6 the authority over the yield.
+
+    Requiring 6144 generated here moved C6's failure into C5 and left a
+    legitimate render pass unable to hand over its own evidence.
+    """
     root, plans = full_bank
     arm, candidate = _first_candidate(plans)
     directory = raw.candidate_dir(root, arm, candidate)
     kept = {name: (directory / name).read_bytes() for name in raw.PAYLOAD_NAMES}
     record = raw.read_record(directory / raw.RECORD_NAME)
     identity = render_module.identity_for(plans[arm]["candidates"][0], plans[arm])
-    raw.write_record(directory, raw.failure_record(
-        identity, stage="render_physics", error=RuntimeError("boom")))
+    _write_semantic_failure(directory, identity)
     try:
         result = c5_module.verify_c5_candidates(root, plans)
 
-        assert result["verified"] == EXPECTED_TOTAL - 1 == 6143
-        assert result["all_verified"] is False
-        assert result["problems"][0]["reason"] == "FAILED_GENERATION"
+        assert result["generated"] == EXPECTED_TOTAL - 1 == 6143
+        assert result["semantic_failed"] == 1
+        assert result["terminal"] == EXPECTED_TOTAL
+        assert result["problems"] == []
+        assert result["pool_complete"] is True, (
+            "a retained semantic failure is a terminal outcome, not an incompletion")
+        assert result["every_planned_slot_generated"] is False
     finally:
         for name, payload in kept.items():
             (directory / name).write_bytes(payload)
         (directory / raw.RECORD_NAME).write_text(json.dumps(record), encoding="utf-8")
 
 
-def test_a_lock_claiming_terminal_but_not_usable_is_refused(tmp_path: Path) -> None:
+def test_the_lock_no_longer_requires_every_slot_to_have_generated(tmp_path: Path) -> None:
     lock = tmp_path / "C5_SYNTHESIS_LOCK.json"
     lock.write_text(json.dumps({
         "is_scientific_lock": True, "scientific_eligible": True,
         "fixture_backed": False, "binds_quality_calibration": False,
         "every_planned_candidate_is_terminal": True,
         "every_planned_candidate_is_usable": False,
-        "generated": 6143, "failed": 1}), encoding="utf-8")
+        "generated": 6082, "semantic_failed": 62}), encoding="utf-8")
 
     verification = c5_module.verify_c5_synthesis_lock(REPO, lock)
     by_id = {item["check_id"]: item["ok"] for item in verification["checks"]}
 
-    assert by_id["c5_lock_declares_every_candidate_terminal"] is True
-    assert by_id["c5_lock_declares_every_candidate_usable"] is False
-    assert by_id["c5_lock_counts_are_the_frozen_budget"] is False
-    assert verification["lock_valid"] is False
+    assert by_id["c5_lock_declares_every_slot_terminal"] is True
+    # The old refusals are gone: neither `usable` nor `generated == 6144` is a
+    # completion predicate any more.
+    assert "c5_lock_declares_every_candidate_usable" not in by_id
+    assert "c5_lock_counts_are_the_frozen_budget" not in by_id
 
 
-def test_the_two_facts_are_separate_checks_not_one() -> None:
+def test_the_two_conclusions_are_reported_separately() -> None:
     source = _function_source("verify_c5_synthesis_lock")
 
-    assert "c5_lock_declares_every_candidate_terminal" in source
-    assert "c5_lock_declares_every_candidate_usable" in source
-    assert source.index("terminal") < source.index("usable")
+    assert "c5_scientific_complete" in source
+    assert "c6_pre_gate_input_ready" in source
+    # Completion checks and pre-gate checks accumulate in different lists, so a
+    # pool that is complete but too small stays valid C5 evidence.
+    assert "gate_checks" in source and "checks + gate_checks" in source
+    assert "c6_pre_gate_route_floor_feasible" in source
 
 
 # --- 5-9. payload BYTES, not recorded hashes ---------------------------------
@@ -276,7 +302,7 @@ def test_a_corrupted_payload_file_fails_verification(repaired, payload_name) -> 
 
     result = c5_module.verify_c5_candidates(root, plans)
 
-    assert result["all_verified"] is False
+    assert result["pool_complete"] is False
     assert result["problems"] == [{"arm": arm, "candidate_id": candidate,
                                    "reason": "PAYLOAD_CHANGED", "payload": payload_name}]
 
@@ -290,7 +316,7 @@ def test_a_missing_payload_file_fails_verification(repaired) -> None:
 
     planned = sum(len(plan["candidates"]) for plan in plans.values())
     assert result["problems"][0]["reason"] == "PAYLOAD_MISSING"
-    assert result["verified"] == planned - 1
+    assert result["generated"] == planned - 1
 
 
 def test_a_record_bound_to_another_identity_fails_verification(repaired) -> None:
@@ -323,7 +349,7 @@ def test_verification_reads_files_rather_than_the_recorded_hashes(repaired) -> N
 
     after = raw.payload_set_digest(render_module.collect_records(root, plans))
     assert after == before, "hashing the recorded hashes cannot see this"
-    assert c5_module.verify_c5_candidates(root, plans)["all_verified"] is False
+    assert c5_module.verify_c5_candidates(root, plans)["pool_complete"] is False
 
 
 def test_the_verifier_calls_the_canonical_reuse_decision() -> None:
@@ -509,31 +535,42 @@ def test_an_engineering_c5_artifact_cannot_unblock_scientific_c6(tmp_path: Path)
     assert "c5_scientific_lock_exists" in semantic["failed_checks"]
 
 
-def test_a_terminal_but_short_lock_blocks_c6(tmp_path: Path, monkeypatch) -> None:
-    """C6's gate follows the verifier's verdict, whatever produced it."""
+def test_a_complete_but_route_starved_pool_blocks_c6(tmp_path: Path, monkeypatch) -> None:
+    """C5 complete, C6 impossible: the two conclusions genuinely diverge.
+
+    §11.3 needs 512 Physics and 512 GPAT accepted per arm. An arm holding 511
+    generated Physics cannot reach that however generous the gate is, so C6 is
+    blocked before a threshold is applied — and the C5 pool is still valid
+    evidence.
+    """
     monkeypatch.setattr(c5_module, "verify_c5_synthesis_lock",
                         lambda repo, path: {
-                            "lock_valid": False, "ok": False, "reason": "VERIFICATION_FAILED",
-                            "checks": [{"check_id": "c5_lock_declares_every_candidate_usable",
+                            "c5_scientific_complete": True,
+                            "c6_pre_gate_input_ready": False,
+                            "lock_valid": True, "ok": True, "reason": "VERIFIED",
+                            "checks": [{"check_id": "c6_pre_gate_route_floor_feasible",
                                         "ok": False}],
-                            "payload": {"every_planned_candidate_is_terminal": True,
-                                        "every_planned_candidate_is_usable": False,
-                                        "lock_kind": "terminal_audit_record",
-                                        "usable_as_c6_input": False}})
+                            "candidates": {"per_arm": {"DET": {
+                                "generated_by_route": {PHYSICS: 511, GPAT: 1024}}}},
+                            "payload": {"lock_kind": "scientific_candidate_pool"}})
 
     semantic = C6Adapter().semantic_preconditions(_request(tmp_path))[0]
 
     assert semantic["blocking"] is True
-    assert semantic["lock_kind"] == "terminal_audit_record"
-    assert semantic["usable_as_c6_input"] is False
+    assert semantic["c5_scientific_complete"] is True, (
+        "C5 did its job; C6 is the stage that cannot proceed")
+    assert semantic["c6_pre_gate_input_ready"] is False
+    assert semantic["usable_generated_by_arm_and_route"]["DET"][PHYSICS] == 511
 
 
-def test_a_verified_lock_stops_blocking_c6(tmp_path: Path, monkeypatch) -> None:
+def test_a_pre_gate_ready_pool_stops_blocking_c6(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(c5_module, "verify_c5_synthesis_lock",
-                        lambda repo, path: {"lock_valid": True, "ok": True,
-                                            "reason": "VERIFIED", "checks": [],
-                                            "payload": {"usable_as_c6_input": True,
-                                                        "lock_kind": "scientific_synthesis"}})
+                        lambda repo, path: {
+                            "c5_scientific_complete": True,
+                            "c6_pre_gate_input_ready": True,
+                            "lock_valid": True, "ok": True, "reason": "VERIFIED",
+                            "checks": [], "candidates": {},
+                            "payload": {"lock_kind": "scientific_candidate_pool"}})
 
     semantic = C6Adapter().semantic_preconditions(_request(tmp_path))[0]
 
