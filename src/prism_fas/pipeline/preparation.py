@@ -71,6 +71,25 @@ SOURCE_DATASETS = ("casia_fasd", "msu_mfsd")
 M2_MANIFESTS = ("source_frames", "source_crops", "target_frames", "target_crops",
                 "preprocessing_failures")
 
+#: Every config this module hands to a builder, by project-relative path.
+#:
+#: Declared rather than spelled out at each call site so that one test can walk
+#: them against the shipped folder. `configs/models/model_priors.yaml` was named
+#: here for a file that has never existed — the canonical M3B config is
+#: `m3b_priors.yaml`, which is what the CLI, the docs and the M3B test suite all
+#: use — and the fixture project wrote a placeholder under the wrong name, so
+#: nothing compared the string to the repository until a real GPU run did, at
+#: M3B, after M2 and M3A had already completed.
+PREPARATION_CONFIGS = {
+    "m2_preprocess": "configs/data/preprocess_m2.yaml",
+    "m2_run_profiles": "configs/data/m2_run_profiles.yaml",
+    "m3a_package": "configs/data/package_m3a.yaml",
+    "m3b_model_priors": "configs/models/m3b_priors.yaml",
+}
+
+#: Per-dataset adapter definitions, resolved by name from `SOURCE_DATASETS`.
+DATASET_CONFIG_TEMPLATE = "configs/data/{dataset}.yaml"
+
 #: Written under the M2 output root after a full pass that validated. Its absence
 #: is what separates an interrupted preprocessing run from a finished one — the
 #: manifests exist from the first flush onward, so their presence proves nothing.
@@ -141,13 +160,13 @@ def _incomplete(repo: Path, name: str) -> bool:
 def _m2_config(repo: Path) -> Any:
     from prism_fas.data.preprocess_m2 import load_m2_config
 
-    return load_m2_config(Path(repo) / "configs" / "data" / "preprocess_m2.yaml")
+    return load_m2_config(Path(repo) / PREPARATION_CONFIGS["m2_preprocess"])
 
 
 def _m2_profile(repo: Path) -> Any:
     from prism_fas.data.run_profiles import load_profiles
 
-    return load_profiles(Path(repo) / "configs" / "data" / "m2_run_profiles.yaml")[
+    return load_profiles(Path(repo) / PREPARATION_CONFIGS["m2_run_profiles"])[
         M2_RUN_PROFILE]
 
 
@@ -193,8 +212,8 @@ def _records(repo: Path, dataset: str) -> list[Any]:
 
     paths = _paths(repo)
     definition = DatasetDefinition.model_validate(
-        yaml.safe_load((Path(repo) / "configs" / "data" / f"{dataset}.yaml").read_text(
-            encoding="utf-8")))
+        yaml.safe_load((Path(repo) / DATASET_CONFIG_TEMPLATE.format(dataset=dataset))
+                       .read_text(encoding="utf-8")))
     return list(adapter_for(definition, getattr(paths.raw_datasets, dataset)).records())
 
 
@@ -681,7 +700,7 @@ def _step_m3a(repo: Path, *, resume: bool) -> StepOutcome:
             f"{m2['manifests_root'] if m2.get('manifests_root') else m2['root']}.",
             {"m2": m2})
 
-    config = load_package_config(repo / "configs" / "data" / "package_m3a.yaml")
+    config = load_package_config(repo / PREPARATION_CONFIGS["m3a_package"])
     result = build_package(m2_output_root(repo), root, config, resume=resume)
 
     # Validate, finalize, validate again — the order the canonical CLI uses.
@@ -739,7 +758,7 @@ def _step_m3b(repo: Path, *, resume: bool) -> StepOutcome:
             "produced by the frozen towers and there is no substitute")
 
     result = build_m3b_package(source, target,
-                               repo / "configs" / "models" / "model_priors.yaml",
+                               repo / PREPARATION_CONFIGS["m3b_model_priors"],
                                weight_root=weight_root, resume=resume)
     return StepOutcome("m3b_priors", "BUILT",
                        "built the M3B model-prior package",

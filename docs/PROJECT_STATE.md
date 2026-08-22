@@ -28,11 +28,11 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX
-current_substage: the M2 producer / M3A consumer path mismatch that stopped the real
-                  RTX 5090 run at derived-data preparation is fixed, tested end to
-                  end and packaged for that host — COMPLETE
-previous_milestone: LINUX_RTX5090_AUTOGRAD_PREFLIGHT_HOTFIX
+current_milestone: LINUX_RTX5090_M3B_CONFIG_PATH_HOTFIX
+current_substage: the M3B step named a model-prior config that has never existed;
+                  it now uses the canonical one, and every config path the whole
+                  runtime names is audited against the shipped folder — COMPLETE
+previous_milestone: LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -587,6 +587,128 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+linux_rtx5090_m3b_config_path_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as an engineering config-path fix
+  base_commit_on_gpu_host: 0ce123cbec319e5cf637ce1fc894f20224c5df65
+  discovered_by: >-
+    the real Linux RTX 5090 host, which after the M2/M3A contract fix completed
+    M2 preprocessing and the whole M3A package and then stopped at the third
+    preparation step.
+  symptom: >-
+    [PREPARATION_FAILED] derived-data preparation failed at m3b_priors:
+    FileNotFoundError: configs/models/model_priors.yaml. Stopped BEFORE C4.
+
+  root_cause: >-
+    `_step_m3b` passed `repo / "configs" / "models" / "model_priors.yaml"` to
+    build_m3b_package, which opens it through load_model_config. That file has
+    never existed in this repository under any commit. The canonical M3B
+    model-prior config is `configs/models/m3b_priors.yaml`, which is what
+    src/prism_fas/cli/m10_target.py, tests/test_m3b_model_priors.py,
+    docs/M8_QUALITY_GATE_CONTRACT.md, docs/M10_TARGET_DATA_CONTRACT.md and the
+    CHANGELOG all reference. It was a name written once at a call site and never
+    compared to the folder.
+  why_tests_missed_it: >-
+    the preparation fixture wrote a placeholder at
+    `configs/models/model_priors.yaml`, so the stub suite created the file the
+    production string named. The same shape as the previous two defects: a
+    fixture that agreed with the code instead of with the repository.
+  fix: >-
+    `_step_m3b` names the canonical config. No alias file was created, no
+    scientific config content changed, and configs/models/m3b_priors.yaml is
+    byte-unchanged.
+  generalised: >-
+    every config the preparation path hands a builder is now declared once in
+    preparation.PREPARATION_CONFIGS (plus DATASET_CONFIG_TEMPLATE for the
+    per-dataset adapter definitions) and referenced from there, so a name lives
+    in one checkable place rather than at four call sites.
+
+  repository_wide_audit:
+    method: >-
+      AST walk over src/prism_fas/**/*.py and train.py, reconstructing both
+      whole-string paths and `repo / "configs" / ... / "x.yaml"` division chains,
+      checked against the 54 files under configs/ and assets/.
+    stale_runtime_paths_found: 1        # configs/models/model_priors.yaml, fixed
+    remaining_absent_but_correct:
+      - path: configs/data/target_layout.yaml
+        named_by: src/prism_fas/pipeline/adapters/sources.py
+        verdict: NOT_A_DEFECT
+        why: >-
+          it declares where the sealed held-out target package lives and is
+          produced by C10 target preparation, which has never run. The call site
+          checks is_file() and raises SourceUnavailable with its own message
+          rather than opening it, and it cannot be reached before C4.
+    other_config_paths_verified_present: >-
+      m9_detector.yaml, m9_reference.yaml, loader_m4.yaml, ontology_m7.yaml,
+      c2c_route_policy.yaml, m10_matrix.yaml, gpat_m8.yaml, quality_gate_m8.yaml,
+      package_m3a.yaml, preprocess_m2.yaml, m2_run_profiles.yaml,
+      casia_fasd.yaml, msu_mfsd.yaml, paths.local.yaml
+
+  scientific_safety:
+    scientific_config_contents_changed: false
+    alias_or_duplicate_config_created: false
+    m2_or_m3a_artifacts_touched: false
+    frozen_configs_changed: false
+    c3_banks_changed: false
+    target_access: 0
+    c4_to_c13_scientific_status: NOT_RUN
+    gemini_calls: 0
+    modal_jobs: 0
+
+  tests:
+    new_guards:
+      - >-
+        test_every_config_preparation_names_exists_in_the_shipped_folder — walks
+        PREPARATION_CONFIGS and the per-dataset configs against the real folder.
+      - >-
+        test_no_call_site_spells_a_config_path_of_its_own — a path spelled inline
+        is a path no test can walk.
+      - >-
+        test_the_m3b_step_is_given_the_canonical_model_prior_config — asserts the
+        canonical name reaches the builder AND that no alias file was added.
+      - >-
+        test_m3b_reaches_its_builder_without_a_missing_config — copies the real
+        config into the fixture, lets _step_m3b open it through the real
+        load_model_config, and asserts the keys build_m3b_package reads.
+      - >-
+        test_every_config_the_runtime_names_actually_exists — the repository-wide
+        audit, over the whole runtime tree rather than preparation alone.
+      - >-
+        test_a_config_that_does_not_exist_yet_is_guarded_not_opened — keeps the
+        single target_layout.yaml exemption honest: it must still be absent, still
+        be referenced, and its call site must still check is_file().
+    guards_verified_to_fail_against_the_defect: true   # reverted the name, 4 failed, restored
+    fixture_corrected: >-
+      the preparation fixture no longer writes configs/models/model_priors.yaml;
+      it names both configs from PREPARATION_CONFIGS.
+    preparation_suite: {passed: 61, failed: 0, skipped: 0}
+    firewall_suite: {passed: 40, failed: 0, skipped: 0}
+    pipeline_plus_m3b: {passed: 642, failed: 0, skipped: 3}
+    broad_regression: {passed: 2086, failed: 7, skipped: 101, seconds: 525.07}
+    inherited_failure_set_identical: true
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+
+  changed_runtime_files:
+    - src/prism_fas/pipeline/preparation.py
+  handoff_package: none built; one runtime file changed and git is the route
+  superseded_handoff_copy:
+    path: reports/handoff/LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX/src/prism_fas/pipeline/preparation.py
+    note: >-
+      still byte-correct for the commit its manifest names (eade289) and left
+      unchanged, but it predates this fix. Anyone applying that package's
+      MANUAL FALLBACK would reintroduce the M3B config path. Its README already
+      says git is the preferred route; use the NEW_HEAD below.
+  full_project_recopy_required: false
+  dataset_recopy_required: false
+  weights_recopy_required: false
+  venv_recopy_required: false
+  manual_cleanup_required: false
+  m2_m3a_rework_required: false     # both completed on the host and are reused
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 linux_rtx5090_m2_m3a_contract_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2094,58 +2216,44 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD, INSPECT ITS DERIVED
-  DATA, THEN RUN: `/usr/bin/python3 train.py`
+  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RESUME:
+  `/usr/bin/python3 train.py`
 
   On that host:
 
       cd /home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project
       git fetch origin
       git checkout <NEW_HEAD>
-      /usr/bin/python3 train.py --diagnose-data      # read-only; builds nothing
       /usr/bin/python3 train.py
 
-  Git is the preferred route: it moves exactly the four changed runtime files —
-  src/prism_fas/pipeline/preparation.py, src/prism_fas/data/run_context.py,
-  src/prism_fas/cli/main.py and train.py — and touches nothing else. NO recopy of
-  the ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
-  rebuild of .venv, NO reinstall, and NO manual deletion of data/work or
-  data/processed. If that host has no route to the remote, copy the four files
-  from reports/handoff/LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX/ preserving relative
-  paths and verify the SHA256s in its manifest.
+  ONE runtime file changed since the copy on that machine:
+  src/prism_fas/pipeline/preparation.py. NO recopy of the ~34 GB project, NO
+  recopy of datasets, NO recopy of weights, NO recopy or rebuild of .venv, NO
+  reinstall, NO manual deletion.
 
-  Run --diagnose-data first. It reports which M2 namespaces that machine actually
-  has, how many crops and manifest rows each holds, and how many records remain.
-  Expect it to show a populated legacy `m2a` tree and an absent
-  `full_preprocessing` tree, and to say that the legacy tree is NOT reusable —
-  the SCRFD hours the failed run spent there are lost, and preparation will redo
-  detection into the canonical namespace. From that first run onward, resume is
-  real and an interruption continues rather than restarting.
-
-  Then `/usr/bin/python3 train.py`, with no arguments. Expect bootstrap, GPU
-  preflight, then hours of derived-data preparation with per-dataset progress, M2
-  -> M3A -> M3B -> the GPAT pair plan, then C4 — the first scientific execution
-  this project has ever attempted past C3. Watch it rather than leaving it alone.
+  Critically: the M2 preprocessing and the M3A package that host already built
+  are VALID and are REUSED. This fix touches neither. Expect the run to report
+  m2_preprocess REUSED_VALID and m3a_package REUSED_VALID within minutes, then
+  start M3B — the step that failed — for the first time. `--diagnose-data` is
+  still available and still read-only if you want to look first.
 
   Nothing else is authorized. What follows is still true: no reports/full/c4..c13
-  artifact has ever been written, and no full-data preparation has ever completed.
+  artifact has ever been written, and no full-data preparation has ever completed
+  through to the GPAT pair plan.
 
-  What review is being asked to confirm: the M2 producer and the M3A consumer
-  resolve ONE location, through preparation.m2_output_root, under the production
-  full_preprocessing profile; M2 completion is measured by the canonical
-  validate_full_profile plus full record coverage plus a marker written last,
-  never by a directory being non-empty; completed records are resumed rather than
-  reprocessed and no partial artifact is deleted; and the whole chain now runs
-  end to end in a test with neither side stubbed.
+  What review is being asked to confirm: `_step_m3b` names
+  configs/models/m3b_priors.yaml — the config the CLI, the M3B test suite and the
+  M8/M10 contract documents already use — no alias file was created, its contents
+  are byte-unchanged, and every config path the whole runtime spells out is now
+  audited against the shipped folder by a test that was verified to fail against
+  the defect.
 
-  What review must NOT read into it: no manifest was fabricated, no empty
-  manifest was created, no file was copied by name, M3A validation was not
-  weakened and M3A was not taught to ignore a missing M2 manifest; the legacy m2a
-  artifacts were neither adopted nor deleted, and their unreusability is recorded
-  rather than worked around; no scientific config, constant, dataset, C3 bank, LR
-  or search decision, or SCRFD policy changed; and this milestone executed no
-  C4-C13 work, called no provider, allocated no Modal job, preprocessed no
-  SiW-Mv2 and touched no target label.
+  What review must NOT read into it: no scientific config content changed, no
+  duplicate config was added to satisfy a typo, no M2 or M3A artifact was touched
+  or rebuilt, and this milestone executed no C4-C13 work, called no provider,
+  allocated no Modal job and touched no target label. The one config path that is
+  still absent — configs/data/target_layout.yaml — is a C10 target artifact that
+  cannot be reached before C4 and whose call site already fails closed.
 
-last_updated_utc: 2026-08-22   # Linux RTX 5090 M2 -> M3A contract hotfix
+last_updated_utc: 2026-08-22   # Linux RTX 5090 M3B config path hotfix
 ```

@@ -269,6 +269,99 @@ def test_train_py_delegates_rather_than_implementing(repo: Path) -> None:
     assert not [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
 
 
+#: Config paths the runtime names for artifacts a LATER stage produces. Each is
+#: guarded at its call site and fails closed with its own message, so naming an
+#: absent file is correct there rather than a typo waiting to fire.
+CONFIGS_NOT_YET_BUILT = {
+    "configs/data/target_layout.yaml":
+        "declares where the sealed held-out target package lives. Built by the "
+        "C10 target preparation, which has never run; `sources.py` checks "
+        "`is_file()` and raises SourceUnavailable rather than opening it.",
+}
+
+
+def _literal_paths(tree: ast.AST) -> set[tuple[int, str]]:
+    """Every `configs/...` or `assets/...` path this module spells out.
+
+    Catches both forms the codebase uses: a whole path in one string, and a
+    `repo / "configs" / "models" / "x.yaml"` division chain.
+    """
+    def chain(node: ast.AST) -> list[str]:
+        parts: list[str] = []
+        while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            if not (isinstance(node.right, ast.Constant)
+                    and isinstance(node.right.value, str)):
+                return []            # a variable in the chain: not a literal path
+            parts.append(node.right.value)
+            node = node.left
+        return list(reversed(parts))
+
+    found: set[tuple[int, str]] = set()
+    for node in ast.walk(tree):
+        values: list[str] = []
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            parts = chain(node)
+            if parts:
+                values.append("/".join(parts))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            values.append(node.value)
+        for value in values:
+            value = value.lstrip("./")
+            if not value.startswith(("configs/", "assets/")) or "{" in value:
+                continue
+            # Prose that opens with a path — an error message naming the file it
+            # could not find — is not itself a path reference.
+            if any(character.isspace() for character in value):
+                continue
+            found.add((node.lineno, value))
+    return found
+
+
+def test_every_config_the_runtime_names_actually_exists(repo: Path) -> None:
+    """The guard for the class of defect that stopped three GPU runs in a row.
+
+    `_step_m3b` handed `build_m3b_package` a path to
+    `configs/models/model_priors.yaml`. That file has never existed — the
+    canonical config is `m3b_priors.yaml` — and the only thing standing between
+    the typo and the operator was a fixture that wrote a placeholder under the
+    wrong name. It surfaced after M2's hours of SCRFD and all of M3A had already
+    completed on the real host.
+
+    So the whole runtime tree is walked here, not just preparation: a path
+    spelled in code and absent from the folder fails on this machine instead of
+    on the third step of a multi-hour run.
+    """
+    sources = sorted((repo / "src" / "prism_fas").rglob("*.py")) + [repo / "train.py"]
+    missing: list[str] = []
+    for path in sources:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for line, value in _literal_paths(tree):
+            if value in CONFIGS_NOT_YET_BUILT:
+                continue
+            target = repo / value
+            if not (target.is_file() or target.is_dir()):
+                missing.append(f"{path.relative_to(repo).as_posix()}:{line} -> {value}")
+    assert missing == [], (
+        "these paths are named by runtime code and absent from the folder: "
+        + "; ".join(sorted(missing)))
+
+
+@pytest.mark.parametrize("relative", sorted(CONFIGS_NOT_YET_BUILT))
+def test_a_config_that_does_not_exist_yet_is_guarded_not_opened(
+        repo: Path, relative: str) -> None:
+    """An exemption is only honest while the call site still checks first."""
+    assert not (repo / relative).is_file(), (
+        f"{relative} now exists; remove it from CONFIGS_NOT_YET_BUILT so the "
+        "audit checks it like every other config")
+    users = [path for path in (repo / "src" / "prism_fas").rglob("*.py")
+             if relative in path.read_text(encoding="utf-8")]
+    assert users, f"nothing references {relative}; drop the exemption"
+    for path in users:
+        source = path.read_text(encoding="utf-8")
+        assert "is_file()" in source, (
+            f"{path.name} names {relative} without checking it exists")
+
+
 def test_a_validate_run_leaves_no_provider_credential_in_its_artifacts(
         repo: Path) -> None:
     """No artifact may serialize anything shaped like a key."""

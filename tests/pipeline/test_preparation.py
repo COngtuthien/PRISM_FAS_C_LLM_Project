@@ -62,8 +62,11 @@ def project(tmp_path: Path) -> Path:
         _write(repo / "data" / "raw" / dataset / "README.txt", dataset)
     _write(repo / "weights" / "siglip2" / "model.bin", "weights")
     _write(repo / "assets" / "recipe_banks" / "c3" / "llm" / "bank.json", "{}")
-    _write(repo / "configs" / "data" / "package_m3a.yaml", "version: 1\n")
-    _write(repo / "configs" / "models" / "model_priors.yaml", "version: 1\n")
+    # Named from the declaration, never spelled here. The fixture used to write
+    # `configs/models/model_priors.yaml` — a file the repository has never had —
+    # which is precisely what let `_step_m3b` go on naming it.
+    _write(repo / preparation.PREPARATION_CONFIGS["m3a_package"], "version: 1\n")
+    _write(repo / preparation.PREPARATION_CONFIGS["m3b_model_priors"], "version: 1\n")
     # The M2 configs are the real ones. `m2_output_root` derives the canonical
     # namespace from `preprocessing_version` and `config_hash`, so a placeholder
     # here would leave the fixture free to invent its own layout — which is the
@@ -860,6 +863,102 @@ def test_an_absent_derived_root_is_missing_rather_than_incomplete(
     assert preparation._incomplete(project, "packages") is False
     needed = preparation.what_is_needed(project)
     assert "packages" in needed["missing_derived"]
+
+
+def test_every_config_preparation_names_exists_in_the_shipped_folder() -> None:
+    """The guard this file did not have, and the reason M3B failed on the GPU host.
+
+    `_step_m3b` passed `configs/models/model_priors.yaml` to `build_m3b_package`.
+    That file has never existed under any name but the one it was mistyped from:
+    the canonical M3B config is `configs/models/m3b_priors.yaml`, which is what
+    `cli/m10_target.py`, `tests/test_m3b_model_priors.py` and the M8/M10 contract
+    documents all use. The fixture below wrote a placeholder under the wrong name,
+    so the string was never compared to the repository — and the run got through
+    hours of M2 and all of M3A before finding out.
+
+    This walks the declaration against the real shipped folder, so a name that
+    does not exist fails here rather than at the third preparation step of a
+    multi-hour GPU run.
+    """
+    for role, relative in preparation.PREPARATION_CONFIGS.items():
+        assert (REPO / relative).is_file(), f"{role} names {relative}, which is absent"
+    for dataset in preparation.SOURCE_DATASETS:
+        relative = preparation.DATASET_CONFIG_TEMPLATE.format(dataset=dataset)
+        assert (REPO / relative).is_file(), relative
+
+
+def test_no_call_site_spells_a_config_path_of_its_own() -> None:
+    """A path spelled inline is a path no test can walk."""
+    import ast
+
+    source = (REPO / "src" / "prism_fas" / "pipeline" / "preparation.py").read_text(
+        encoding="utf-8")
+    tree = ast.parse(source)
+    declaration = ast.get_source_segment(source, next(
+        node.value for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(getattr(t, "id", "") == "PREPARATION_CONFIGS" for t in node.targets)))
+
+    for literal in {node.value for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)}:
+        if literal.endswith(".yaml") and literal not in (declaration or ""):
+            assert literal.startswith("configs/data/{dataset}"), (
+                f"{literal!r} is spelled at a call site instead of in "
+                "PREPARATION_CONFIGS, where a test can check it exists")
+
+
+def test_the_m3b_step_is_given_the_canonical_model_prior_config(
+        project: Path, builders: Builders) -> None:
+    """The production step must hand `build_m3b_package` a config that is really
+    there, and it must be the one the rest of the project already uses."""
+    canonical = REPO / "configs" / "models" / "m3b_priors.yaml"
+    assert canonical.is_file()
+    assert not (REPO / "configs" / "models" / "model_priors.yaml").exists(), (
+        "the fix is to point at the canonical config, never to add an alias file")
+
+    preparation.prepare(project, dry_run=False)
+    call = next(item for item in builders.calls if item["step"] == "m3b_priors")
+
+    assert call["model_config"] == project / "configs" / "models" / "m3b_priors.yaml"
+    assert call["model_config"].name == canonical.name
+
+
+def test_m3b_reaches_its_builder_without_a_missing_config(
+        project: Path, builders: Builders, monkeypatch: pytest.MonkeyPatch) -> None:
+    """End of the chain the GPU host actually walked: `_step_m3b` opens the config
+    it names and gets into `build_m3b_package` rather than a FileNotFoundError.
+
+    The canonical config is copied into the fixture and loaded by the REAL
+    `load_model_config`, so a config that does not parse, or that lost a key the
+    builder reads, fails here too.
+    """
+    import shutil
+
+    from prism_fas.data.package import m3b as m3b_module
+
+    (project / "configs" / "models").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(REPO / "configs" / "models" / "m3b_priors.yaml",
+                    project / "configs" / "models" / "m3b_priors.yaml")
+    seen: dict[str, Any] = {}
+
+    def real_config_then_stop(input_package, output_package, model_config, **kwargs):
+        from prism_fas.data.package.m3b import load_model_config
+
+        seen["model_config"] = Path(model_config)
+        seen["config"] = load_model_config(Path(model_config))
+        raise RuntimeError("stop once the config has been read")
+
+    monkeypatch.setattr(m3b_module, "build_m3b_package", real_config_then_stop)
+    with pytest.raises(preparation.PreparationError) as caught:
+        preparation.prepare(project, dry_run=False)
+
+    assert "FileNotFoundError" not in str(caught.value)
+    assert "stop once the config has been read" in str(caught.value)
+    assert seen["model_config"].is_file()
+    # The keys `build_m3b_package` reads out of it, so a gutted config fails here.
+    assert seen["config"]["parsing"]["backend"]
+    assert seen["config"]["identity"]["backend"]
+    assert seen["config"]["runtime"]["device_policy"]
 
 
 def test_unresolvable_weights_block_the_prior_package(project: Path,
