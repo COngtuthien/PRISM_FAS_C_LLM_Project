@@ -28,12 +28,11 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C4_SCIENTIFIC_SEARCH_CLOSURE_HOTFIX
-current_substage: three execution-correctness defects closed before any GPU hours
-                  are spent — a resumed trial could not be finalized, the selected
-                  config and the checkpoint could cross-bind, and an interrupted
-                  envelope could write the lock — COMPLETE
-previous_milestone: C4_SCIENTIFIC_EXECUTION_ROUTING_CLOSURE
+current_milestone: C5_CANDIDATE_CONTRACT_RECONCILIATION
+current_substage: the 1120-vs-2048/arm question is RESOLVED from the frozen spec
+                  and locked by test; the C5 scientific executor is NOT built —
+                  two NEEDS_SCIENTIFIC_DECISION items block it
+previous_milestone: C4_SCIENTIFIC_SEARCH_CLOSURE_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -588,6 +587,114 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+c5_candidate_contract_reconciliation:
+  status: CONTRACT_RESOLVED_IMPLEMENTATION_BLOCKED
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session — explicitly a decision gate before implementation
+  base_commit: f24baddbcaea9dacd1898d12d0783262334a625d
+
+  # --- RESOLVED: which cardinality contract governs Version-C C5 ------------
+  reconciliation:
+    verdict: >-
+      NOT a contradiction. The two constant sets belong to two different
+      experiments. gate_profiles.py is the Version-C contract; candidate_plan.py
+      and synthetic_bank_m8.yaml are the Version-B inherited M8 single-bank
+      synthesis.
+    authoritative_source: >-
+      the frozen v1.5 specification, read from the shipped .docx
+    version_c_evidence:
+      - "§10.4 (the C5 clause): Scientific synthesis budget is fixed at 2048
+         candidate renders per arm = 256 recipes x 8 renders/recipe, with exactly
+         4 Physics and 4 GPAT candidates per recipe before the common quality
+         gate. Final accepted bank is exactly 1024/arm = 512 Physics + 512 GPAT."
+      - "§11.3: matched final training banks, exact same cardinality = 1024
+         accepted samples/arm; each arm starts from 2048 candidate renders."
+      - "§11.4: C6 selects the strictest profile that yields >=1024 accepted in
+         EVERY arm from the frozen 2048 candidates/arm."
+      - "C5 stage row: Physics/GPAT render for 3 arms; C6 stage row: Gate
+         candidates and build exact matched training banks."
+      - "executive summary: 384 raw recipe candidates/arm -> 256 recipes/arm;
+         2048 synthetic candidates/arm -> 1024 accepted/arm."
+      - "shipped C3 banks confirm it independently: det/llm/rnd each hold
+         EXACTLY 256 recipes from 384 raw slots. 256 x 8 = 2048."
+    version_b_evidence:
+      - "configs/synthesis/synthetic_bank_m8.yaml: live_samples 280,
+         candidate_recipes_per_live {physics 2, gpat 2}, expected total 1120,
+         bank_id_prefix prism_synthetic_bank_m8_v1."
+      - "candidate_plan.py hard-codes EXPECTED_PER_ROUTE 560 / EXPECTED_TOTAL 1120."
+      - "neither carries an arm dimension anywhere — no 'arm' key, no RND/DET/LLM."
+      - "it is keyed on LIVE SAMPLES; the Version-C contract is keyed on RECIPES."
+      - "Version-B froze prism_synthetic_bank_m8_v3_e84c78cd2a9b under it."
+    decisive_asymmetry: >-
+      the strings 1120, 280 and 560 appear NOWHERE in the Version-C v1.5
+      specification. Verified by test against the .docx.
+    authoritative_for_version_c_c5: gate_profiles.py — 3 arms x 2048 -> 1024/arm
+    candidate_plan_py_verdict: >-
+      LEGACY / Version-B only. Not directly reusable: it is per-live rather than
+      per-recipe, has no arm dimension, and hard-fails on any count but 1120.
+      Adapting it would change a frozen Version-B contract, so it is left alone.
+    locked_by: tests/pipeline/test_c5_candidate_contract.py    # 17 passed
+
+  # --- NOT RESOLVED: what blocks the C5 executor ---------------------------
+  needs_scientific_decision:
+    - id: C5_CANDIDATE_IDENTITY_VS_QUALITY_CALIBRATION
+      what: >-
+        the spec puts rendering at C5 and gating at C6, but the canonical
+        SyntheticBankGenerator loads a FrozenCalibration unconditionally and
+        binds threshold_sha256, fingerprint_reference_sha256 and
+        calibration_sha256 INTO its generation identity. No generation-only mode
+        exists.
+      why_not_mechanical: >-
+        using it at C5 needs a frozen calibration before C6 selects one, which is
+        the circular dependency the task forbids and applies a gate the spec
+        assigns to C6. Removing those three fields CHANGES candidate identities
+        rather than preserving them, and the spec never says whether a Version-C
+        candidate identity should bind a quality calibration at all.
+      decision_required: >-
+        does the Version-C C5 candidate identity bind a quality calibration?
+        If not, the canonical generation identity must be re-specified.
+    - id: C5_RENDER_TO_LIVE_SAMPLE_MAPPING
+      what: >-
+        §10.4 says only "use a fixed ordered list of live source sample IDs
+        shared across all generator arms" and fixes the budget per RECIPE
+        (256 x 8). It does not state how the 8 renders of a recipe are assigned
+        to live samples, how long the shared list is, or how it is built.
+      why_it_matters: >-
+        the candidate identity binds live_target_sample_id, so this mapping
+        determines every candidate's identity and its bytes.
+      why_version_b_cannot_answer_it: >-
+        the M8 construction is per-live (280 x 2 per route), a different shape
+        from per-recipe (256 x 8). It is not a lower-level view of the same plan.
+      decision_required: >-
+        the exact construction of the shared ordered live list and the
+        recipe-render -> live-sample assignment rule.
+
+  implementation_status: >-
+    NONE. No scientific generation code was written or committed, per the task's
+    own instruction that none should be until the gate resolves. The C5
+    engineering workflow, the assert_fixture_permitted guards and the C5-C13
+    leakage audit from the previous milestones are untouched.
+  c4_input_contract_unimplemented: >-
+    the C4-lock verification path for C5 was specified in the request but not
+    built, because it would be part of the blocked executor.
+
+  scientific_safety:
+    scientific_generation_code_committed: 0
+    scientific_contracts_changed: 0
+    candidate_bank_generated: false
+    target_access: 0
+    c4_to_c13_scientific_execution: NOT_RUN
+
+  tests:
+    contract_suite: tests/pipeline/test_c5_candidate_contract.py    # 17 passed
+    reads_the_frozen_spec_directly: true
+    pipeline_suite: {passed: 802, failed: 0, skipped: 0}
+    broad_regression: {passed: 2258, failed: 7, skipped: 101, seconds: 563.63}
+    inherited_failure_set_identical: true
+
+  changed_runtime_files: []      # test and documentation only
+
 c4_scientific_search_closure_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2997,69 +3104,45 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RUN C4 SCIENTIFICALLY:
+  TWO SCIENTIFIC DECISIONS ARE REQUIRED BEFORE C5 CAN BE BUILT. Nothing else is
+  authorized until they are answered, and neither may be answered by preference.
 
-      cd /home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project
-      git fetch origin
-      git checkout <NEW_HEAD>
-      /usr/bin/python3 train.py
+  The cardinality question is already settled and needs no decision: §10.4 fixes
+  the Version-C C5 budget at 2048 candidate renders per arm = 256 recipes x 8
+  (4 Physics + 4 GPAT), three arms, 1024 accepted per arm. The shipped C3 banks
+  hold exactly 256 recipes each, and the strings 1120 / 280 / 560 appear nowhere
+  in the specification. `candidate_plan.py` is the Version-B M8 contract and is
+  left untouched. A regression test locks this so it cannot drift again.
 
-  Five runtime files changed; no data, weights or .venv recopy, and no manual
-  deletion. M2, M3A and M3B are reused; gpat_pairs is reused or rebuilt on
-  identity as before.
+  DECISION 1 — C5_CANDIDATE_IDENTITY_VS_QUALITY_CALIBRATION. Does a Version-C
+  C5 candidate identity bind a quality calibration? The spec renders at C5 and
+  gates at C6, but the canonical SyntheticBankGenerator loads a FrozenCalibration
+  unconditionally and binds three calibration hashes into its generation
+  identity. Using it at C5 needs a calibration C6 has not chosen yet; removing
+  those fields changes candidate identities. The spec does not say.
 
-  THEN C4 EXECUTES SCIENTIFICALLY FOR THE FIRST TIME. Expect a different shape
-  from the last run: no SMOKE_GPAT, a plan of 12 trials over four coordinates
-  (learning-rate multiplier, weight decay, residual weight, identity weight),
-  and each trial a FULL GPATTrainer.fit over 896 training pairs for up to 15
-  epochs with early stopping. That is hours per trial, not seconds. Watch it.
+  DECISION 2 — C5_RENDER_TO_LIVE_SAMPLE_MAPPING. §10.4 fixes the budget per
+  RECIPE and says only "a fixed ordered list of live source sample IDs shared
+  across all generator arms". It does not say how the 8 renders of each recipe
+  are assigned to live samples, how long that list is, or how it is built. The
+  candidate identity binds live_target_sample_id, so this determines every
+  candidate's identity and bytes. The Version-B per-live construction is a
+  different shape and cannot supply the answer.
 
-  The engineering artifacts already under reports/full/c4 are preserved as
-  historical debugging evidence. The scientific pass writes beside them —
-  C4_SCIENTIFIC_SEARCH_STATE.json, C4_SCIENTIFIC_SOURCE_SEARCH.json and
-  GPAT_CONFIG_LOCK.json — and cannot resume from the engineering state, because
-  the two search plans have different identities.
+  MEANWHILE, C4 IS UNBLOCKED AND UNCHANGED. The GPU host can still run
+  `/usr/bin/python3 train.py` at the current HEAD to execute the scientific C4
+  search — preparation reuses M2/M3A/M3B, gpat_pairs rebuilds on identity, and
+  C4 runs its 12 trials. C5 will block afterwards, which is expected and correct.
 
-  BE PREPARED FOR IT TO STOP. This executor has never run: this laptop is
-  CPU-only and holds no source package, so the wiring is proven structurally and
-  not by execution. Every defect in this chain so far was found by executing.
-  Four stops are by design rather than by defect: EnvelopeExhausted, if no trial
-  produces a valid configuration, reports NEEDS_SCIENTIFIC_DECISION and must not
-  be answered by widening the search; FixtureInScientificContext, if any code
-  path reaches a fixture under a scientific profile; SEARCH_INCOMPLETE, if the
-  pass is interrupted — state and checkpoints are preserved and the next run
-  resumes at that trial, with no lock written; and SCIENTIFIC_DEVICE_UNAVAILABLE
-  if CUDA is absent, because a CPU GPAT trial would neither finish nor honour the
-  frozen fp16 precision contract.
+  What review is being asked to confirm: the reconciliation is read off the
+  frozen specification rather than off the code, and the test asserts it against
+  the .docx itself; `candidate_plan.py` was not adapted, renamed or deleted; and
+  no scientific generation code was written, per the instruction that none should
+  be committed until the gate resolves.
 
-  Interrupting the run is now safe and resumable. Each completed trial writes
-  TRIAL_SUMMARY.json into its own deterministic run root, so a later process can
-  finalize a trial an earlier one completed. Do not delete
-  C4_SCIENTIFIC_SEARCH_STATE.json or any trial run root to "clean up" — that is
-  the resume point, and the run recomputes from it rather than from scratch.
+  What review must NOT read into it: neither cardinality contract was changed;
+  the two experiments were not merged or averaged; no threshold, arm budget or
+  bank identity was touched; and no candidate bank was generated.
 
-  AFTER C4 PASSES, C5 WILL STILL BLOCK, and that is correct. The audit above
-  records that C5-C13 have no scientific executor: C5's _render_gpat builds a
-  fixture batch and a randomly initialized generator, caps the arms at
-  SMOKE_RECIPES_PER_ARM=2 and records trained_checkpoint_used: false. A
-  scientific C5 must render from the C4 winning checkpoint over the full
-  candidate budget, and that executor does not exist. Wiring it is the next
-  milestone, not something to work around.
-
-  What review is being asked to confirm: a scientific context takes a branch
-  that shares no function with the rehearsal; no scientific function reaches
-  _fixture_batch or _identity_stand_in; the trials are GPATTrainer.fit and not a
-  one-step evaluator; the approved B_common_multiplier decision is bound and the
-  2:1:2 ratio holds at every multiplier; require_valid_winner is True;
-  GPAT_CONFIG_LOCK is written only from a trained winner and binds every frozen
-  input identity plus the checkpoint SHA256; and the stage's scientific axis
-  follows that evidence rather than a literal.
-
-  What review must NOT read into it: the engineering record was not renamed,
-  copied, relabelled or promoted; no metric was invented — every field of
-  GPAT_SELECTION_TUPLE is read from what GPATTrainer.validate already returns;
-  no anchor was invented for the ABSENT geometry coordinate, which §15.2.3
-  skips; and NO C4-C13 scientific training ran on this laptop.
-
-last_updated_utc: 2026-08-22   # C4 scientific search closure hotfix
+last_updated_utc: 2026-08-22   # C5 candidate contract reconciliation
 ```
