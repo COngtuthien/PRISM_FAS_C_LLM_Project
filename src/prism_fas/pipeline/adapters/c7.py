@@ -36,7 +36,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, resume_decision,
                                                 stage_reports_dir, stage_runs_dir, utc,
                                                 write_artifact)
@@ -199,6 +200,8 @@ class C7Adapter(EngineeringAdapter):
         from prism_fas.evaluation.variant_audit import build_audit_detector
 
         model = build_audit_detector(variant)
+        assert_fixture_permitted(request.context,
+                                 "the C7 detector complexity fixture batch")
         batch = _fixture_batch(variant)
         profile = complexity_module.profile_model(
             model, batch, name=f"detector_track_{track.lower()}",

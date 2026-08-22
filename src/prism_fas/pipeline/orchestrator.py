@@ -189,9 +189,25 @@ def _execute_stage(stage: Stage, request: "AdapterRequest") -> StageOutcome:
         gate = "PASS"
         engineering = "SMOKE_PASS" if executes_code_path else "NOT_TESTED"
 
+    # The scientific axis FOLLOWS the evidence: it is whatever the adapter modes
+    # that produced scientific evidence reported, and NOT_RUN when none did. It
+    # used to be hard-coded NOT_RUN here, which is why a genuinely scientific run
+    # could only ever end `PASS / sci=NOT_RUN` — there was no other value this
+    # function could produce. A stage cannot reach PASS on this axis by any route
+    # except an adapter that ran a scientific mode and passed its own checks.
+    claimed = [item for item in results if item.status_axes.scientific != "NOT_RUN"]
+    if not claimed:
+        scientific = "NOT_RUN"
+    elif any(item.status_axes.scientific == "FAIL" for item in claimed) or failed:
+        scientific = "FAIL"
+    elif blocked:
+        scientific = "BLOCKED"
+    else:
+        scientific = "PASS"
+
     return StageOutcome(
         stage=stage,
-        status=DualStatus(engineering=engineering, scientific="NOT_RUN"),
+        status=DualStatus(engineering=engineering, scientific=scientific),
         validate_gate=gate, started_at_utc=started, finished_at_utc=_utc(),
         adapter_results=results,
         provider_calls=sum(item.provider_calls for item in results),

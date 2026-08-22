@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, read_json,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
@@ -273,6 +274,13 @@ class C5Adapter(EngineeringAdapter):
 
         checks: list[dict[str, Any]] = []
         config = _load_config(request.repo)
+        # Fail closed. This path builds a fixture batch and a RANDOMLY
+        # INITIALIZED generator, and its own artifact records
+        # `trained_checkpoint_used: False`. It is correct as a rehearsal of the
+        # route interface and is not scientific evidence under any profile.
+        assert_fixture_permitted(request.context,
+                                 "the C5 GPAT route rehearsal batch and its "
+                                 "untrained generator")
         batch = _fixture_batch(request.repo, 2)
         model = build_gpat_model(config)
         model.eval()

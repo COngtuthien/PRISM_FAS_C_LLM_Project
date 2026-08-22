@@ -40,7 +40,7 @@ from prism_fas.pipeline.adapters import (AdapterError, AdapterRequest, AdapterRe
                                          ProviderBinding, assert_binding_permitted)
 from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.state import atomic_write_json
-from prism_fas.pipeline.status import DualStatus
+from prism_fas.pipeline.status import DualStatus, StatusError
 
 #: Marker every fixture-backed artifact carries. Grep-able on purpose: it must be
 #: possible to find every engineering rehearsal in the tree with one search.
@@ -277,13 +277,23 @@ class EngineeringAdapter:
                checks: Sequence[dict[str, Any]], artifacts: Sequence[str] = (),
                summary: str = "", notes: Sequence[str] = (),
                parent_identities: dict[str, str] | None = None,
-               substage: str | None = None, **detail: Any) -> AdapterResult:
+               substage: str | None = None, scientific_evidence: bool = False,
+               **detail: Any) -> AdapterResult:
         """Assemble one adapter result from its checks.
 
         The dual status is derived, not passed in: a smoke run that passed is
         SMOKE_PASS on the engineering axis and NOT_RUN on the scientific one, and
         no argument to this method can produce any other combination. That is
         what makes "smoke is not scientific completion" structural.
+
+        `scientific_evidence` is the ONE way an adapter says "this mode produced
+        scientific evidence", and it is not a free choice. It is refused outright
+        on a profile that is not scientifically eligible, so a rehearsal cannot
+        claim science by passing a flag, and a mode that sets it still reports
+        FAIL on the scientific axis when its own checks failed. Until this
+        existed the scientific axis was hard-coded NOT_RUN, which is why a real
+        GPU run could report `C4 PASS / sci=NOT_RUN`: there was no value the
+        stage could have produced instead.
         """
         failed = [item for item in checks if not item["ok"]]
         # L.3 fixes the engineering vocabulary at NOT_TESTED | RUNNING | SMOKE_PASS
@@ -296,15 +306,54 @@ class EngineeringAdapter:
         engineering = ("SMOKE_PASS" if smoke and not failed else
                        "SMOKE_FAIL" if smoke else
                        "NOT_TESTED" if not failed else "BLOCKED")
+        if scientific_evidence and not request.profile.scientific_eligible:
+            raise StatusError(
+                f"{self.stage_id} {mode} claimed scientific evidence under profile "
+                f"{request.profile.name!r}, which is not scientifically eligible. "
+                "Engineering evidence may never be promoted by a flag.")
+        scientific = ("NOT_RUN" if not scientific_evidence else
+                      "PASS" if not failed else "FAIL")
         return AdapterResult(
             stage_id=self.stage_id, substage=substage or self.stage_id, mode=mode,
             provider_binding=ProviderBinding.NONE, status=status,
-            status_axes=DualStatus(engineering=engineering, scientific="NOT_RUN"),
+            status_axes=DualStatus(engineering=engineering, scientific=scientific),
             summary=summary or f"{self.stage_id} {mode.lower().replace('_', ' ')}"
                                f" — {len(checks) - len(failed)}/{len(checks)} checks passed",
             checks=list(checks), artifacts=list(artifacts),
             parent_identities=dict(parent_identities or {}), provider_calls=0,
             notes=list(notes), detail=dict(detail))
+
+
+class FixtureInScientificContext(AdapterError):
+    """A scientific run reached fixture machinery. It never may.
+
+    This is the C4 defect generalized. C4 had one workflow, built as an
+    engineering rehearsal, and `--profile full` ran it: a fixture batch, a
+    stand-in identity model and a one-step evaluator all executed under a
+    scientific profile and every check passed, because they are correct
+    engineering. The stage reported PASS while the scientific axis stayed
+    NOT_RUN and the artifact C5 needed was never written.
+
+    Every fixture producer now asks first. Raising here is the difference
+    between a run that stops and a run that produces fixture numbers wearing a
+    scientific profile's namespace.
+    """
+
+    reason_code = "FIXTURE_IN_SCIENTIFIC_CONTEXT"
+
+
+def assert_fixture_permitted(context: ExecutionContext, what: str) -> None:
+    """Refuse to build `what` when the context is scientific.
+
+    `fixtures_permitted` is derived as `not scientific_eligible`, so this cannot
+    be satisfied by a caller passing a flag.
+    """
+    if context is None or context.fixtures_permitted:
+        return
+    raise FixtureInScientificContext(
+        f"{what} is a fixture and this run is scientifically eligible "
+        f"(profile {context.profile_name!r}). A scientific stage must resolve its "
+        "real frozen input or stop; it may never substitute a fixture.")
 
 
 def _accelerator_available() -> tuple[bool, dict[str, Any]]:
@@ -371,7 +420,8 @@ def resume_decision(request: AdapterRequest, unit_id: str, artifact: Path, *,
     }
 
 
-__all__ = ["FIXTURE_MARKER", "MISSING_INPUT", "CanonicalImplementationUnavailable",
+__all__ = ["FixtureInScientificContext", "assert_fixture_permitted",
+           "FIXTURE_MARKER", "MISSING_INPUT", "CanonicalImplementationUnavailable",
            "utc", "check", "stage_reports_dir", "stage_runs_dir", "write_artifact",
            "RequiredInput", "SmokeBudget", "EngineeringAdapter", "ExecutionContext",
            "import_canonical",

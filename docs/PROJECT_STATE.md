@@ -28,12 +28,13 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: LINUX_RTX5090_PACKAGE_LIFECYCLE_HOTFIX
-current_substage: preparation treated a PACKAGE_LOCK's existence as validity, so a
-                  fully built M3B sat at status `building` and C4 refused it; the
-                  validate/finalize/validate lifecycle is now obeyed, and the pair
-                  plan follows the finalized identity — COMPLETE
-previous_milestone: LINUX_RTX5090_C4_SUPPORT_INPUT_CONTRACT_HOTFIX
+current_milestone: C4_SCIENTIFIC_EXECUTION_ROUTING_CLOSURE
+current_substage: C4 had one workflow — an engineering rehearsal — and --profile
+                  full ran it, which is why the host saw C4 PASS / sci=NOT_RUN. A
+                  scientific branch now drives the canonical GPATTrainer under the
+                  approved LR decision, and C5-C13 are audited for the same
+                  leakage — COMPLETE
+previous_milestone: LINUX_RTX5090_PACKAGE_LIFECYCLE_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -588,6 +589,201 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+c4_scientific_execution_routing_closure:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false          # no C4-C13 training ran on this laptop
+  authorized_by: user, in session
+  base_commit_on_gpu_host: 34c321ee41e654adfe1439afe2f9400c5a9a6734
+
+  # --- the defect ---------------------------------------------------------
+  symptom: >-
+    the RTX 5090 completed preparation and reported C4 PASS with every mode
+    passing — PREPARE_SUPPORT, VALIDATE_SUPPORT, SMOKE_GPAT, SOURCE_SEARCH,
+    FINALIZE_GPAT, VERIFY_LOCK — while the stage status stayed sci=NOT_RUN and
+    C5 blocked on reports/full/c4/GPAT_CONFIG_LOCK.json being absent.
+  root_cause_one_workflow: >-
+    C4 had a SINGLE workflow, written as an engineering rehearsal, and
+    --profile full executed it. It built a fixture batch, scored trials with
+    _identity_stand_in instead of the frozen AdaFace, evaluated each candidate
+    with ONE optimizer step, called coordinate_search(require_valid_winner=
+    False), wrote C4_ENGINEERING_CONFIG_RECORD.json, and asserted that the
+    scientific GPAT_CONFIG_LOCK did NOT exist. Every check passed because the
+    engineering path is correct engineering. It was simply in the wrong place.
+  root_cause_status_axis: >-
+    the scientific axis was hard-coded "NOT_RUN" in TWO places —
+    EngineeringAdapter.result and orchestrator._execute_stage — so even a
+    genuinely scientific run had no value it could report. That is the other
+    half of PASS / sci=NOT_RUN.
+  what_was_NOT_done: >-
+    the engineering record was not renamed, not copied to GPAT_CONFIG_LOCK, not
+    relabelled is_scientific_lock, and the one-step search was not promoted.
+    Engineering evidence cannot become scientific evidence by any edit here.
+
+  # --- the fix ------------------------------------------------------------
+  routing:
+    boundary: ExecutionContext.is_scientific / fixtures_permitted
+    rehearsal_path: _engineering_workflow — unchanged, six modes as before
+    scientific_path: >-
+      _scientific_workflow — _scientific_prepare, _scientific_plan,
+      _scientific_search, _scientific_finalize, _scientific_verify_lock. It
+      shares no function with the rehearsal, and SMOKE_GPAT is absent by
+      construction: a smoke inside a scientific pass would put fixture numbers
+      in the same report as scientific ones.
+    second_lock: >-
+      assert_fixture_permitted() raises FixtureInScientificContext at the
+      fixture producers themselves, so re-editing workflow() cannot reopen the
+      door.
+  inputs: >-
+    sources.verify_support_inputs remains authoritative and is unchanged: M3B
+    validated, frozen M7 bank, gpat_pairs 896/224, all three identities agreeing.
+  trainer: >-
+    prism_fas.synthesis.gpat_trainer.GPATTrainer. No training is reimplemented
+    in c4.py. The trainer owns SampleStore, bank resolution, both pair
+    manifests, real AdaFace, device placement, fp16 AMP, parameter groups,
+    scheduler, invariant checks, validation, early stopping, best/last
+    checkpoints, checkpoint identity, resume lineage and the source-only audit.
+  lr_decision:
+    source: configs/search/lr_anchor_decision.yaml via load_decision().for_component("C4")
+    identity: 7ef3492263507d4399828089bbe1af79438bc892e50c8ad732585c1d40c8397c
+    interpretation: B_common_multiplier
+    anchor_vector: {encoder_lr: 2.0e-4, recipe_lr: 1.0e-4, generator_lr: 2.0e-4}
+    multipliers: [0.5, 1.0, 2.0]
+    ratio_proof_measured_this_session:
+      "0.5": {encoder_lr: 1.0e-4, recipe_lr: 5.0e-5, generator_lr: 1.0e-4, ratio: "2.0:1.0:2.0"}
+      "1.0": {encoder_lr: 2.0e-4, recipe_lr: 1.0e-4, generator_lr: 2.0e-4, ratio: "2.0:1.0:2.0"}
+      "2.0": {encoder_lr: 4.0e-4, recipe_lr: 2.0e-4, generator_lr: 4.0e-4, ratio: "2.0:1.0:2.0"}
+    consequence_measured: >-
+      with the decision bound the plan has 5 coordinates and 12 trials; without
+      it the learning-rate coordinate stays AMBIGUOUS and the plan has 9. The
+      two plan identities therefore DIFFER, which is what makes an engineering
+      search state unusable as a scientific resume point.
+  absent_coordinate_not_invented:
+    coordinate: geometry_preservation_weight
+    state: ABSENT — gpat_m8.yaml carries no loss.geometry at either declared path
+    handling: >-
+      §15.2.3 skips an absent scalar and the plan marks it inapplicable. An
+      earlier draft of this milestone mapped it onto loss.total_variation, the
+      nearest-looking key; that would have invented an inherited anchor and was
+      removed. A test asserts the mapping table does not contain it.
+  selection_tuple_mapping:
+    source: GPATTrainer.validate() — the loss result's detached() already carries
+            the invariant errors beside the components, so no metric is invented
+    hard_invariant_failure: either invariant over its declared tolerance
+    neutral_support_validation_objective: validation_total_loss (= checkpoint_selection.primary)
+    identity_drift: validation_identity
+    low_frequency_geometry_drift: validation_ll_invariant_max_abs_error
+    outside_mask_error: validation_outside_mask_max_abs_error
+  search:
+    engine: prism_fas.search.coordinate.coordinate_search
+    require_valid_winner: true
+    on_exhaustion: NEEDS_SCIENTIFIC_DECISION — the envelope is never widened
+    one_pass: true
+    state_file: reports/full/c4/C4_SCIENTIFIC_SEARCH_STATE.json
+    engineering_state_preserved: reports/full/c4/C4_SEARCH_STATE.json — untouched
+    per_trial_run_root: runs/full/c4/scientific/trial_<config_sha16>/
+    resume: >-
+      identity-aware at trial granularity (coordinate_search reuses a recorded
+      trial by config hash) and at epoch granularity inside each trial
+      (GPATTrainer.fit(resume=True) from its own last.pt). Failed and diverged
+      trials are retained in the leaderboard.
+  scientific_lock:
+    path: reports/full/c4/GPAT_CONFIG_LOCK.json
+    schema: c4-gpat-config-lock-v1
+    written_only_by: _scientific_finalize, only from a trained winner
+    binds: [execution_profile, search_plan_identity, lr_decision_identity,
+            lr_interpretation, lr_anchor_vector, selection_tuple, tie_break,
+            attempted_config_ids, trials_by_status, winner_config_id,
+            winner_config_sha256, selected_config, package_identity,
+            recipe_bank_identity, pair_plan_identity, adaface_weight_sha256,
+            architecture_hash, config_hash, winning_checkpoint,
+            winning_checkpoint_sha256, best_metrics, record_set_hashes,
+            resume_lineage, source_isolation, no_target_capability_proof]
+    verify_lock_scientific: >-
+      re-derives the config identity, hashes the checkpoint on disk against the
+      recorded SHA256, and re-resolves the package/bank/pair-plan identities so a
+      rebuilt input invalidates the lock instead of silently changing what C5
+      inherits. This is the ONE place C4 sets scientific_evidence=True.
+    verify_lock_rehearsal: unchanged — verifies C4_ENGINEERING_CONFIG_RECORD.json
+  status_semantics:
+    adapter: >-
+      EngineeringAdapter.result gained scientific_evidence=..., REFUSED with
+      StatusError on a profile that is not scientifically eligible, and still
+      FAIL when the mode's own checks failed.
+    stage: >-
+      orchestrator._execute_stage derives the axis from the adapter results
+      instead of hard-coding NOT_RUN. NOT_RUN when no mode claimed evidence.
+
+  # --- C5-C13 audit -------------------------------------------------------
+  downstream_audit:
+    method: >-
+      an AST walk over every C4-C13 adapter requiring each fixture producer to
+      be guarded by assert_fixture_permitted or to sit inside a branch on
+      fixtures_permitted / is_scientific. It runs as a test, so a new unguarded
+      fixture callsite fails on this machine.
+    guards_added: [c4._prepare_support, c5._render_gpat, c7 complexity fixture]
+    stages:
+      c5: {scientific_executor: false, full_profile_reaches_it: true,
+           fixture_reachable_under_science: false,
+           blocker: "_render_gpat builds a fixture batch and a RANDOMLY
+                     INITIALIZED generator; its artifact already records
+                     trained_checkpoint_used: false, and SMOKE_RECIPES_PER_ARM=2
+                     caps the arms. A scientific C5 must render from the C4
+                     winning checkpoint over the full candidate budget."}
+      c6: {scientific_executor: false, blocker: "SMOKE_CANDIDATES_PER_ARM=8 caps
+           the quality-gate calibration."}
+      c7: {scientific_executor: false, blocker: "readiness is a CPU fixture
+           obligation by design; the scientific detector search is not wired."}
+      c8: {scientific_executor: false, blocker: "SMOKE_ROWS=2 caps the rows."}
+      c9: {scientific_executor: false, blocker: "reporting over upstream evidence."}
+      c10: {scientific_executor: false, blocker: "_fixture_roots builds a
+            synthetic target package; the real sealed package is resolved by
+            sources._real_target_roots behind the target firewall."}
+      c11: {scientific_executor: false, blocker: "prediction rows come from
+            adapters.tiny under rehearsal."}
+      c12: {scientific_executor: false, blocker: "labels are fabricated by
+            adapters.tiny under rehearsal."}
+      c13: {scientific_executor: false, blocker: "closure over upstream evidence."}
+    conclusion: >-
+      C4 is the only stage with a scientific executor. Every other stage can now
+      only produce engineering evidence, and none of them can claim scientific
+      evidence because none passes scientific_evidence=True — asserted by test.
+      Wiring C5-C13 is NOT attempted here; each is recorded with its blocker.
+
+  # --- safety -------------------------------------------------------------
+  scientific_safety:
+    c4_to_c13_training_executed_on_this_laptop: false
+    engineering_artifacts_promoted: 0
+    target_access: 0
+    models_hyperparameters_search_space_datasets_banks_changed: false
+    gpat_config_changed: false
+    gemini_calls: 0
+    modal_jobs: 0
+  honest_limitation: >-
+    the scientific C4 executor has NEVER RUN. This laptop is CPU-only, holds no
+    preprocessed source package and cannot execute GPAT training, so the wiring
+    is asserted structurally — which arguments reach GPATTrainer, which flag
+    coordinate_search receives, which artifact each branch writes. Every
+    preparation defect in this chain was found by executing rather than reading,
+    and the first real execution of this path is on the GPU host.
+
+  tests:
+    c4_routing_suite: tests/pipeline/test_c4_scientific_routing.py     # 30 passed
+    leakage_audit_suite: tests/pipeline/test_scientific_fixture_leakage.py  # 25 passed
+    pipeline_suite: {passed: 761, failed: 0, skipped: 0}
+    broad_regression: {passed: 2217, failed: 7, skipped: 101, seconds: 530.30}
+    inherited_failure_set_identical: true
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+
+  changed_runtime_files:
+    - src/prism_fas/pipeline/adapters/c4.py
+    - src/prism_fas/pipeline/adapters/c5.py
+    - src/prism_fas/pipeline/adapters/c7.py
+    - src/prism_fas/pipeline/adapters/common.py
+    - src/prism_fas/pipeline/orchestrator.py
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 linux_rtx5090_package_lifecycle_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2694,59 +2890,59 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RESUME:
-  `/usr/bin/python3 train.py`
-
-  On that host:
+  UPDATE THE DEPLOYED LINUX RTX 5090 HOST TO THE NEW HEAD AND RUN C4 SCIENTIFICALLY:
 
       cd /home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project
       git fetch origin
       git checkout <NEW_HEAD>
       /usr/bin/python3 train.py
 
-  THREE runtime files changed since the copy on that machine:
-  src/prism_fas/pipeline/preparation.py,
-  src/prism_fas/pipeline/adapters/sources.py and train.py. NO recopy of the
-  ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
-  rebuild of .venv, NO reinstall, NO manual deletion — in particular do NOT
-  delete data/work, prism_data_v1_m3a or prism_data_v1_m3b.
+  Five runtime files changed; no data, weights or .venv recopy, and no manual
+  deletion. M2, M3A and M3B are reused; gpat_pairs is reused or rebuilt on
+  identity as before.
 
-  Expect, in order: m2_preprocess REUSED_VALID; m3a_package REUSED_VALID;
-  m3b_priors FINALIZED — its lock is validated and promoted IN PLACE, with not a
-  single model prior recomputed; then gpat_pairs. Finalizing M3B recomputes its
-  content identity, so the pair plan already on that host is almost certainly
-  bound to the pre-finalization one and will be REBUILT automatically. That is
-  correct and needs no manual deletion. `--diagnose-data` now shows each package's
-  lock status, its validation, its identity and whether it is scientific input,
-  so this is visible before the run rather than after it.
+  THEN C4 EXECUTES SCIENTIFICALLY FOR THE FIRST TIME. Expect a different shape
+  from the last run: no SMOKE_GPAT, a plan of 12 trials over four coordinates
+  (learning-rate multiplier, weight decay, residual weight, identity weight),
+  and each trial a FULL GPATTrainer.fit over 896 training pairs for up to 15
+  epochs with early stopping. That is hours per trial, not seconds. Watch it.
 
-  Then C4 begins — the first scientific execution this project has ever attempted
-  past C3. Its support batch is now gated: the pair plan, the M3B package and the
-  frozen M7 bank must agree on both identities before a tensor is built, and a
-  disagreement stops with IDENTITY_MISMATCH rather than training on a batch that
-  is not the plan that was locked. WATCH THIS RUN. Every preparation defect so
-  far was found by executing, not by reading, and C4 is the first stage whose
-  failures cost GPU hours rather than minutes.
+  The engineering artifacts already under reports/full/c4 are preserved as
+  historical debugging evidence. The scientific pass writes beside them —
+  C4_SCIENTIFIC_SEARCH_STATE.json, C4_SCIENTIFIC_SOURCE_SEARCH.json and
+  GPAT_CONFIG_LOCK.json — and cannot resume from the engineering state, because
+  the two search plans have different identities.
 
-  Nothing else is authorized. What follows is still true: no reports/full/c4..c13
-  artifact has ever been written.
+  BE PREPARED FOR IT TO STOP. This executor has never run: this laptop is
+  CPU-only and holds no source package, so the wiring is proven structurally and
+  not by execution. Every defect in this chain so far was found by executing.
+  Two stops are by design rather than by defect: EnvelopeExhausted, if no trial
+  produces a valid configuration, reports NEEDS_SCIENTIFIC_DECISION and must not
+  be answered by widening the search; and FixtureInScientificContext, if any
+  code path reaches a fixture under a scientific profile.
 
-  What review is being asked to confirm: preparation obeys the canonical package
-  lifecycle — build, loose-validate against the M3A parent, finalize_lock,
-  strict-validate — on both the build path and the reuse path of M3A and M3B; a
-  PACKAGE_LOCK's existence is never taken as validity anywhere; an already-built
-  `building` package is finalized IN PLACE with its payload byte-identical and no
-  prior recomputed; and the pair plan follows the finalized package identity,
-  rebuilding itself when finalization changes it.
+  AFTER C4 PASSES, C5 WILL STILL BLOCK, and that is correct. The audit above
+  records that C5-C13 have no scientific executor: C5's _render_gpat builds a
+  fixture batch and a randomly initialized generator, caps the arms at
+  SMOKE_RECIPES_PER_ARM=2 and records trained_checkpoint_used: false. A
+  scientific C5 must render from the C4 winning checkpoint over the full
+  candidate budget, and that executor does not exist. Wiring it is the next
+  milestone, not something to work around.
 
-  What review must NOT read into it: no PACKAGE_LOCK was hand-edited — the
-  canonical finalize_lock is the only promoter used, in production and in every
-  test; no payload file was deleted or regenerated; no model prior was recomputed
-  to change a status field; no model, hyperparameter, search space, dataset or
-  recipe bank changed; and this milestone executed no C4-C13 work, called no
-  external LLM, allocated no Modal job and touched no target label. One
-  behaviour did change deliberately and is recorded above: a locked package that
-  stops validating now fails closed rather than being silently rebuilt over.
+  What review is being asked to confirm: a scientific context takes a branch
+  that shares no function with the rehearsal; no scientific function reaches
+  _fixture_batch or _identity_stand_in; the trials are GPATTrainer.fit and not a
+  one-step evaluator; the approved B_common_multiplier decision is bound and the
+  2:1:2 ratio holds at every multiplier; require_valid_winner is True;
+  GPAT_CONFIG_LOCK is written only from a trained winner and binds every frozen
+  input identity plus the checkpoint SHA256; and the stage's scientific axis
+  follows that evidence rather than a literal.
 
-last_updated_utc: 2026-08-22   # Linux RTX 5090 package lifecycle hotfix
+  What review must NOT read into it: the engineering record was not renamed,
+  copied, relabelled or promoted; no metric was invented — every field of
+  GPAT_SELECTION_TUPLE is read from what GPATTrainer.validate already returns;
+  no anchor was invented for the ABSENT geometry coordinate, which §15.2.3
+  skips; and NO C4-C13 scientific training ran on this laptop.
+
+last_updated_utc: 2026-08-22   # C4 scientific execution routing closure
 ```

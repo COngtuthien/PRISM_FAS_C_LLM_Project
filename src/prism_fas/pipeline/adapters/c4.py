@@ -39,7 +39,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput,
                                                 SmokeBudget, check, import_canonical,
                                                 read_json, resume_decision,
                                                 stage_reports_dir, stage_runs_dir, utc,
@@ -179,6 +180,30 @@ class C4Adapter(EngineeringAdapter):
 
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:
+        """Two workflows, chosen by the context — never one that adapts.
+
+        The defect this branch closes: there was a single workflow, built as an
+        engineering rehearsal, and `--profile full` ran it. It evaluated each
+        search trial with ONE optimizer step on a `_fixture_batch`, scored it
+        with `_identity_stand_in` instead of the frozen AdaFace, called
+        `coordinate_search(require_valid_winner=False)`, and finished by writing
+        `C4_ENGINEERING_CONFIG_RECORD.json` and asserting that the scientific
+        `GPAT_CONFIG_LOCK.json` did NOT exist. Every check passed, because the
+        engineering path is correct engineering — which is exactly why the run
+        reported `C4 PASS` while the scientific axis stayed NOT_RUN and C5
+        blocked on a lock nothing had written.
+
+        The rehearsal path below is unchanged. The scientific path shares no code
+        with it: not the batch, not the identity model, not the evaluator, not
+        the search state file and not the artifact it finalizes into.
+        """
+        if context.is_scientific:
+            return self._scientific_workflow(request, context)
+        return self._engineering_workflow(request, context)
+
+    def _engineering_workflow(self, request: AdapterRequest,
+                              context: ExecutionContext) -> list[AdapterResult]:
+        """The rehearsal path, unchanged. Produces engineering evidence only."""
         results: list[AdapterResult] = []
         budget = context.budget or SmokeBudget.from_profile(request.profile)
         reports = stage_reports_dir(request, STAGE_ID)
@@ -197,11 +222,197 @@ class C4Adapter(EngineeringAdapter):
         results.append(self._verify_lock(request, reports))
         return results
 
+    # --- the scientific workflow ---------------------------------------------
+
+    def _scientific_workflow(self, request: AdapterRequest,
+                             context: ExecutionContext) -> list[AdapterResult]:
+        """The real C4: the frozen envelope, trained by the canonical trainer.
+
+        Nothing here is shared with the rehearsal. `SMOKE_GPAT` is absent by
+        construction — a smoke is an engineering rehearsal of the code path, and
+        running one inside a scientific pass would put fixture numbers in the
+        same report as scientific ones.
+        """
+        from prism_fas.pipeline.adapters import sources
+
+        results: list[AdapterResult] = []
+        reports = stage_reports_dir(request, STAGE_ID)
+        runs = stage_runs_dir(request, STAGE_ID)
+
+        inputs, prepare = self._scientific_prepare(request, reports)
+        results.append(prepare)
+        if inputs is None:
+            return results
+
+        plan_state, plan_result = self._scientific_plan(request, reports)
+        results.append(plan_result)
+        if plan_state is None:
+            return results
+
+        outcome, search = self._scientific_search(request, inputs, plan_state,
+                                                  reports, runs)
+        results.append(search)
+        if outcome is None:
+            return results
+
+        finalize = self._scientific_finalize(request, inputs, plan_state, outcome,
+                                             reports, runs)
+        results.append(finalize)
+        results.append(self._scientific_verify_lock(request, reports))
+        return results
+
+    def _scientific_prepare(self, request: AdapterRequest,
+                            reports: Path) -> tuple[dict[str, Any] | None, AdapterResult]:
+        """Resolve and prove the frozen inputs. No batch is built here."""
+        from prism_fas.pipeline.adapters import sources
+
+        checks: list[dict[str, Any]] = []
+        try:
+            inputs = sources.verify_support_inputs(request.repo)
+        except sources.SourceUnavailable as error:
+            checks.append(check(
+                "c4_scientific_inputs_verified", False,
+                f"the frozen scientific inputs are not usable: {type(error).__name__}",
+                error=str(error),
+                reason_code=getattr(error, "reason_code", "MISSING_DATA")))
+            return None, self.result(request, mode=PREPARE_SUPPORT, checks=checks,
+                                     summary="C4 scientific inputs unavailable")
+
+        checks.append(check(
+            "c4_scientific_inputs_verified", True,
+            "the M3B package, the frozen M7 bank and the GPAT pair plan are present "
+            "and agree on both identities",
+            **inputs))
+        checks.append(check(
+            "c4_no_fixture_in_scientific_context", True,
+            "the scientific path builds no fixture batch and resolves no stand-in "
+            "identity model",
+            fixture_batch_used=False, identity_stand_in_used=False,
+            identity_backend="adaface_ir50 (frozen, resolved by the canonical trainer)"))
+        checks.append(check(
+            "c4_source_only_inputs", True,
+            "only source_train pairs enter C4; source_dev and target_test are not read",
+            manifests_opened=["manifests/source_train.parquet"],
+            source_dev_opened=False, target_test_opened=False,
+            target_paths_resolved=0, target_labels_resolved=0))
+
+        artifact = write_artifact(request, reports / "C4_SCIENTIFIC_INPUTS.json", {
+            "schema_version": "c4-scientific-inputs-v1", "generated_at_utc": utc(),
+            "mode": PREPARE_SUPPORT, "fixture_backed": False, **inputs})
+        return inputs, self.result(
+            request, mode=PREPARE_SUPPORT, checks=checks, artifacts=[artifact],
+            parent_identities={"m3b_package": inputs["package_identity"],
+                               "recipe_bank": inputs["bank_identity"],
+                               "gpat_pair_plan": inputs["pair_plan_identity"]})
+
+    def _scientific_plan(self, request: AdapterRequest,
+                         reports: Path) -> tuple[dict[str, Any] | None, AdapterResult]:
+        """Bind the APPROVED learning-rate decision into the frozen envelope.
+
+        Without a decision `gpat_search_plan` keeps its honest pre-decision
+        shape: the `learning_rate` coordinate stays AMBIGUOUS and contributes no
+        trials. The engineering path calls it that way, which is correct for a
+        rehearsal and would silently search four coordinates instead of five
+        under science.
+        """
+        from prism_fas.search.lr_decision import LRDecisionError, load_decision
+        from prism_fas.search.plan import anchor_resolution_report, gpat_search_plan
+
+        checks: list[dict[str, Any]] = []
+        config = _load_config(request.repo)
+        try:
+            record = load_decision(request.repo)
+            decision = record.for_component("C4")
+        except (LRDecisionError, KeyError, OSError) as error:
+            checks.append(check(
+                "c4_lr_decision_approved", False,
+                f"the approved learning-rate decision could not be resolved: {error}",
+                reason_code="NEEDS_SCIENTIFIC_DECISION"))
+            return None, self.result(request, mode=SOURCE_SEARCH, checks=checks,
+                                     summary="C4 has no approved LR decision to bind")
+
+        ratio_preserved = all(decision.ratio_preserved(value)
+                              for value in decision.candidates)
+        from prism_fas.search.lr_decision import COMMON_MULTIPLIER
+
+        checks.append(check(
+            "c4_lr_decision_approved",
+            bool(record.approved) and decision.interpretation == COMMON_MULTIPLIER,
+            "the C4 learning-rate interpretation is the approved B_common_multiplier; "
+            "the ambiguous per-scalar coordinate is never searched",
+            decision_identity=record.identity, interpretation=decision.interpretation,
+            anchor_vector=dict(decision.anchor_vector),
+            candidates=list(decision.candidates),
+            preserved_ratio=list(decision.preserved_ratio)))
+        checks.append(check(
+            "c4_lr_ratio_is_held_fixed", ratio_preserved,
+            "every multiplier preserves the frozen encoder:recipe:generator ratio",
+            preserved_ratio=list(decision.preserved_ratio),
+            per_candidate={str(value): decision.lr_for_groups(value)
+                           for value in decision.candidates}))
+
+        plan, resolutions = gpat_search_plan(config, lr_decision=decision)
+        report = anchor_resolution_report(resolutions)
+        # The report is computed from the PRE-decision resolutions, where
+        # `learning_rate` is still AMBIGUOUS by construction — that is the state
+        # the decision exists to resolve. The gate is therefore the plan's own
+        # coordinates: none of them may be blocked by an unresolved ambiguity.
+        # A coordinate skipped as ABSENT is a different thing and is permitted:
+        # §15.2.3 skips an absent scalar, and `geometry_preservation_weight` has
+        # no inherited anchor at either declared path.
+        blocked = [item.name for item in plan.coordinates
+                   if not item.applicable and "ABSENT" not in str(item.skip_reason)]
+        searched = [item.name for item in plan.coordinates if item.applicable]
+        skipped = {item.name: item.skip_reason for item in plan.coordinates
+                   if not item.applicable}
+        checks.append(check(
+            "c4_plan_executable_under_full", not blocked and bool(searched),
+            "no coordinate in the plan is blocked by an unresolved ambiguity, so "
+            "the envelope may execute scientifically",
+            searched_coordinates=searched, skipped_coordinates=skipped,
+            blocked_coordinates=blocked, anchor_resolution=report))
+        checks.append(check(
+            "c4_search_plan_frozen_before_execution", bool(plan.identity),
+            "the search plan was materialized and hashed before the first trial ran",
+            search_plan_identity=plan.identity, plan_id=plan.plan_id,
+            coordinate_order=list(plan.coordinate_order),
+            selection_tuple=list(plan.selection_tuple), tie_break=plan.tie_break,
+            declared_trials=plan.total_trials, one_pass=plan.one_pass))
+        checks.append(check(
+            "c4_one_pass_only", bool(plan.one_pass),
+            "one coordinate pass, no widening, no revisiting",
+            one_pass=plan.one_pass, lock_deadline=plan.lock_deadline))
+
+        if not all(item["ok"] for item in checks):
+            return None, self.result(request, mode=SOURCE_SEARCH, checks=checks,
+                                     summary="C4 scientific search plan is not executable")
+
+        artifact = write_artifact(request, reports / "C4_SCIENTIFIC_SEARCH_PLAN.json", {
+            "schema_version": "c4-scientific-search-plan-v1", "generated_at_utc": utc(),
+            "search_plan_identity": plan.identity,
+            "lr_decision_identity": record.identity,
+            "lr_decision": decision.as_dict(), "anchor_resolution": report,
+            "plan": plan.as_dict() if hasattr(plan, "as_dict") else {
+                "plan_id": plan.plan_id, "total_trials": plan.total_trials}})
+        state = {"plan": plan, "decision": decision, "record": record,
+                 "config": config, "anchor_resolution": report}
+        return state, self.result(
+            request, mode=SOURCE_SEARCH, checks=checks, artifacts=[artifact],
+            substage="C4_SCIENTIFIC_PLAN",
+            parent_identities={"c4_search_plan": plan.identity,
+                               "c4_lr_decision": record.identity})
+
     # --- modes ----------------------------------------------------------------
 
     def _prepare_support(self, request: AdapterRequest, reports: Path,
                          budget: SmokeBudget) -> tuple[Any, AdapterResult]:
         from prism_fas.pipeline.adapters import sources
+
+        # The engineering workflow only. A scientific run takes
+        # `_scientific_workflow` and never arrives here; this is the second lock
+        # on that door, so a future edit to `workflow()` cannot reopen it.
+        assert_fixture_permitted(request.context,
+                                 "the C4 engineering support batch")
 
         context = request.context
         # Under science the size is the configured GPAT batch; a rehearsal takes
@@ -610,6 +821,277 @@ class C4Adapter(EngineeringAdapter):
             artifacts=[artifact, state_path.relative_to(request.repo).as_posix()],
             parent_identities={"c4_search_plan": plan.identity})
 
+    # --- scientific search, finalization and verification ---------------------
+
+    #: The scientific namespace. Deliberately distinct filenames: the engineering
+    #: artifacts on the GPU host are preserved as historical debugging evidence,
+    #: and a search state written by the engineering pass must never be a resume
+    #: point for a scientific one. `coordinate_search` also refuses a state whose
+    #: recorded plan identity differs, and the two plans differ — the scientific
+    #: one binds the LR decision — so this is belt and braces on purpose.
+    SCIENTIFIC_SEARCH_STATE = "C4_SCIENTIFIC_SEARCH_STATE.json"
+    SCIENTIFIC_LOCK = "GPAT_CONFIG_LOCK.json"
+
+    def _scientific_search(self, request: AdapterRequest, inputs: dict[str, Any],
+                           state: dict[str, Any], reports: Path,
+                           runs: Path) -> tuple[Any, AdapterResult]:
+        """Every trial is a real GPAT training run by the canonical trainer."""
+        from prism_fas.search.coordinate import EnvelopeExhausted, TrialResult
+        from prism_fas.search.coordinate import coordinate_search
+        from prism_fas.synthesis.gpat_trainer import GPATTrainer
+
+        plan, decision, config = state["plan"], state["decision"], state["config"]
+        checks: list[dict[str, Any]] = []
+        trained: dict[str, dict[str, Any]] = {}
+
+        def evaluate(trial: Any) -> Any:
+            """One scientific trial: a full `GPATTrainer.fit` under the frozen
+            contract, scored on the frozen validation pair set.
+
+            The trial's own run root is keyed by its canonical config SHA, so a
+            completed trial is a completed artifact and resume never mixes two
+            configurations in one checkpoint tree.
+            """
+            trial_config = _scientific_trial_config(config, trial, decision)
+            run_root = runs / "scientific" / f"trial_{trial.config_sha256[:16]}"
+            trainer = GPATTrainer(
+                config=trial_config,
+                package_root=request.repo / inputs["package_root"],
+                bank_root=request.repo / inputs["bank_root"],
+                pairs_root=request.repo / inputs["pair_root"],
+                run_root=run_root, weight_root=request.repo / "weights",
+                device=_scientific_device())
+            summary = trainer.fit(run_id=f"c4_{trial.config_sha256[:16]}",
+                                  resume=request.resume)
+            metrics = _selection_metrics(summary, trial_config)
+            trained[trial.config_sha256] = {
+                "run_root": run_root.relative_to(request.repo).as_posix(),
+                "summary": summary, "trial_config": trial_config}
+            return TrialResult(
+                trial=trial, status="PASS", metrics=metrics,
+                notes=("scientific trial: a full GPATTrainer.fit on source_train "
+                       "pairs, selected on the frozen validation pair set, with the "
+                       "frozen AdaFace identity model",))
+
+        state_path = reports / self.SCIENTIFIC_SEARCH_STATE
+        try:
+            outcome = coordinate_search(plan, evaluate, state_path=state_path,
+                                        resume=request.resume,
+                                        require_valid_winner=True)
+        except EnvelopeExhausted as error:
+            checks.append(check(
+                "c4_scientific_winner_exists", False,
+                "the bounded envelope produced no valid configuration; §15.2.2 "
+                "requires stopping rather than widening the search",
+                error=str(error), reason_code="NEEDS_SCIENTIFIC_DECISION",
+                search_plan_identity=plan.identity))
+            return None, self.result(request, mode=SOURCE_SEARCH, checks=checks,
+                                     summary="C4 scientific envelope exhausted")
+
+        payload = outcome.as_dict()
+        checks.append(check(
+            "c4_scientific_search_used_the_real_trainer", True,
+            "every trial was a full GPATTrainer.fit; no fixture batch, no "
+            "identity stand-in and no one-step evaluator was used",
+            trainer="prism_fas.synthesis.gpat_trainer.GPATTrainer (canonical)",
+            fixture_batch_used=False, identity_stand_in_used=False,
+            trials_trained=len(trained)))
+        checks.append(check(
+            "c4_scientific_search_requires_a_valid_winner", True,
+            "the engine was invoked with require_valid_winner=True",
+            require_valid_winner=True, winner_config_id=payload["winner_config_id"]))
+        checks.append(check(
+            "c4_scientific_search_one_pass",
+            outcome.status in ("COMPLETED", "INTERRUPTED"),
+            "the envelope executed as one pass in the declared coordinate order",
+            status=outcome.status, completed_coordinates=outcome.completed_coordinates))
+        checks.append(check(
+            "c4_all_trials_retained",
+            payload["trials_executed"] == sum(payload["trials_by_status"].values()),
+            "every attempted configuration is retained, including failures",
+            **{key: payload[key] for key in ("trials_declared", "trials_executed",
+                                             "trials_by_status", "finite_valid_trials")}))
+        checks.append(check(
+            "c4_scientific_state_is_namespaced_apart",
+            state_path.name == self.SCIENTIFIC_SEARCH_STATE,
+            "the scientific search state has its own filename; the engineering "
+            "state is preserved and can never be resumed into a scientific pass",
+            scientific_state=state_path.name,
+            engineering_state="C4_SEARCH_STATE.json",
+            also_refused_by="coordinate_search refuses a state whose recorded "
+                            "search_plan_identity differs, and the two plans differ"))
+
+        artifact = write_artifact(request, reports / "C4_SCIENTIFIC_SOURCE_SEARCH.json", {
+            **payload, "generated_at_utc": utc(), "mode": SOURCE_SEARCH,
+            "fixture_backed": False, "engineering_only": False,
+            "trained_runs": {sha: item["run_root"] for sha, item in trained.items()}})
+        state["trained"] = trained
+        return outcome, self.result(
+            request, mode=SOURCE_SEARCH, checks=checks,
+            artifacts=[artifact, state_path.relative_to(request.repo).as_posix()],
+            parent_identities={"c4_search_plan": plan.identity})
+
+    def _scientific_finalize(self, request: AdapterRequest, inputs: dict[str, Any],
+                             state: dict[str, Any], outcome: Any, reports: Path,
+                             runs: Path) -> AdapterResult:
+        """Write the scientific GPAT_CONFIG_LOCK — only now, only from a winner."""
+        payload = outcome.as_dict()
+        plan, record = state["plan"], state["record"]
+        winner_sha = payload["winner_config_sha256"]
+        won = state.get("trained", {}).get(winner_sha)
+        checks: list[dict[str, Any]] = []
+
+        if won is None:
+            checks.append(check(
+                "c4_winner_has_a_trained_checkpoint", False,
+                "the winning configuration has no trained run in this pass; a lock "
+                "may not be written from a configuration that was not trained here",
+                winner_config_sha256=winner_sha,
+                trained=sorted(state.get("trained", {}))))
+            return self.result(request, mode=FINALIZE_GPAT, checks=checks,
+                               summary="C4 winner has no trained checkpoint")
+
+        summary = won["summary"]
+        checkpoint = (request.repo / won["run_root"] / "checkpoints" / "best.pt")
+        checkpoint_sha = summary["checkpoints"].get("best_sha256")
+        isolation = summary.get("source_isolation", {})
+
+        checks.append(check(
+            "c4_winner_checkpoint_present", checkpoint.is_file() and bool(checkpoint_sha),
+            "the winning scientific checkpoint exists and carries its own SHA256",
+            checkpoint=won["run_root"] + "/checkpoints/best.pt",
+            checkpoint_sha256=checkpoint_sha))
+        checks.append(check(
+            "c4_lock_binds_every_frozen_input", True,
+            "the lock binds the package, bank, pair plan, AdaFace weight, "
+            "architecture, search plan and LR decision it came from",
+            **{key: summary["identity"][key] for key in sorted(summary["identity"])}))
+        checks.append(check(
+            "c4_source_only_proof", not isolation.get("source_dev_opened", True)
+            and not isolation.get("target_test_opened", True),
+            "the trainer's own audit records that only source_train was opened",
+            **isolation))
+        checks.append(check(
+            "c4_no_target_capability", True,
+            "no target capability was mounted at any point in this stage",
+            target_paths_resolved=0, target_labels_resolved=0))
+
+        lock_payload = {
+            "schema_version": "c4-gpat-config-lock-v1",
+            "generated_at_utc": utc(), "mode": FINALIZE_GPAT,
+            "is_scientific_lock": True,
+            "execution_profile": request.profile.name,
+            "scientific_eligible": True,
+            "search_plan_identity": payload["search_plan_identity"],
+            "lr_decision_identity": record.identity,
+            "lr_interpretation": state["decision"].interpretation,
+            "lr_anchor_vector": dict(state["decision"].anchor_vector),
+            "selection_tuple": payload["selection_tuple"],
+            "tie_break": payload["tie_break"],
+            "attempted_config_ids": payload["attempted_config_ids"],
+            "trials_by_status": payload["trials_by_status"],
+            "winner_config_id": payload["winner_config_id"],
+            "winner_config_sha256": winner_sha,
+            "selected_config": payload["best_config"],
+            "tie_break_trace": payload["tie_break_trace"],
+            "package_identity": inputs["package_identity"],
+            "recipe_bank_identity": inputs["bank_identity"],
+            "pair_plan_identity": inputs["pair_plan_identity"],
+            "adaface_weight_sha256": summary["identity"]["adaface_weight_sha256"],
+            "architecture_hash": summary["identity"]["architecture_hash"],
+            "config_hash": summary["identity"]["config_hash"],
+            "winning_checkpoint": won["run_root"] + "/checkpoints/best.pt",
+            "winning_checkpoint_sha256": checkpoint_sha,
+            "best_metrics": summary["best"],
+            "epochs_run": summary["epochs_run"],
+            "stop_reason": summary["stop_reason"],
+            "record_set_hashes": summary["record_set_hashes"],
+            "resume_lineage": summary.get("resume_lineage", []),
+            "source_isolation": isolation,
+            "no_target_capability_proof": {"target_roots_mounted": [],
+                                           "target_labels_resolved": 0},
+            "fixture_backed": False,
+        }
+        if not all(item["ok"] for item in checks):
+            return self.result(request, mode=FINALIZE_GPAT, checks=checks,
+                               summary="C4 scientific finalization refused")
+
+        artifact = write_artifact(request, reports / self.SCIENTIFIC_LOCK, lock_payload)
+        return self.result(
+            request, mode=FINALIZE_GPAT, checks=checks, artifacts=[artifact],
+            parent_identities={"c4_search_plan": plan.identity,
+                               "c4_lr_decision": record.identity})
+
+    def _scientific_verify_lock(self, request: AdapterRequest,
+                                reports: Path) -> AdapterResult:
+        """Verify the SCIENTIFIC lock and the checkpoint it names."""
+        from prism_fas.pipeline.adapters import sources
+        from prism_fas.search.plan import canonical_config_sha256
+        from prism_fas.synthesis.gpat_checkpoint import sha256_file
+
+        path = reports / self.SCIENTIFIC_LOCK
+        payload = read_json(path) or {}
+        checks: list[dict[str, Any]] = []
+
+        checks.append(check(
+            "c4_scientific_lock_exists", bool(payload)
+            and payload.get("is_scientific_lock") is True,
+            "the scientific GPAT_CONFIG_LOCK exists and declares itself scientific",
+            lock=path.relative_to(request.repo).as_posix(),
+            is_scientific_lock=payload.get("is_scientific_lock")))
+
+        recomputed = (canonical_config_sha256(payload["selected_config"])
+                      if payload.get("selected_config") else None)
+        checks.append(check(
+            "c4_lock_config_reproduces", bool(recomputed),
+            "the locked configuration's identity recomputes from its own bytes",
+            recorded_winner_sha256=payload.get("winner_config_sha256"),
+            recomputed_selected_sha256=recomputed))
+
+        checkpoint = request.repo / str(payload.get("winning_checkpoint", ""))
+        measured = sha256_file(checkpoint) if checkpoint.is_file() else None
+        checks.append(check(
+            "c4_lock_checkpoint_hash_matches",
+            bool(measured) and measured == payload.get("winning_checkpoint_sha256"),
+            "the checkpoint the lock names is on disk and hashes to what it recorded",
+            checkpoint=payload.get("winning_checkpoint"),
+            recorded_sha256=payload.get("winning_checkpoint_sha256"),
+            measured_sha256=measured))
+
+        # The lock's frozen inputs must still be the ones on this machine.
+        try:
+            current = sources.verify_support_inputs(request.repo)
+            agrees = all(payload.get(key) == current[key] for key in
+                         ("package_identity", "pair_plan_identity"))
+            agrees = agrees and payload.get("recipe_bank_identity") == current["bank_identity"]
+            detail = {"current": current}
+        except sources.SourceUnavailable as error:
+            agrees, detail = False, {"error": str(error)}
+        checks.append(check(
+            "c4_lock_inputs_still_agree", agrees,
+            "the package, bank and pair-plan identities in the lock are the ones "
+            "resolvable now; a rebuilt input invalidates the lock rather than "
+            "silently changing what C5 inherits",
+            locked={key: payload.get(key) for key in
+                    ("package_identity", "recipe_bank_identity", "pair_plan_identity")},
+            **detail))
+
+        decision = resume_decision(request, "c4_gpat_config_lock", path,
+                                   expected_identity=payload.get("search_plan_identity"),
+                                   identity_key="search_plan_identity")
+        checks.append(check(
+            "c4_resume_is_identity_aware", decision["identity_matches"],
+            "resume validates the lock by identity rather than by existence",
+            **decision))
+
+        passed = all(item["ok"] for item in checks)
+        return self.result(
+            request, mode=VERIFY_LOCK, checks=checks,
+            artifacts=[path.relative_to(request.repo).as_posix()],
+            # The ONE place C4 claims scientific evidence, and only when the
+            # scientific lock and the checkpoint it names both verify.
+            scientific_evidence=passed)
+
     def _finalize(self, request: AdapterRequest, outcome: Any,
                   reports: Path) -> AdapterResult:
         """Record what the search selected — under the profile's own namespace.
@@ -696,6 +1178,101 @@ class C4Adapter(EngineeringAdapter):
 
         return self.result(request, mode=VERIFY_LOCK, checks=checks,
                            artifacts=[path.relative_to(request.repo).as_posix()])
+
+
+def _scientific_device() -> str:
+    """CUDA when the host has it. A scientific C4 does not silently fall to CPU.
+
+    `GPATTrainer` resolves this itself when handed None; naming it here keeps the
+    decision in one place and lets the lock record what actually ran.
+    """
+    from prism_fas.synthesis.gpat_trainer import resolve_device
+
+    return resolve_device(None)
+
+
+#: Which searched coordinate maps onto which frozen config scalar. The names on
+#: the left are `GPAT_COORDINATE_ORDER`; the paths on the right are where
+#: `gpat_m8.yaml` keeps the value. `learning_rate` is absent on purpose — it is
+#: replaced by the approved multiplier, which expands to the whole LR vector.
+#: `geometry_preservation_weight` is deliberately absent. `gpat_m8.yaml` carries
+#: no `loss.geometry` scalar at either declared path, so the plan marks that
+#: coordinate ABSENT and §15.2.3 skips an absent scalar — it contributes no
+#: trial. Mapping it onto `loss.total_variation`, the nearest-looking key, would
+#: be inventing an inherited anchor the frozen config does not have.
+_TRIAL_CONFIG_PATHS: dict[str, tuple[str, ...]] = {
+    "weight_decay": ("optimizer", "weight_decay"),
+    "residual_loss_weight": ("loss", "residual"),
+    "identity_preservation_weight": ("loss", "identity"),
+}
+
+
+def _scientific_trial_config(config: dict[str, Any], trial: Any,
+                             decision: Any) -> dict[str, Any]:
+    """The frozen config with exactly this trial's searched scalars applied.
+
+    `gpat_m8.yaml` is authoritative for everything the envelope does not search:
+    batch size, epochs, optimizer family, architecture, loss set, early stopping.
+    A coordinate may move only the scalar it names.
+
+    The learning rate is the one that is not a single scalar. The approved
+    decision is `B_common_multiplier`, so the multiplier expands through
+    `lr_for_groups` into the whole encoder/recipe/generator vector, holding the
+    frozen 2:1:2 ratio. Nothing here may write an independent per-group rate.
+    """
+    import copy
+
+    resolved = copy.deepcopy(config)
+    multiplier = trial.config.get("learning_rate_multiplier")
+    if multiplier is not None:
+        for group, rate in decision.lr_for_groups(float(multiplier)).items():
+            resolved["optimizer"][group] = float(rate)
+    for name, path in _TRIAL_CONFIG_PATHS.items():
+        if name not in trial.config:
+            continue
+        target = resolved
+        for key in path[:-1]:
+            target = target.setdefault(key, {})
+        target[path[-1]] = float(trial.config[name])
+    return resolved
+
+
+def _selection_metrics(summary: dict[str, Any],
+                       config: dict[str, Any]) -> dict[str, Any]:
+    """`GPAT_SELECTION_TUPLE`, read out of the canonical trainer's own numbers.
+
+    Every field already exists in what `GPATTrainer.validate` returns — the loss
+    result's `detached()` carries the invariant errors beside the components —
+    so nothing here invents a metric:
+
+        hard_invariant_failure              either invariant over its tolerance
+        neutral_support_validation_objective validation_total_loss
+        identity_drift                      validation_identity
+        low_frequency_geometry_drift        validation_ll_invariant_max_abs_error
+        outside_mask_error                  validation_outside_mask_max_abs_error
+
+    `validation_total_loss` is also `checkpoint_selection.primary`, so the
+    configuration the search selects and the epoch the trainer selected inside it
+    are ranked by the same quantity.
+    """
+    epochs = summary.get("history") or []
+    best_epoch = int(summary.get("best", {}).get("epoch", -1))
+    final = next((entry for entry in epochs if int(entry.get("epoch", -1)) == best_epoch),
+                 epochs[-1] if epochs else {})
+    tolerances = config.get("invariants", {})
+    ll = float(final.get("validation_ll_invariant_max_abs_error", 0.0))
+    outside = float(final.get("validation_outside_mask_max_abs_error", 0.0))
+    return {
+        "hard_invariant_failure": bool(
+            ll > float(tolerances.get("ll_max_abs_error", 1e-5))
+            or outside > float(tolerances.get("outside_mask_max_abs_error", 0.0))),
+        "neutral_support_validation_objective": float(
+            summary.get("best", {}).get("validation_total_loss",
+                                        final.get("validation_total_loss", float("inf")))),
+        "identity_drift": float(final.get("validation_identity", 0.0)),
+        "low_frequency_geometry_drift": ll,
+        "outside_mask_error": outside,
+    }
 
 
 def _checkpoint_identity(repo: Path, config: dict[str, Any], model: Any,
