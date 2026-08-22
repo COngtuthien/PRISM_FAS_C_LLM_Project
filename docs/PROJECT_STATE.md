@@ -28,12 +28,12 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_SCIENTIFIC_RENDER_EXECUTOR
-current_substage: the scientific C5 branch, its seven substages, the render loop,
-                  per-candidate records, resume, failure retention, the C5
-                  completion lock and the C6 handoff are implemented and tested.
+current_milestone: C5_SCIENTIFIC_LOCK_C6_HANDOFF_CLOSURE
+current_substage: the strict C5 verifier is shared by C5 and C6; scientific PASS
+                  now requires 6144/6144 usable with every payload byte re-hashed
+                  and every input identity rebuilt from current packages/banks.
                   Nothing has been RENDERED: no GPU, no C4 lock on this host.
-previous_milestone: C5_SOURCE_PAIR_PLAN_FREEZE
+previous_milestone: C5_SCIENTIFIC_RENDER_EXECUTOR
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -689,6 +689,65 @@ c5_source_pair_plan_freeze:
       VERIFY_C4_LOCK on this laptop because no scientific C4 lock exists here,
       which was verified by driving the real branch under --profile full.
   c5_still_blocks_c6: true
+  # --- built in C5_SCIENTIFIC_LOCK_C6_HANDOFF_CLOSURE ------------------------
+  lock_closure:
+    verifier: prism_fas.pipeline.adapters.c5.verify_c5_synthesis_lock
+    shared_by: [C5 VERIFY_C5_LOCK, C6 semantic_preconditions]
+    scientific_pass_requires:
+      - lock exists, is_scientific_lock, scientific_eligible, not fixture_backed
+      - the inherited C4 GPAT lock verifies NOW (shared c4 verifier)
+      - every_planned_candidate_is_terminal AND every_planned_candidate_is_usable
+      - generated == 6144, failed == 0
+      - 2048 verified per arm; 1024 physics and 1024 gpat per arm
+      - every candidate's 3 payload files present and re-hashed from BYTES
+      - M3B package, source_pair_plan, 3 arm plans, 3 C3 banks, ontology,
+        C4 checkpoint SHA and PhysicsEngine version REBUILT NOW all agree
+    terminal_but_short: >-
+      lock is still written and retained (L.8 forbids winner-only cleanup) but is
+      stamped lock_kind=terminal_audit_record, usable_as_c6_input=false. It never
+      yields scientific_evidence and never unblocks C6.
+    c6_gate: >-
+      EngineeringAdapter.semantic_preconditions is a new general hook evaluated
+      inside full_precondition_gate. An unsatisfied semantic precondition BLOCKS
+      exactly as a missing file does. Presence-only C5 handoff is eliminated.
+
+  # --- NEEDS_SCIENTIFIC_DECISION: C5 transient-failure retry -----------------
+  open_decisions:
+    - id: C5_TRANSIENT_VS_SEMANTIC_GENERATION_FAILURE
+      status: NEEDS_SCIENTIFIC_DECISION
+      audited_on: 2026-08-22
+      what_the_spec_says: >-
+        The rule exists, but it is the RECOVERY LADDER rung L1 in spec section
+        0.1, not Appendix L rule L.1 (which is the smoke-vs-science rule).
+        Verbatim: "L0 verify/fix implementation defect without changing the
+        scientific contract; L1 retry the identical frozen configuration for
+        transient/runtime failure; L2 execute the bounded SOURCE_SEARCH envelope
+        once; L3 use only a preregistered compatibility fallback explicitly named
+        by this spec; L4 STOP and request user approval." Section 0.1 also lists
+        "retry of an identical request" under ENGINEERING_ADAPTIVE, permitted
+        when scientific identity and output semantics are unchanged.
+      current_behaviour: >-
+        c5_render.render_arm converts EVERY non-RenderError exception into a
+        permanent FAILED_GENERATION record. reuse_decision then returns
+        FAILED_GENERATION forever, so a CUDA hiccup or a transient IO error
+        permanently costs one candidate out of 2048 — and under the closure above
+        that single loss makes the whole arm fail scientific verification.
+      why_it_was_not_fixed: >-
+        No canonical classifier in this repository can safely separate transient
+        from deterministic here. The only classifier that exists,
+        prism_fas.llm.contracts.ErrorClass, enumerates PROVIDER failures
+        (transport / 5xx / 429 / invalid_candidate vs auth / quota / contract) and
+        has no vocabulary for a CUDA, filesystem or codec failure. Writing one
+        would be inventing a scientific-retention policy, which the user
+        explicitly forbade. Recorded rather than guessed.
+      what_is_already_safe: >-
+        The one failure class that IS provably deterministic is already distinct:
+        RenderError from an empty exact mask is a pure function of the frozen
+        inputs and must stay retained under any policy.
+      decision_needed_from_user: >-
+        whether to add a render-side failure classifier, and if so which failure
+        classes are retryable under recovery-ladder L1.
+
   c5_executor_verified_how: >-
     36 record/plan tests, 36 executor tests, 130 C5 tests in total, all offline.
     The render loop is exercised end to end over fake routes and the REAL

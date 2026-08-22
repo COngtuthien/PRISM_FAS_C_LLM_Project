@@ -929,6 +929,19 @@ class C5Adapter(EngineeringAdapter):
             # The two facts, kept apart on purpose.
             "every_planned_candidate_is_terminal": state["every_planned_candidate_is_terminal"],
             "every_planned_candidate_is_usable": state["every_planned_candidate_is_usable"],
+            # Named so no reader has to infer it. A terminal-but-short pass keeps
+            # its evidence — L.8 forbids winner-only cleanup — but the artifact
+            # that preserves it is an audit record, not synthesis input, and
+            # verify_c5_synthesis_lock refuses it.
+            "lock_kind": ("scientific_synthesis"
+                          if state["every_planned_candidate_is_usable"]
+                          else "terminal_audit_record"),
+            "usable_as_c6_input": state["every_planned_candidate_is_usable"],
+            "why_not_usable": (None if state["every_planned_candidate_is_usable"] else
+                               f"{state['failed']} planned candidate(s) reached a "
+                               "terminal generation failure and were retained rather "
+                               "than resampled, so this bank is short of the frozen "
+                               "budget and is not scientific synthesis input"),
             "generated": state["generated"], "failed": state["failed"],
             "failed_candidate_ids": state["failed_candidate_ids"],
             "completion_rule": state["rule"],
@@ -946,71 +959,352 @@ class C5Adapter(EngineeringAdapter):
                                for arm, plan in plans.items()})
 
     def _verify_c5_lock(self, request: AdapterRequest, reports: Path) -> AdapterResult:
-        """Verify the lock and the candidates it names, then claim the evidence."""
-        from prism_fas.synthesis import c5_raw_generation as raw
+        """Verify the lock strictly, then claim the evidence — or refuse to.
 
+        The verification is `verify_c5_synthesis_lock`, module level and shared
+        with C6, so C6 can never start on a lock C5's own verification would have
+        rejected. It re-reads every candidate's payload bytes and rebuilds every
+        input identity from the packages and banks present now.
+        """
         path = reports / self.SCIENTIFIC_LOCK
-        payload = read_json(path) or {}
-        checks: list[dict[str, Any]] = []
+        verification = verify_c5_synthesis_lock(request.repo, path)
+        checks: list[dict[str, Any]] = list(verification["checks"])
+        payload = verification["payload"]
 
         checks.append(check(
-            "c5_scientific_lock_exists",
-            bool(payload) and payload.get("is_scientific_lock") is True
-            and payload.get("fixture_backed") is False,
-            "the C5 synthesis lock exists and declares itself scientific",
-            lock=path.relative_to(request.repo).as_posix(),
-            is_scientific_lock=payload.get("is_scientific_lock")))
+            "c5_verification_is_not_self_referential", True,
+            "the lock was checked against inputs rebuilt from the frozen packages "
+            "and banks, never against its own recorded values",
+            verifier="prism_fas.pipeline.adapters.c5.verify_c5_synthesis_lock",
+            rebuilt=["m3b_package_identity", "source_pair_plan_identity",
+                     "arm_plan_identity x3", "recipe_bank_identity x3",
+                     "ontology_identity", "gpat_checkpoint_sha256",
+                     "physics_engine_version"],
+            reason=verification["reason"]))
 
-        root = request.repo / str(payload.get("candidate_root", ""))
-        records: list[dict[str, Any]] = []
-        for arm in payload.get("arms", {}):
-            for directory in sorted((root / arm).glob("*")) if (root / arm).is_dir() else []:
-                record = raw.read_record(directory / raw.RECORD_NAME)
-                if record is not None:
-                    records.append(record)
-        recomputed = raw.record_set_digest(records)
-        checks.append(check(
-            "c5_lock_records_reproduce",
-            bool(records) and recomputed == payload.get("record_set_digest"),
-            "the candidate records on disk hash to the digest the lock recorded",
-            recorded=payload.get("record_set_digest"), recomputed=recomputed,
-            records=len(records)))
-        checks.append(check(
-            "c5_lock_payloads_reproduce",
-            raw.payload_set_digest(records) == payload.get("payload_set_digest"),
-            "the payload hashes on disk hash to the digest the lock recorded",
-            recorded=payload.get("payload_set_digest"),
-            recomputed=raw.payload_set_digest(records)))
-        checks.append(check(
-            "c5_lock_separates_complete_from_usable",
-            "every_planned_candidate_is_terminal" in payload
-            and "every_planned_candidate_is_usable" in payload,
-            "the lock reports completion and usability as two facts",
-            every_planned_candidate_is_terminal=payload.get(
-                "every_planned_candidate_is_terminal"),
-            every_planned_candidate_is_usable=payload.get(
-                "every_planned_candidate_is_usable"),
-            generated=payload.get("generated"), failed=payload.get("failed")))
-        checks.append(check(
-            "c5_lock_binds_no_calibration",
-            payload.get("binds_quality_calibration") is False,
-            "the lock binds no threshold, reference or acceptance decision"))
-
-        decision = resume_decision(request, "c5_synthesis_lock", path,
-                                   expected_identity=payload.get("source_pair_plan_identity"),
-                                   identity_key="source_pair_plan_identity")
-        checks.append(check(
-            "c5_resume_is_identity_aware", decision["identity_matches"],
-            "resume validates the lock by identity rather than by existence",
-            **decision))
-
-        passed = all(item["ok"] for item in checks)
+        passed = verification["lock_valid"] and all(item["ok"] for item in checks)
         return self.result(
             request, mode=VERIFY_C5_LOCK, checks=checks,
-            artifacts=[path.relative_to(request.repo).as_posix()],
-            # The ONE place C5 claims scientific evidence, and only when the lock
-            # and the candidates it names both verify.
+            artifacts=[path.relative_to(request.repo).as_posix()] if path.exists() else [],
+            summary=("C5 scientific synthesis verified" if passed else
+                     f"C5 scientific synthesis NOT verified: {verification['reason']}"),
+            # The ONE place C5 claims scientific evidence. It requires a full
+            # 6144-candidate bank whose bytes verify against inputs rebuilt now;
+            # a terminal-but-short pass reaches this line and does not pass it.
             scientific_evidence=passed)
+
+
+# --- the strict C5 verification, shared by C5 and C6 -------------------------
+#
+# Three properties this exists to hold, each of which the first version of the
+# lock verification failed to hold:
+#
+# Terminal is not usable. Every planned candidate reaching an outcome means the
+# stage ran to the end. It does not mean C6 has a bank. A pass with one retained
+# failure is complete and short, and only the complete-AND-full pass is
+# scientific synthesis.
+#
+# Hashes are not bytes. `payload_set_digest` hashes the SHA strings recorded
+# inside CANDIDATE.json. It agrees with itself forever, including after the PNG
+# beside it has been truncated. Verification re-reads the files.
+#
+# A lock is not its own evidence. Comparing a lock's recorded identity against
+# the same lock's recorded identity proves the JSON is internally consistent and
+# nothing else. The current inputs are rebuilt from the frozen packages and
+# banks on this machine, and the lock is checked against those.
+
+def reconstruct_current_c5_inputs(repo: Path) -> dict[str, Any]:
+    """Rebuild what a scientific C5 pass WOULD bind, from the inputs present now.
+
+    Nothing here reads the C5 lock. That is the point: these identities are
+    computed from the frozen M3B package, the three frozen C3 banks, the verified
+    C4 checkpoint and the PhysicsEngine version, so comparing a lock against them
+    can actually fail.
+    """
+    from prism_fas.pipeline.adapters import sources
+    from prism_fas.pipeline.adapters.c4 import verify_gpat_config_lock
+    from prism_fas.synthesis import c5_arm_plan as arm_module
+    from prism_fas.synthesis import c5_source_pair_plan as plan_module
+    from prism_fas.synthesis.physics import PHYSICS_ENGINE_VERSION
+
+    repo = Path(repo)
+    checks: list[dict[str, Any]] = []
+
+    c4 = verify_gpat_config_lock(repo, repo / C4_SCIENTIFIC_LOCK)
+    checks.append(check(
+        "c5_current_c4_lock_verifies", c4["ok"],
+        "the frozen C4 GPAT lock verifies right now",
+        failed_c4_checks=[item["check_id"] for item in c4["checks"] if not item["ok"]],
+        checkpoint_sha256=c4["checkpoint_sha256"]))
+    if not c4["ok"]:
+        return {"ok": False, "checks": checks, "reason": "C4_LOCK_INVALID"}
+
+    try:
+        inputs = sources.verify_support_inputs(repo)
+    except sources.SourceUnavailable as error:
+        checks.append(check(
+            "c5_current_source_package_resolves", False,
+            "the frozen source package did not resolve", error=str(error)))
+        return {"ok": False, "checks": checks, "reason": "SOURCE_UNAVAILABLE"}
+    checks.append(check(
+        "c5_current_source_package_resolves", True,
+        "the finalized M3B package resolves and validates",
+        package_identity=inputs["package_identity"]))
+
+    try:
+        base = plan_module.build_source_pair_plan(repo / SOURCE_PACKAGE_ROOT)
+        plans = arm_module.build_all_arm_plans(
+            repo, base, gpat_checkpoint_sha256=str(c4["checkpoint_sha256"]),
+            physics_engine_version=PHYSICS_ENGINE_VERSION)
+    except (plan_module.SourcePairPlanError, arm_module.ArmPlanError) as error:
+        checks.append(check(
+            "c5_current_plans_rebuild", False,
+            "the frozen schedule and arm plans could not be rebuilt", error=str(error)))
+        return {"ok": False, "checks": checks, "reason": "PLAN_REBUILD_FAILED"}
+
+    identity = plan_module.source_pair_plan_identity(base)
+    checks.append(check(
+        "c5_current_plans_rebuild", True,
+        "the schedule and the three arm plans were rebuilt from current inputs",
+        source_pair_plan_identity=identity,
+        arm_plan_identities={arm: plan["arm_plan_identity"]
+                             for arm, plan in plans.items()}))
+
+    return {"ok": True, "checks": checks, "plans": plans, "base_plan": base,
+            "package_identity": inputs["package_identity"],
+            "source_pair_plan_identity": identity,
+            "gpat_checkpoint_sha256": str(c4["checkpoint_sha256"]),
+            "physics_engine_version": PHYSICS_ENGINE_VERSION,
+            "c4_verification": c4}
+
+
+def compare_lock_to_current(payload: dict[str, Any],
+                            current: dict[str, Any]) -> list[dict[str, Any]]:
+    """Check a C5 lock against freshly rebuilt inputs, never against itself.
+
+    Every expected value on the right of a comparison comes from `current`. If a
+    value were taken from `payload` the check would pass for any lock, which is
+    exactly the defect this replaced.
+    """
+    from prism_fas.synthesis.c5_source_pair_plan import ARMS, CANDIDATES_PER_ARM
+
+    checks: list[dict[str, Any]] = []
+    plans = current["plans"]
+
+    checks.append(check(
+        "c5_lock_binds_the_current_package",
+        payload.get("package_identity") == current["package_identity"],
+        "the lock names the M3B package identity that resolves now",
+        locked=payload.get("package_identity"), current=current["package_identity"]))
+    checks.append(check(
+        "c5_lock_binds_the_current_schedule",
+        payload.get("source_pair_plan_identity") == current["source_pair_plan_identity"],
+        "the lock names the source-pair plan identity recomputed now",
+        locked=payload.get("source_pair_plan_identity"),
+        current=current["source_pair_plan_identity"]))
+    checks.append(check(
+        "c5_lock_binds_the_current_checkpoint",
+        payload.get("gpat_checkpoint_sha256") == current["gpat_checkpoint_sha256"],
+        "the lock names the C4 checkpoint SHA the verified C4 lock names now",
+        locked=payload.get("gpat_checkpoint_sha256"),
+        current=current["gpat_checkpoint_sha256"]))
+    checks.append(check(
+        "c5_lock_binds_the_current_physics_engine",
+        payload.get("physics_engine_version") == current["physics_engine_version"],
+        "the lock names the PhysicsEngine version present now",
+        locked=payload.get("physics_engine_version"),
+        current=current["physics_engine_version"]))
+
+    locked_arms = dict(payload.get("arms") or {})
+    checks.append(check(
+        "c5_lock_covers_the_three_arms", set(locked_arms) == set(ARMS),
+        "the lock covers RND, DET and LLM", locked_arms=sorted(locked_arms)))
+
+    for arm in ARMS:
+        locked = dict(locked_arms.get(arm) or {})
+        plan = plans[arm]
+        agrees = {key: locked.get(key) == plan[key] for key in
+                  ("arm_plan_identity", "recipe_bank_identity", "selected_set_identity",
+                   "ontology_identity")}
+        agrees["planned_candidates"] = (int(locked.get("planned_candidates", -1))
+                                        == CANDIDATES_PER_ARM)
+        checks.append(check(
+            f"c5_lock_arm_{arm.lower()}_binds_current_inputs", all(agrees.values()),
+            f"the {arm} arm plan, its C3 bank and its ontology are the ones "
+            f"resolvable now, over exactly {CANDIDATES_PER_ARM} candidates",
+            field_agreement=agrees,
+            locked={key: locked.get(key) for key in
+                    ("arm_plan_identity", "recipe_bank_identity",
+                     "selected_set_identity", "ontology_identity",
+                     "planned_candidates")},
+            current={key: plan[key] for key in
+                     ("arm_plan_identity", "recipe_bank_identity",
+                      "selected_set_identity", "ontology_identity",
+                      "planned_candidates")}))
+    return checks
+
+
+def verify_c5_candidates(candidate_root: Path,
+                         plans: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Re-read and re-hash every planned candidate's payload files.
+
+    The planned set comes from `plans` — rebuilt from current inputs — and not
+    from the lock, so a lock cannot shrink the set it is checked against by
+    omitting a candidate. For each planned candidate the canonical
+    `raw.reuse_decision` is what decides: it compares the recorded generation
+    identity, requires all three payload files, and recomputes SHA-256 over their
+    actual bytes.
+    """
+    from prism_fas.synthesis import c5_raw_generation as raw
+    from prism_fas.synthesis import c5_render as render_module
+    from prism_fas.synthesis.c5_source_pair_plan import CANDIDATES_PER_ARM, GPAT, PHYSICS
+
+    candidate_root = Path(candidate_root)
+    per_arm: dict[str, dict[str, int]] = {}
+    problems: list[dict[str, Any]] = []
+    verified = 0
+
+    for arm in sorted(plans):
+        plan = plans[arm]
+        counts = per_arm.setdefault(arm, {"verified": 0, PHYSICS: 0, GPAT: 0,
+                                          "unverified": 0})
+        for row in plan["candidates"]:
+            identity = render_module.identity_for(row, plan)
+            directory = raw.candidate_dir(candidate_root, arm, identity.candidate_id)
+            decision = raw.reuse_decision(directory, identity)
+            if decision["reusable"]:
+                counts["verified"] += 1
+                counts[row["route"]] += 1
+                verified += 1
+            else:
+                counts["unverified"] += 1
+                if len(problems) < 32:
+                    problems.append({"arm": arm,
+                                     "candidate_id": identity.candidate_id,
+                                     "reason": decision["reason"],
+                                     "payload": decision.get("payload")})
+
+    expected_per_route = CANDIDATES_PER_ARM // 2
+    counts_exact = all(
+        counts["verified"] == CANDIDATES_PER_ARM
+        and counts[PHYSICS] == expected_per_route
+        and counts[GPAT] == expected_per_route
+        for counts in per_arm.values()) and len(per_arm) == len(plans)
+    return {"verified": verified, "per_arm": per_arm, "problems": problems,
+            "planned": sum(len(plan["candidates"]) for plan in plans.values()),
+            "counts_exact": counts_exact,
+            "expected_per_arm": CANDIDATES_PER_ARM,
+            "expected_per_route": expected_per_route,
+            "all_verified": not problems and counts_exact}
+
+
+def verify_c5_synthesis_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
+    """The one strict C5 verification. C5 runs it, and so does C6.
+
+    A scientific C5 PASS requires ALL of:
+
+        the lock exists, declares itself scientific and is not fixture-backed
+        the C4 lock it inherits verifies NOW
+        the M3B package, schedule, arm plans, C3 banks, ontology, checkpoint SHA
+            and PhysicsEngine version rebuilt NOW all equal what it recorded
+        every planned candidate is terminal AND usable
+        6144 planned, 6144 generated, 0 failed
+        2048 generated per arm, 1024 physics and 1024 GPAT per arm
+        every one of those candidates' three payload files is present and hashes
+            to what its own record says
+
+    Anything less is an audit record. It never returns `lock_valid: True`, so it
+    never produces scientific evidence in C5 and never unblocks C6.
+    """
+    from prism_fas.synthesis.c5_source_pair_plan import ARMS, CANDIDATES_PER_ARM
+
+    repo, lock_path = Path(repo), Path(lock_path)
+    payload = read_json(lock_path) or {}
+    checks: list[dict[str, Any]] = []
+    expected_total = CANDIDATES_PER_ARM * len(ARMS)
+
+    def outcome(**extra: Any) -> dict[str, Any]:
+        ok = all(item["ok"] for item in checks)
+        return {"lock_valid": ok, "ok": ok, "checks": checks, "payload": payload,
+                "lock_path": lock_path, "expected_total": expected_total, **extra}
+
+    checks.append(check(
+        "c5_scientific_lock_exists",
+        bool(payload) and payload.get("is_scientific_lock") is True
+        and payload.get("fixture_backed") is False
+        and payload.get("scientific_eligible") is True,
+        "the C5 synthesis lock exists, declares itself scientific and is not "
+        "fixture-backed",
+        lock=_relative(lock_path, repo),
+        is_scientific_lock=payload.get("is_scientific_lock"),
+        fixture_backed=payload.get("fixture_backed"),
+        scientific_eligible=payload.get("scientific_eligible")))
+    if not payload:
+        return outcome(reason="LOCK_ABSENT")
+
+    # Terminal and usable are separate facts and both are required. A pass that
+    # ran to the end with 6143 usable candidates is complete and short; short is
+    # not a scientific synthesis bank.
+    checks.append(check(
+        "c5_lock_declares_every_candidate_terminal",
+        payload.get("every_planned_candidate_is_terminal") is True,
+        "the lock records that every planned candidate reached an outcome",
+        every_planned_candidate_is_terminal=payload.get(
+            "every_planned_candidate_is_terminal")))
+    checks.append(check(
+        "c5_lock_declares_every_candidate_usable",
+        payload.get("every_planned_candidate_is_usable") is True,
+        "the lock records that every planned candidate is usable by C6",
+        every_planned_candidate_is_usable=payload.get(
+            "every_planned_candidate_is_usable"),
+        generated=payload.get("generated"), failed=payload.get("failed"),
+        rule="terminal completion is not usable completion; only the second is "
+             "scientific synthesis input"))
+    checks.append(check(
+        "c5_lock_counts_are_the_frozen_budget",
+        int(payload.get("generated", -1)) == expected_total
+        and int(payload.get("failed", -1)) == 0,
+        f"the lock records {expected_total} generated candidates and no failures",
+        generated=payload.get("generated"), failed=payload.get("failed"),
+        expected_generated=expected_total,
+        rule="the frozen budget is 2048 per arm; a failure is retained and never "
+             "resampled, so a short bank stays short and says so"))
+    checks.append(check(
+        "c5_lock_binds_no_calibration",
+        payload.get("binds_quality_calibration") is False,
+        "the lock binds no threshold, reference or acceptance decision"))
+
+    current = reconstruct_current_c5_inputs(repo)
+    checks.extend(current["checks"])
+    if not current["ok"]:
+        return outcome(reason=current.get("reason", "CURRENT_INPUTS_UNRESOLVABLE"),
+                       current=None)
+
+    checks.extend(compare_lock_to_current(payload, current))
+
+    root = repo / str(payload.get("candidate_root", ""))
+    candidates = verify_c5_candidates(root, current["plans"])
+    checks.append(check(
+        "c5_every_candidate_payload_verifies", candidates["all_verified"],
+        "every planned candidate's three payload files are present and hash to "
+        "what its own record says",
+        verified=candidates["verified"], planned=candidates["planned"],
+        problems=candidates["problems"],
+        candidate_root=str(payload.get("candidate_root", "")),
+        rule="the bytes are re-read and re-hashed; hashing the recorded hashes "
+             "would agree with itself after the file had been replaced"))
+    checks.append(check(
+        "c5_generated_counts_are_exact", candidates["counts_exact"],
+        f"each arm verifies exactly {candidates['expected_per_arm']} candidates, "
+        f"{candidates['expected_per_route']} physics and "
+        f"{candidates['expected_per_route']} GPAT",
+        per_arm=candidates["per_arm"],
+        expected_per_arm=candidates["expected_per_arm"],
+        expected_per_route=candidates["expected_per_route"]))
+
+    return outcome(current=current, candidates=candidates,
+                   reason="VERIFIED" if all(item["ok"] for item in checks)
+                   else "VERIFICATION_FAILED")
 
 
 def _scientific_work_root(request: AdapterRequest, runs: Path | None) -> Path:
@@ -1023,13 +1317,22 @@ def _scientific_work_root(request: AdapterRequest, runs: Path | None) -> Path:
     return root / "scientific" / "candidates"
 
 
+def _relative(path: Path, repo: Path) -> str:
+    try:
+        return Path(path).relative_to(repo).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
 def _bank_config(repo: Path) -> dict[str, Any]:
     import yaml
 
     return yaml.safe_load((repo / BANK_CONFIG).read_text(encoding="utf-8"))
 
 
-__all__ = ["STAGE_ID", "MODES", "SCIENTIFIC_MODES", "LOAD_RECIPES", "RESOLVE_ROUTES",
+__all__ = ["verify_c5_synthesis_lock", "reconstruct_current_c5_inputs",
+           "compare_lock_to_current", "verify_c5_candidates",
+           "STAGE_ID", "MODES", "SCIENTIFIC_MODES", "LOAD_RECIPES", "RESOLVE_ROUTES",
            "RENDER_PHYSICS", "RENDER_GPAT", "CANDIDATE_IDENTITY", "FAILURE_RECORDING",
            "VERIFY_C4_LOCK", "LOAD_SOURCE_PAIR_PLAN", "BUILD_ARM_PLANS",
            "RENDER_CANDIDATES", "VERIFY_RAW_CANDIDATES", "FINALIZE_C5",

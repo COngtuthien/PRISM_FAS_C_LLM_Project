@@ -73,6 +73,38 @@ class C6Adapter(EngineeringAdapter):
                           "candidates per arm the gate evaluates"),
         )
 
+    def semantic_preconditions(self, request: AdapterRequest) -> list[dict[str, Any]]:
+        """C5 must have produced a VERIFIED full synthesis bank, not just a file.
+
+        `RequiredInput` answers "does the lock exist", and a refused, stale or
+        corrupt lock is a file that exists. C6 gates 6144 candidates it did not
+        render, so it asks the question C5 asks of itself — through the identical
+        function, never a second and gentler one. A lock C5's own VERIFY_C5_LOCK
+        would reject BLOCKS C6 here.
+        """
+        from prism_fas.pipeline.adapters.c5 import (C5Adapter,
+                                                    verify_c5_synthesis_lock)
+
+        relative = f"reports/full/c5/{C5Adapter.SCIENTIFIC_LOCK}"
+        verification = verify_c5_synthesis_lock(request.repo, request.repo / relative)
+        failed = [item["check_id"] for item in verification["checks"] if not item["ok"]]
+        return [{
+            "name": "c5_synthesis_verified",
+            "path": relative,
+            "present": verification["lock_valid"],
+            "blocking": not verification["lock_valid"],
+            "description": ("a C5 synthesis lock that verifies strictly: every "
+                            "planned candidate usable, the frozen counts exact, "
+                            "every payload byte re-hashed, and every input "
+                            "identity rebuilt from the packages and banks present "
+                            "now"),
+            "verifier": "prism_fas.pipeline.adapters.c5.verify_c5_synthesis_lock",
+            "reason": verification["reason"],
+            "failed_checks": failed[:12],
+            "usable_as_c6_input": verification["payload"].get("usable_as_c6_input"),
+            "lock_kind": verification["payload"].get("lock_kind"),
+        }]
+
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:
         budget = context.budget or SmokeBudget.from_profile(request.profile)

@@ -227,6 +227,11 @@ class EngineeringAdapter:
         scientifically eligible claim about something that never ran.
         """
         resolved = [item.resolve(request.repo) for item in self.required_inputs()]
+        # Presence is the weakest question that can be asked of an input. For a
+        # lock it is nearly meaningless: a refused, stale or corrupt lock is a
+        # file that exists. A stage that needs its inputs to be TRUE rather than
+        # merely present says so here.
+        resolved.extend(self.semantic_preconditions(request))
         missing = [item for item in resolved if item["blocking"]]
 
         checks = [check(f"{self.stage_id.lower()}_input_{item['name']}", item["present"],
@@ -263,6 +268,20 @@ class EngineeringAdapter:
                     "resolution": "supply these on the execution backend and rerun "
                                   "`python train.py --profile full --from "
                                   f"{self.stage_id} --to {self.stage_id} --resume`"})
+
+    def semantic_preconditions(self, request: AdapterRequest) -> list[dict[str, Any]]:
+        """Conditions beyond existence that this stage's inputs must satisfy.
+
+        Returns rows shaped like `RequiredInput.resolve` — `name`, `path`,
+        `present` (meaning "satisfied"), `blocking`, `description` — so an
+        unsatisfied semantic precondition BLOCKS exactly as a missing file does,
+        and appears in the same gate report.
+
+        A stage that overrides this must call the canonical verifier that owns
+        the condition rather than re-deriving a weaker version of it. Default:
+        nothing to add.
+        """
+        return []
 
     def blocked(self, request: AdapterRequest, reason_code: str, summary: str,
                 checks: Sequence[dict[str, Any]] = (), **detail: Any) -> AdapterResult:
