@@ -28,11 +28,11 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_CANDIDATE_CONTRACT_RECONCILIATION
-current_substage: the 1120-vs-2048/arm question is RESOLVED from the frozen spec
-                  and locked by test; the C5 scientific executor is NOT built —
-                  two NEEDS_SCIENTIFIC_DECISION items block it
-previous_milestone: C4_SCIENTIFIC_SEARCH_CLOSURE_HOTFIX
+current_milestone: C5_SOURCE_PAIR_PLAN_FREEZE
+current_substage: both C5 scientific decisions are CLOSED by the user and the
+                  frozen schedule is implemented and tested; the render executor
+                  and completion lock are NOT built — PARTIAL
+previous_milestone: C5_CANDIDATE_CONTRACT_RECONCILIATION
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -587,6 +587,123 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+c5_source_pair_plan_freeze:
+  status: PARTIAL — the frozen plan is implemented; the render executor is not
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session — both blockers closed as explicit decisions
+  base_commit: 876de9bf9a4e4ea7fe2a67bdd6847548c3c9da44
+
+  decisions_closed_by_user:
+    - id: C5_CANDIDATE_IDENTITY_VS_QUALITY_CALIBRATION
+      ruling: >-
+        C5 raw generation identity MUST NOT bind threshold_sha256,
+        fingerprint_reference_sha256, calibration_sha256, the selected quality
+        profile or any C6 acceptance decision. Those belong to C6 evaluation and
+        matched-bank identity. Changing a C6 threshold may change the acceptance
+        decision, the provenance, the bank membership and the C6 BANK_LOCK
+        identity — never a C5 candidate id or its bytes.
+      implemented_as: >-
+        a new Version-C module, prism_fas.synthesis.c5_source_pair_plan, whose
+        candidate_identity() takes no calibration parameter at all. The
+        Version-B SyntheticBankGenerator and candidate_plan are untouched.
+    - id: C5_RENDER_TO_LIVE_SAMPLE_MAPPING
+      ruling: C5_SOURCE_PAIR_PLAN_V1, transcribed below
+      implemented_as: the same module
+
+  frozen_plan:
+    name: C5_SOURCE_PAIR_PLAN_V1
+    schema_version: prism-c5-source-pair-plan-v1
+    plan_seed: 20260806
+    live_list: >-
+      every label=live row of finalized M3B source_train, sorted by sample_id
+      ascending. No source_dev, no target.
+    spoof_list: >-
+      every label=spoof row of the same manifest, same sort.
+    position: p = 8*r + s for recipe ordinal r in 0..255 and slot s in 0..7
+    live_assignment: LIVE_LIST[p % len(LIVE_LIST)]
+    route_schedule: >-
+      s in {0,2,4,6} -> Physics; s in {1,3,5,7} -> GPAT. Exactly 4 and 4 per
+      recipe, 1024 and 1024 per arm.
+    gpat_domain_schedule: "s in {1,5} -> same_domain; s in {3,7} -> cross_domain"
+    gpat_spoof_selection: >-
+      key = SHA256(PRISM_C5_SOURCE_PAIR_PLAN_V1 | seed | p | live_id |
+      domain_relation); eligible spoof rows sorted by sample_id;
+      eligible[int(key[:16],16) % len(eligible)].
+    eligibility: >-
+      source_train only; source_record_id != the live row's; different subject_id
+      whenever both are known; the slot's domain relation enforced. An empty pool
+      FAILS CLOSED — no constraint is relaxed and no other render policy is used.
+    arm_independence: >-
+      the base schedule takes no arm, no recipe bank and no recipe content. The
+      p -> live_id map, the route sequence and the GPAT spoof pairing are
+      functions of the position alone, so RND, DET and LLM differ only in recipe
+      content — which is the treatment under test. This is what keeps a C6
+      acceptance-rate difference interpretable.
+    cardinality_asserted_on_the_plan: >-
+      2048 positions, 1024 Physics + 1024 GPAT, 4+4 per recipe, 2 same-domain +
+      2 cross-domain GPAT per recipe, and no GPAT pair sharing a source record.
+
+  identities:
+    source_pair_plan_identity: >-
+      binds schema, plan name, seed, M3B package identity, ordered live and spoof
+      list identities, recipe/slot counts, route schedule, domain schedule,
+      eligibility rules, both algorithm names, and a digest over every position's
+      (position, route, live, spoof). Excludes nothing that determines it.
+    arm_candidate_plan_identity: >-
+      the base plan identity as an INPUT, plus arm, that arm's frozen recipe-bank
+      identity, the C4 winning GPAT checkpoint SHA, the physics engine version
+      and the ontology identity. Three arms therefore differ while provably
+      naming the same base schedule.
+    candidate_identity: >-
+      c5syn_<24 hex> over plan identity, arm, recipe bank, recipe id, ordinal,
+      slot, position, route, live target, spoof source or physics-none, package
+      identity, ontology identity, generator binding and seed. The generator
+      binding is the C4 checkpoint SHA on the GPAT route and the PhysicsEngine
+      version on the Physics route. NO calibration field exists in the signature.
+      No path, filename, timestamp, subject id or target token.
+
+  # --- what is NOT built ----------------------------------------------------
+  not_implemented:
+    - the scientific C5 adapter branch and its substages (VERIFY_C4_LOCK,
+      FREEZE_SOURCE_PAIR_PLAN, BUILD_ARM_CANDIDATE_PLANS, RENDER_PHYSICS,
+      RENDER_GPAT, VERIFY_RAW_CANDIDATES, FINALIZE_C5)
+    - the PhysicsRoute / GPATRoute render loop over the 6144 positions
+    - the mechanical generation/evaluation separation of SyntheticBankGenerator
+    - per-candidate atomic terminal records, resume and failure retention
+    - the C5 scientific completion lock
+    - the C4 GPAT_CONFIG_LOCK verification path for C5
+  why: >-
+    scope. The frozen schedule is the part every other piece binds to and is
+    fully decidable and fully testable on a CPU laptop; the render executor is
+    the part that needs a GPU to exercise. Shipping the schedule alone, correct
+    and tested, is more useful than shipping all of it untested.
+  c5_still_blocks_c6: true
+
+  scientific_safety:
+    version_b_candidate_plan_modified: false
+    version_b_synthetic_bank_modified: false
+    calibration_bound_into_c5_identity: false
+    candidate_bank_generated: false
+    target_access: 0
+    c4_to_c13_scientific_execution: NOT_RUN
+
+  tests:
+    plan_suite: tests/pipeline/test_c5_source_pair_plan.py    # 41 passed
+    contract_suite: tests/pipeline/test_c5_candidate_contract.py    # 17 passed
+    covers: >-
+      cardinality (2048 / 1024+1024 / 4+4 / 2+2), arm independence of the live
+      and spoof schedules, exposure fairness within one, source-only reads, the
+      three pairing constraints, empty-pool fail-closed, the absence of any
+      calibration parameter, every generation-relevant input changing the
+      identity, and the Version-B planner remaining untouched.
+    pipeline_suite: {passed: 843, failed: 0, skipped: 0}
+    broad_regression: {passed: 2299, failed: 7, skipped: 101, seconds: 627.88}
+    inherited_failure_set_identical: true
+
+  changed_runtime_files:
+    - src/prism_fas/synthesis/c5_source_pair_plan.py    # new
+
 c5_candidate_contract_reconciliation:
   status: CONTRACT_RESOLVED_IMPLEMENTATION_BLOCKED
   branch: portable-one-command-full-run
@@ -3104,45 +3221,45 @@ deviations_recorded_in_the_previous_session:
     never be mistaken for scientific generation evidence.
 
 next_authorized_action: >
-  TWO SCIENTIFIC DECISIONS ARE REQUIRED BEFORE C5 CAN BE BUILT. Nothing else is
-  authorized until they are answered, and neither may be answered by preference.
+  BUILD THE C5 SCIENTIFIC RENDER EXECUTOR ON TOP OF THE FROZEN PLAN.
 
-  The cardinality question is already settled and needs no decision: §10.4 fixes
-  the Version-C C5 budget at 2048 candidate renders per arm = 256 recipes x 8
-  (4 Physics + 4 GPAT), three arms, 1024 accepted per arm. The shipped C3 banks
-  hold exactly 256 recipes each, and the strings 1120 / 280 / 560 appear nowhere
-  in the specification. `candidate_plan.py` is the Version-B M8 contract and is
-  left untouched. A regression test locks this so it cannot drift again.
+  Both C5 scientific decisions are now closed and implemented:
+  C5_SOURCE_PAIR_PLAN_V1 exists in prism_fas.synthesis.c5_source_pair_plan, and
+  C5 raw generation identity provably binds no C6 calibration. The schedule is
+  arm-independent by construction and every frozen cardinality is asserted on the
+  plan itself rather than promised.
 
-  DECISION 1 — C5_CANDIDATE_IDENTITY_VS_QUALITY_CALIBRATION. Does a Version-C
-  C5 candidate identity bind a quality calibration? The spec renders at C5 and
-  gates at C6, but the canonical SyntheticBankGenerator loads a FrozenCalibration
-  unconditionally and binds three calibration hashes into its generation
-  identity. Using it at C5 needs a calibration C6 has not chosen yet; removing
-  those fields changes candidate identities. The spec does not say.
+  What remains, in dependency order:
 
-  DECISION 2 — C5_RENDER_TO_LIVE_SAMPLE_MAPPING. §10.4 fixes the budget per
-  RECIPE and says only "a fixed ordered list of live source sample IDs shared
-  across all generator arms". It does not say how the 8 renders of each recipe
-  are assigned to live samples, how long that list is, or how it is built. The
-  candidate identity binds live_target_sample_id, so this determines every
-  candidate's identity and bytes. The Version-B per-live construction is a
-  different shape and cannot supply the answer.
+      1. the mechanical generation/evaluation separation of the canonical
+         SyntheticBankGenerator, preserving the Version-B class, API and
+         identities byte-for-byte
+      2. the scientific C5 adapter branch and its substages — VERIFY_C4_LOCK,
+         FREEZE_SOURCE_PAIR_PLAN, BUILD_ARM_CANDIDATE_PLANS, RENDER_PHYSICS,
+         RENDER_GPAT, VERIFY_RAW_CANDIDATES, FINALIZE_C5
+      3. the C4 GPAT_CONFIG_LOCK verification path, reusing C4's own strict
+         semantics rather than a second implementation
+      4. per-candidate atomic terminal records, resume by generation identity and
+         output hash, and failure retention that never resamples
+      5. the C5 scientific completion lock over all 6144 positions
 
-  MEANWHILE, C4 IS UNBLOCKED AND UNCHANGED. The GPU host can still run
-  `/usr/bin/python3 train.py` at the current HEAD to execute the scientific C4
-  search — preparation reuses M2/M3A/M3B, gpat_pairs rebuilds on identity, and
-  C4 runs its 12 trials. C5 will block afterwards, which is expected and correct.
+  Nothing in 1-5 requires a new scientific decision; the frozen plan supplies
+  every input they need. They do require a GPU to exercise, which this laptop
+  does not have.
 
-  What review is being asked to confirm: the reconciliation is read off the
-  frozen specification rather than off the code, and the test asserts it against
-  the .docx itself; `candidate_plan.py` was not adapted, renamed or deleted; and
-  no scientific generation code was written, per the instruction that none should
-  be committed until the gate resolves.
+  MEANWHILE C4 IS STILL UNBLOCKED. The GPU host can run
+  `/usr/bin/python3 train.py` at this HEAD to execute the scientific C4 search.
+  C5 will block afterwards, which remains correct.
 
-  What review must NOT read into it: neither cardinality contract was changed;
-  the two experiments were not merged or averaged; no threshold, arm budget or
-  bank identity was touched; and no candidate bank was generated.
+  What review is being asked to confirm: the frozen plan is exactly the schedule
+  the decision specified — p = 8r+s, LIVE_LIST[p mod N], even slots Physics and
+  odd slots GPAT, GPAT slots 1/5 same-domain and 3/7 cross-domain, spoof selected
+  by the position-keyed digest over the sorted eligible pool — and that the
+  schedule takes no arm, no recipe bank and no recipe content as input.
 
-last_updated_utc: 2026-08-22   # C5 candidate contract reconciliation
+  What review must NOT read into it: no candidate was rendered, no bank was
+  generated, no C6 threshold was chosen or fitted, and the Version-B
+  candidate_plan and SyntheticBankGenerator are byte-identical to before.
+
+last_updated_utc: 2026-08-22   # C5 source-pair plan freeze
 ```
