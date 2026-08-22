@@ -28,12 +28,12 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: LINUX_RTX5090_C4_SUPPORT_INPUT_CONTRACT_HOTFIX
-current_substage: the C4 scientific support batch resolved the data/packages parent
-                  and the C3 container; it now resolves M3B and the frozen M7 bank
-                  from the producer's own declarations, behind an identity gate —
-                  COMPLETE
-previous_milestone: LINUX_RTX5090_GPAT_FROZEN_BANK_CONTRACT_HOTFIX
+current_milestone: LINUX_RTX5090_PACKAGE_LIFECYCLE_HOTFIX
+current_substage: preparation treated a PACKAGE_LOCK's existence as validity, so a
+                  fully built M3B sat at status `building` and C4 refused it; the
+                  validate/finalize/validate lifecycle is now obeyed, and the pair
+                  plan follows the finalized identity — COMPLETE
+previous_milestone: LINUX_RTX5090_C4_SUPPORT_INPUT_CONTRACT_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -588,6 +588,166 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+linux_rtx5090_package_lifecycle_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as an engineering lifecycle fix
+  base_commit_on_gpu_host: 18743c07291e68a26e7c94f644027dc9f87de749
+  discovered_by: >-
+    the RTX 5090 host reaching C4 PREPARE_SUPPORT. The C4 identity gate added in
+    the previous milestone did its job and refused the package.
+  symptom: >-
+    VERIFY_SUPPORT_INPUTS = FAIL / SourceUnavailable / MISSING_DATA:
+    data/packages/prism_data_v1_m3b reports status 'building'; a scientific run
+    trains only against a package its own validator passed.
+
+  lifecycle_defect:
+    what_step_m3b_did: >-
+      returned REUSED_VALID when `target.is_dir()` and PACKAGE_LOCK.json existed,
+      and on the build path returned BUILT immediately after build_m3b_package.
+    why_locked_is_not_validated: >-
+      build_m3b_package WRITES PACKAGE_LOCK.json itself, with status "building".
+      The lock exists from the builder's first write; `status` is what says
+      whether anything checked it. Presence proves a build started, not that it
+      was validated.
+    canonical_lifecycle_already_demonstrated_by: >-
+      cli/main.py::priors_model_build — build, validate(require_validated_status=
+      False, parent_package=M3A), finalize_lock, validate(strict, parent_package=
+      M3A). Preparation ran none of it.
+    fix: >-
+      one helper, preparation.ensure_package_validated, used by BOTH the build
+      path and the reuse path of M3A and M3B. It never rebuilds a payload.
+
+  can_an_existing_building_m3b_be_finalized_in_place: yes
+  why: >-
+    finalize_lock rewrites PACKAGE_LOCK.json and nothing else. The model priors —
+    hours of frozen-tower inference — are never recomputed to change a status
+    field. A test asserts the payload is byte-identical across finalization.
+
+  identity_consequence:
+    finalize_lock_promotes: [status, target_isolation.status, package_validation]
+    and_recomputes: content_identity_sha256
+    measured_in_test:
+      before_finalization: the identity a `building` lock carries
+      after_finalization: a different identity, recomputed over the promoted lock
+      proof: >-
+        test_finalization_changes_the_content_identity asserts before != after
+        and that the after value is what package_status reports downstream.
+    consequence_for_the_pair_plan: >-
+      a plan built against the pre-finalization identity is stale the moment the
+      package is finalized. _pair_plan_is_current already compared
+      PAIR_PLAN_LOCK.package_identity to the package's content_identity_sha256;
+      that behaviour is preserved and now proven, and the plan is rebuilt
+      automatically against the finalized identity. No manual deletion.
+
+  second_defect_found_in_my_own_fix:
+    what: >-
+      what_is_needed / _incomplete decided whether the steps run at all, and
+      asked only whether "the marker the builder writes last" was present. The
+      builder writes the `building` lock itself, so an unfinalized package looked
+      finished and prepare() would have returned NOTHING_TO_DO — the lifecycle
+      fix would never have executed on the host.
+    fix: >-
+      _incomplete now asks the artifact its state: a package must be `validated`
+      with package_validation passed, and a pair plan must still be bound to the
+      identities that exist now. Caught by auditing the coarse pass rather than
+      by another remote round trip.
+
+  nearby_anti_pattern_audit:
+    m3a_reuse_branch: >-
+      FIXED. It validated with require_validated_status=False, which accepts a
+      `building` package. It now uses the same helper.
+    other_lock_presence_checks: >-
+      the remaining `LOCK.json exists` tests in c4/c5/c7 assert a governing lock
+      does NOT yet exist (opposite polarity), and the one in _pair_plan_diagnosis
+      is a read-only report field whose `reusable` verdict is identity-based.
+      Scope not widened beyond the real instances.
+
+  behaviour_change_recorded:
+    what: >-
+      a locked package that no longer validates now fails closed with
+      PACKAGE_NOT_VALIDATED instead of being silently rebuilt over.
+    why: >-
+      a package claiming `validated` that stops validating means its content
+      changed under a finalized lock. Rebuilding passes over whatever went wrong
+      and destroys the evidence of it. test_scenario_e was renamed and rewritten
+      to assert the fail-closed contract; this tightens the test, it does not
+      weaken it.
+
+  diagnosis_bug_fixed:
+    was: >-
+      --diagnose-data printed M3B as "locked" whenever PACKAGE_LOCK.json existed.
+      That is what hid this defect from the operator.
+    now_reports: [present, status, package_validation, content_identity,
+                  reusable_as_scientific_input YES/NO, and why not]
+    pair_plan_now_reports: >-
+      bound_to_current_package, bound_to_frozen_bank, reusable, and — when stale —
+      that finalizing M3B recomputes the identity and that no manual deletion is
+      needed.
+    read_only: true
+
+  scientific_safety:
+    package_locks_hand_edited: 0        # finalize_lock is the only promoter used
+    payload_files_deleted_or_regenerated: 0
+    model_priors_recomputed_to_change_status: 0
+    models_hyperparameters_search_space_datasets_banks_changed: false
+    target_access: 0
+    c4_to_c13_scientific_status: NOT_RUN
+    gemini_calls: 0
+    modal_jobs: 0
+
+  tests:
+    focused_suite: tests/pipeline/test_package_lifecycle.py    # 23 passed
+    focused_covers:
+      - a building lock is not scientific input; a validated one is
+      - PACKAGE_LOCK presence alone is never reuse
+      - an existing building package is finalized in place, payload byte-identical
+      - finalization changes the content identity, and that identity is what
+        downstream sees
+      - the sequence is loose-validate then finalize then strict-validate, and
+        both validations receive the M3A parent
+      - a validated package is still strict-validated before reuse
+      - a building package that does not validate fails closed and is NOT promoted
+      - a validated package that stops validating fails closed
+      - an unrecognized lock status is refused
+      - a newly built M3B is validated, finalized and revalidated
+      - the M3A reuse branch no longer accepts a building package
+      - a plan built before finalization is not reused; the step rebuilds it
+        against the finalized identity and the lock ends bound to it
+      - a building package and a stale plan keep their trees on the to-do list,
+        so the host state is not reported NOTHING_TO_DO
+      - the C4 gate that raised on the host accepts what preparation now finalizes
+      - the diagnosis reports status rather than just "locked", explains a stale
+        plan, opens no target and writes nothing
+      - finalization deletes nothing anywhere
+    real_finalize_lock_used: true    # no test manufactures a promoted lock by hand
+    orchestration_suite: tests/pipeline/test_preparation.py    # 61 passed
+    pipeline_suite: {passed: 706, failed: 0, skipped: 0}
+    m3a_m3b_m8_suites: {passed: 158, failed: 2, skipped: 69}   # the 2 are inherited
+    broad_regression: {passed: 2162, failed: 7, skipped: 101, seconds: 549.36}
+    inherited_failure_set_identical: true
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+    fixture_corrected: >-
+      the preparation stub wrote `{"status": "validated"}` as a whole package
+      lock. It now writes the real shape — status, content identity,
+      package_validation — because a lock without those would let the fixture
+      skip the lifecycle these tests exist to exercise.
+
+  changed_runtime_files:
+    - src/prism_fas/pipeline/preparation.py
+    - train.py
+  full_project_recopy_required: false
+  dataset_recopy_required: false
+  weights_recopy_required: false
+  venv_recopy_required: false
+  manual_cleanup_required: false
+  remote_m2_m3a_reuse_expected: true
+  remote_m3b_expected: FINALIZED_IN_PLACE_NO_PRIOR_REBUILD
+  remote_gpat_pairs_expected: REBUILT_IF_IDENTITY_CHANGED
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 linux_rtx5090_c4_support_input_contract_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2544,17 +2704,21 @@ next_authorized_action: >
       git checkout <NEW_HEAD>
       /usr/bin/python3 train.py
 
-  TWO runtime files changed since the copy on that machine:
-  src/prism_fas/pipeline/preparation.py and
-  src/prism_fas/pipeline/adapters/sources.py. NO recopy of the ~34 GB project, NO
-  recopy of datasets, NO recopy of weights, NO recopy or rebuild of .venv, NO
-  reinstall, NO manual deletion.
+  THREE runtime files changed since the copy on that machine:
+  src/prism_fas/pipeline/preparation.py,
+  src/prism_fas/pipeline/adapters/sources.py and train.py. NO recopy of the
+  ~34 GB project, NO recopy of datasets, NO recopy of weights, NO recopy or
+  rebuild of .venv, NO reinstall, NO manual deletion — in particular do NOT
+  delete data/work, prism_data_v1_m3a or prism_data_v1_m3b.
 
-  The canonical M2 full_preprocessing tree, prism_data_v1_m3a and
-  prism_data_v1_m3b that host already built are VALID and are REUSED — neither
-  this fix nor the one before it touches them. Expect m2_preprocess, m3a_package
-  and m3b_priors to all report REUSED_VALID, then gpat_pairs to build against the
-  frozen M7 bank and the M3B package.
+  Expect, in order: m2_preprocess REUSED_VALID; m3a_package REUSED_VALID;
+  m3b_priors FINALIZED — its lock is validated and promoted IN PLACE, with not a
+  single model prior recomputed; then gpat_pairs. Finalizing M3B recomputes its
+  content identity, so the pair plan already on that host is almost certainly
+  bound to the pre-finalization one and will be REBUILT automatically. That is
+  correct and needs no manual deletion. `--diagnose-data` now shows each package's
+  lock status, its validation, its identity and whether it is scientific input,
+  so this is visible before the run rather than after it.
 
   Then C4 begins — the first scientific execution this project has ever attempted
   past C3. Its support batch is now gated: the pair plan, the M3B package and the
@@ -2567,21 +2731,22 @@ next_authorized_action: >
   Nothing else is authorized. What follows is still true: no reports/full/c4..c13
   artifact has ever been written.
 
-  What review is being asked to confirm: the C4 scientific support batch opens
-  the M3B package (not the data/packages parent) and resolves the frozen M7 bank
-  (not the C3 container), both taken from the producing module's own declarations
-  rather than spelled a second time; the identity gate refuses any disagreement
-  before anything is opened; the SourceOnlyAudit report is carried in the
-  provenance so source-only isolation is a measurement the artifact holds; and
-  the rehearsal branch still conditions on C3 and stays explicitly fixture_backed.
+  What review is being asked to confirm: preparation obeys the canonical package
+  lifecycle — build, loose-validate against the M3A parent, finalize_lock,
+  strict-validate — on both the build path and the reuse path of M3A and M3B; a
+  PACKAGE_LOCK's existence is never taken as validity anywhere; an already-built
+  `building` package is finalized IN PLACE with its payload byte-identical and no
+  prior recomputed; and the pair plan follows the finalized package identity,
+  rebuilding itself when finalization changes it.
 
-  What review must NOT read into it: the recipe bank was not chosen by preference
-  — build_batch indexes `recipes[pair["recipe_id"]]`, so the support batch must
-  resolve the same bank the plan drew from, and no C3 root satisfies load_bank at
-  all; nothing was repaired, rewritten, regenerated or aliased; no C3 file was
-  copied into M7; `git status --porcelain assets/` is empty; and this milestone
-  executed no C4-C13 work, called no external LLM, allocated no Modal job and
-  touched no target label.
+  What review must NOT read into it: no PACKAGE_LOCK was hand-edited — the
+  canonical finalize_lock is the only promoter used, in production and in every
+  test; no payload file was deleted or regenerated; no model prior was recomputed
+  to change a status field; no model, hyperparameter, search space, dataset or
+  recipe bank changed; and this milestone executed no C4-C13 work, called no
+  external LLM, allocated no Modal job and touched no target label. One
+  behaviour did change deliberately and is recorded above: a locked package that
+  stops validating now fails closed rather than being silently rebuilt over.
 
-last_updated_utc: 2026-08-22   # Linux RTX 5090 C4 support input contract hotfix
+last_updated_utc: 2026-08-22   # Linux RTX 5090 package lifecycle hotfix
 ```

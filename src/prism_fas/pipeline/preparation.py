@@ -53,6 +53,13 @@ PREPARATION_FAILED = "PREPARATION_FAILED"
 M2_INCOMPLETE = "M2_INCOMPLETE"
 TARGET_IN_SOURCE_TREE = "TARGET_IN_SOURCE_TREE"
 RECIPE_BANK_INVALID = "RECIPE_BANK_INVALID"
+PACKAGE_NOT_VALIDATED = "PACKAGE_NOT_VALIDATED"
+
+#: The two states a derived package lock passes through. `building` is written by
+#: the builder itself; only `finalize_lock` promotes it, and only after the
+#: package validated. "A lock exists" says nothing about which of the two it is.
+PACKAGE_STATUS_BUILDING = "building"
+PACKAGE_STATUS_VALIDATED = "validated"
 
 #: Built in this order; each consumes the previous one's output.
 STEPS = ("m2_preprocess", "m3a_package", "m3b_priors", "gpat_pairs")
@@ -149,7 +156,8 @@ class PreparationError(RuntimeError):
 @dataclass
 class StepOutcome:
     name: str
-    action: str          # BUILT | REUSED_VALID | SKIPPED_NOT_NEEDED | FAILED
+    action: str          # BUILT | FINALIZED | REUSED_VALID |
+                         # SKIPPED_NOT_NEEDED | FAILED
     summary: str
     detail: dict[str, Any] = field(default_factory=dict)
     seconds: float = 0.0
@@ -169,20 +177,34 @@ COMPLETION_MARKERS = {
 
 
 def _incomplete(repo: Path, name: str) -> bool:
-    """True when a derived tree exists but never finished.
+    """True when a derived tree exists but is not finished scientific input.
 
     Presence used to be `the directory has something in it`, which is true of a
-    package that died halfway through writing. Preparation would then report
-    NOTHING_TO_DO and C4 would train against the half-written tree. A tree counts
-    as present only once the marker its builder writes last is there.
+    package that died halfway through writing. Then it became `the marker its
+    builder writes last is there` — which is true of a package whose lock still
+    says `building`, because the builder writes that lock itself.
+
+    So this asks the artifact what state it is in. A package must be `validated`
+    with its own validation passed; a pair plan must still be bound to the
+    package and bank identities that exist right now. Either of those failing
+    puts the tree back on the to-do list, which is what lets `prepare` finalize
+    an unfinalized package and rebuild a stale plan rather than reporting
+    NOTHING_TO_DO over the top of both.
     """
     from prism_fas.pipeline import portable_paths
 
     root = repo / portable_paths.DERIVED_ROOTS[name]
     if not root.is_dir():
         return False
-    return any(not (root / marker).is_file()
-               for marker in COMPLETION_MARKERS.get(name, ()))
+    if any(not (root / marker).is_file()
+           for marker in COMPLETION_MARKERS.get(name, ())):
+        return True
+    if name == "packages":
+        return any(not package_status(repo / DERIVED_PACKAGES[key])[
+            "reusable_as_scientific_input"] for key in ("m3a", "m3b"))
+    if name == "gpat_pairs":
+        return not _pair_plan_diagnosis(repo)["reusable"]
+    return False
 
 
 # --- the ONE canonical M2 contract -------------------------------------------
@@ -523,10 +545,12 @@ def prepare(repo: Path, *, resume: bool = True,
             + ", ".join(after["missing_derived"]),
             {"still_missing": after["missing_derived"]})
 
+    counted = {action: len([item for item in outcomes if item.action == action])
+               for action in ("BUILT", "FINALIZED", "REUSED_VALID")}
     return _report(started, outcomes, needed, outcome="PREPARED",
-                   summary=f"{len([o for o in outcomes if o.action == 'BUILT'])} tree(s) "
-                           f"built, {len([o for o in outcomes if o.action == 'REUSED_VALID'])} "
-                           "reused",
+                   summary=f"{counted['BUILT']} tree(s) built, "
+                           f"{counted['FINALIZED']} finalized in place, "
+                           f"{counted['REUSED_VALID']} reused",
                    paths_config={"action": paths_config["action"],
                                  "reason": paths_config["reason"]})
 
@@ -721,12 +745,17 @@ def _step_m3a(repo: Path, *, resume: bool) -> StepOutcome:
                                         load_package_config, validate_package)
 
     root = repo / DERIVED_PACKAGES["m3a"]
-    if root.is_dir() and (root / "PACKAGE_LOCK.json").is_file():
-        report = validate_package(root, require_validated_status=False)
-        if report.get("passed"):
-            return StepOutcome("m3a_package", "REUSED_VALID",
-                               "the M3A package validates; not rebuilt",
-                               {"package_root": root.name})
+    if (root / "PACKAGE_LOCK.json").is_file():
+        # Same lifecycle as M3B: a `validated` package is strict-validated and
+        # reused, a `building` one is finalized in place, and neither is accepted
+        # on the strength of the lock file merely existing.
+        state = ensure_package_validated(root, label="the M3A source package")
+        return StepOutcome("m3a_package", state["action"],
+                           "the M3A package validates; not rebuilt"
+                           if not state["finalized"] else
+                           "the M3A package was already built; its lock was "
+                           "validated and finalized in place",
+                           {"package_root": root.name, "package": state})
 
     # M3A reads `<input_root>/manifests/*.parquet` and resolves each crop as
     # `<input_root>/<crop_relative_path>`, where that path was recorded relative
@@ -779,15 +808,137 @@ def _failed_checks(report: dict[str, Any]) -> str:
                      and item.get("severity", "error") == "error") or "no check reported"
 
 
+def package_status(root: Path) -> dict[str, Any]:
+    """What a derived package's own lock says about itself. Read-only."""
+    import json
+
+    lock_path = Path(root) / "PACKAGE_LOCK.json"
+    if not lock_path.is_file():
+        return {"present": Path(root).is_dir(), "locked": False, "status": None,
+                "package_validation": None, "content_identity_sha256": None,
+                "reusable_as_scientific_input": False,
+                "why": "no PACKAGE_LOCK.json"}
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    except ValueError as error:
+        return {"present": True, "locked": True, "status": None,
+                "package_validation": None, "content_identity_sha256": None,
+                "reusable_as_scientific_input": False,
+                "why": f"PACKAGE_LOCK.json does not parse: {error}"}
+    status = lock.get("status")
+    validation = (lock.get("package_validation") or {}).get("status")
+    reusable = status == PACKAGE_STATUS_VALIDATED and validation == "passed"
+    return {
+        "present": True, "locked": True, "status": status,
+        "package_validation": validation,
+        "content_identity_sha256": lock.get("content_identity_sha256"),
+        "reusable_as_scientific_input": reusable,
+        "why": None if reusable else
+               (f"lock status is {status!r}, not {PACKAGE_STATUS_VALIDATED!r}: the "
+                "package was built but never validated and finalized, so its "
+                "content identity is still the pre-finalization one"
+                if status == PACKAGE_STATUS_BUILDING else
+                f"lock status {status!r} / package_validation {validation!r}"),
+    }
+
+
+def ensure_package_validated(root: Path, *, parent: Path | None = None,
+                             label: str) -> dict[str, Any]:
+    """Bring an existing derived package to `validated`, or refuse it.
+
+    The defect this closes: `_step_m3b` treated "the directory exists and holds a
+    PACKAGE_LOCK.json" as REUSED_VALID. `build_m3b_package` writes that lock with
+    `status: "building"`, and preparation never ran the validate → finalize →
+    validate sequence the canonical CLI runs, so a fully built M3B sat there
+    unfinalized. C4 refused it, correctly, three steps later.
+
+    "Locked" is not "validated". The lock exists from the first write; `status`
+    is what says whether anything checked it.
+
+    A `building` package is finalized IN PLACE. `finalize_lock` rewrites
+    `PACKAGE_LOCK.json` and nothing else, so the model priors — hours of frozen
+    tower inference — are never recomputed to obtain a status change.
+
+    Finalization is not free of consequence: it promotes `status`, fills in
+    `target_isolation` and `package_validation`, and RECOMPUTES
+    `content_identity_sha256` over the promoted lock. Anything bound to the
+    pre-finalization identity is therefore stale, which is what
+    `_pair_plan_is_current` exists to catch.
+    """
+    from prism_fas.data.package import finalize_lock, validate_package
+
+    state = package_status(root)
+    if not state["locked"]:
+        raise PreparationError(
+            PACKAGE_NOT_VALIDATED,
+            f"{label} has no PACKAGE_LOCK.json at {Path(root).as_posix()}",
+            {"package": state})
+
+    if state["status"] == PACKAGE_STATUS_VALIDATED:
+        report = validate_package(root, parent_package=parent)
+        if not report.get("passed"):
+            raise PreparationError(
+                PACKAGE_NOT_VALIDATED,
+                f"{label} reports status validated but does not validate: "
+                + _failed_checks(report),
+                {"failed_checks": _failed_checks(report), "package": state})
+        return {"action": "REUSED_VALID", "finalized": False, **package_status(root),
+                "checks_passed": sum(1 for item in report["checks"] if item["passed"]),
+                "checks_total": len(report["checks"])}
+
+    if state["status"] != PACKAGE_STATUS_BUILDING:
+        raise PreparationError(
+            PACKAGE_NOT_VALIDATED,
+            f"{label} carries an unrecognized lock status {state['status']!r}; "
+            f"only {PACKAGE_STATUS_BUILDING!r} and {PACKAGE_STATUS_VALIDATED!r} "
+            "are part of the package lifecycle",
+            {"package": state})
+
+    identity_before = state["content_identity_sha256"]
+    pre = validate_package(root, require_validated_status=False, parent_package=parent)
+    if not pre.get("passed"):
+        raise PreparationError(
+            PACKAGE_NOT_VALIDATED,
+            f"{label} is still building and does not validate, so it cannot be "
+            f"finalized: {_failed_checks(pre)}. Nothing was rewritten.",
+            {"failed_checks": _failed_checks(pre), "validation": pre, "package": state})
+
+    finalize_lock(root, pre)
+    report = validate_package(root, parent_package=parent)
+    if not report.get("passed"):
+        raise PreparationError(
+            PACKAGE_NOT_VALIDATED,
+            f"{label} did not validate after its lock was finalized: "
+            + _failed_checks(report),
+            {"failed_checks": _failed_checks(report), "validation": report})
+    return {"action": "FINALIZED", "finalized": True, **package_status(root),
+            "content_identity_before_finalization": identity_before,
+            "priors_rebuilt": False,
+            "checks_passed": sum(1 for item in report["checks"] if item["passed"]),
+            "checks_total": len(report["checks"])}
+
+
 def _step_m3b(repo: Path, *, resume: bool) -> StepOutcome:
     """Model priors: the pinned towers' features over the packaged frames."""
     from prism_fas.data.package.m3b import build_m3b_package
 
     source = repo / DERIVED_PACKAGES["m3a"]
     target = repo / DERIVED_PACKAGES["m3b"]
-    if target.is_dir() and (target / "PACKAGE_LOCK.json").is_file():
-        return StepOutcome("m3b_priors", "REUSED_VALID",
-                           "the M3B prior package is present and locked")
+    if (target / "PACKAGE_LOCK.json").is_file():
+        # "Present and locked" was the defect. The builder writes the lock as
+        # `building`; a package is only scientific input once it has validated
+        # and been finalized. A `building` package with sound content is
+        # finalized in place — the priors are hours of frozen-tower inference and
+        # are never recomputed to change a status field.
+        state = ensure_package_validated(target, parent=source,
+                                         label="the M3B prior package")
+        return StepOutcome("m3b_priors", state["action"],
+                           "the M3B prior package validates; not rebuilt"
+                           if not state["finalized"] else
+                           "the M3B priors were already built; the lock was "
+                           "validated and finalized in place, without recomputing "
+                           "a single prior",
+                           {"package_root": target.name, "package": state})
 
     from prism_fas.pipeline import portable_paths
 
@@ -802,9 +953,16 @@ def _step_m3b(repo: Path, *, resume: bool) -> StepOutcome:
     result = build_m3b_package(source, target,
                                repo / PREPARATION_CONFIGS["m3b_model_priors"],
                                weight_root=weight_root, resume=resume)
+    # The builder leaves the lock at `building`. Validate against the M3A parent,
+    # finalize, then strict-validate — the sequence `prism data priors model-build`
+    # runs, and the sequence whose absence here left a fully built M3B that C4
+    # refused three steps later.
+    state = ensure_package_validated(target, parent=source,
+                                     label="the M3B prior package")
     return StepOutcome("m3b_priors", "BUILT",
-                       "built the M3B model-prior package",
-                       {"samples": (result or {}).get("samples")})
+                       "built, validated and finalized the M3B model-prior package",
+                       {"samples": (result or {}).get("samples"),
+                        "package_root": target.name, "package": state})
 
 
 def recipe_bank_root(repo: Path) -> Path:
@@ -985,15 +1143,15 @@ def diagnose(repo: Path) -> dict[str, Any]:
     }
     report["m2_status"] = _m2_status_or_absent(repo, True)
 
-    packages = repo / "data" / "packages"
+    # "locked" alone is what hid the M3B lifecycle defect: a package whose lock
+    # says `building` is present, locked, and not scientific input. Every field
+    # the operator needs to tell those apart is reported.
     report["packages"] = {
-        name: {"present": (packages / name).is_dir(),
-               "locked": (packages / name / "PACKAGE_LOCK.json").is_file(),
-               "files": _count_files(packages / name, "*")}
-        for name in ("prism_data_v1_m3a", "prism_data_v1_m3b")}
-    report["gpat_pairs"] = {
-        "present": (packages / "gpat_pairs").is_dir(),
-        "locked": (packages / "gpat_pairs" / "PAIR_PLAN_LOCK.json").is_file()}
+        key: {**package_status(repo / relative), "root": relative,
+              "files": _count_files(repo / relative, "*")}
+        for key, relative in (("m3a", DERIVED_PACKAGES["m3a"]),
+                              ("m3b", DERIVED_PACKAGES["m3b"]))}
+    report["gpat_pairs"] = _pair_plan_diagnosis(repo)
     processed = repo / "data" / "processed"
     report["data_processed"] = {
         "path": processed.as_posix(), "present": processed.is_dir(),
@@ -1003,6 +1161,59 @@ def diagnose(repo: Path) -> dict[str, Any]:
                 "PACKAGES; Version-C preparation writes packages to data/packages. "
                 "No M2 manifest has ever lived here."}
     return report
+
+
+def _pair_plan_diagnosis(repo: Path) -> dict[str, Any]:
+    """Whether the pair plan on disk still belongs to the package beside it.
+
+    Reported because M3B finalization RECOMPUTES the package content identity,
+    and a plan built before that promotion is bound to an identity that no longer
+    exists. It is rebuilt automatically; this is so the operator can see why.
+    """
+    import json
+
+    output = repo / DERIVED_PACKAGES["gpat_pairs"]
+    package = repo / DERIVED_PACKAGES[PAIR_PLAN_PACKAGE]
+    state: dict[str, Any] = {
+        "root": DERIVED_PACKAGES["gpat_pairs"],
+        "present": output.is_dir(),
+        "locked": (output / "PAIR_PLAN_LOCK.json").is_file(),
+        "manifests_present": all((output / name).is_file() for name in
+                                 ("pair_manifest_train.parquet",
+                                  "pair_manifest_validation.parquet")),
+        "package_identity": None, "recipe_bank_identity": None,
+        "bound_to_current_package": False, "bound_to_frozen_bank": False,
+        "reusable": False, "why": None,
+    }
+    if not state["locked"]:
+        state["why"] = "no PAIR_PLAN_LOCK.json"
+        return state
+    try:
+        lock = json.loads((output / "PAIR_PLAN_LOCK.json").read_text(encoding="utf-8"))
+    except ValueError as error:
+        state["why"] = f"PAIR_PLAN_LOCK.json does not parse: {error}"
+        return state
+
+    state["package_identity"] = lock.get("package_identity")
+    state["recipe_bank_identity"] = lock.get("recipe_bank_identity")
+    state["train_pairs"] = lock.get("train_pairs")
+    state["validation_pairs"] = lock.get("validation_pairs")
+    current = package_status(package)["content_identity_sha256"]
+    state["current_package_identity"] = current
+    state["bound_to_current_package"] = bool(current) and lock.get("package_identity") == current
+    state["bound_to_frozen_bank"] = lock.get("recipe_bank_identity") == M7_BANK_CONTENT_IDENTITY
+    state["reusable"] = bool(state["manifests_present"]
+                             and state["bound_to_current_package"]
+                             and state["bound_to_frozen_bank"])
+    if not state["reusable"]:
+        state["why"] = (
+            "the pair manifests are incomplete" if not state["manifests_present"] else
+            "it was built against a different recipe bank"
+            if not state["bound_to_frozen_bank"] else
+            "it was built against a different package identity — most likely the "
+            "pre-finalization one, since finalizing M3B recomputes that identity. "
+            "It is rebuilt automatically; no manual deletion is needed.")
+    return state
 
 
 def _count_files(root: Path, pattern: str) -> int:
@@ -1040,6 +1251,9 @@ def write_report(repo: Path, report: dict[str, Any]) -> Path:
 
 __all__ = ["prepare", "what_is_needed", "write_report", "diagnose", "m2_status",
            "m2_output_root", "recipe_bank_root", "validate_recipe_bank",
+           "package_status", "ensure_package_validated",
+           "PACKAGE_STATUS_BUILDING", "PACKAGE_STATUS_VALIDATED",
+           "PACKAGE_NOT_VALIDATED",
            "PreparationError", "SCHEMA_VERSION", "STEPS",
            "SOURCE_DATASETS", "M2_RUN_PROFILE", "M2_COMPLETION_MARKER",
            "PREPARATION_CONFIGS", "DERIVED_PACKAGES", "M7_RECIPE_BANK",

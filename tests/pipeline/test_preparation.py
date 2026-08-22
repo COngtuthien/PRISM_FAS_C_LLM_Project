@@ -114,7 +114,17 @@ class Builders:
         path.mkdir(parents=True, exist_ok=True)
         _write(path / "content.json", json.dumps({"step": step}))
         if lock:
-            _write(path / lock, json.dumps({"status": "validated"}))
+            # The real shape, not just a status string: a package is scientific
+            # input only when its lock says `validated` AND records its own
+            # validation as passed, and the pair plan is bound to a package
+            # identity. A `{"status": "validated"}` stub would let the fixture
+            # skip the very lifecycle these tests are here to exercise.
+            _write(path / lock, json.dumps({
+                "status": "validated",
+                "content_identity_sha256": self.package_identity,
+                "package_validation": {"status": "passed", "checks_passed": 40,
+                                       "checks_total": 40},
+                "target_isolation": {"policy": "declared", "status": "passed"}}))
 
     # -- the four builders
     #
@@ -189,12 +199,9 @@ class Builders:
         self._record("m3b_priors", input_package=Path(input_package),
                      output_package=Path(output_package), model_config=Path(model_config),
                      weight_root=Path(weight_root), resume=resume)
+        # `_make` writes the full lock shape, including the content identity the
+        # pair plan stamps into every pair id.
         self._make("m3b_priors", Path(output_package), lock="PACKAGE_LOCK.json")
-        # The real builder writes a content identity, and the pair plan stamps it
-        # into every pair id, so the stub carries one too.
-        _write(Path(output_package) / "PACKAGE_LOCK.json",
-               json.dumps({"status": "validated",
-                           "content_identity_sha256": self.package_identity}))
         return {"samples": 36}
 
     def write_pair_plan(self, package_root: Path, bank_root: Path, output_root: Path,
@@ -418,20 +425,27 @@ def test_scenario_d_an_interrupted_step_is_rebuilt(project: Path,
     assert actions["m3a_package"] == "BUILT"
 
 
-def test_scenario_e_a_stale_package_that_fails_validation_is_rebuilt(
+def test_scenario_e_a_package_that_stops_validating_fails_closed(
         project: Path, builders: Builders) -> None:
+    """A locked package whose validator now refuses it is a finding, not a chore.
+
+    This used to fall through to a rebuild, which passes over the top of whatever
+    went wrong and destroys the evidence of it. A package that claims `validated`
+    and no longer validates means its content changed under a finalized lock, so
+    the run stops and names the failed checks. It is never accepted as stale, and
+    it is never silently overwritten either.
+    """
     preparation.prepare(project, dry_run=False)
     _rmtree(project / "data" / "packages" / "gpat_pairs")
     builders.calls.clear()
     builders.validation_passes = False
 
-    # The M3A tree is present and locked, but its validator now refuses it. The
-    # contract is to rebuild and revalidate, and to fail when validation still
-    # refuses — never to accept the stale tree.
-    builders.validation_passes = False
     with pytest.raises(preparation.PreparationError) as caught:
         preparation.prepare(project, dry_run=False)
-    assert caught.value.reason == preparation.PREPARATION_FAILED
+
+    assert caught.value.reason == preparation.PACKAGE_NOT_VALIDATED
+    assert "m3a_package" not in builders.order, (
+        "the package must not be rebuilt over; the failure is the report")
 
 
 def test_scenario_f_a_failing_builder_raises_and_names_the_step(

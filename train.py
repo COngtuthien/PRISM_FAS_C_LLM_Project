@@ -364,10 +364,26 @@ def _diagnose_data() -> int:
     if status.get("outstanding_records"):
         print(f"  records outstanding {status['outstanding_records']}")
     for name, package in report["packages"].items():
-        print(f"  {name:24s} {'locked' if package['locked'] else ('present' if package['present'] else 'absent')}"
-              f"  {package['files']} file(s)")
+        # Never just "locked": a package whose lock says `building` is present,
+        # locked, and not scientific input. Saying only "locked" is what hid the
+        # M3B lifecycle defect until C4 refused the package three steps later.
+        if not package["present"]:
+            print(f"  {name:24s} absent")
+            continue
+        verdict = "REUSABLE" if package["reusable_as_scientific_input"] else "NOT USABLE"
+        print(f"  {name:24s} status={package['status'] or 'unlocked'}  "
+              f"validation={package['package_validation'] or 'none'}  "
+              f"{package['files']} file(s)")
+        print(f"  {'':24s} identity={(package['content_identity_sha256'] or 'none')[:16]}  "
+              f"scientific input: {verdict}")
+        if package["why"]:
+            print(f"  {'':24s} {package['why']}")
+    pairs = report["gpat_pairs"]
     print(f"  gpat_pairs               "
-          f"{'locked' if report['gpat_pairs']['locked'] else 'absent'}")
+          f"{'locked' if pairs['locked'] else 'absent'}  "
+          f"reusable: {'YES' if pairs['reusable'] else 'NO'}")
+    if pairs["locked"] and pairs["why"]:
+        print(f"  {'':24s} {pairs['why']}")
     print(f"\n  data/processed      {report['data_processed']['role']}")
     print(f"  Report              {path.relative_to(REPO).as_posix()}")
     print("\n  Nothing was built, deleted or read from the target.")
