@@ -590,18 +590,64 @@ class C6Adapter(EngineeringAdapter):
         science = science_module()
         checks: list[dict[str, Any]] = []
         config = load_quality_config(request.repo / QUALITY_CONFIG)
+
+        # The three pinned roles must resolve and hash-verify from the weight
+        # root BEFORE anything is measured. `QualityModelRegistry.resolve` is the
+        # canonical binding and refuses a missing or altered model; nothing is
+        # downloaded and no model is substituted.
+        binding = _verify_quality_model_binding(request.repo / "weights")
+        checks.append(check(
+            "c6_quality_models_bind", binding["ok"],
+            "the identity, parsing and detector models resolve and hash-verify "
+            "from the pinned weight root",
+            roles=binding["roles"], weight_root="weights",
+            error=binding.get("error"),
+            rule="no model is downloaded and no identity or parsing model is "
+                 "substituted; an absent or altered weight BLOCKS"))
+        if not binding["ok"]:
+            state["halt"] = True
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code="QUALITY_MODEL_BINDING_INVALID",
+                summary="C6 cannot calibrate: a pinned quality model did not bind",
+                error_type=binding["error_type"], detail=binding.get("error", ""))
+
         try:
-            backends = QualityBackends.resolve(request.repo / "weights")
+            device = _quality_backend_device(request)
+        except QualityBackendDeviceUndetermined as error:
+            checks.append(check(
+                "c6_quality_backend_device_is_frozen", False,
+                "the quality-backend execution device is not fixed by any frozen "
+                "contract, and CPU vs CUDA is result-affecting for the fitted "
+                "percentiles",
+                reason_code=error.reason_code, error=str(error),
+                audited=error.audited))
+            state["halt"] = True
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code=error.reason_code,
+                summary="C6 cannot calibrate: the quality-backend device is "
+                        "NEEDS_SCIENTIFIC_DECISION",
+                error_type=type(error).__name__, detail=str(error))
+
+        checks.append(check(
+            "c6_quality_backend_device_is_frozen", True,
+            "the quality-backend execution device comes from a frozen contract",
+            device=device))
+        try:
+            # The canonical construction API. `QualityBackends` has no `resolve`;
+            # the classmethod that does is `QualityModelRegistry.resolve`, used
+            # inside this constructor.
+            backends = QualityBackends(request.repo / "weights", device=device)
             payload = science.fit_nominal_calibration(state["package_root"], config,
                                                       backends)
         except Exception as error:                       # noqa: BLE001
             state["halt"] = True
-            return self.blocked(
-                request, "CALIBRATION_UNAVAILABLE",
-                "C6 could not fit its own source_train calibration",
-                checks=[check("c6_nominal_fitted", False,
-                              "the NOMINAL calibration could not be fitted",
-                              error=f"{type(error).__name__}: {error}")])
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code="CALIBRATION_UNAVAILABLE",
+                summary="C6 could not fit its own source_train calibration",
+                error_type=type(error).__name__, detail=str(error))
 
         state["backends"] = backends
         state["calibration"] = payload
@@ -624,6 +670,36 @@ class C6Adapter(EngineeringAdapter):
         state["calibration_path"] = request.repo / artifact
         return self.result(request, mode=FIT_NOMINAL_CALIBRATION, checks=checks,
                            artifacts=[artifact])
+
+    def _calibration_blocked(self, request: AdapterRequest, reports: Path,
+                             checks: list[dict[str, Any]], *, substage: str,
+                             reason_code: str, summary: str, error_type: str | None,
+                             detail: str) -> AdapterResult:
+        """Block with a diagnostic specific enough to act on.
+
+        The first GPU run printed only "the NOMINAL calibration could not be
+        fitted" while the exception type sat inside a check detail nobody saw. A
+        substage that refuses now says WHAT failed and WHY in the summary line
+        itself, and leaves a deterministic artifact beside the other C6 reports.
+        Operational only — no threshold, population or metric is involved, and no
+        credential or absolute host path is serialized.
+        """
+        reason = _sanitize_reason(Exception(detail)) if detail else ""
+        write_artifact(request, reports / "C6_CALIBRATION_FAILURE.json", {
+            "schema_version": "c6-calibration-failure-v1",
+            "generated_at_utc": utc(), "mode": substage,
+            "substage": substage, "reason_code": reason_code,
+            "error_type": error_type, "sanitized_reason": reason,
+            "resolution": ("this is an execution or contract failure, not a "
+                           "scientific result; no threshold was fitted and no "
+                           "candidate was gated"),
+            "fixture_backed": False})
+        return self.blocked(
+            request, reason_code,
+            f"{summary} [{substage}: {error_type or reason_code}"
+            + (f" — {reason}]" if reason else "]"),
+            checks=checks, substage=substage, error_type=error_type,
+            sanitized_reason=reason)
 
     def _build_common_profiles(self, request: AdapterRequest, state: dict[str, Any],
                                reports: Path) -> AdapterResult:
@@ -953,6 +1029,85 @@ class C6Adapter(EngineeringAdapter):
                      "C6 lock verification failed"),
             # The ONE place C6 claims scientific evidence.
             scientific_evidence=passed)
+
+
+class QualityBackendDeviceUndetermined(RuntimeError):
+    """No frozen contract fixes the C6 quality-backend execution device."""
+
+    reason_code = "C6_QUALITY_BACKEND_DEVICE_NEEDS_SCIENTIFIC_DECISION"
+
+    def __init__(self, message: str, *, audited: list[str]) -> None:
+        super().__init__(message)
+        self.audited = list(audited)
+
+
+#: Set only by an explicit, recorded user decision. Until then C6 fails closed
+#: rather than picking a device, because the choice is result-affecting.
+#:
+#: `QualityBackends` sends the SCRFD provider, FaceXFormer parsing and the
+#: AdaFace embedding to this device. Each tau is a percentile (p1/p99) over a
+#: population of those measurements, so a kernel difference between CPU and CUDA
+#: can move a threshold. Defaulting to the constructor's `device="cpu"` would be
+#: choosing by accident; defaulting to CUDA because the GPU host has one would
+#: be choosing by convenience.
+FROZEN_QUALITY_BACKEND_DEVICE: str | None = None
+
+#: What was searched, so the report says where the answer is not.
+QUALITY_BACKEND_DEVICE_AUDIT: tuple[str, ...] = (
+    "v1.5 spec: the word 'device' does not occur; the precision/backend clauses "
+    "govern TRAINING runs (GPU model, precision mode, microbatch, effective "
+    "batch size), not the quality-metric backends",
+    f"frozen config {QUALITY_CONFIG}: no device or provider field",
+    "QualityBackends(weight_root, *, device='cpu'): a Python signature default, "
+    "not a declared scientific contract",
+    "both existing call sites (cli.main, structural_calibration) take the device "
+    "from their caller; the CLI exposes it as an operator flag",
+    "quality_calibration.calibrate records `device` as run PROVENANCE in its "
+    "output, which is how a recorded input behaves, not a frozen one",
+    "frozen Version-B reports/m8/quality_calibration.json recorded device='cuda' "
+    "on an NVIDIA L4 (torch 2.5.1+cu121); the Version-C host is an RTX 5090, so "
+    "'inherit cuda' does not reproduce those numbers either",
+    "c4._scientific_device and c5_render.scientific_device require CUDA, but each "
+    "is justified by a training/rendering precision contract and neither claims "
+    "to govern measurement backends",
+    "gpat_trainer.resolve_device is availability-based ('cuda if available'), "
+    "which is an operational helper rather than a scientific policy",
+)
+
+
+def _quality_backend_device(request: AdapterRequest) -> str:
+    """The frozen execution device for the quality backends, or fail closed."""
+    if FROZEN_QUALITY_BACKEND_DEVICE:
+        return FROZEN_QUALITY_BACKEND_DEVICE
+    raise QualityBackendDeviceUndetermined(
+        "C6 quality-backend device is not fixed by any frozen contract. CPU and "
+        "CUDA send SCRFD, FaceXFormer and AdaFace down different kernels, and "
+        "each tau is a percentile over those measurements, so the choice is "
+        "result-affecting. Refusing to pick one.",
+        audited=list(QUALITY_BACKEND_DEVICE_AUDIT))
+
+
+def _verify_quality_model_binding(weight_root: Path) -> dict[str, Any]:
+    """Prove the three pinned roles resolve and hash-verify. Nothing is fetched."""
+    roles = ("identity", "parsing", "detector")
+    try:
+        from prism_fas.synthesis.quality_models import QualityModelRegistry
+
+        registry = QualityModelRegistry.resolve(Path(weight_root), roles=roles)
+        return {"ok": True, "roles": list(roles), "error_type": None,
+                "verified": dict(getattr(registry, "verified", {}) or {})}
+    except Exception as error:                           # noqa: BLE001
+        return {"ok": False, "roles": list(roles),
+                "error_type": type(error).__name__,
+                "error": _sanitize_reason(error)}
+
+
+def _sanitize_reason(error: BaseException) -> str:
+    """A diagnostic may carry a host path; an artifact may not."""
+    import re
+
+    return re.sub(r"([A-Za-z]:\\|/home/|/Users/)\S*", "[redacted-path]",
+                  str(error))[:400]
 
 
 def science_module():

@@ -885,6 +885,68 @@ c5_source_pair_plan_freeze:
       RESOLVED_BY: C6_MATCHED_BANK_SELECTOR_V1
       resolved_on: 2026-08-23
 
+  # --- OPEN: C6 quality-backend execution device -----------------------------
+  open_decisions_c6_device:
+    - id: C6_QUALITY_BACKEND_DEVICE
+      status: NEEDS_SCIENTIFIC_DECISION
+      audited_on: 2026-08-23
+      why_it_matters: >-
+        QualityBackends sends the SCRFD provider, FaceXFormer parsing and the
+        AdaFace embedding to one device. Every tau is a percentile (p1/p99) over
+        a population of those measurements, so CPU and CUDA kernels can move a
+        threshold. The choice is result-affecting.
+      evidence_searched:
+        - "v1.5 spec: the word 'device' occurs 0 times. The precision/backend
+          clauses govern TRAINING runs (GPU model, precision mode, microbatch,
+          effective batch size), not the quality-metric backends."
+        - "configs/synthesis/quality_gate_m8.yaml: no device or provider field."
+        - "QualityBackends(weight_root, *, device='cpu'): a Python signature
+          default, not a declared scientific contract."
+        - "both existing call sites (cli.main, structural_calibration) take the
+          device from their caller; the CLI exposes it as an operator flag."
+        - "quality_calibration.calibrate records `device` as run PROVENANCE in
+          its output, which is how a recorded input behaves, not a frozen one."
+        - "frozen Version-B reports/m8/quality_calibration.json recorded
+          device='cuda' on an NVIDIA L4 (torch 2.5.1+cu121, cuDNN 90100). The
+          Version-C host is an RTX 5090, so 'inherit cuda' would not reproduce
+          those numbers either — 'cuda' is a family, not a device."
+        - "c4._scientific_device and c5_render.scientific_device require CUDA,
+          but each is justified by a training/rendering precision contract and
+          neither claims to govern measurement backends. Extending them here
+          would be stretching a policy past its stated scope."
+        - "gpat_trainer.resolve_device is availability-based ('cuda if
+          available'), an operational helper rather than a scientific policy."
+      not_chosen_by: >-
+        runtime speed, RTX 5090 availability, the observed C5 outcome, which
+        option makes C6 pass, or any downstream result. No device was picked.
+      current_behaviour: >-
+        FROZEN_QUALITY_BACKEND_DEVICE is None, so C6 BLOCKS at
+        FIT_NOMINAL_CALIBRATION with reason_code
+        C6_QUALITY_BACKEND_DEVICE_NEEDS_SCIENTIFIC_DECISION and the audit list
+        above. Setting that constant is the whole of the implementation once the
+        decision is made.
+      related_observation: >-
+        §11.4 says NOMINAL uses the unique inherited Version-B threshold when
+        semantically compatible, and only derives percentiles for metrics with no
+        compatible inherited threshold. The C6 executor currently fits every
+        threshold fresh. Whether C6 should inherit the six frozen Version-B taus
+        instead is a SEPARATE question, not touched by this hotfix, and it would
+        change how much the device choice affects.
+
+  # --- reporting-only: the C3 blocker line -----------------------------------
+  c3_blocker_line:
+    status: STALE_GLOBAL_REPORTING_STATE
+    where: src/prism_fas/pipeline/orchestrator.py, the `profile.name == "full"` branch
+    finding: >-
+      the "C3 live scientific generation remains gated" blocker is appended
+      unconditionally for every full-profile invocation and never consults the
+      requested stage range, so a scoped `--from C5 --to C6` run prints it too.
+      It is static reporting text, not computed state, and it was NOT the cause
+      of the C6 calibration failure — that run reached C6
+      BUILD_SOURCE_REFERENCE and stopped at the backend construction.
+    action_taken: recorded only. No C3 evidence was mutated and the line was not
+      suppressed.
+
   # --- FROZEN: C6_MATCHED_BANK_SELECTOR_V1 -----------------------------------
   c6_matched_bank_selector_v1:
     status: FROZEN
