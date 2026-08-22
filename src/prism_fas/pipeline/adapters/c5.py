@@ -896,8 +896,15 @@ class C5Adapter(EngineeringAdapter):
             "c5_failures_are_retained_not_replaced",
             all(record["failure"]["replacement_generated"] is False
                 for record in records if record["status"] == raw.FAILED_GENERATION),
-            f"{state['failed']} failed candidate(s) retained and never resampled",
-            failed=state["failed"], failed_candidate_ids=state["failed_candidate_ids"]))
+            f"{state['semantic_failed']} terminal semantic failure(s) retained and "
+            f"never resampled",
+            semantic_failed=state["semantic_failed"],
+            failed_candidate_ids=state["failed_candidate_ids"],
+            generated=state["generated"],
+            runtime_unresolved=state["runtime_unresolved"],
+            rule="generated, semantic_failed and runtime_unresolved mean different "
+                 "things and are never collapsed; only the third means the pass "
+                 "did not finish"))
 
         artifact = write_artifact(request, reports / "C5_RAW_CANDIDATE_AUDIT.json", {
             "schema_version": "c5-raw-candidate-audit-v1", "generated_at_utc": utc(),
