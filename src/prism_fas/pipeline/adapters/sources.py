@@ -29,10 +29,33 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterError
+from prism_fas.pipeline.preparation import (DERIVED_PACKAGES, M7_RECIPE_BANK,
+                                            PAIR_PLAN_PACKAGE)
 
-#: Where a portable bundle keeps its derived packages, relative to the project.
-SOURCE_PACKAGE_ROOT = "data/packages"
-GPAT_PAIR_ROOT = "data/packages/gpat_pairs"
+#: The canonical scientific inputs, taken from the module that PRODUCES them
+#: rather than spelled again here.
+#:
+#: Both were wrong, and in different ways. `SOURCE_PACKAGE_ROOT` was
+#: `data/packages` — the parent directory — while `SampleStore.open` reads
+#: `<package_root>/manifests/source_train.parquet`, a file that has never existed
+#: one level up. And the recipe bank was `assets/recipe_banks/c3`, the container
+#: of the three C3 treatment banks, which is not an M7 frozen-bank root at all.
+#:
+#: The bank is not a preference. `m8_pipeline.build_batch` does
+#: `recipes[pair["recipe_id"]]` over the bank it is handed, so the support batch
+#: must resolve the SAME bank the pair plan drew its recipe ids from — anything
+#: else is a KeyError at best and a silent mismatch at worst. Preparation binds
+#: the plan to M3B + M7 from frozen Version-B evidence; this consumer reads that
+#: binding rather than restating it, so the two cannot drift apart.
+SOURCE_PACKAGE_ROOT = DERIVED_PACKAGES[PAIR_PLAN_PACKAGE]
+GPAT_PAIR_ROOT = DERIVED_PACKAGES["gpat_pairs"]
+RECIPE_BANK_ROOT = M7_RECIPE_BANK
+
+#: C3 stays exactly where it was: the rehearsal fixture's conditioning source and
+#: nothing else. `adapters/c4.SUPPORT_RECIPE_SOURCE` names one arm's recipes so a
+#: rehearsal exercises a real conditioning vector; a scientific run never reaches
+#: that branch, because `fixtures_permitted` is `not scientific_eligible`.
+REHEARSAL_CONDITIONING_SOURCE = "assets/recipe_banks/c3"
 
 
 class SourceUnavailable(AdapterError):
@@ -62,10 +85,115 @@ def support_batch(repo: Path, size: int, context: Any, *,
             "source": "deterministic_fixture",
             "fixture_backed": True,
             "seed": seed,
+            "conditioning_source": REHEARSAL_CONDITIONING_SOURCE,
             "note": "conditioned on the frozen C3 recipes; the imagery is synthetic "
-                    "and carries no source-package content"}
+                    "and carries no source-package content. C3 conditions the "
+                    "REHEARSAL only: the scientific branch resolves the frozen M7 "
+                    "bank the pair plan is bound to, and cannot reach this branch "
+                    "because fixtures_permitted is `not scientific_eligible`."}
 
     return _real_support_batch(repo, size, seed=seed)
+
+
+class SupportIdentityMismatch(SourceUnavailable):
+    """The scientific inputs are all present and each disagrees with the others.
+
+    Distinct from plain absence because the operator's response differs: nothing
+    is missing, so nothing here can be fetched or rebuilt to fix it. Something
+    was rebuilt out from under the pair plan, or the wrong root was resolved.
+    """
+
+    reason_code = "IDENTITY_MISMATCH"
+
+
+def verify_support_inputs(repo: Path) -> dict[str, Any]:
+    """Prove the pair plan, the M3B package and the M7 bank are the same three.
+
+    Every pair id in the plan is a digest over the package identity, the bank
+    identity and a recipe id from that bank, and `build_batch` looks each recipe
+    id up in whatever bank it is handed. So three artifacts have to agree before
+    a single tensor is built, and this refuses rather than discovers it later:
+
+    * the pair-plan lock and both pair manifests are present;
+    * the M3B `PACKAGE_LOCK.json` is present and records its own validation as
+      passed — the full re-derivation is M3A/M3B's own build-time step, not
+      something to repeat per batch;
+    * the package content identity equals the plan's `package_identity`;
+    * the M7 bank passes the canonical frozen-bank gate — every `BANK_FILES`
+      entry, `validate_bank`, `status == frozen`, the bank id and the pinned
+      content identity; and
+    * that bank identity equals the plan's `recipe_bank_identity`.
+
+    Reads three lock files. Opens no manifest, no image and no target.
+    """
+    import json
+
+    from prism_fas.pipeline.preparation import PreparationError, validate_recipe_bank
+
+    pair_root = repo / GPAT_PAIR_ROOT
+    package_root = repo / SOURCE_PACKAGE_ROOT
+
+    required = {
+        "the source-only GPAT pair plan lock": pair_root / "PAIR_PLAN_LOCK.json",
+        "the GPAT training pair manifest": pair_root / "pair_manifest_train.parquet",
+        "the GPAT validation pair manifest": pair_root / "pair_manifest_validation.parquet",
+        "the frozen M3B source package lock": package_root / "PACKAGE_LOCK.json",
+    }
+    for label, path in required.items():
+        if not path.is_file():
+            raise SourceUnavailable(
+                f"{path.relative_to(repo).as_posix()} is absent; it holds {label}, "
+                "which a scientific support batch is built from and for which "
+                "there is no substitute on this path")
+
+    plan = json.loads((pair_root / "PAIR_PLAN_LOCK.json").read_text(encoding="utf-8"))
+    package = json.loads((package_root / "PACKAGE_LOCK.json").read_text(encoding="utf-8"))
+
+    if package.get("status") != "validated":
+        raise SourceUnavailable(
+            f"{SOURCE_PACKAGE_ROOT} reports status {package.get('status')!r}; a "
+            "scientific run trains only against a package its own validator passed")
+    validation = package.get("package_validation") or {}
+    if validation.get("status") != "passed":
+        raise SourceUnavailable(
+            f"{SOURCE_PACKAGE_ROOT} records package_validation "
+            f"{validation.get('status')!r}; the package never completed validation")
+
+    # Raises PreparationError(RECIPE_BANK_INVALID) on any of the five bank rules.
+    try:
+        bank = validate_recipe_bank(repo)
+    except PreparationError as error:
+        raise SourceUnavailable(
+            f"the frozen recipe bank is not usable: {error}") from error
+
+    package_identity = str(package.get("content_identity_sha256"))
+    bank_identity = str(bank["bank_content_identity_sha256"])
+    disagreements: list[str] = []
+    if plan.get("package_identity") != package_identity:
+        disagreements.append(
+            f"the pair plan was built against package {plan.get('package_identity')} "
+            f"but {SOURCE_PACKAGE_ROOT} is {package_identity}")
+    if plan.get("recipe_bank_identity") != bank_identity:
+        disagreements.append(
+            f"the pair plan was built against recipe bank "
+            f"{plan.get('recipe_bank_identity')} but {RECIPE_BANK_ROOT} is "
+            f"{bank_identity}")
+    if disagreements:
+        raise SupportIdentityMismatch(
+            "the scientific support inputs do not agree: " + "; ".join(disagreements)
+            + ". Every pair id is a digest over both identities, so a batch built "
+            "from these would not be the plan that was locked.")
+
+    return {"package_root": SOURCE_PACKAGE_ROOT, "package_identity": package_identity,
+            "bank_root": RECIPE_BANK_ROOT, "bank_id": bank["bank_id"],
+            "bank_status": bank["status"], "bank_identity": bank_identity,
+            "bank_recipe_count": bank["recipe_count"],
+            "pair_root": GPAT_PAIR_ROOT,
+            "pair_plan_identity": str(plan.get("pair_plan_identity_sha256")),
+            "train_pairs": plan.get("train_pairs"),
+            "validation_pairs": plan.get("validation_pairs"),
+            "identities_agree": True,
+            "verified_by": "prism_fas.pipeline.adapters.sources.verify_support_inputs"}
 
 
 def _real_support_batch(repo: Path, size: int, *,
@@ -79,17 +207,10 @@ def _real_support_batch(repo: Path, size: int, *,
     """
     from prism_fas.pipeline.adapters.common import import_canonical
 
+    identities = verify_support_inputs(repo)
     pair_root = repo / GPAT_PAIR_ROOT
     package_root = repo / SOURCE_PACKAGE_ROOT
-    bank_root = repo / "assets/recipe_banks/c3"
-    for label, path in (("the source-only GPAT pair plan", pair_root),
-                        ("the preprocessed source packages", package_root),
-                        ("the frozen C3 recipe banks", bank_root)):
-        if not path.is_dir():
-            raise SourceUnavailable(
-                f"{path.relative_to(repo).as_posix()} is absent; it holds {label}, "
-                "which a scientific support batch is built from and for which "
-                "there is no substitute on this path")
+    bank_root = repo / RECIPE_BANK_ROOT
 
     m8 = import_canonical("prism_fas.synthesis.m8_pipeline",
                           "the GPAT sample store and batch builder")
@@ -106,6 +227,15 @@ def _real_support_batch(repo: Path, size: int, *,
             f"the pair plan holds {len(pairs)} training pairs but the support batch "
             f"needs {size}; a scientific run does not shrink to fit its input (L.12)")
 
+    # The lock identities agreed; this is the row-level consequence of that, and
+    # it is what would otherwise surface as a bare KeyError inside `build_batch`.
+    known = {recipe.recipe_id for recipe in bank["recipes"]}
+    unknown = sorted({pair["recipe_id"] for pair in pairs[:size]} - known)
+    if unknown:
+        raise SupportIdentityMismatch(
+            f"{len(unknown)} recipe id(s) in the pair plan are not in "
+            f"{RECIPE_BANK_ROOT}, starting at {unknown[:3]}")
+
     registry = quality.QualityModelRegistry.resolve(repo / "weights",
                                                     roles=("identity",))
     identity_model = registry.adaface("cpu")
@@ -119,7 +249,10 @@ def _real_support_batch(repo: Path, size: int, *,
         "pair_plan_identity": pair_plan.pair_plan_identity(pair_root),
         "adaface_weight_sha256": registry.verified["identity"],
         "pairs_available": len(pairs),
-        "pairs_used": size}
+        "pairs_used": size,
+        "inputs": identities,
+        # Measured by the store itself as it opened, not asserted here.
+        "source_only_audit": audit.report()}
 
 
 def target_roots(repo: Path, reports: Path, context: Any) -> tuple[dict[str, Path],
@@ -194,4 +327,6 @@ def _real_target_roots(repo: Path) -> tuple[dict[str, Path], dict[str, Any]]:
 
 
 __all__ = ["SourceUnavailable", "support_batch", "target_roots",
-           "SOURCE_PACKAGE_ROOT", "GPAT_PAIR_ROOT"]
+           "SupportIdentityMismatch", "verify_support_inputs",
+           "SOURCE_PACKAGE_ROOT", "GPAT_PAIR_ROOT", "RECIPE_BANK_ROOT",
+           "REHEARSAL_CONDITIONING_SOURCE"]
