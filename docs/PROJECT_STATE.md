@@ -28,11 +28,12 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_SOURCE_PAIR_PLAN_FREEZE
-current_substage: both C5 scientific decisions are CLOSED by the user and the
-                  frozen schedule is implemented and tested; the render executor
-                  and completion lock are NOT built — PARTIAL
-previous_milestone: C5_CANDIDATE_CONTRACT_RECONCILIATION
+current_milestone: C5_SCIENTIFIC_RENDER_EXECUTOR
+current_substage: the scientific C5 branch, its seven substages, the render loop,
+                  per-candidate records, resume, failure retention, the C5
+                  completion lock and the C6 handoff are implemented and tested.
+                  Nothing has been RENDERED: no GPU, no C4 lock on this host.
+previous_milestone: C5_SOURCE_PAIR_PLAN_FREEZE
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -663,22 +664,36 @@ c5_source_pair_plan_freeze:
       version on the Physics route. NO calibration field exists in the signature.
       No path, filename, timestamp, subject id or target token.
 
-  # --- what is NOT built ----------------------------------------------------
+  # --- built in C5_SCIENTIFIC_RENDER_EXECUTOR --------------------------------
+  implemented:
+    - C5Adapter.workflow branches on context.is_scientific; the rehearsal path is
+      byte-identical and still reaches its fixture batch and untrained generator
+    - seven scientific substages: VERIFY_C4_LOCK, LOAD_SOURCE_PAIR_PLAN,
+      BUILD_ARM_PLANS, RENDER_CANDIDATES, VERIFY_RAW_CANDIDATES, FINALIZE_C5,
+      VERIFY_C5_LOCK
+    - c4.verify_gpat_config_lock, extracted to module level and SHARED: C4's own
+      VERIFY_LOCK and C5's VERIFY_C4_LOCK run the identical checks
+    - src/prism_fas/synthesis/c5_arm_plan.py — the three arm plans over the one
+      base schedule, from the three frozen C3 banks (never prism_recipe_bank_m7_v1)
+    - src/prism_fas/synthesis/c5_raw_generation.py — the gate-free candidate
+      record layer, its reuse decision and its failure retention
+    - src/prism_fas/synthesis/c5_render.py — route_bank, build_routes, render_one,
+      render_arm, collect_records, completeness; PhysicsRoute / GPATRoute /
+      finalize_discrete are imported, never reimplemented
+    - CUDA fail-closed for the GPAT route (ScientificDeviceUnavailable)
+    - C5_SYNTHESIS_LOCK.json, which reports completion and usability as two facts
+    - C6 now requires reports/full/c5/C5_SYNTHESIS_LOCK.json, not the directory
+  # --- what is NOT done -----------------------------------------------------
   not_implemented:
-    - the scientific C5 adapter branch and its substages (VERIFY_C4_LOCK,
-      FREEZE_SOURCE_PAIR_PLAN, BUILD_ARM_CANDIDATE_PLANS, RENDER_PHYSICS,
-      RENDER_GPAT, VERIFY_RAW_CANDIDATES, FINALIZE_C5)
-    - the PhysicsRoute / GPATRoute render loop over the 6144 positions
-    - the mechanical generation/evaluation separation of SyntheticBankGenerator
-    - per-candidate atomic terminal records, resume and failure retention
-    - the C5 scientific completion lock
-    - the C4 GPAT_CONFIG_LOCK verification path for C5
-  why: >-
-    scope. The frozen schedule is the part every other piece binds to and is
-    fully decidable and fully testable on a CPU laptop; the render executor is
-    the part that needs a GPU to exercise. Shipping the schedule alone, correct
-    and tested, is more useful than shipping all of it untested.
+    - nothing has been RENDERED. No candidate exists. The branch fails closed at
+      VERIFY_C4_LOCK on this laptop because no scientific C4 lock exists here,
+      which was verified by driving the real branch under --profile full.
   c5_still_blocks_c6: true
+  c5_executor_verified_how: >-
+    36 record/plan tests, 36 executor tests, 130 C5 tests in total, all offline.
+    The render loop is exercised end to end over fake routes and the REAL
+    finalize_discrete, covering resume, corruption rebuild, failure retention and
+    the empty-exact-mask refusal.
 
   scientific_safety:
     version_b_candidate_plan_modified: false

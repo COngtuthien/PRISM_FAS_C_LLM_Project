@@ -39,12 +39,13 @@ FIXTURE_PRODUCERS = ("_fixture_batch", "_fixture_roots", "_fixture_rows",
 DECLARED_SCIENTIFIC_GAPS: dict[str, dict[str, object]] = {
     "c4": {"scientific_executor": True,
            "note": "GPATTrainer branch wired in this milestone"},
-    "c5": {"scientific_executor": False,
-           "note": "_render_gpat builds a fixture batch and a RANDOMLY INITIALIZED "
-                   "generator; its artifact records trained_checkpoint_used: False. "
-                   "SMOKE_RECIPES_PER_ARM=2 caps the arms. A scientific C5 must "
-                   "render from the C4 winning checkpoint over the full candidate "
-                   "budget; that executor does not exist."},
+    "c5": {"scientific_executor": True,
+           "note": "_scientific_workflow renders 2048 candidates per arm through "
+                   "the frozen C4 checkpoint and the M7 physics engine. The "
+                   "rehearsal path is unchanged and still reaches _render_gpat, "
+                   "its fixture batch and its randomly initialized generator, "
+                   "which is why that path may never be entered under a "
+                   "scientific ExecutionContext."},
     "c6": {"scientific_executor": False,
            "note": "SMOKE_CANDIDATES_PER_ARM=8 caps the quality-gate calibration."},
     "c7": {"scientific_executor": False,
@@ -127,13 +128,13 @@ def test_every_stage_is_covered_by_the_gap_ledger(stage: str) -> None:
     assert entry["note"], f"{stage} has no recorded reason"
 
 
-def test_only_c4_declares_a_scientific_executor_today() -> None:
-    """Honest ledger. If a later milestone wires C5, this test is what makes
+def test_only_c4_and_c5_declare_a_scientific_executor_today() -> None:
+    """Honest ledger. If a later milestone wires C6, this test is what makes
     updating the ledger part of that work rather than an afterthought."""
     wired = sorted(stage for stage, entry in DECLARED_SCIENTIFIC_GAPS.items()
                    if entry["scientific_executor"])
 
-    assert wired == ["c4"]
+    assert wired == ["c4", "c5"]
 
 
 def test_a_stage_without_a_scientific_executor_claims_no_scientific_evidence() -> None:

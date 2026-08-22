@@ -214,11 +214,19 @@ def test_the_canonical_generator_still_binds_a_calibration_into_its_identity() -
         "mode does not exist")
 
 
-def test_no_c5_scientific_executor_claims_to_exist_yet() -> None:
-    """The ledger in the leakage audit must keep telling the truth."""
+def test_the_c5_scientific_executor_is_declared_and_present() -> None:
+    """The ledger in the leakage audit must keep telling the truth.
+
+    It said "no scientific C5 executor exists" while that was so. The executor
+    exists now, so the ledger says so and this test checks the claim against the
+    adapter rather than against the note.
+    """
     from tests.pipeline.test_scientific_fixture_leakage import DECLARED_SCIENTIFIC_GAPS
 
-    assert DECLARED_SCIENTIFIC_GAPS["c5"]["scientific_executor"] is False
+    assert DECLARED_SCIENTIFIC_GAPS["c5"]["scientific_executor"] is True
     source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "c5.py"
               ).read_text(encoding="utf-8")
-    assert "scientific_evidence" not in source
+    assert "def _scientific_workflow" in source
+    # ...and it claims evidence in exactly one place: the lock verification.
+    assert source.count("scientific_evidence=") == 1
+    assert "scientific_evidence=passed" in source

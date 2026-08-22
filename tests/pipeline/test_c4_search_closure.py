@@ -227,12 +227,15 @@ def test_the_finalizer_checks_the_checkpoint_belongs_to_the_config() -> None:
 
 
 def test_verify_lock_compares_the_config_hash_rather_than_its_truthiness() -> None:
-    source = _function_source("_scientific_verify_lock")
+    # The checks live in the shared module-level verifier, which C5 also calls.
+    source = _function_source("verify_gpat_config_lock")
 
     assert "recomputed == recorded" in source
     assert 'bool(recomputed))' not in source, (
         "asserting that hashing returned something proves nothing")
     assert "c4_lock_checkpoint_belongs_to_the_locked_config" in source
+    assert "verify_gpat_config_lock(request.repo, path)" in _function_source(
+        "_scientific_verify_lock"), "C4 VERIFY_LOCK must use the shared verifier"
 
 
 def test_the_selected_config_must_have_been_evaluated() -> None:

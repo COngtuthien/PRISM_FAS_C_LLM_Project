@@ -1149,87 +1149,17 @@ class C4Adapter(EngineeringAdapter):
 
     def _scientific_verify_lock(self, request: AdapterRequest,
                                 reports: Path) -> AdapterResult:
-        """Verify the SCIENTIFIC lock and the checkpoint it names."""
-        from prism_fas.pipeline.adapters import sources
-        from prism_fas.search.plan import canonical_config_sha256
-        from prism_fas.synthesis.gpat_checkpoint import sha256_file
+        """Verify the SCIENTIFIC lock and the checkpoint it names.
 
+        The checks themselves live in `verify_gpat_config_lock`, module level and
+        shared with C5. C5 renders 3072 candidates through the checkpoint this
+        lock names, so it must apply the same verification C4 applies — not a
+        second, laxer one of its own.
+        """
         path = reports / self.SCIENTIFIC_LOCK
-        payload = read_json(path) or {}
-        checks: list[dict[str, Any]] = []
-
-        checks.append(check(
-            "c4_scientific_lock_exists", bool(payload)
-            and payload.get("is_scientific_lock") is True,
-            "the scientific GPAT_CONFIG_LOCK exists and declares itself scientific",
-            lock=path.relative_to(request.repo).as_posix(),
-            is_scientific_lock=payload.get("is_scientific_lock")))
-
-        # Recompute and COMPARE. This used to assert only that hashing returned
-        # something, which is true of any input and proves nothing.
-        recorded = payload.get("selected_config_sha256")
-        recomputed = (canonical_config_sha256(payload["selected_config"])
-                      if payload.get("selected_config") else None)
-        checks.append(check(
-            "c4_lock_config_reproduces",
-            bool(recorded) and recomputed == recorded,
-            "the locked configuration hashes to the identity the lock records",
-            recorded_selected_config_sha256=recorded,
-            recomputed_selected_config_sha256=recomputed))
-
-        # ...and the trial evidence beside it must be for that same config, so a
-        # config and a checkpoint from different trials cannot be cross-bound.
-        summary_path = request.repo / str(payload.get("winning_trial_summary", ""))
-        evidence = read_json(summary_path) or {}
-        checks.append(check(
-            "c4_lock_checkpoint_belongs_to_the_locked_config",
-            bool(evidence) and evidence.get("trial_config_sha256") == recorded
-            and evidence.get("checkpoint_sha256") == payload.get("winning_checkpoint_sha256")
-            and evidence.get("resolved_config_hash") == payload.get("config_hash"),
-            "the trial evidence the lock names was produced for the locked "
-            "configuration and for the checkpoint the lock names",
-            locked_selected_config_sha256=recorded,
-            evidence_trial_config_sha256=evidence.get("trial_config_sha256"),
-            locked_checkpoint_sha256=payload.get("winning_checkpoint_sha256"),
-            evidence_checkpoint_sha256=evidence.get("checkpoint_sha256"),
-            locked_resolved_config_hash=payload.get("config_hash"),
-            evidence_resolved_config_hash=evidence.get("resolved_config_hash")))
-        checks.append(check(
-            "c4_lock_selection_is_not_the_leaderboard_winner_by_accident",
-            payload.get("selection_rule", "").startswith("the coordinate-wise"),
-            "the lock records WHICH object it treats as the selection",
-            selection_rule=payload.get("selection_rule"),
-            leaderboard_winner_is_the_selection=payload.get(
-                "leaderboard_winner_is_the_selection")))
-
-        checkpoint = request.repo / str(payload.get("winning_checkpoint", ""))
-        measured = sha256_file(checkpoint) if checkpoint.is_file() else None
-        checks.append(check(
-            "c4_lock_checkpoint_hash_matches",
-            bool(measured) and measured == payload.get("winning_checkpoint_sha256"),
-            "the checkpoint the lock names is on disk and hashes to what it recorded",
-            checkpoint=payload.get("winning_checkpoint"),
-            recorded_sha256=payload.get("winning_checkpoint_sha256"),
-            measured_sha256=measured))
-
-        # The lock's frozen inputs must still be the ones on this machine.
-        try:
-            current = sources.verify_support_inputs(request.repo)
-            agrees = all(payload.get(key) == current[key] for key in
-                         ("package_identity", "pair_plan_identity"))
-            agrees = agrees and payload.get("recipe_bank_identity") == current["bank_identity"]
-            detail = {"current": current}
-        except sources.SourceUnavailable as error:
-            agrees, detail = False, {"error": str(error)}
-        checks.append(check(
-            "c4_lock_inputs_still_agree", agrees,
-            "the package, bank and pair-plan identities in the lock are the ones "
-            "resolvable now; a rebuilt input invalidates the lock rather than "
-            "silently changing what C5 inherits",
-            locked={key: payload.get(key) for key in
-                    ("package_identity", "recipe_bank_identity", "pair_plan_identity")},
-            **detail))
-
+        verification = verify_gpat_config_lock(request.repo, path)
+        payload = verification["payload"]
+        checks: list[dict[str, Any]] = list(verification["checks"])
         decision = resume_decision(request, "c4_gpat_config_lock", path,
                                    expected_identity=payload.get("search_plan_identity"),
                                    identity_key="search_plan_identity")
@@ -1332,6 +1262,132 @@ class C4Adapter(EngineeringAdapter):
 
         return self.result(request, mode=VERIFY_LOCK, checks=checks,
                            artifacts=[path.relative_to(request.repo).as_posix()])
+
+
+def verify_gpat_config_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
+    """The one strict verification of the scientific `GPAT_CONFIG_LOCK`.
+
+    Module level, and deliberately shared. C4's VERIFY_LOCK proves the lock it
+    has just written; C5 proves the same lock before it renders a single GPAT
+    candidate through the checkpoint the lock names. If C5 carried its own
+    check — "the file exists", say — a lock C4 refused could still drive 3072
+    scientific GPAT renders, and the whole point of freezing the checkpoint
+    before C5 would be lost. So there is one implementation and both callers get
+    every check.
+
+    Returns the checks, the parsed payload and the resolved checkpoint. The
+    caller decides what to do with a failure; this function never raises on a
+    bad lock, because "the lock is wrong" is a result to record, not an
+    exception to swallow.
+    """
+    from prism_fas.pipeline.adapters import sources
+    from prism_fas.search.plan import canonical_config_sha256
+    from prism_fas.synthesis.gpat_checkpoint import sha256_file
+
+    lock_path = Path(lock_path)
+    payload = read_json(lock_path) or {}
+    checks: list[dict[str, Any]] = []
+
+    checks.append(check(
+        "c4_scientific_lock_exists", bool(payload)
+        and payload.get("is_scientific_lock") is True,
+        "the scientific GPAT_CONFIG_LOCK exists and declares itself scientific",
+        lock=_relative(lock_path, repo),
+        is_scientific_lock=payload.get("is_scientific_lock")))
+
+    # A lock written under a rehearsal profile names a fixture-derived
+    # configuration. It may never be the one C5 inherits.
+    checks.append(check(
+        "c4_scientific_lock_is_eligible",
+        payload.get("scientific_eligible") is True
+        and payload.get("fixture_backed") is False,
+        "the lock was produced by a scientifically eligible, fixture-free pass",
+        scientific_eligible=payload.get("scientific_eligible"),
+        fixture_backed=payload.get("fixture_backed"),
+        execution_profile=payload.get("execution_profile")))
+
+    # Recompute and COMPARE. This used to assert only that hashing returned
+    # something, which is true of any input and proves nothing.
+    recorded = payload.get("selected_config_sha256")
+    recomputed = (canonical_config_sha256(payload["selected_config"])
+                  if payload.get("selected_config") else None)
+    checks.append(check(
+        "c4_lock_config_reproduces",
+        bool(recorded) and recomputed == recorded,
+        "the locked configuration hashes to the identity the lock records",
+        recorded_selected_config_sha256=recorded,
+        recomputed_selected_config_sha256=recomputed))
+
+    # ...and the trial evidence beside it must be for that same config, so a
+    # config and a checkpoint from different trials cannot be cross-bound.
+    # `repo / ""` is the repository itself, and reading a directory raises rather
+    # than returning nothing. A lock that names no trial evidence must fail the
+    # check below, not crash the verifier.
+    named = str(payload.get("winning_trial_summary", "")).strip()
+    evidence = (read_json(repo / named) or {}) if named else {}
+    checks.append(check(
+        "c4_lock_checkpoint_belongs_to_the_locked_config",
+        bool(evidence) and evidence.get("trial_config_sha256") == recorded
+        and evidence.get("checkpoint_sha256") == payload.get("winning_checkpoint_sha256")
+        and evidence.get("resolved_config_hash") == payload.get("config_hash"),
+        "the trial evidence the lock names was produced for the locked "
+        "configuration and for the checkpoint the lock names",
+        locked_selected_config_sha256=recorded,
+        evidence_trial_config_sha256=evidence.get("trial_config_sha256"),
+        locked_checkpoint_sha256=payload.get("winning_checkpoint_sha256"),
+        evidence_checkpoint_sha256=evidence.get("checkpoint_sha256"),
+        locked_resolved_config_hash=payload.get("config_hash"),
+        evidence_resolved_config_hash=evidence.get("resolved_config_hash")))
+    checks.append(check(
+        "c4_lock_selection_is_not_the_leaderboard_winner_by_accident",
+        str(payload.get("selection_rule", "")).startswith("the coordinate-wise"),
+        "the lock records WHICH object it treats as the selection",
+        selection_rule=payload.get("selection_rule"),
+        leaderboard_winner_is_the_selection=payload.get(
+            "leaderboard_winner_is_the_selection")))
+
+    checkpoint = repo / str(payload.get("winning_checkpoint", ""))
+    measured = sha256_file(checkpoint) if checkpoint.is_file() else None
+    checks.append(check(
+        "c4_lock_checkpoint_hash_matches",
+        bool(measured) and measured == payload.get("winning_checkpoint_sha256"),
+        "the checkpoint the lock names is on disk and hashes to what it recorded",
+        checkpoint=payload.get("winning_checkpoint"),
+        recorded_sha256=payload.get("winning_checkpoint_sha256"),
+        measured_sha256=measured))
+
+    # The lock's frozen inputs must still be the ones on this machine.
+    try:
+        current = sources.verify_support_inputs(repo)
+        agrees = all(payload.get(key) == current[key] for key in
+                     ("package_identity", "pair_plan_identity"))
+        agrees = agrees and payload.get("recipe_bank_identity") == current["bank_identity"]
+        detail = {"current": current}
+    except sources.SourceUnavailable as error:
+        agrees, detail = False, {"error": str(error)}
+    checks.append(check(
+        "c4_lock_inputs_still_agree", agrees,
+        "the package, bank and pair-plan identities in the lock are the ones "
+        "resolvable now; a rebuilt input invalidates the lock rather than "
+        "silently changing what C5 inherits",
+        locked={key: payload.get(key) for key in
+                ("package_identity", "recipe_bank_identity", "pair_plan_identity")},
+        **detail))
+
+    return {"ok": all(item["ok"] for item in checks), "checks": checks,
+            "payload": payload, "lock_path": lock_path,
+            "checkpoint": checkpoint if payload.get("winning_checkpoint") else None,
+            "checkpoint_sha256": payload.get("winning_checkpoint_sha256"),
+            "measured_checkpoint_sha256": measured,
+            "config_hash": payload.get("config_hash"),
+            "selected_config_sha256": recorded}
+
+
+def _relative(path: Path, repo: Path) -> str:
+    try:
+        return Path(path).relative_to(repo).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
 
 
 class ScientificDeviceUnavailable(AdapterError):
@@ -1611,5 +1667,6 @@ def _portability_audit(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     return checkpoint_portability_audit(record, path=path.name)
 
 
-__all__ = ["STAGE_ID", "MODES", "PREPARE_SUPPORT", "VALIDATE_SUPPORT", "SMOKE_GPAT",
+__all__ = ["verify_gpat_config_lock",
+           "STAGE_ID", "MODES", "PREPARE_SUPPORT", "VALIDATE_SUPPORT", "SMOKE_GPAT",
            "SOURCE_SEARCH", "FINALIZE_GPAT", "VERIFY_LOCK", "C4Adapter"]

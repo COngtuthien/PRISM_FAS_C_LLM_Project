@@ -65,8 +65,12 @@ class C6Adapter(EngineeringAdapter):
             RequiredInput("quality_calibration", "reports/full/c6/QUALITY_CALIBRATION.json",
                           "the source_train-fitted NOMINAL thresholds the three profiles "
                           "are derived from"),
-            RequiredInput("c5_candidates", "reports/full/c5",
-                          "the 2048 rendered candidates per arm the gate evaluates"),
+            # The lock, not the directory. `reports/full/c5` exists as soon as C5
+            # writes its first artifact, so requiring the directory would let C6
+            # start against a partial or refused render pass.
+            RequiredInput("c5_synthesis_lock", "reports/full/c5/C5_SYNTHESIS_LOCK.json",
+                          "the verified C5 completion lock over the 2048 rendered "
+                          "candidates per arm the gate evaluates"),
         )
 
     def workflow(self, request: AdapterRequest,

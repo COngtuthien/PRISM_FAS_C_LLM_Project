@@ -354,7 +354,7 @@ def test_verify_lock_checks_the_checkpoint_hash_and_the_input_identities() -> No
     tree = ast.parse(C4_SOURCE)
     fn = next(node for node in ast.walk(tree)
               if isinstance(node, ast.FunctionDef)
-              and node.name == "_scientific_verify_lock")
+              and node.name == "verify_gpat_config_lock")
     source = ast.get_source_segment(C4_SOURCE, fn) or ""
 
     assert "c4_lock_checkpoint_hash_matches" in source
