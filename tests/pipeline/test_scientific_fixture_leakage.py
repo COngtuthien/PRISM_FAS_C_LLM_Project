@@ -46,15 +46,13 @@ DECLARED_SCIENTIFIC_GAPS: dict[str, dict[str, object]] = {
                    "its fixture batch and its randomly initialized generator, "
                    "which is why that path may never be entered under a "
                    "scientific ExecutionContext."},
-    "c6": {"scientific_executor": False,
-           "note": "SMOKE_CANDIDATES_PER_ARM=8 caps the quality-gate calibration, "
-                   "and `full` still reaches the engineering workflow's "
-                   "ENGINEERING_NOMINAL and gate_metrics fixtures. The executor "
-                   "is blocked on one under-specified choice: §11.3 names four "
-                   "balancing dimensions for the deterministic matched-bank "
-                   "selector and no algorithm, and matched_bank_plan returns "
-                   "counts plus a description rather than a selection. Recorded "
-                   "as C6_MATCHED_BANK_SELECTOR / NEEDS_SCIENTIFIC_DECISION."},
+    "c6": {"scientific_executor": True,
+           "note": "_scientific_workflow fits NOMINAL from source_train at C6, "
+                   "gates the verified C5 pool under STRICT/NOMINAL/PERMISSIVE and "
+                   "builds three matched banks under C6_MATCHED_BANK_SELECTOR_V1. "
+                   "The rehearsal path is unchanged and still reaches "
+                   "ENGINEERING_NOMINAL and gate_metrics, which is why neither may "
+                   "be entered under a scientific ExecutionContext."},
     "c7": {"scientific_executor": False,
            "note": "readiness is a CPU fixture obligation by design (requires_gpu "
                    "False); the scientific detector search is not wired."},
@@ -135,13 +133,13 @@ def test_every_stage_is_covered_by_the_gap_ledger(stage: str) -> None:
     assert entry["note"], f"{stage} has no recorded reason"
 
 
-def test_only_c4_and_c5_declare_a_scientific_executor_today() -> None:
-    """Honest ledger. If a later milestone wires C6, this test is what makes
+def test_only_c4_c5_and_c6_declare_a_scientific_executor_today() -> None:
+    """Honest ledger. If a later milestone wires C7, this test is what makes
     updating the ledger part of that work rather than an afterthought."""
     wired = sorted(stage for stage, entry in DECLARED_SCIENTIFIC_GAPS.items()
                    if entry["scientific_executor"])
 
-    assert wired == ["c4", "c5"]
+    assert wired == ["c4", "c5", "c6"]
 
 
 def test_a_stage_without_a_scientific_executor_claims_no_scientific_evidence() -> None:

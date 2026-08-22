@@ -28,7 +28,7 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C5_TERMINAL_POOL_CORRECTION_AND_C6_AUDIT
+current_milestone: C6_MATCHED_BANK_SELECTOR_V1_AND_SCIENTIFIC_EXECUTOR
 current_substage: the runtime-recovery policy is frozen and implemented. Only a
                   proven deterministic candidate-semantic failure consumes a
                   candidate; interruptions propagate; every other exception is
@@ -882,6 +882,77 @@ c5_source_pair_plan_freeze:
       decision_needed_from_user: >-
         the exact deterministic selector: dimension priority, target
         distribution, fill algorithm, tie-break and deficit redistribution.
+      RESOLVED_BY: C6_MATCHED_BANK_SELECTOR_V1
+      resolved_on: 2026-08-23
+
+  # --- FROZEN: C6_MATCHED_BANK_SELECTOR_V1 -----------------------------------
+  c6_matched_bank_selector_v1:
+    status: FROZEN
+    authorized_by: user, in session, closing C6_MATCHED_BANK_SELECTOR
+    frozen_before: any scientific C6 gate or profile outcome was observed
+    target_access_at_freeze: 0
+    not_derived_from: >-
+      the observed 62 C5 semantic failures, arm quality outcomes, q values,
+      quality margins, detector results or target data. The same selector would
+      have been used for any completed C5 pool.
+    dimension_priority:
+      0: HARD route cardinality (512 Physics + 512 GPAT per arm)
+      1: COMMON source-domain exposure (one quota vector for all three arms)
+      2: recipe coverage / exposure balance (soft)
+      3: base-live exposure balance (soft)
+      4: canonical tie hash, then candidate_id ascending
+    source_domain_field:
+      manifest_column: dataset        # finalized M3B source_train manifest
+      plan_field: live_dataset        # surfaced per frozen C5 plan row
+      universe: [casia_fasd, msu_mfsd]
+      ordering: canonical ascending domain id
+      never_inferred_from: [file paths, filenames, directory names]
+    stage_1_planned_target: >-
+      per route, ideal[d] = 512 * planned[d] / 1024 over the frozen PRE-GATE C5
+      schedule; integer quotas by largest remainder, ties by canonical domain id
+      ascending, summing to exactly 512. Never derived from accepted candidates,
+      because gate acceptance is a treatment outcome.
+    stage_2_common_capacity: >-
+      capacity[route,d] = min over RND/DET/LLM of accepted candidates in that
+      cell. Quota clipped to capacity; the deficit is refilled one slot at a time
+      to the domain maximizing ideal[d] - quota[d] among domains with
+      quota[d] < capacity[d], ties by canonical domain id ascending. If
+      sum(capacity) < 512 the profile is not matched-bank-feasible for that route.
+    stage_3_fill: >-
+      per arm, identical algorithm: greedy minimum of
+      (recipe_selected_count, live_selected_count, canonical_tie_hash,
+      candidate_id) among accepted, unselected candidates in a domain with
+      remaining quota.
+    recipe_coverage: >-
+      2 per recipe per route is a SOFT target reached whenever capacity permits.
+      A recipe with fewer accepted candidates is not a failure, is never
+      replaced, and its missing exposure is absorbed by the least exposed
+      recipes. No manual deficit redistribution, no recipe quality ranking.
+    canonical_tie_hash: >-
+      SHA256("PRISM_C6_MATCHED_BANK_SELECTOR_V1"|route|source_domain|
+      base_position|live_target_sample_id), UTF-8, "|" separator. Excludes arm,
+      recipe-generator type, q, every quality score and margin, target
+      information, runtime paths and timestamps. Arm-independent by construction
+      because all three arms share the frozen C5 schedule.
+    quality_ranking: >-
+      FORBIDDEN. Once a candidate passes the selected common profile the gate is
+      BINARY for subset construction. q remains the §11.2 synthetic
+      sample-quality TRAINING WEIGHT and is serialized in the bank for that use
+      only; it never affects selection order.
+    profile_feasibility_change: >-
+      ArmFeasibility (>=512 accepted per route per arm) remains NECESSARY but is
+      no longer SUFFICIENT. A profile qualifies only when one identical
+      source-domain quota vector can also be constructed for all three arms on
+      both routes, and all mandatory reliability gates pass. Engineering
+      rehearsal semantics are unchanged.
+    on_failure: >-
+      STRICT then NOMINAL then PERMISSIVE, retaining evidence at each refusal.
+      If none qualifies, C6 scientific FAILS: no widened profile, no arm-specific
+      threshold, no altered target distribution, no altered selector, no new
+      candidates.
+    provenance: >-
+      selected + accepted-but-not-selected + rejected + C5 semantic failures
+      close the complete set. No loser cleanup.
 
   # --- FROZEN: C5_RUNTIME_RECOVERY_V1 ----------------------------------------
   c5_runtime_recovery_v1:

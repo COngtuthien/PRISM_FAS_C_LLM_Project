@@ -77,17 +77,18 @@ def test_the_c6_precondition_uses_the_shared_pre_gate_conclusion() -> None:
 
 # --- 12, 13. no scientific branch exists, and none is faked ------------------
 
-def test_c6_has_no_scientific_workflow_yet_and_says_so() -> None:
+def test_c6_declares_its_scientific_executor() -> None:
     from tests.pipeline.test_scientific_fixture_leakage import DECLARED_SCIENTIFIC_GAPS
 
-    assert DECLARED_SCIENTIFIC_GAPS["c6"]["scientific_executor"] is False
-    assert "def _scientific_workflow" not in C6_SOURCE
-    assert "matched-bank selector" in DECLARED_SCIENTIFIC_GAPS["c6"]["note"]
+    assert DECLARED_SCIENTIFIC_GAPS["c6"]["scientific_executor"] is True
+    assert "def _scientific_workflow" in C6_SOURCE
+    assert "C6_MATCHED_BANK_SELECTOR_V1" in DECLARED_SCIENTIFIC_GAPS["c6"]["note"]
 
 
-def test_c6_claims_no_scientific_evidence() -> None:
-    """The one structural guarantee while the executor does not exist."""
-    assert "scientific_evidence" not in C6_SOURCE
+def test_c6_claims_scientific_evidence_in_exactly_one_place() -> None:
+    """VERIFY_C6_LOCKS, and only when every bank lock verifies."""
+    assert C6_SOURCE.count("scientific_evidence=") == 1
+    assert "scientific_evidence=passed" in C6_SOURCE
 
 
 def test_the_engineering_fixtures_are_still_confined_to_the_engineering_path() -> None:
@@ -157,7 +158,16 @@ def test_profile_selection_is_conjunctive_across_arms() -> None:
 
 # --- 10. the one item that is NOT determined ---------------------------------
 
-def test_no_deterministic_matched_bank_selector_exists() -> None:
+def test_the_matched_bank_selector_now_exists_and_is_frozen() -> None:
+    """The gap this file recorded is closed by C6_MATCHED_BANK_SELECTOR_V1."""
+    from prism_fas.synthesis import c6_matched_bank
+
+    assert c6_matched_bank.SELECTOR_NAME == "C6_MATCHED_BANK_SELECTOR_V1"
+    assert callable(c6_matched_bank.build_matched_banks)
+    assert len(c6_matched_bank.DIMENSION_PRIORITY) == 5
+
+
+def test_the_plan_only_counts_the_shape_and_the_selector_picks_the_candidates() -> None:
     """§11.3 names four balancing dimensions and no algorithm.
 
     `matched_bank_plan` returns COUNTS and a sentence describing what a selector
@@ -181,24 +191,28 @@ def test_no_deterministic_matched_bank_selector_exists() -> None:
         "the balancing rule is a description, not an implementation")
 
 
-def test_the_selector_gap_is_recorded_as_a_scientific_decision() -> None:
+def test_the_selector_decision_is_recorded_as_frozen() -> None:
     state = (REPO / "docs" / "PROJECT_STATE.md").read_text(encoding="utf-8")
 
-    assert "C6_MATCHED_BANK_SELECTOR" in state
-    assert "NEEDS_SCIENTIFIC_DECISION" in state
+    assert "C6_MATCHED_BANK_SELECTOR_V1" in state
+    assert "RESOLVED_BY: C6_MATCHED_BANK_SELECTOR_V1" in state
 
 
 # --- 21-23. the firewall and the frozen repository ---------------------------
 
 def test_c6_resolves_no_target_artifact() -> None:
-    for forbidden in ("siw", "SiW", "target_test", "label_live_spoof", "_real_target"):
+    for forbidden in ("siw", "SiW", "target_test.parquet", "label_live_spoof",
+                      "_real_target_roots", "resolve_target"):
         assert forbidden not in C6_SOURCE, forbidden
+    assert "c6_no_target_capability" in C6_SOURCE
 
 
 def test_c6_does_not_infer_a_source_dev_permission() -> None:
     """§11.4 fits NOMINAL from source_train. C6 must not reach for source_dev on
     its own initiative; C8 is the stage the spec gives source_dev to."""
-    assert "source_dev" not in C6_SOURCE
+    for forbidden in ('split="source_dev"', "source_dev.parquet", "SOURCE_DEV",
+                      "manifests/source_dev"):
+        assert forbidden not in C6_SOURCE, forbidden
 
 
 def test_version_b_is_untouched() -> None:

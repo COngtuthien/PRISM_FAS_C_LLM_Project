@@ -25,11 +25,12 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput,
+from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, read_json,
                                                 SmokeBudget, check, resume_decision,
                                                 stage_reports_dir, utc, write_artifact)
 from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import ENGINEERING_NOMINAL, gate_metrics
+from prism_fas.synthesis.c5_source_pair_plan import GPAT, PHYSICS
 
 STAGE_ID = "C6"
 
@@ -39,8 +40,27 @@ RELIABILITY_GATES = "RELIABILITY_GATES"
 MATCHED_BANKS = "MATCHED_BANKS"
 CARDINALITY_REFUSAL = "CARDINALITY_REFUSAL"
 
+#: The scientific substages. Disjoint from the rehearsal modes so a report can
+#: never show a fixture gate and a scientific one under one name.
+VERIFY_C5_POOL = 'VERIFY_C5_POOL'
+BUILD_SOURCE_REFERENCE = 'BUILD_SOURCE_REFERENCE'
+FIT_NOMINAL_CALIBRATION = 'FIT_NOMINAL_CALIBRATION'
+BUILD_COMMON_PROFILES = 'BUILD_COMMON_PROFILES'
+EVALUATE_GENERATED_CANDIDATES = 'EVALUATE_GENERATED_CANDIDATES'
+RUN_RELIABILITY_GATES = 'RUN_RELIABILITY_GATES'
+CHECK_PROFILE_MATCHED_FEASIBILITY = 'CHECK_PROFILE_MATCHED_FEASIBILITY'
+SELECT_STRICTEST_PROFILE = 'SELECT_STRICTEST_PROFILE'
+BUILD_MATCHED_BANKS = 'BUILD_MATCHED_BANKS'
+VERIFY_C6_LOCKS = 'VERIFY_C6_LOCKS'
+
+SCIENTIFIC_MODES: tuple[str, ...] = (
+    VERIFY_C5_POOL, BUILD_SOURCE_REFERENCE, FIT_NOMINAL_CALIBRATION,
+    BUILD_COMMON_PROFILES, EVALUATE_GENERATED_CANDIDATES, RUN_RELIABILITY_GATES,
+    CHECK_PROFILE_MATCHED_FEASIBILITY, SELECT_STRICTEST_PROFILE,
+    BUILD_MATCHED_BANKS, VERIFY_C6_LOCKS)
+
 MODES: tuple[str, ...] = (APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES,
-                          MATCHED_BANKS, CARDINALITY_REFUSAL)
+                          MATCHED_BANKS, CARDINALITY_REFUSAL) + SCIENTIFIC_MODES
 
 QUALITY_CONFIG = "configs/synthesis/quality_gate_m8.yaml"
 
@@ -121,6 +141,13 @@ class C6Adapter(EngineeringAdapter):
 
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:
+        if context.is_scientific:
+            return self._scientific_workflow(request, context)
+        return self._engineering_workflow(request, context)
+
+    def _engineering_workflow(self, request: AdapterRequest,
+                              context: ExecutionContext) -> list[AdapterResult]:
+        """The rehearsal path, unchanged. Produces engineering evidence only."""
         budget = context.budget or SmokeBudget.from_profile(request.profile)
         reports = stage_reports_dir(request, STAGE_ID)
         results: list[AdapterResult] = []
@@ -427,6 +454,517 @@ class C6Adapter(EngineeringAdapter):
             "fixture_backed": request.context.fixtures_permitted})
         return self.result(request, mode=CARDINALITY_REFUSAL, checks=checks,
                            artifacts=[artifact])
+
+    # --- the scientific workflow ---------------------------------------------
+
+    def _scientific_workflow(self, request: AdapterRequest,
+                             context: ExecutionContext) -> list[AdapterResult]:
+        """The real C6: fit NOMINAL, gate the pool, pick a profile, build banks.
+
+        Nothing is shared with the rehearsal. `ENGINEERING_NOMINAL` is a fixture
+        threshold set and `gate_metrics` fabricates metric rows; both are right
+        for proving the code path and would be a fabricated scientific gate here,
+        so neither is reachable from this branch.
+        """
+        from prism_fas.synthesis import c6_scientific as science
+
+        results: list[AdapterResult] = []
+        reports = stage_reports_dir(request, STAGE_ID)
+        state: dict[str, Any] = {}
+
+        for stage in (self._verify_c5_pool, self._build_source_reference,
+                      self._fit_nominal_calibration, self._build_common_profiles,
+                      self._evaluate_generated_candidates,
+                      self._run_reliability_gates,
+                      self._check_profile_matched_feasibility,
+                      self._select_strictest_profile, self._build_matched_banks,
+                      self._verify_c6_locks):
+            outcome = stage(request, state, reports)
+            results.append(outcome)
+            # A refused substage stops the stage. C6 has no fallback: §11.4 makes
+            # failure the defined consequence, not a reason to widen anything.
+            if outcome.status_axes.engineering == "BLOCKED" or state.get("halt"):
+                break
+        return results
+
+    def _verify_c5_pool(self, request: AdapterRequest, state: dict[str, Any],
+                        reports: Path) -> AdapterResult:
+        """Only a strictly verified C5 pool may be gated.
+
+        Re-run rather than trusted: the precondition gate ran before the stage
+        started, and this is the same shared verifier C5 applies to itself.
+        """
+        from prism_fas.pipeline.adapters.c5 import (C5Adapter,
+                                                    verify_c5_synthesis_lock)
+        from prism_fas.synthesis import c6_matched_bank as selector
+
+        relative = f"reports/full/c5/{C5Adapter.SCIENTIFIC_LOCK}"
+        verification = verify_c5_synthesis_lock(request.repo, request.repo / relative)
+        checks: list[dict[str, Any]] = []
+
+        checks.append(check(
+            "c6_c5_pool_verifies", verification["c5_scientific_complete"],
+            "the C5 candidate pool verifies strictly right now",
+            reason=verification["reason"],
+            failed=[item["check_id"] for item in verification["checks"]
+                    if not item["ok"]][:12]))
+        checks.append(check(
+            "c6_c5_pool_is_pre_gate_ready", verification["c6_pre_gate_input_ready"],
+            f"every arm carries at least {selector.PER_ROUTE} generated Physics "
+            f"and {selector.PER_ROUTE} generated GPAT candidates"))
+        if not all(item["ok"] for item in checks):
+            state["halt"] = True
+            return self.blocked(request, "C5_POOL_NOT_VERIFIED",
+                                "C6 refused to start: the C5 pool did not verify",
+                                checks=checks)
+
+        candidates = verification["candidates"]
+        payload = verification["payload"]
+        checks.append(check(
+            "c6_semantic_failures_are_not_gate_inputs", True,
+            f"{candidates['semantic_failed']} C5 semantic failures hold no payload, "
+            f"are never measured and are neither accepted nor rejected",
+            semantic_failed=candidates["semantic_failed"],
+            generated=candidates["generated"]))
+
+        state.update({
+            "plans": verification["current"]["plans"],
+            "pool_counts": candidates,
+            "candidate_root": request.repo / str(payload.get("candidate_root", "")),
+            "c5_pool_lock_sha256": _sha256_file(request.repo / relative),
+            "selectable": science_module().candidate_pool(verification["current"]["plans"]),
+        })
+        artifact = write_artifact(request, reports / "C6_C5_POOL_VERIFICATION.json", {
+            "schema_version": "c6-c5-pool-verification-v1", "generated_at_utc": utc(),
+            "mode": VERIFY_C5_POOL, "c5_lock": relative,
+            "verifier": "prism_fas.pipeline.adapters.c5.verify_c5_synthesis_lock",
+            "generated": candidates["generated"],
+            "semantic_failed": candidates["semantic_failed"],
+            "per_arm": candidates["per_arm"], "fixture_backed": False})
+        return self.result(request, mode=VERIFY_C5_POOL, checks=checks,
+                           artifacts=[artifact])
+
+    def _build_source_reference(self, request: AdapterRequest, state: dict[str, Any],
+                                reports: Path) -> AdapterResult:
+        """Resolve the source_train population NOMINAL is fitted from."""
+        from prism_fas.pipeline.adapters import sources
+        from prism_fas.pipeline.preparation import DERIVED_PACKAGES, PAIR_PLAN_PACKAGE
+
+        checks: list[dict[str, Any]] = []
+        try:
+            inputs = sources.verify_support_inputs(request.repo)
+        except sources.SourceUnavailable as error:
+            state["halt"] = True
+            return self.blocked(request, "SOURCE_UNAVAILABLE",
+                                "C6 has no source reference to calibrate on",
+                                checks=[check("c6_source_reference_resolves", False,
+                                              "the frozen source package did not resolve",
+                                              error=str(error))])
+
+        state["package_root"] = request.repo / DERIVED_PACKAGES[PAIR_PLAN_PACKAGE]
+        state["package_identity"] = inputs["package_identity"]
+        checks.append(check(
+            "c6_source_reference_resolves", True,
+            "the finalized M3B package is the calibration reference population",
+            package_identity=inputs["package_identity"]))
+        checks.append(check(
+            "c6_calibration_is_source_train_only", True,
+            "NOMINAL is fitted from source_train alone",
+            split="source_train", source_dev_opened=False, target_opened=False,
+            rule="§11.4 fits the reference distribution before inspecting arm "
+                 "identity; source_dev belongs to C8 and no target split is opened"))
+        artifact = write_artifact(request, reports / "C6_SOURCE_REFERENCE.json", {
+            "schema_version": "c6-source-reference-v1", "generated_at_utc": utc(),
+            "mode": BUILD_SOURCE_REFERENCE,
+            "package_identity": inputs["package_identity"],
+            "split": "source_train", "fixture_backed": False})
+        return self.result(request, mode=BUILD_SOURCE_REFERENCE, checks=checks,
+                           artifacts=[artifact])
+
+    def _fit_nominal_calibration(self, request: AdapterRequest, state: dict[str, Any],
+                                 reports: Path) -> AdapterResult:
+        """Fit NOMINAL here. This artifact is a C6 OUTPUT, never an input."""
+        from prism_fas.synthesis.quality_calibration import (QualityBackends,
+                                                             load_quality_config)
+
+        science = science_module()
+        checks: list[dict[str, Any]] = []
+        config = load_quality_config(request.repo / QUALITY_CONFIG)
+        try:
+            backends = QualityBackends.resolve(request.repo / "weights")
+            payload = science.fit_nominal_calibration(state["package_root"], config,
+                                                      backends)
+        except Exception as error:                       # noqa: BLE001
+            state["halt"] = True
+            return self.blocked(
+                request, "CALIBRATION_UNAVAILABLE",
+                "C6 could not fit its own source_train calibration",
+                checks=[check("c6_nominal_fitted", False,
+                              "the NOMINAL calibration could not be fitted",
+                              error=f"{type(error).__name__}: {error}")])
+
+        state["backends"] = backends
+        state["calibration"] = payload
+        checks.append(check(
+            "c6_nominal_fitted", True,
+            "NOMINAL was fitted from the source_train benign population at C6",
+            fitter="prism_fas.synthesis.quality_calibration.calibrate (canonical)",
+            thresholds=sorted(payload.get("thresholds", {}))))
+        checks.append(check(
+            "c6_calibration_is_an_output_not_an_input",
+            "quality_calibration" not in {item.name for item in self.required_inputs()},
+            "QUALITY_CALIBRATION is produced here and is not a C6 precondition",
+            rule="requiring the fitted file first would make C6 depend on itself "
+                 "and invite a hand-written scientific threshold"))
+        artifact = write_artifact(request, reports / "QUALITY_CALIBRATION.json", {
+            "schema_version": "c6-quality-calibration-v1", "generated_at_utc": utc(),
+            "mode": FIT_NOMINAL_CALIBRATION, "is_scientific_lock": True,
+            "package_identity": state["package_identity"], "split": "source_train",
+            **payload, "fixture_backed": False})
+        state["calibration_path"] = request.repo / artifact
+        return self.result(request, mode=FIT_NOMINAL_CALIBRATION, checks=checks,
+                           artifacts=[artifact])
+
+    def _build_common_profiles(self, request: AdapterRequest, state: dict[str, Any],
+                               reports: Path) -> AdapterResult:
+        """Exactly STRICT, NOMINAL and PERMISSIVE, by the frozen §11.4 formulas."""
+        science = science_module()
+        checks: list[dict[str, Any]] = []
+        nominal = dict(state["calibration"].get("thresholds") or {})
+        try:
+            profiles = science.build_common_profiles(
+                nominal, nominal_source="source_train NOMINAL fitted at C6")
+        except Exception as error:                       # noqa: BLE001
+            state["halt"] = True
+            return self.blocked(
+                request, "PROFILE_DERIVATION_FAILED",
+                "C6 could not derive its three gate profiles",
+                checks=[check("c6_profiles_built", False, "derivation failed",
+                              error=f"{type(error).__name__}: {error}")])
+
+        identities = {name: science.threshold_identity(profile.thresholds)
+                      for name, profile in profiles.items()}
+        state["profiles"] = profiles
+        state["threshold_identities"] = identities
+        checks.append(check(
+            "c6_exactly_three_preregistered_profiles",
+            set(profiles) == set(science.PROFILE_ORDER),
+            "exactly STRICT, NOMINAL and PERMISSIVE were derived",
+            profiles=sorted(profiles), profile_order=list(science.PROFILE_ORDER),
+            formula="prism_fas.synthesis.gate_profiles.derive_profile (§11.4)"))
+        checks.append(check(
+            "c6_one_threshold_identity_per_profile",
+            len(set(identities.values())) == len(identities),
+            "each profile has ONE threshold identity, applied to all three arms",
+            threshold_identities=identities,
+            rule="§11.4: thresholds remain COMMON across RND/DET/LLM; no arm may "
+                 "be relaxed independently"))
+        artifact = write_artifact(request, reports / "C6_GATE_PROFILES.json", {
+            "schema_version": "c6-gate-profiles-v1", "generated_at_utc": utc(),
+            "mode": BUILD_COMMON_PROFILES,
+            "profile_order": list(science.PROFILE_ORDER),
+            "profiles": {name: {"thresholds": dict(profile.thresholds),
+                                "threshold_identity": identities[name]}
+                         for name, profile in profiles.items()},
+            "fixture_backed": False})
+        return self.result(request, mode=BUILD_COMMON_PROFILES, checks=checks,
+                           artifacts=[artifact])
+
+    def _evaluate_generated_candidates(self, request: AdapterRequest,
+                                       state: dict[str, Any],
+                                       reports: Path) -> AdapterResult:
+        """Measure every GENERATED candidate once, with the canonical evaluator."""
+        from prism_fas.synthesis import c5_render as render_module
+        from prism_fas.synthesis.m8_pipeline import SampleStore, SourceOnlyAudit
+        from prism_fas.synthesis.synthetic_bank import (CandidateEvaluator,
+                                                        FrozenCalibration)
+
+        science = science_module()
+        checks: list[dict[str, Any]] = []
+        audit = SourceOnlyAudit()
+        store = SampleStore.open(state["package_root"], audit)
+        evaluator = CandidateEvaluator(state["backends"],
+                                       FrozenCalibration.load(state["calibration_path"]))
+
+        metrics: dict[str, dict[str, dict[str, Any]]] = {}
+        try:
+            for arm, plan in state["plans"].items():
+                metrics[arm] = science.evaluate_pool(
+                    evaluator, store, render_module.route_bank(request.repo, arm),
+                    candidate_root=state["candidate_root"], arm=arm,
+                    rows=plan["candidates"])
+        except Exception as error:                       # noqa: BLE001
+            state["halt"] = True
+            return self.blocked(
+                request, "CANDIDATE_EVALUATION_FAILED",
+                "C6 could not measure the C5 candidate pool",
+                checks=[check("c6_candidates_evaluated", False, "evaluation failed",
+                              error=f"{type(error).__name__}: {error}")])
+
+        state["metrics"] = metrics
+        measured = sum(len(rows) for rows in metrics.values())
+        checks.append(check(
+            "c6_candidates_evaluated", measured == state["pool_counts"]["generated"],
+            "every generated candidate was measured exactly once",
+            measured=measured, generated=state["pool_counts"]["generated"],
+            evaluator="prism_fas.synthesis.synthetic_bank.CandidateEvaluator"))
+        checks.append(check(
+            "c6_semantic_failures_were_not_measured",
+            measured + state["pool_counts"]["semantic_failed"]
+            == state["pool_counts"]["planned"],
+            "the unmeasured slots are exactly the retained C5 semantic failures",
+            semantic_failed=state["pool_counts"]["semantic_failed"]))
+        isolation = audit.report()
+        checks.append(check(
+            "c6_source_only", not isolation.get("target_test_opened", False)
+            and not isolation.get("source_dev_opened", False),
+            "the store's own audit records that only source_train was opened",
+            **isolation))
+
+        artifact = write_artifact(request, reports / "C6_CANDIDATE_EVALUATION.json", {
+            "schema_version": "c6-candidate-evaluation-v1", "generated_at_utc": utc(),
+            "mode": EVALUATE_GENERATED_CANDIDATES, "measured": measured,
+            "not_measured_semantic_failures": state["pool_counts"]["semantic_failed"],
+            "source_isolation": isolation, "fixture_backed": False})
+        return self.result(request, mode=EVALUATE_GENERATED_CANDIDATES, checks=checks,
+                           artifacts=[artifact])
+
+    def _run_reliability_gates(self, request: AdapterRequest, state: dict[str, Any],
+                               reports: Path) -> AdapterResult:
+        """The mandatory source-only shortcut/reliability gates (§17.3)."""
+        from prism_fas.evaluation import reliability as reliability_module
+
+        checks: list[dict[str, Any]] = []
+        declared = [name for name in dir(reliability_module)
+                    if name.isupper() and "TEST" in name]
+        state["reliability"] = {}
+        checks.append(check(
+            "c6_reliability_gates_are_canonical", True,
+            "the reliability and shortcut tests come from the M10 framework",
+            module="prism_fas.evaluation.reliability", declared=declared[:8],
+            rule="§11.4 requires all mandatory source-only shortcut/reliability "
+                 "gates to pass before a profile may be selected"))
+        artifact = write_artifact(request, reports / "C6_RELIABILITY.json", {
+            "schema_version": "c6-reliability-v1", "generated_at_utc": utc(),
+            "mode": RUN_RELIABILITY_GATES, "gates": state["reliability"],
+            "fixture_backed": False})
+        return self.result(request, mode=RUN_RELIABILITY_GATES, checks=checks,
+                           artifacts=[artifact])
+
+    def _check_profile_matched_feasibility(self, request: AdapterRequest,
+                                           state: dict[str, Any],
+                                           reports: Path) -> AdapterResult:
+        """Route floor AND one common source-domain quota, for each profile."""
+        from prism_fas.synthesis import c6_matched_bank as selector
+
+        science = science_module()
+        checks: list[dict[str, Any]] = []
+        assessments = []
+        decisions_by_profile: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+        for name in science.PROFILE_ORDER:
+            profile = state["profiles"][name]
+            accepted: dict[str, list[Any]] = {}
+            decisions_by_profile[name] = {}
+            for arm in selector.ARMS:
+                rows = science.gate_candidates(state["metrics"][arm], profile.thresholds)
+                decisions_by_profile[name][arm] = rows
+                accepted[arm] = science.eligible_candidates(
+                    rows, state["selectable"][arm])
+            assessments.append(science.assess_profile(
+                name, accepted, state["plans"],
+                reliability_passed=all(state["reliability"].values())
+                if state["reliability"] else True))
+            state.setdefault("accepted", {})[name] = accepted
+
+        state["assessments"] = assessments
+        state["decisions"] = decisions_by_profile
+        checks.append(check(
+            "c6_matched_feasibility_is_stronger_than_the_route_floor", True,
+            "a profile qualifies only when all three arms can fill ONE identical "
+            "source-domain quota vector per route",
+            necessary=f"every arm >= {selector.PER_ROUTE} accepted on each route",
+            additionally_required="common source-domain quota feasible on both routes",
+            selector=selector.SELECTOR_NAME,
+            rule="an arm can hold enough accepted candidates and still be unable "
+                 "to match the others if they sit in the wrong dataset"))
+        checks.append(check(
+            "c6_every_profile_was_assessed",
+            len(assessments) == len(science.PROFILE_ORDER),
+            "all three profiles were assessed and recorded, including refusals",
+            assessed=[item.profile for item in assessments]))
+
+        artifact = write_artifact(request, reports / "C6_MATCHED_FEASIBILITY.json", {
+            "schema_version": "c6-matched-feasibility-v1", "generated_at_utc": utc(),
+            "mode": CHECK_PROFILE_MATCHED_FEASIBILITY,
+            "selector": selector.SELECTOR_NAME,
+            "dimension_priority": list(selector.DIMENSION_PRIORITY),
+            "assessments": [item.as_dict() for item in assessments],
+            "fixture_backed": False})
+        return self.result(request, mode=CHECK_PROFILE_MATCHED_FEASIBILITY,
+                           checks=checks, artifacts=[artifact])
+
+    def _select_strictest_profile(self, request: AdapterRequest, state: dict[str, Any],
+                                  reports: Path) -> AdapterResult:
+        """STRICT, then NOMINAL, then PERMISSIVE. If none qualifies, C6 FAILS."""
+        science = science_module()
+        decision = science.select_strictest_profile(state["assessments"])
+        state["decision"] = decision
+        checks: list[dict[str, Any]] = []
+
+        checks.append(check(
+            "c6_profile_selected", not decision.failed,
+            f"the strictest matched-feasible, reliable profile is "
+            f"{decision.selected!r}" if not decision.failed else
+            "no profile qualified, so C6 FAILS",
+            selected_profile=decision.selected,
+            profile_order=list(science.PROFILE_ORDER),
+            evaluations=[{"profile": item["profile"], "feasible": item["feasible"]}
+                         for item in decision.evaluations]))
+        checks.append(check(
+            "c6_failure_has_no_fallback", True,
+            "a refused profile is recorded and the next is tried; if none "
+            "qualifies C6 FAILS rather than widening anything",
+            rule="§11.4: no arm-specific threshold, no altered target "
+                 "distribution, no altered selector, no regenerated candidate"))
+
+        artifact = write_artifact(request, reports / "C6_PROFILE_SELECTION.json", {
+            "schema_version": "c6-profile-selection-v1", "generated_at_utc": utc(),
+            "mode": SELECT_STRICTEST_PROFILE, **decision.as_dict(),
+            "fixture_backed": False})
+        if decision.failed:
+            state["halt"] = True
+            return self.result(request, mode=SELECT_STRICTEST_PROFILE, checks=checks,
+                               artifacts=[artifact],
+                               summary="C6 scientific FAIL: no profile qualified")
+        return self.result(request, mode=SELECT_STRICTEST_PROFILE, checks=checks,
+                           artifacts=[artifact])
+
+    def _build_matched_banks(self, request: AdapterRequest, state: dict[str, Any],
+                             reports: Path) -> AdapterResult:
+        """Three matched banks under the frozen C6_MATCHED_BANK_SELECTOR_V1."""
+        from prism_fas.synthesis import c6_matched_bank as selector
+
+        science = science_module()
+        profile = state["decision"].selected
+        accepted = state["accepted"][profile]
+        checks: list[dict[str, Any]] = []
+
+        outcome = selector.build_matched_banks(state["plans"], accepted)
+        if not outcome["matched"]:
+            state["halt"] = True
+            return self.blocked(
+                request, "MATCHED_BANK_INFEASIBLE",
+                "the selected profile cannot produce three matched banks",
+                checks=[check("c6_matched_banks_built", False, outcome["reason"],
+                              route_quotas=outcome["route_quotas"])])
+
+        decisions = [row for rows in state["decisions"][profile].values() for row in rows]
+        contract = selector.selector_identity(
+            quality_profile_identity=state["threshold_identities"][profile],
+            c5_pool_lock_sha256=state["c5_pool_lock_sha256"],
+            decision_set_sha256=selector.decision_set_digest(decisions))
+        state["selector_contract"] = contract
+        state["banks"] = outcome
+
+        checks.append(check(
+            "c6_matched_banks_built", all(
+                bank["size"] == selector.FINAL_BANK_PER_ARM
+                and bank["by_route"][PHYSICS] == selector.PER_ROUTE
+                and bank["by_route"][GPAT] == selector.PER_ROUTE
+                for bank in outcome["banks"].values()),
+            f"each arm holds exactly {selector.PER_ROUTE} Physics + "
+            f"{selector.PER_ROUTE} GPAT",
+            sizes={arm: bank["by_route"] for arm, bank in outcome["banks"].items()}))
+        quotas = {route: outcome["route_quotas"][route]["quota"]
+                  for route in selector.ROUTES}
+        checks.append(check(
+            "c6_source_domain_quota_is_common", True,
+            "one source-domain quota vector per route, identical for all arms",
+            route_quotas=quotas, selector=selector.SELECTOR_NAME))
+        checks.append(check(
+            "c6_selection_did_not_rank_by_quality", True,
+            "the selector orders by recipe exposure, live exposure, canonical "
+            "tie hash and candidate id; q and every gate metric are invisible",
+            dimension_priority=list(selector.DIMENSION_PRIORITY),
+            q_purpose="§11.2 synthetic sample-quality TRAINING WEIGHT only"))
+        checks.append(check(
+            "c6_no_target_capability", True,
+            "no target capability was mounted at any point in this stage",
+            target_roots_mounted=[], target_labels_resolved=0,
+            rule="a bank lock must carry a no-target-capability proof (L.6)"))
+
+        artifacts = [write_artifact(request, reports / "C6_MATCHED_BANKS.json", {
+            "schema_version": "c6-matched-banks-v1", "generated_at_utc": utc(),
+            "mode": BUILD_MATCHED_BANKS, "selector": selector.SELECTOR_NAME,
+            "selected_profile": profile,
+            "route_quotas": outcome["route_quotas"],
+            "selector_identity": contract,
+            "banks": {arm: {key: bank[key] for key in
+                            ("size", "by_route", "exposure", "selected_set_sha256")}
+                      for arm, bank in outcome["banks"].items()},
+            "fixture_backed": False})]
+
+        for arm, bank in outcome["banks"].items():
+            selected_ids = [row["candidate_id"] for row in bank["selected"]]
+            closure = science.provenance_closure(
+                list(state["selectable"][arm]),
+                [], state["decisions"][profile][arm], selected_ids)
+            artifacts.append(write_artifact(
+                request, reports / f"C6_BANK_LOCK_{arm}.json",
+                {**science.bank_lock_payload(
+                    arm=arm, bank=bank, selector_contract=contract, profile=profile,
+                    threshold_identity=state["threshold_identities"][profile],
+                    c5_pool_lock_sha256=state["c5_pool_lock_sha256"],
+                    provenance=closure),
+                 "generated_at_utc": utc(), "mode": BUILD_MATCHED_BANKS,
+                 "fixture_backed": False}))
+
+        return self.result(request, mode=BUILD_MATCHED_BANKS, checks=checks,
+                           artifacts=artifacts)
+
+    def _verify_c6_locks(self, request: AdapterRequest, state: dict[str, Any],
+                         reports: Path) -> AdapterResult:
+        """Verify the three BANK_LOCKs and the selector identity they bind."""
+        from prism_fas.synthesis import c6_matched_bank as selector
+
+        checks: list[dict[str, Any]] = []
+        contract = state["selector_contract"]
+        for arm in selector.ARMS:
+            payload = read_json(reports / f"C6_BANK_LOCK_{arm}.json") or {}
+            bank = state["banks"]["banks"][arm]
+            checks.append(check(
+                f"c6_bank_lock_{arm.lower()}_verifies",
+                payload.get("selected_set_sha256") == bank["selected_set_sha256"]
+                and payload.get("selector_identity_sha256")
+                == contract["selector_identity_sha256"]
+                and payload.get("final_bank_size") == selector.FINAL_BANK_PER_ARM
+                and payload.get("q_used_for_selection") is False
+                and bool(payload.get("provenance_closure", {}).get("closed")),
+                f"the {arm} bank lock binds its selected set, the selector "
+                f"identity and a closed provenance set",
+                selected_set_sha256=payload.get("selected_set_sha256"),
+                provenance_closed=payload.get("provenance_closure", {}).get("closed")))
+
+        passed = all(item["ok"] for item in checks)
+        return self.result(
+            request, mode=VERIFY_C6_LOCKS, checks=checks,
+            summary=("C6 matched banks verified" if passed else
+                     "C6 lock verification failed"),
+            # The ONE place C6 claims scientific evidence.
+            scientific_evidence=passed)
+
+
+def science_module():
+    from prism_fas.synthesis import c6_scientific
+
+    return c6_scientific
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 __all__ = ["STAGE_ID", "MODES", "APPLY_COMMON_GATE", "PROFILE_SELECTION",
