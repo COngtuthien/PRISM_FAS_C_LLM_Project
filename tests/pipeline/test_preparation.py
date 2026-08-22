@@ -26,6 +26,7 @@ Nothing here touches a real dataset, a GPU, a provider or the target.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -55,13 +56,15 @@ def _write(path: Path, text: str = "fixture") -> Path:
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     """A minimal portable folder: raw inputs and weights present, nothing derived."""
-    import shutil
-
     repo = tmp_path / "PRISM_FAS_C_LLM_Project"
     for dataset in ("casia_fasd", "msu_mfsd", "siw_mv2"):
         _write(repo / "data" / "raw" / dataset / "README.txt", dataset)
     _write(repo / "weights" / "siglip2" / "model.bin", "weights")
     _write(repo / "assets" / "recipe_banks" / "c3" / "llm" / "bank.json", "{}")
+    # The real frozen M7 bank, copied rather than faked: `_step_pairs` validates
+    # it through the canonical `validate_bank` and against the pinned content
+    # identity, so a placeholder would make the gate untestable here. It is 137 kB.
+    shutil.copytree(REPO / preparation.M7_RECIPE_BANK, repo / preparation.M7_RECIPE_BANK)
     # Named from the declaration, never spelled here. The fixture used to write
     # `configs/models/model_priors.yaml` — a file the repository has never had —
     # which is precisely what let `_step_m3b` go on naming it.
@@ -93,6 +96,7 @@ class Builders:
         self.build_nothing_at: str | None = None
         self.validation_passes = True
         self.m2_complete = False
+        self.package_identity = "b" * 64
 
     # -- helpers
     @property
@@ -186,14 +190,30 @@ class Builders:
                      output_package=Path(output_package), model_config=Path(model_config),
                      weight_root=Path(weight_root), resume=resume)
         self._make("m3b_priors", Path(output_package), lock="PACKAGE_LOCK.json")
+        # The real builder writes a content identity, and the pair plan stamps it
+        # into every pair id, so the stub carries one too.
+        _write(Path(output_package) / "PACKAGE_LOCK.json",
+               json.dumps({"status": "validated",
+                           "content_identity_sha256": self.package_identity}))
         return {"samples": 36}
 
     def write_pair_plan(self, package_root: Path, bank_root: Path, output_root: Path,
                         **kwargs: Any) -> dict[str, Any]:
         self._record("gpat_pairs", package_root=Path(package_root),
                      bank_root=Path(bank_root), output_root=Path(output_root))
-        self._make("gpat_pairs", Path(output_root), lock="PAIR_PLAN_LOCK.json")
-        return {}
+        self._make("gpat_pairs", Path(output_root))
+        if self.build_nothing_at == "gpat_pairs":
+            return {}
+        # Both manifests, then the lock — the order the real writer uses, and
+        # what `_pair_plan_is_current` reads to decide whether reuse is honest.
+        for name in ("pair_manifest_train.parquet", "pair_manifest_validation.parquet"):
+            _write(Path(output_root) / name, "parquet")
+        _write(Path(output_root) / "PAIR_PLAN_LOCK.json", json.dumps({
+            "package_identity": self.package_identity,
+            "recipe_bank_identity": preparation.M7_BANK_CONTENT_IDENTITY,
+            "train_pairs": 896, "validation_pairs": 224}))
+        return {"lock": {"train_pairs": 896, "validation_pairs": 224},
+                "summary": {"source_dev_opened": False, "target_test_opened": False}}
 
     def pair_plan_identity(self, output_root: Path) -> str:
         return "pairplan-" + Path(output_root).name
@@ -289,13 +309,21 @@ def test_each_step_consumes_the_previous_step_output(project: Path,
     calls = {call["step"]: call for call in builders.calls}
 
     m3a_root = project / "data" / "packages" / "prism_data_v1_m3a"
+    m3b_root = project / "data" / "packages" / "prism_data_v1_m3b"
     assert calls["m3a_package"]["input_root"] == preparation.m2_output_root(project), (
         "M3A must consume the canonical M2 output root, not data/processed")
     assert calls["m3a_package"]["package_root"] == m3a_root
     assert calls["m3b_priors"]["input_package"] == m3a_root
-    assert calls["m3b_priors"]["output_package"] == project / "data" / "packages" / "prism_data_v1_m3b"
-    assert calls["gpat_pairs"]["package_root"] == m3a_root
-    assert calls["gpat_pairs"]["bank_root"] == project / "assets" / "recipe_banks" / "c3"
+    assert calls["m3b_priors"]["output_package"] == m3b_root
+    # The pair plan chains from M3B, not M3A. Frozen Version-B evidence: the
+    # pair-plan lock records the M3B package identity, which is stamped into
+    # every `pair_id`. M3A is structurally loadable, so this was silently wrong.
+    assert calls["gpat_pairs"]["package_root"] == m3b_root
+    # ...and from the frozen M7 bank, not the C3 container, which is a different
+    # contract and carries none of the seven files `load_bank` requires.
+    assert calls["gpat_pairs"]["bank_root"] == (
+        project / "assets" / "recipe_banks" / "prism_recipe_bank_m7_v1")
+    assert "c3" not in calls["gpat_pairs"]["bank_root"].parts
 
 
 def test_resume_is_propagated_to_every_builder(project: Path,
@@ -690,7 +718,10 @@ def _prepare_at(root: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         _write(repo / "data" / "raw" / dataset / "README.txt", dataset)
     _write(repo / "weights" / "siglip2" / "model.bin", "weights")
     _write(repo / "assets" / "recipe_banks" / "c3" / "llm" / "bank.json", "{}")
-    import shutil
+    # The real frozen M7 bank, copied rather than faked: `_step_pairs` validates
+    # it through the canonical `validate_bank` and against the pinned content
+    # identity, so a placeholder would make the gate untestable here. It is 137 kB.
+    shutil.copytree(REPO / preparation.M7_RECIPE_BANK, repo / preparation.M7_RECIPE_BANK)
 
     (repo / "configs" / "data").mkdir(parents=True, exist_ok=True)
     for name in ("preprocess_m2.yaml", "m2_run_profiles.yaml"):

@@ -28,11 +28,11 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: LINUX_RTX5090_M3B_CONFIG_PATH_HOTFIX
-current_substage: the M3B step named a model-prior config that has never existed;
-                  it now uses the canonical one, and every config path the whole
-                  runtime names is audited against the shipped folder — COMPLETE
-previous_milestone: LINUX_RTX5090_M2_M3A_CONTRACT_HOTFIX
+current_milestone: LINUX_RTX5090_GPAT_FROZEN_BANK_CONTRACT_HOTFIX
+current_substage: the GPAT pair-plan step was handed the C3 bank CONTAINER instead
+                  of the frozen M7 bank, and the M3A package instead of M3B; both
+                  are now bound from frozen Version-B evidence and gated — COMPLETE
+previous_milestone: LINUX_RTX5090_M3B_CONFIG_PATH_HOTFIX
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -587,6 +587,179 @@ final_full_path_closure:
 # been tested on a machine this project did not build. It failed twice on the GPU
 # laptop before any science could start, and both failures were real defects
 # here, not operator error.
+linux_rtx5090_gpat_frozen_bank_contract_hotfix:
+  status: COMPLETE
+  branch: portable-one-command-full-run
+  is_scientific_execution: false
+  authorized_by: user, in session, as an engineering bank-contract fix
+  base_commit_on_gpu_host: 643714a1e376665c6f2afff838deb9f577c7791c
+  discovered_by: >-
+    the real Linux RTX 5090 host, which after the M3B config fix completed M2,
+    M3A and M3B and then stopped at the fourth and last preparation step.
+  symptom: >-
+    [PREPARATION_FAILED] derived-data preparation failed at gpat_pairs:
+    BankError: assets/recipe_banks/c3 is not a frozen recipe bank; missing
+    ['recipes.jsonl','ontology.yaml','prompt.txt','generator.json',
+    'coverage.json','validation.json','BANK_LOCK.json']. Stopped BEFORE C4.
+
+  defect_1_c3_container_passed_to_load_bank:
+    bad_path_before: assets/recipe_banks/c3
+    canonical_path_after: assets/recipe_banks/prism_recipe_bank_m7_v1
+    why_c3_is_not_a_valid_load_bank_input: >-
+      it is a CONTAINER of the three C3 scientific banks (det/, llm/, rnd/), each
+      holding C3_BANK.json + recipes.jsonl. It carries none of the seven files
+      recipes.bank.BANK_FILES requires, and neither does any arm inside it — both
+      were measured, not assumed. The C3 banks and the frozen M7 bank are
+      different contracts; PORTABLE_ASSET_MANIFEST.json lists the C3 container
+      under its own logical name `c3_scientific_recipe_banks`, and nothing in
+      this fix converts, copies or regenerates either.
+    authority: >-
+      frozen Version-B evidence (authority level 1). The Version-B pair-plan lock
+      reports/m8/pairs/PAIR_PLAN_LOCK.json records recipe_bank_identity =
+      fa989938…10cb, and docs/c0/C0_VERSION_B_INTEGRITY.md §2.2 records the same
+      bank. Both production M8 callsites — modal_m8.py and
+      cli/main.py::_m8_defaults — already pass this root.
+
+  defect_2_wrong_package_root:
+    found_by: >-
+      auditing the other argument of the same call rather than stopping at the
+      one that raised. It had not fired yet and would not have raised at all.
+    bad_path_before: data/packages/prism_data_v1_m3a
+    canonical_path_after: data/packages/prism_data_v1_m3b
+    why_it_matters: >-
+      M3A is structurally loadable by load_source_train_rows, so the plan would
+      have been BUILT successfully with the wrong `package_identity` — a value
+      stamped into every pair_id and into pair_plan_identity_sha256. A silent
+      scientific-identity error, not a crash.
+    authority: >-
+      the frozen Version-B pair-plan lock records package_identity =
+      b1cf29b69a165ed5d9e074fc8127c17fbf057723edf9e272048ec3a564eb9dc6, which
+      docs/c0/C0_VERSION_B_INTEGRITY.md §2.1 identifies as prism_data_v1_m3b.
+      modal_m8.py REMOTE_PACKAGE and cli/main.py::_m8_defaults both use M3B.
+
+  bank_validation_gate:
+    function: prism_fas.pipeline.preparation.validate_recipe_bank
+    runs_before: any pair-plan construction
+    reason_code_on_failure: RECIPE_BANK_INVALID
+    checks:
+      - every file in recipes.bank.BANK_FILES exists
+      - the canonical validate_bank re-derives every hash in BANK_LOCK.json
+      - BANK_LOCK status == frozen
+      - bank_id == prism_recipe_bank_m7_v1
+      - bank_content_identity_sha256 == the frozen project contract
+    why_the_pinned_identity: >-
+      validate_bank alone is satisfied by ANY internally consistent frozen bank,
+      so it catches a tampered bank but not a substituted one. Only the pinned
+      identity refuses the wrong bank, which is the defect class this gate exists
+      for. The pin records a frozen fact; it does not choose one.
+    writes: nothing; it never repairs a bank
+    m7_bank_identity_before: fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb
+    m7_bank_identity_after: fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb
+    bank_bytes_changed: 0        # `git status --porcelain assets/` is empty
+
+  resume_semantics:
+    rule: >-
+      a pair plan is REUSED_VALID only when PAIR_PLAN_LOCK.json exists, BOTH pair
+      manifests exist, and the lock's recipe_bank_identity and package_identity
+      match the bank and package this run resolved. Presence of the lock alone
+      proved the write finished, not that it finished against these inputs.
+    interrupted_plan_is_reused: false
+    plan_from_another_bank_is_reused: false
+    plan_from_another_package_is_reused: false
+
+  source_only_contract:
+    manifests_opened: ["manifests/source_train.parquet"]
+    source_dev_opened: false
+    target_test_opened: false
+    measured_how: >-
+      pyarrow.parquet.read_table is instrumented in the regression and the
+      recorded open list is asserted to be exactly source_train.parquet; the
+      fixture writes source_dev and target_test as unreadable bytes so opening
+      one would be a hard failure.
+    frozen_pair_counts: {train: 896, validation: 224}
+    counts_enforced_by: >-
+      write_pair_plan raises PairPlanError before writing anything; a regression
+      asserts the constants, the gpat_m8.yaml declaration and the frozen
+      Version-B lock all agree, and that a short plan leaves no lock behind.
+
+  # --- found, verified, NOT changed -----------------------------------------
+  needs_scientific_decision:
+    id: C4_SUPPORT_BATCH_RECIPE_BANK
+    where: src/prism_fas/pipeline/adapters/sources.py::_real_support_batch
+    observed: >-
+      bank_root = repo / "assets/recipe_banks/c3", passed to
+      m8_pipeline.resolve_bank, which IS recipes.bank.load_bank. Measured: it
+      raises the identical BankError, and so does every C3 arm. This path runs
+      only when fixtures are not permitted — i.e. exactly the GPU scientific
+      path — so it is the next thing that fails on that host, at C4.
+    why_not_fixed_here: >-
+      unlike the pair-plan roots, no frozen artifact says which recipe bank
+      conditions the Version-C C4 GPAT support batch. Choosing between the frozen
+      M7 bank and re-serializing a C3 arm into the M7 contract is a scientific
+      decision outside a preregistered envelope, so it stops here and is reported
+      rather than guessed (CLAUDE.md STOP conditions).
+    blocking: C4
+
+  scientific_safety:
+    recipe_contents_changed: false
+    recipe_identities_changed: false
+    c3_banks_modified: false
+    m7_bank_modified: false
+    bank_regenerated: false
+    banks_converted_between_contracts: false
+    files_created_inside_assets_recipe_banks_c3: 0
+    external_llm_called: false
+    search_space_lr_models_datasets_gpat_hyperparameters_changed: false
+    target_access: 0
+    c4_to_c13_scientific_status: NOT_RUN
+    gemini_calls: 0
+    modal_jobs: 0
+
+  tests:
+    focused_suite: tests/pipeline/test_gpat_pair_plan_contract.py   # 27 passed
+    guards_verified_to_fail_against_the_defect: 13   # reverted both roots, then restored
+    focused_covers:
+      - the step resolves the frozen M7 bank, not the C3 container
+      - load_bank succeeds on the exact shipped root; validate_bank passes
+      - every BANK_FILES entry is present
+      - the C3 container is not a frozen bank (measured)
+      - no C3 arm (det/llm/rnd) can be silently substituted
+      - the C3 banks keep their own contract and grew no M7 files
+      - the gate reports the frozen identity and writes nothing
+      - a missing bank, a substituted-but-consistent bank and an unfrozen bank
+        are each refused with RECIPE_BANK_INVALID
+      - the plan is bound to the M3B package
+      - the frozen pair counts agree across the constants, gpat_m8.yaml and the
+        Version-B lock
+      - only source_train.parquet is opened; source_dev and target_test are not
+      - no target artifact is touched
+      - the lock is written only after a successful construction
+      - reuse is refused for an interrupted plan, another bank, another package
+      - the step hands the builder the two frozen roots, and validates the bank
+        before the builder runs
+    orchestration_suite: tests/pipeline/test_preparation.py   # 61 passed
+    pipeline_suite: {passed: 657, failed: 0, skipped: 0}
+    m7_m8_suites: {passed: 225, failed: 2, skipped: 72}   # the 2 are inherited
+    broad_regression: {passed: 2113, failed: 7, skipped: 101, seconds: 599.36}
+    inherited_failure_set_identical: true
+    new_unexplained_failures: 0
+    tests_weakened_to_obtain_green: 0
+    fixture_corrected: >-
+      the preparation fixture now copies the REAL frozen M7 bank (137 kB) rather
+      than faking one, so the gate does real work in the stub suite too, and the
+      chaining test asserts M3B + the M7 bank instead of the values it used to
+      encode.
+
+  changed_runtime_files:
+    - src/prism_fas/pipeline/preparation.py
+  full_project_recopy_required: false
+  dataset_recopy_required: false
+  weights_recopy_required: false
+  venv_recopy_required: false
+  manual_cleanup_required: false
+  remote_m2_m3a_m3b_reuse_expected: true
+  preferred_deployment: git fetch origin && git checkout <NEW_HEAD>
+
 linux_rtx5090_m3b_config_path_hotfix:
   status: COMPLETE
   branch: portable-one-command-full-run
@@ -2231,29 +2404,37 @@ next_authorized_action: >
   recopy of datasets, NO recopy of weights, NO recopy or rebuild of .venv, NO
   reinstall, NO manual deletion.
 
-  Critically: the M2 preprocessing and the M3A package that host already built
-  are VALID and are REUSED. This fix touches neither. Expect the run to report
-  m2_preprocess REUSED_VALID and m3a_package REUSED_VALID within minutes, then
-  start M3B — the step that failed — for the first time. `--diagnose-data` is
-  still available and still read-only if you want to look first.
+  The canonical M2 full_preprocessing tree, prism_data_v1_m3a and
+  prism_data_v1_m3b that host already built are VALID and are REUSED — this fix
+  touches none of them. Expect m2_preprocess, m3a_package and m3b_priors to all
+  report REUSED_VALID, then gpat_pairs — the step that failed — to build for the
+  first time, against the frozen M7 bank and the M3B package.
+
+  THEN EXPECT IT TO STOP AGAIN, AT C4, and that stop needs a decision rather than
+  another hotfix. `adapters/sources.py::_real_support_batch` passes
+  `assets/recipe_banks/c3` to `m8_pipeline.resolve_bank`, which is the same
+  `load_bank`, so it raises the same BankError; every C3 arm fails it too. Which
+  recipe bank conditions the Version-C C4 GPAT support batch is not settled by
+  any frozen artifact, so it is recorded above as
+  NEEDS_SCIENTIFIC_DECISION / C4_SUPPORT_BATCH_RECIPE_BANK rather than guessed.
 
   Nothing else is authorized. What follows is still true: no reports/full/c4..c13
-  artifact has ever been written, and no full-data preparation has ever completed
-  through to the GPAT pair plan.
+  artifact has ever been written.
 
-  What review is being asked to confirm: `_step_m3b` names
-  configs/models/m3b_priors.yaml — the config the CLI, the M3B test suite and the
-  M8/M10 contract documents already use — no alias file was created, its contents
-  are byte-unchanged, and every config path the whole runtime spells out is now
-  audited against the shipped folder by a test that was verified to fail against
-  the defect.
+  What review is being asked to confirm: the pair plan is built from the frozen
+  M7 bank at assets/recipe_banks/prism_recipe_bank_m7_v1 and the M3B package,
+  both bound by the frozen Version-B pair-plan lock rather than chosen here; the
+  bank is gated on file presence, the canonical validate_bank, frozen status and
+  the pinned content identity before anything is built; the plan opens
+  source_train.parquet and nothing else; and reuse is refused unless the existing
+  plan's package and bank identities match this run's.
 
-  What review must NOT read into it: no scientific config content changed, no
-  duplicate config was added to satisfy a typo, no M2 or M3A artifact was touched
-  or rebuilt, and this milestone executed no C4-C13 work, called no provider,
-  allocated no Modal job and touched no target label. The one config path that is
-  still absent — configs/data/target_layout.yaml — is a C10 target artifact that
-  cannot be reached before C4 and whose call site already fails closed.
+  What review must NOT read into it: no file was created inside
+  assets/recipe_banks/c3, no bank was converted, copied or regenerated, no recipe
+  content or identity changed, and `git status --porcelain assets/` is empty; no
+  search space, learning rate, model, dataset, C3 bank or GPAT hyperparameter
+  changed; and this milestone executed no C4-C13 work, called no external LLM,
+  allocated no Modal job and touched no target label.
 
-last_updated_utc: 2026-08-22   # Linux RTX 5090 M3B config path hotfix
+last_updated_utc: 2026-08-22   # Linux RTX 5090 GPAT frozen bank contract hotfix
 ```

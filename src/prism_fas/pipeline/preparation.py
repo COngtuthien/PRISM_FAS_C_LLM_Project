@@ -52,6 +52,7 @@ MISSING_RAW_DATA = "MISSING_RAW_DATA"
 PREPARATION_FAILED = "PREPARATION_FAILED"
 M2_INCOMPLETE = "M2_INCOMPLETE"
 TARGET_IN_SOURCE_TREE = "TARGET_IN_SOURCE_TREE"
+RECIPE_BANK_INVALID = "RECIPE_BANK_INVALID"
 
 #: Built in this order; each consumes the previous one's output.
 STEPS = ("m2_preprocess", "m3a_package", "m3b_priors", "gpat_pairs")
@@ -89,6 +90,47 @@ PREPARATION_CONFIGS = {
 
 #: Per-dataset adapter definitions, resolved by name from `SOURCE_DATASETS`.
 DATASET_CONFIG_TEMPLATE = "configs/data/{dataset}.yaml"
+
+#: The derived package roots this module builds and chains, by project-relative
+#: path. Declared for the same reason as the configs above: a root spelled at
+#: four call sites is a root nothing can check.
+DERIVED_PACKAGES = {
+    "m3a": "data/packages/prism_data_v1_m3a",
+    "m3b": "data/packages/prism_data_v1_m3b",
+    "gpat_pairs": "data/packages/gpat_pairs",
+}
+
+#: The FROZEN M7 recipe bank, and the only recipe bank M8 has ever been bound to.
+#:
+#: `assets/recipe_banks/c3/` is a different contract and was named here by
+#: mistake: it is a CONTAINER of the three C3 scientific banks (`det/`, `llm/`,
+#: `rnd/`), each holding `C3_BANK.json` + `recipes.jsonl`, and it carries none of
+#: the seven files `recipes.bank.load_bank` requires. The two are kept explicitly
+#: distinct — `PORTABLE_ASSET_MANIFEST.json` lists the C3 container under its own
+#: logical name `c3_scientific_recipe_banks`, and nothing converts between them.
+M7_RECIPE_BANK = "assets/recipe_banks/prism_recipe_bank_m7_v1"
+
+#: What the frozen bank must hash to. Recorded in Version-B evidence
+#: (`docs/c0/C0_VERSION_B_INTEGRITY.md` §2.2) and in the frozen pair-plan lock
+#: `reports/m8/pairs/PAIR_PLAN_LOCK.json` on the immutable Version-B repository.
+#:
+#: `validate_bank` re-derives every hash in BANK_LOCK.json from the files beside
+#: it, which catches a tampered bank but not a SUBSTITUTED one — a different bank
+#: that is internally consistent passes. Pinning the identity is what makes the
+#: check refuse the wrong bank, which is the defect class this whole gate exists
+#: for. This records a frozen fact; it does not choose one.
+M7_BANK_CONTENT_IDENTITY = (
+    "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb")
+M7_BANK_ID = "prism_recipe_bank_m7_v1"
+
+#: The package the GPAT pair plan is bound to. Frozen Version-B evidence: the
+#: pair-plan lock records `package_identity` = the M3B package identity
+#: b1cf29b6…9dc6, and both production callsites — `modal_m8.py` (REMOTE_PACKAGE)
+#: and `cli/main.py::_m8_defaults` — pass the M3B root. M3A is structurally
+#: loadable here too, which is exactly the hazard: it would produce a plan whose
+#: `package_identity` is stamped into every `pair_id` and into the pair-plan
+#: identity, and it would be the wrong one, silently.
+PAIR_PLAN_PACKAGE = "m3b"
 
 #: Written under the M2 output root after a full pass that validated. Its absence
 #: is what separates an interrupted preprocessing run from a finished one — the
@@ -678,7 +720,7 @@ def _step_m3a(repo: Path, *, resume: bool) -> StepOutcome:
     from prism_fas.data.package import (build_package, finalize_lock,
                                         load_package_config, validate_package)
 
-    root = repo / "data" / "packages" / "prism_data_v1_m3a"
+    root = repo / DERIVED_PACKAGES["m3a"]
     if root.is_dir() and (root / "PACKAGE_LOCK.json").is_file():
         report = validate_package(root, require_validated_status=False)
         if report.get("passed"):
@@ -741,8 +783,8 @@ def _step_m3b(repo: Path, *, resume: bool) -> StepOutcome:
     """Model priors: the pinned towers' features over the packaged frames."""
     from prism_fas.data.package.m3b import build_m3b_package
 
-    source = repo / "data" / "packages" / "prism_data_v1_m3a"
-    target = repo / "data" / "packages" / "prism_data_v1_m3b"
+    source = repo / DERIVED_PACKAGES["m3a"]
+    target = repo / DERIVED_PACKAGES["m3b"]
     if target.is_dir() and (target / "PACKAGE_LOCK.json").is_file():
         return StepOutcome("m3b_priors", "REUSED_VALID",
                            "the M3B prior package is present and locked")
@@ -765,22 +807,132 @@ def _step_m3b(repo: Path, *, resume: bool) -> StepOutcome:
                        {"samples": (result or {}).get("samples")})
 
 
+def recipe_bank_root(repo: Path) -> Path:
+    """The ONE frozen recipe bank the pair plan may be built from."""
+    return Path(repo) / M7_RECIPE_BANK
+
+
+def validate_recipe_bank(repo: Path) -> dict[str, Any]:
+    """Prove the frozen M7 bank is present, self-consistent and the right bank.
+
+    Four separate things, because passing three of them is not enough:
+
+    1.  every file in `recipes.bank.BANK_FILES` exists — the check whose failure
+        produced `BankError: ... missing [...]` on the GPU host when this step
+        was pointed at the C3 container;
+    2.  the canonical `validate_bank` re-derives every hash in BANK_LOCK.json
+        from the files beside it, so a tampered bank fails;
+    3.  the lock status is `frozen`, not a bank still being built; and
+    4.  the content identity equals the frozen project contract. Steps 2 and 3
+        are satisfied by ANY internally consistent frozen bank, so only this one
+        refuses a substituted bank — which is the defect this gate exists for.
+
+    Raises `PreparationError(RECIPE_BANK_INVALID)`; never repairs, never writes.
+    """
+    from prism_fas.recipes.bank import (BANK_FILES, BANK_STATUS_FROZEN, BankError,
+                                        load_bank, validate_bank)
+
+    root = recipe_bank_root(repo)
+    missing = [name for name in BANK_FILES if not (root / name).is_file()]
+    if missing:
+        raise PreparationError(
+            RECIPE_BANK_INVALID,
+            f"{root.as_posix()} is not a frozen recipe bank; missing {missing}. "
+            "The M8 pair plan is bound to the frozen M7 bank; nothing here "
+            "creates, converts or substitutes one.",
+            {"bank_root": root.as_posix(), "missing": missing})
+    try:
+        bank = load_bank(root)
+        report = validate_bank(root)
+    except BankError as error:
+        raise PreparationError(
+            RECIPE_BANK_INVALID,
+            f"the frozen recipe bank at {root.as_posix()} did not load: {error}",
+            {"bank_root": root.as_posix()}) from error
+
+    lock = bank["lock"]
+    status, bank_id = lock.get("status"), str(lock.get("bank_id"))
+    identity = str(lock.get("bank_content_identity_sha256"))
+    failures: list[str] = []
+    if not report.get("passed"):
+        failures.append(f"validate_bank: {report.get('errors')}")
+    if status != BANK_STATUS_FROZEN:
+        failures.append(f"status {status!r} != {BANK_STATUS_FROZEN!r}")
+    if bank_id != M7_BANK_ID:
+        failures.append(f"bank_id {bank_id!r} != {M7_BANK_ID!r}")
+    if identity != M7_BANK_CONTENT_IDENTITY:
+        failures.append(f"content identity {identity} != the frozen contract "
+                        f"{M7_BANK_CONTENT_IDENTITY}")
+    if failures:
+        raise PreparationError(
+            RECIPE_BANK_INVALID,
+            "the recipe bank does not satisfy the frozen project contract: "
+            + "; ".join(failures),
+            {"bank_root": root.as_posix(), "failures": failures,
+             "observed_identity": identity, "expected_identity": M7_BANK_CONTENT_IDENTITY})
+
+    return {"bank_root": root.as_posix(), "bank_id": bank_id, "status": status,
+            "recipe_count": len(bank["recipes"]),
+            "bank_content_identity_sha256": identity,
+            "validated_by": "prism_fas.recipes.bank.validate_bank"}
+
+
+def _pair_plan_is_current(output: Path, package_root: Path, bank_identity: str) -> bool:
+    """Whether an existing plan was built from THESE inputs and finished writing.
+
+    `PAIR_PLAN_LOCK.json` is written last, so its presence means the write
+    completed — but not that it completed against the package and bank this run
+    resolved. Both identities are stamped into every `pair_id`, so a plan built
+    from different inputs is a different plan and must not be reused.
+    """
+    import json
+
+    lock_path = output / "PAIR_PLAN_LOCK.json"
+    manifests = ("pair_manifest_train.parquet", "pair_manifest_validation.parquet")
+    if not lock_path.is_file() or any(not (output / name).is_file() for name in manifests):
+        return False
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        package_lock = json.loads(
+            (package_root / "PACKAGE_LOCK.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return (lock.get("recipe_bank_identity") == bank_identity
+            and lock.get("package_identity") == package_lock.get("content_identity_sha256"))
+
+
 def _step_pairs(repo: Path, *, resume: bool) -> StepOutcome:
-    """The source-only GPAT pair plan C4 trains against."""
+    """The source-only GPAT pair plan C4 trains against.
+
+    Two roots, both bound by frozen Version-B evidence rather than chosen here:
+    the M3B package (`PAIR_PLAN_LOCK.package_identity` = b1cf29b6…9dc6) and the
+    frozen M7 recipe bank (`recipe_bank_identity` = fa989938…10cb). The plan
+    opens `manifests/source_train.parquet` and nothing else — `source_dev` and
+    `target_test` are never read.
+    """
     from prism_fas.synthesis import pair_plan
 
-    output = repo / "data" / "packages" / "gpat_pairs"
-    if (output / "PAIR_PLAN_LOCK.json").is_file():
-        return StepOutcome("gpat_pairs", "REUSED_VALID",
-                           "the GPAT pair plan is present and locked",
-                           {"pair_plan_identity": pair_plan.pair_plan_identity(output)})
+    bank = validate_recipe_bank(repo)
+    output = repo / DERIVED_PACKAGES["gpat_pairs"]
+    package_root = repo / DERIVED_PACKAGES[PAIR_PLAN_PACKAGE]
 
-    package_root = repo / "data" / "packages" / "prism_data_v1_m3a"
-    bank_root = repo / "assets" / "recipe_banks" / "c3"
-    pair_plan.write_pair_plan(package_root, bank_root, output)
+    if _pair_plan_is_current(output, package_root, bank["bank_content_identity_sha256"]):
+        return StepOutcome("gpat_pairs", "REUSED_VALID",
+                           "the GPAT pair plan is present, complete and built "
+                           "from this package and this frozen bank",
+                           {"pair_plan_identity": pair_plan.pair_plan_identity(output),
+                            "recipe_bank": bank})
+
+    result = pair_plan.write_pair_plan(package_root, recipe_bank_root(repo), output)
     return StepOutcome("gpat_pairs", "BUILT",
                        "built the source-only GPAT pair plan",
-                       {"pair_plan_identity": pair_plan.pair_plan_identity(output)})
+                       {"pair_plan_identity": pair_plan.pair_plan_identity(output),
+                        "package_root": DERIVED_PACKAGES[PAIR_PLAN_PACKAGE],
+                        "recipe_bank": bank,
+                        "train_pairs": (result or {}).get("lock", {}).get("train_pairs"),
+                        "validation_pairs": (result or {}).get("lock", {}).get("validation_pairs"),
+                        "source_dev_opened": (result or {}).get("summary", {}).get("source_dev_opened"),
+                        "target_test_opened": (result or {}).get("summary", {}).get("target_test_opened")})
 
 
 def diagnose(repo: Path) -> dict[str, Any]:
@@ -887,7 +1039,10 @@ def write_report(repo: Path, report: dict[str, Any]) -> Path:
 
 
 __all__ = ["prepare", "what_is_needed", "write_report", "diagnose", "m2_status",
-           "m2_output_root", "PreparationError", "SCHEMA_VERSION", "STEPS",
+           "m2_output_root", "recipe_bank_root", "validate_recipe_bank",
+           "PreparationError", "SCHEMA_VERSION", "STEPS",
            "SOURCE_DATASETS", "M2_RUN_PROFILE", "M2_COMPLETION_MARKER",
+           "PREPARATION_CONFIGS", "DERIVED_PACKAGES", "M7_RECIPE_BANK",
+           "M7_BANK_CONTENT_IDENTITY", "M7_BANK_ID", "PAIR_PLAN_PACKAGE",
            "MISSING_RAW_DATA", "PREPARATION_FAILED", "M2_INCOMPLETE",
-           "TARGET_IN_SOURCE_TREE"]
+           "TARGET_IN_SOURCE_TREE", "RECIPE_BANK_INVALID"]
