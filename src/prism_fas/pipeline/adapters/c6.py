@@ -64,6 +64,50 @@ MODES: tuple[str, ...] = (APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATE
 
 QUALITY_CONFIG = "configs/synthesis/quality_gate_m8.yaml"
 
+RELIABILITY_SEQUENCE_UNRESOLVED = "C6_RELIABILITY_SEQUENCE_NEEDS_SCIENTIFIC_DECISION"
+
+#: The gates mandatory at C6 PROFILE-SELECTION time. `None` means unresolved, and
+#: while it is None C6 blocks rather than selecting a profile on no evidence.
+#:
+#: It is not resolvable from the frozen spec. §11.4 requires the selected profile
+#: to pass "all mandatory source-only shortcut/reliability gates" but never
+#: enumerates which are mandatory at selection; §3.1.1 says the BA_sep-based C-H4
+#: is evaluated AFTER the common C6 gate is frozen; and §17's table is scoped
+#: "before P3 target evaluation", a much later deadline. Residual sensitivity
+#: cannot run at C6 under any reading — it needs a detector, and detectors start
+#: at C7 — so the mandatory-at-selection set is necessarily a subset the spec
+#: does not name.
+C6_REQUIRED_RELIABILITY_GATES: tuple[str, ...] | None = None
+
+#: Runnable once the accepted synthetic bank exists; no detector required.
+BANK_LEVEL_RELIABILITY_TESTS: tuple[str, ...] = ("synthetic_vs_real_spoof_probe",)
+
+#: Require a trained detector, so they cannot execute before C7 whatever C6 does.
+DETECTOR_LEVEL_RELIABILITY_TESTS: tuple[str, ...] = (
+    "residual_scale_zero", "recipe_region_shift", "artifact_map_swap",
+    "cross_route_synthetic", "benign_jpeg_corruption", "benign_resize_corruption",
+    "benign_color_corruption", "crop_padding_interpolation")
+
+RELIABILITY_SEQUENCE_AUDIT: tuple[str, ...] = (
+    "§11.4: the selected profile must pass (i) the cardinality test and (ii) all "
+    "mandatory source-only shortcut/reliability gates — the mandatory set is not "
+    "enumerated",
+    "§17 table 'Reliability and shortcut gates BEFORE P3 TARGET EVALUATION': "
+    "synthetic-vs-real probe BA <= 0.75, 'if higher, C6 fails or requires "
+    "redesign before target'",
+    "C6 stage row: 'shortcut gates pass or STOP', and separately 'Synthetic-vs-"
+    "real probe and residual sensitivity run before detector target evaluation' "
+    "— which is a later deadline than C6 itself",
+    "§3.1.1: C-H4, which is where BA_sep_arm is defined, 'is evaluated AFTER the "
+    "three final C3 recipe banks and the common C6 synthetic gate are frozen'. "
+    "Read strictly, BA_sep is not available while the profile is being selected",
+    "residual sensitivity measures detector decision-score movement and cannot "
+    "run before C7 under any reading",
+    "BA_sep is defined over the matched source split, so it is a property of the "
+    "BANK; each profile yields a different bank, so a selection-time gate would "
+    "require building and probing three banks",
+)
+
 #: Provenance label for the assembled NOMINAL. Metadata only: `threshold_identity`
 #: hashes the threshold VALUES, so this string enters no scientific identity.
 NOMINAL_SOURCE_LABEL = (
@@ -959,23 +1003,65 @@ class C6Adapter(EngineeringAdapter):
 
     def _run_reliability_gates(self, request: AdapterRequest, state: dict[str, Any],
                                reports: Path) -> AdapterResult:
-        """The mandatory source-only shortcut/reliability gates (§17.3)."""
+        """The mandatory source-only shortcut/reliability gates (§11.4, §17).
+
+        This substage used to set `state["reliability"] = {}` and report a pass.
+        Downstream then read `all({}.values()) if {} else True`, so ZERO executed
+        gates was interpreted as every gate passing. §11.4 requires the selected
+        profile to PASS the mandatory gates, and "none were run" is not a pass.
+
+        Which gates are mandatory AT SELECTION is not resolved — see
+        `C6_REQUIRED_RELIABILITY_GATES` — so the stage now blocks instead of
+        proceeding on an empty set.
+        """
         from prism_fas.evaluation import reliability as reliability_module
 
         checks: list[dict[str, Any]] = []
-        declared = [name for name in dir(reliability_module)
-                    if name.isupper() and "TEST" in name]
-        state["reliability"] = {}
+        declared = reliability_module.declared_tests()
+        executed: dict[str, bool] = {}
+        state["reliability"] = executed
+        state["reliability_resolved"] = C6_REQUIRED_RELIABILITY_GATES is not None
+
         checks.append(check(
-            "c6_reliability_gates_are_canonical", True,
-            "the reliability and shortcut tests come from the M10 framework",
-            module="prism_fas.evaluation.reliability", declared=declared[:8],
-            rule="§11.4 requires all mandatory source-only shortcut/reliability "
-                 "gates to pass before a profile may be selected"))
+            "c6_reliability_evidence_is_explicit", bool(executed),
+            "at least one mandatory reliability gate produced a verdict",
+            executed=sorted(executed), executed_count=len(executed),
+            rule="an empty reliability set is NOT a pass; §11.4 requires the "
+                 "selected profile to pass the mandatory gates"))
+        checks.append(check(
+            "c6_required_reliability_set_is_frozen",
+            C6_REQUIRED_RELIABILITY_GATES is not None,
+            "the set of gates mandatory at C6 selection time is frozen",
+            required=C6_REQUIRED_RELIABILITY_GATES,
+            reason_code=(None if C6_REQUIRED_RELIABILITY_GATES is not None
+                         else RELIABILITY_SEQUENCE_UNRESOLVED),
+            declared_tests=[item.test_id for item in declared],
+            bank_level=list(BANK_LEVEL_RELIABILITY_TESTS),
+            detector_level=list(DETECTOR_LEVEL_RELIABILITY_TESTS),
+            audit=list(RELIABILITY_SEQUENCE_AUDIT)))
+
         artifact = write_artifact(request, reports / "C6_RELIABILITY.json", {
-            "schema_version": "c6-reliability-v1", "generated_at_utc": utc(),
-            "mode": RUN_RELIABILITY_GATES, "gates": state["reliability"],
-            "fixture_backed": False})
+            "schema_version": "c6-reliability-v2", "generated_at_utc": utc(),
+            "mode": RUN_RELIABILITY_GATES,
+            "gates": dict(executed), "executed_count": len(executed),
+            "empty_is_not_a_pass": True,
+            "required_set_frozen": C6_REQUIRED_RELIABILITY_GATES is not None,
+            "required_set": C6_REQUIRED_RELIABILITY_GATES,
+            "declared_tests": [item.test_id for item in declared],
+            "bank_level_candidates": list(BANK_LEVEL_RELIABILITY_TESTS),
+            "detector_level_deferred": list(DETECTOR_LEVEL_RELIABILITY_TESTS),
+            "audit": list(RELIABILITY_SEQUENCE_AUDIT),
+            "is_scientific_lock": False, "fixture_backed": False})
+
+        if not all(item["ok"] for item in checks):
+            state["halt"] = True
+            return self.blocked(
+                request, RELIABILITY_SEQUENCE_UNRESOLVED,
+                "C6 cannot select a profile: the mandatory reliability gate set "
+                "is unresolved and no gate produced a verdict. An empty set is "
+                "not a pass.",
+                checks=checks, substage=RUN_RELIABILITY_GATES,
+                artifact=artifact)
         return self.result(request, mode=RUN_RELIABILITY_GATES, checks=checks,
                            artifacts=[artifact])
 
@@ -999,10 +1085,14 @@ class C6Adapter(EngineeringAdapter):
                 decisions_by_profile[name][arm] = rows
                 accepted[arm] = science.eligible_candidates(
                     rows, state["selectable"][arm])
+            # An empty reliability set is NOT a pass. `_run_reliability_gates`
+            # blocks before this point while the mandatory set is unresolved, so
+            # reaching here with no verdicts would be a wiring error — and it
+            # still evaluates to False rather than to True.
+            reliability = state["reliability"]
             assessments.append(science.assess_profile(
                 name, accepted, state["plans"],
-                reliability_passed=all(state["reliability"].values())
-                if state["reliability"] else True))
+                reliability_passed=bool(reliability) and all(reliability.values())))
             state.setdefault("accepted", {})[name] = accepted
 
         state["assessments"] = assessments

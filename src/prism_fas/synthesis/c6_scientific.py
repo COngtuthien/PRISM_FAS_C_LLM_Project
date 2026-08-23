@@ -78,8 +78,14 @@ class MatchedFeasibility:
 def assess_profile(profile: str, accepted_by_arm: Mapping[str, Sequence[
                        selector.SelectableCandidate]],
                    plans: Mapping[str, Mapping[str, Any]], *,
-                   reliability_passed: bool = True) -> MatchedFeasibility:
-    """One profile's full feasibility, both tests and the reliability gates."""
+                   reliability_passed: bool) -> MatchedFeasibility:
+    """One profile's full feasibility, both tests and the reliability gates.
+
+    `reliability_passed` has no default. It used to default to True, which meant
+    a caller that had run no reliability gate at all still produced a feasible
+    profile — §11.4 requires the selected profile to PASS the mandatory gates,
+    and "none were run" is not a pass.
+    """
     counts = {
         arm: {route: sum(1 for candidate in candidates if candidate.route == route)
               for route in selector.ROUTES}
@@ -227,14 +233,86 @@ def requested_support_for(store: Any, bank: Mapping[str, Any],
     return np.asarray(masks.operator_support_mask)[0].astype(bool), graph
 
 
+#: The raw metric fields `quality_gate.evaluate` requires of its input. Taken
+#: from the canonical gate rather than restated: these are exactly the keys it
+#: reads before applying any threshold.
+REQUIRED_RAW_METRICS: tuple[str, ...] = (
+    "face_detection_score", "identity_cosine", "landmark_nme",
+    "outside_mask_parsing_dice", "outside_mask_max_error",
+    "measured_artifact_strength", "requested_artifact_strength",
+    "fingerprint_score", "support_overlap")
+
+#: Canonical diagnostics `CandidateEvaluator` also emits. Carried, never gated.
+DIAGNOSTIC_RAW_METRICS: tuple[str, ...] = ("reference_detection_score",
+                                           "landmark_detected")
+
+#: Threshold-dependent outputs of the evaluator's own embedded NOMINAL pass.
+#: They must never enter the measurement layer: a decision taken under one
+#: threshold set cannot be reused for another, and carrying it would let the
+#: calibration's NOMINAL leak into the STRICT and PERMISSIVE assessments.
+THRESHOLD_DEPENDENT_FIELDS: tuple[str, ...] = (
+    "accepted", "failed_gates", "gates", "q", "quality_components",
+    "threshold_hash", "strength_bounds", "recipe_match")
+
+
+def raw_metrics_of(result: Mapping[str, Any], candidate_id: str) -> dict[str, Any]:
+    """The raw metric map out of a `CandidateEvaluator` result, validated.
+
+    `CandidateEvaluator.evaluate` returns `quality_gate.evaluate(...)` — a gate
+    ENVELOPE whose raw measurements sit under `["metrics"]`, alongside an
+    acceptance decision taken under the calibration's own NOMINAL thresholds.
+    C6 wants the measurements and must not inherit that decision.
+
+    Unwrapping is explicit and validated rather than best-effort: a missing
+    `metrics` block or a missing required field fails closed here, where the
+    shape is known, instead of surfacing three substages later as a
+    `QualityGateError` about one absent key.
+    """
+    import math
+
+    if "metrics" not in result:
+        raise ScientificGateError(
+            f"{candidate_id}: the evaluator result carries no 'metrics' block; "
+            f"CandidateEvaluator returns a gate envelope and C6 measures from "
+            f"its nested raw metrics")
+    metrics = result["metrics"]
+    if not isinstance(metrics, dict):
+        raise ScientificGateError(
+            f"{candidate_id}: 'metrics' is {type(metrics).__name__}, not a map")
+
+    missing = [name for name in REQUIRED_RAW_METRICS if name not in metrics]
+    if missing:
+        raise ScientificGateError(
+            f"{candidate_id}: the raw metric set is missing {missing}")
+    for name in REQUIRED_RAW_METRICS:
+        value = float(metrics[name])
+        if not math.isfinite(value):
+            raise ScientificGateError(
+                f"{candidate_id}: raw metric {name!r} is not finite")
+
+    keep = set(REQUIRED_RAW_METRICS) | set(DIAGNOSTIC_RAW_METRICS)
+    unexpected = sorted(set(metrics) - keep)
+    if unexpected:
+        raise ScientificGateError(
+            f"{candidate_id}: the raw metric set carries unrecognized fields "
+            f"{unexpected}; C6 does not silently unwrap arbitrary nested objects")
+    return {name: metrics[name] for name in sorted(metrics)}
+
+
 def evaluate_pool(evaluator: Any, store: Any, bank: Mapping[str, Any], *,
                   candidate_root: Path, arm: str,
                   rows: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Every generated candidate's metric set, measured once.
+    """Every generated candidate's RAW metric set, measured exactly once.
 
-    Measured once and reused across the three profiles: the metrics describe the
-    candidate's bytes and do not depend on any threshold. Only the thresholds are
-    the profile.
+    Threshold-independent by construction: what is stored describes the
+    candidate's bytes and nothing about any gate. The three profiles are applied
+    afterwards by `gate_candidates`, so the pool is measured once and gated three
+    times rather than measured three times.
+
+    The evaluator's own embedded NOMINAL verdict is discarded here. It is an
+    implementation side-effect of `CandidateEvaluator` returning a gate envelope,
+    not a scientific decision, and reusing it would silently give NOMINAL a
+    privileged position among the three profiles.
     """
     from . import c5_raw_generation as raw
 
@@ -249,10 +327,11 @@ def evaluate_pool(evaluator: Any, store: Any, bank: Mapping[str, Any], *,
         original, _ = store.load(row["live_target_sample_id"])
         support, graph = requested_support_for(store, bank, row)
         discrete = reconstruct_discrete(directory, original)
-        metrics[row["candidate_id"]] = evaluator.evaluate(
+        result = evaluator.evaluate(
             discrete, live_target_sample_id=row["live_target_sample_id"],
             requested_strength=float(graph.nodes[0].strength),
             requested_support=support)
+        metrics[row["candidate_id"]] = raw_metrics_of(result, row["candidate_id"])
     return metrics
 
 
@@ -392,4 +471,5 @@ __all__ = ["SCHEMA_VERSION", "PROFILE_ORDER", "ScientificGateError",
            "build_common_profiles", "gate_candidates", "eligible_candidates",
            "provenance_closure", "bank_lock_payload", "threshold_identity",
            "reconstruct_discrete", "requested_support_for", "evaluate_pool",
-           "candidate_pool"]
+           "candidate_pool", "raw_metrics_of", "REQUIRED_RAW_METRICS",
+           "DIAGNOSTIC_RAW_METRICS", "THRESHOLD_DEPENDENT_FIELDS"]

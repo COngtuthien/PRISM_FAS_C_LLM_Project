@@ -1115,6 +1115,135 @@ c5_source_pair_plan_freeze:
       diagnostic evidence and is not valid scientific input for the corrected
       executor.
 
+  # --- FIXED: C6 raw metric envelope ------------------------------------------
+  c6_metric_envelope:
+    status: FIXED
+    fixed_on: 2026-08-23
+    defect: >-
+      CandidateEvaluator.evaluate returns quality_gate.evaluate(metrics,
+      calibration.thresholds) — a gate ENVELOPE with the raw measurements nested
+      under ["metrics"] and an acceptance decision already taken under the
+      calibration's NOMINAL. evaluate_pool stored the envelope; gate_candidates
+      then passed it to quality_gate.evaluate as if it were the flat metric map,
+      so the run died with "metric 'face_detection_score' is missing".
+    fix_location: >-
+      the C6 adapter boundary only. CandidateEvaluator is inherited canonical
+      measurement code and is byte-identical to Version B's, which is the basis
+      of the §11.4 compatibility argument, so it was NOT modified.
+      c6_scientific.raw_metrics_of unwraps ["metrics"], validates the nine
+      required fields plus the two canonical diagnostics, refuses a non-finite
+      value or an unrecognized field, and drops every threshold-dependent field.
+    contract: >-
+      measure once, gate three times. The stored measurement is
+      threshold-independent; STRICT/NOMINAL/PERMISSIVE are applied afterwards by
+      gate_candidates. The evaluator's embedded NOMINAL verdict is discarded —
+      reusing it would give NOMINAL a privileged position among three profiles
+      that must be assessed identically.
+    gpu_state_at_failure:
+      candidates_measured: yes, EVALUATE_GENERATED_CANDIDATES completed
+      valid_profile_outcome: none — the crash was inside
+        CHECK_PROFILE_MATCHED_FEASIBILITY before any profile was assessed
+      valid_matched_bank: none
+      embedded_nominal_counts: >-
+        computed as a side-effect inside each evaluator call. NOT inspected, NOT
+        used to tune any threshold or selector, and NOT scientific selection
+        evidence.
+      target_access: 0
+
+  # --- FIXED: C6 reliability fail-open ----------------------------------------
+  c6_reliability_fail_open:
+    status: ELIMINATED
+    fixed_on: 2026-08-23
+    defect: >-
+      _run_reliability_gates set state["reliability"] = {} and reported success;
+      the consumer read `all(...) if state["reliability"] else True`, so ZERO
+      executed gates was interpreted as every gate passing. §11.4 requires the
+      selected profile to PASS the mandatory gates, and "none were run" is not a
+      pass.
+    fix: >-
+      the substage now BLOCKS with reason code
+      C6_RELIABILITY_SEQUENCE_NEEDS_SCIENTIFIC_DECISION when no gate produced a
+      verdict or the required set is unresolved; the consumer computes
+      `bool(reliability) and all(reliability.values())`; and
+      c6_scientific.assess_profile no longer defaults reliability_passed to True
+      — the argument is required.
+
+  open_decisions_c6_reliability:
+    - id: C6_RELIABILITY_SEQUENCE
+      status: NEEDS_SCIENTIFIC_DECISION
+      audited_on: 2026-08-23
+      question: >-
+        which reliability gates are mandatory AT C6 PROFILE-SELECTION time, and
+        is the synthetic-vs-real probe (BA_sep <= 0.75) a selection-time gate, a
+        post-selection C6 closure gate, or only a pre-target gate?
+      spec_evidence:
+        - "§11.4: the selected profile must pass (i) the cardinality test and
+          (ii) all mandatory source-only shortcut/reliability gates. The
+          mandatory set is never enumerated."
+        - "§17 table is titled 'Reliability and shortcut gates BEFORE P3 TARGET
+          EVALUATION'; the probe's policy reads 'Balanced accuracy SHOULD <=
+          0.75; if higher, C6 fails or requires redesign before target'."
+        - "C6 stage row: 'shortcut gates pass or STOP', and separately
+          'Synthetic-vs-real probe and residual sensitivity run before detector
+          target evaluation' — a later deadline than C6 itself."
+        - "§3.1.1: C-H4, where BA_sep_arm is defined, 'is evaluated AFTER the
+          three final C3 recipe banks and the common C6 synthetic gate are
+          frozen'. Read strictly, BA_sep is not available during selection."
+      why_it_cannot_be_inferred: >-
+        residual sensitivity measures detector decision-score movement and cannot
+        run before C7 under any reading, so the mandatory-at-selection set is
+        necessarily a subset the spec does not name. And §11.4(ii) and §3.1.1
+        point opposite ways for BA_sep specifically.
+      result_affecting: >-
+        yes. If BA_sep gates selection it can reject STRICT and move the chosen
+        profile, which changes the accepted pool and therefore every matched
+        bank.
+      answers_to_the_six_questions:
+        q1_ba_sep_placement: NOT DETERMINED — see the three readings below
+        q2_per_profile_ba_sep: >-
+          computable in principle, but only by building and probing a matched
+          bank per provisional profile, since BA_sep is defined over the matched
+          source split. Whether that violates §3.1.1's "after the common C6 gate
+          is frozen" is exactly the ambiguity.
+        q3_residual_sensitivity: >-
+          needs a trained detector, so C7 at the earliest; it must pass before P3
+          target evaluation. Not placeable inside C6.
+        q4_bank_vs_detector_level: >-
+          bank-level, no detector: synthetic_vs_real_spoof_probe.
+          detector-level: residual_scale_zero, recipe_region_shift,
+          artifact_map_swap, cross_route_synthetic, benign_jpeg_corruption,
+          benign_resize_corruption, benign_color_corruption,
+          crop_padding_interpolation. benign_glasses_makeup_lowlight is BLOCKED
+          for want of a legitimate population.
+        q5_anything_executed_today: >-
+          no. prism_fas.evaluation.reliability DECLARES ten tests, all PLANNED or
+          BLOCKED. C6 executes none and now says so instead of implying a pass.
+        q6_artifact_that_prevents_silent_true: >-
+          C6_RELIABILITY.json records empty_is_not_a_pass, executed_count,
+          required_set_frozen and is_scientific_lock=false; the substage BLOCKS;
+          and assess_profile requires an explicit verdict.
+      alternatives:
+        A_selection_time_gate: >-
+          build a provisional matched bank per profile, run the 3-seed probe on
+          each, and require BA_sep <= 0.75 for a profile to qualify. Most
+          faithful to §11.4(ii); costs three bank builds and three probe runs;
+          arguably in tension with §3.1.1.
+        B_closure_gate: >-
+          select by cardinality + matched feasibility, freeze the profile, build
+          the banks, then run the probe once. If BA_sep > 0.75, C6 FAILS. Most
+          faithful to §3.1.1 and to §17's "C6 fails" wording; the profile is
+          chosen without reliability input.
+        C_pre_target_gate_only: >-
+          C6 closes on cardinality alone and the probe runs later, before P3,
+          alongside residual sensitivity. Matches the §17 table title and the C6
+          row's "before detector target evaluation"; weakest reading of "shortcut
+          gates pass or STOP" at C6.
+      recommendation_if_asked: >-
+        B. It satisfies §17's "C6 fails" consequence and §3.1.1's ordering
+        without requiring three provisional banks, and it keeps the probe a
+        property of the bank that was actually frozen. Recorded as a preference
+        only; not implemented.
+
   # --- reporting-only: the C3 blocker line -----------------------------------
   c3_blocker_line:
     status: STALE_GLOBAL_REPORTING_STATE
