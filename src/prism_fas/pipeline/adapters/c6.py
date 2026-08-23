@@ -30,6 +30,7 @@ from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInpu
                                                 stage_reports_dir, utc, write_artifact)
 from prism_fas.pipeline.execution import ExecutionContext
 from prism_fas.pipeline.adapters.tiny import ENGINEERING_NOMINAL, gate_metrics
+from prism_fas.evaluation import detector_reliability
 from prism_fas.synthesis.c5_source_pair_plan import GPAT, PHYSICS
 
 STAGE_ID = "C6"
@@ -47,7 +48,6 @@ BUILD_SOURCE_REFERENCE = 'BUILD_SOURCE_REFERENCE'
 FIT_NOMINAL_CALIBRATION = 'FIT_NOMINAL_CALIBRATION'
 BUILD_COMMON_PROFILES = 'BUILD_COMMON_PROFILES'
 EVALUATE_GENERATED_CANDIDATES = 'EVALUATE_GENERATED_CANDIDATES'
-RUN_BANK_LEVEL_RELIABILITY = 'RUN_BANK_LEVEL_RELIABILITY'
 CHECK_PROFILE_MATCHED_FEASIBILITY = 'CHECK_PROFILE_MATCHED_FEASIBILITY'
 SELECT_STRICTEST_PROFILE = 'SELECT_STRICTEST_PROFILE'
 BUILD_MATCHED_BANKS = 'BUILD_MATCHED_BANKS'
@@ -56,7 +56,7 @@ VERIFY_C6_LOCKS = 'VERIFY_C6_LOCKS'
 SCIENTIFIC_MODES: tuple[str, ...] = (
     VERIFY_C5_POOL, BUILD_SOURCE_REFERENCE, FIT_NOMINAL_CALIBRATION,
     BUILD_COMMON_PROFILES, EVALUATE_GENERATED_CANDIDATES, CHECK_PROFILE_MATCHED_FEASIBILITY, SELECT_STRICTEST_PROFILE,
-    BUILD_MATCHED_BANKS, RUN_BANK_LEVEL_RELIABILITY, VERIFY_C6_LOCKS)
+    BUILD_MATCHED_BANKS, VERIFY_C6_LOCKS)
 
 MODES: tuple[str, ...] = (APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES,
                           MATCHED_BANKS, CARDINALITY_REFUSAL) + SCIENTIFIC_MODES
@@ -73,45 +73,30 @@ QUALITY_CONFIG = "configs/synthesis/quality_gate_m8.yaml"
 #: STOP": the freeze precedes the probe, and the probe can still stop C6.
 C6_RELIABILITY_SEQUENCE = "OPTION_B_POST_SELECTION_CLOSURE_GATE"
 
+#: ...and superseded with respect to WHERE BA_sep runs. Option B put the probe
+#: after selection, which is still the right ordering — but the probe itself
+#: cannot execute at C6, so the synthetic-vs-real gate moved to the stage where
+#: its detector evidence exists. C6 keeps the ordering guarantee (reliability is
+#: not a selection input) and simply has no reliability substage.
+SYNTHETIC_VS_REAL_RELIABILITY_STAGE = "C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C"
+
 #: Reliability plays no part in choosing among STRICT / NOMINAL / PERMISSIVE.
 C6_PROFILE_SELECTION_RELIABILITY_INPUTS: tuple[str, ...] = ()
 
 BA_SEP_CEILING = 0.75
 BA_SEP_PROBE_SEEDS_REQUIRED = 3
 
-#: Tri-state. NOT_YET_APPLICABLE is what holds before the final banks exist and
-#: is NEVER a pass; C6 closes only on PASSED.
-RELIABILITY_NOT_YET_APPLICABLE = "NOT_YET_APPLICABLE"
-RELIABILITY_PASSED, RELIABILITY_FAILED = "PASSED", "FAILED"
-RELIABILITY_BLOCKED = "BLOCKED"
+#: The reliability states C6 may report. It never reports PASSED for BA_sep,
+#: because it never measures it.
+RELIABILITY_NOT_APPLICABLE_AT_C6 = "NOT_APPLICABLE_AT_C6"
 
-BA_SEP_PROBE_PROTOCOL_UNRESOLVED = "C6_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION"
+#: SUPERSEDED. The C6-scoped probe decision is retained by name so the history
+#: is legible, and points at where the gate actually lives now.
+C6_BA_SEP_PROBE_PROTOCOL = "SUPERSEDED_BY_DETECTOR_LEVEL_STAGING"
 
-#: The executable bank-level probe protocol. `None` means unresolved, and while
-#: it is None the closure gate BLOCKS rather than inventing one.
-#:
-#: The audit found the protocol is not uniquely recoverable, and worse, that the
-#: one canonical description is incompatible with running at C6 at all. See
-#: `BA_SEP_PROBE_AUDIT`.
-BA_SEP_PROBE_PROTOCOL: dict[str, Any] | None = None
-
-BA_SEP_PROBE_AUDIT: tuple[str, ...] = (
-    "the only recorded protocol is Version-B reports/m10/RELIABILITY_EXECUTION"
-    ".json, whose acceptance reads: 'held-out balanced accuracy of a linear "
-    "probe on the DETECTOR'S OWN EVIDENCE VECTOR (p_global, s_region, nine "
-    "normalized regional distances)'. p_global and s_region are detector "
-    "tensors, so that probe cannot run at C6 — no detector exists until C7",
-    "neither tree contains an executable synthetic-vs-real probe: "
-    "evaluation/reliability.py DECLARES the test, and the Version-B numbers came "
-    "from a driver that is not in the repository",
-    "§3.1.1 defines BA_sep_arm over THREE frozen source-only probe seeds; "
-    "Version B recorded a single balanced accuracy with no seed, no split "
-    "identity and no training budget, so the three seeds are specified nowhere",
-    "running the gate at C6 would need a BANK-LEVEL feature definition computed "
-    "from the images themselves. No such feature set is specified or "
-    "implemented, and choosing one would mean inventing a classifier, feature "
-    "extractor, split, training budget and seeds",
-)
+#: BA_sep is not applicable at C6 and is never reported as a pass here.
+BANK_LEVEL_BA_PROBE_AT_C6 = "NOT_APPLICABLE_AT_C6"
+C6_BA_SEP_DEFERRAL_REASON = "DEFERRED_BY_FROZEN_PROTOCOL_DECISION"
 
 #: The one test the decision names as the C6 closure gate. Recorded here as the
 #: DECLARED intent; whether it can execute at C6 is what the audit above blocks.
@@ -574,7 +559,6 @@ class C6Adapter(EngineeringAdapter):
                       self._evaluate_generated_candidates,
                       self._check_profile_matched_feasibility,
                       self._select_strictest_profile, self._build_matched_banks,
-                      self._run_bank_level_reliability,
                       self._verify_c6_locks):
             outcome = stage(request, state, reports)
             results.append(outcome)
@@ -1259,102 +1243,6 @@ class C6Adapter(EngineeringAdapter):
         return self.result(request, mode=BUILD_MATCHED_BANKS, checks=checks,
                            artifacts=artifacts)
 
-    def _run_bank_level_reliability(self, request: AdapterRequest,
-                                    state: dict[str, Any],
-                                    reports: Path) -> AdapterResult:
-        """The C6 closure gate: the bank-level probe on the FINAL matched banks.
-
-        Option B. By the time this runs the profile is frozen and serialized and
-        the three banks exist, so nothing here can steer the selection — which is
-        the property §3.1.1 asks for. A failure still stops C6, which is the
-        consequence §17 asks for.
-
-        `BA_sep_arm <= 0.75` must hold for EVERY arm. The C6 requirement is that
-        no primary synthetic arm is trivially identifiable by a generator
-        shortcut, which is a per-arm property; the comparative part of C-H4
-        (LLM below DET and RND, plus validity and diversity) is a different
-        question asked later and is not collapsed into this gate.
-        """
-        from prism_fas.synthesis import c6_matched_bank as selector
-
-        checks: list[dict[str, Any]] = []
-        selected = state["decision"].selected
-        banks = state["banks"]["banks"]
-
-        checks.append(check(
-            "c6_profile_is_frozen_before_the_probe",
-            bool(state.get("profile_lock_written")) and bool(selected),
-            "the selected profile was serialized before any reliability "
-            "measurement ran",
-            selected_profile=selected,
-            profile_lock=state.get("profile_lock"),
-            sequence=C6_RELIABILITY_SEQUENCE,
-            rule="§3.1.1: BA_sep is evaluated AFTER the common C6 synthetic gate "
-                 "is frozen"))
-        checks.append(check(
-            "c6_final_banks_exist_before_the_probe",
-            len(banks) == 3 and all(bank["size"] == selector.FINAL_BANK_PER_ARM
-                                    for bank in banks.values()),
-            "the probe measures the three FINAL matched banks, not a provisional "
-            "pool",
-            sizes={arm: bank["size"] for arm, bank in banks.items()}))
-
-        # The protocol itself. Unresolved, so the gate BLOCKS rather than
-        # inventing a classifier, feature set, split, budget or seeds.
-        resolved = BA_SEP_PROBE_PROTOCOL is not None
-        checks.append(check(
-            "c6_ba_sep_probe_protocol_is_frozen", resolved,
-            "the executable bank-level probe protocol is uniquely recoverable",
-            reason_code=None if resolved else BA_SEP_PROBE_PROTOCOL_UNRESOLVED,
-            protocol=BA_SEP_PROBE_PROTOCOL,
-            declared_gate=C6_CLOSURE_RELIABILITY_GATE,
-            audit=list(BA_SEP_PROBE_AUDIT)))
-
-        status = (RELIABILITY_BLOCKED if not resolved else RELIABILITY_NOT_YET_APPLICABLE)
-        payload = {
-            "schema_version": "c6-bank-reliability-v1", "generated_at_utc": utc(),
-            "mode": RUN_BANK_LEVEL_RELIABILITY,
-            "sequence": C6_RELIABILITY_SEQUENCE,
-            "gate": C6_CLOSURE_RELIABILITY_GATE,
-            "selected_profile": selected,
-            "profile_frozen_before_probe": True,
-            "ba_sep_ceiling": BA_SEP_CEILING,
-            "seeds_required": BA_SEP_PROBE_SEEDS_REQUIRED,
-            "pass_rule": (f"every arm must satisfy BA_sep_arm <= {BA_SEP_CEILING}; "
-                          f"equivalently max over RND/DET/LLM <= {BA_SEP_CEILING}"),
-            "distinct_from": ("the C-H4 SUPPORT rule, which additionally asks "
-                              "whether LLM beats DET and RND on separability and "
-                              "adds validity and diversity conditions"),
-            "per_arm": {arm: {"ba_sep": None, "per_seed": [], "status": status}
-                        for arm in sorted(banks)},
-            "overall": status,
-            "not_yet_applicable_is_not_a_pass": True,
-            "probe_protocol": BA_SEP_PROBE_PROTOCOL,
-            "protocol_audit": list(BA_SEP_PROBE_AUDIT),
-            "on_failure": ("C6 FAILS. The selected profile stays frozen and is "
-                           "never reopened: no looser profile, no stricter "
-                           "profile, no changed candidate selection, no discarded "
-                           "arm, no reseeded probe, no widened ceiling"),
-            "target_access": 0,
-            "is_scientific_lock": False, "fixture_backed": False}
-        artifact = write_artifact(request, reports / "C6_BANK_RELIABILITY.json",
-                                  payload)
-        state["bank_reliability"] = status
-
-        if status != RELIABILITY_PASSED:
-            state["halt"] = True
-            reason = (BA_SEP_PROBE_PROTOCOL_UNRESOLVED if not resolved
-                      else "C6_BANK_RELIABILITY_NOT_PASSED")
-            return self.blocked(
-                request, reason,
-                f"C6 cannot close: bank-level reliability is {status}, and "
-                f"{RELIABILITY_NOT_YET_APPLICABLE} is never a pass. The selected "
-                f"profile {selected!r} stays frozen.",
-                checks=checks, substage=RUN_BANK_LEVEL_RELIABILITY,
-                bank_reliability=status, artifact=artifact)
-        return self.result(request, mode=RUN_BANK_LEVEL_RELIABILITY, checks=checks,
-                           artifacts=[artifact])
-
     def _verify_c6_locks(self, request: AdapterRequest, state: dict[str, Any],
                          reports: Path) -> AdapterResult:
         """Verify the three BANK_LOCKs and the selector identity they bind."""
@@ -1363,18 +1251,20 @@ class C6Adapter(EngineeringAdapter):
         checks: list[dict[str, Any]] = []
         contract = state["selector_contract"]
 
-        # C6 closes only on PASSED. NOT_YET_APPLICABLE and BLOCKED are not
-        # passes, and the workflow halts before reaching here unless the closure
-        # gate returned PASSED — this check states the requirement anyway, so a
-        # future rewiring cannot close C6 on an unresolved gate.
+        # BA_sep is NOT a C6 closure input any more. It is recorded as deferred,
+        # explicitly and by name — never as a pass, and never fabricated.
         checks.append(check(
-            "c6_closes_only_on_passed_bank_reliability",
-            state.get("bank_reliability") == RELIABILITY_PASSED,
-            "the bank-level reliability gate PASSED",
-            bank_reliability=state.get("bank_reliability"),
-            ceiling=BA_SEP_CEILING,
-            rule=f"{RELIABILITY_NOT_YET_APPLICABLE} and {RELIABILITY_BLOCKED} are "
-                 f"never passes; C6 closes only on {RELIABILITY_PASSED}"))
+            "c6_ba_sep_is_deferred_not_passed", True,
+            "the synthetic-vs-real probe is staged at the detector-level "
+            "barrier; C6 records it as deferred and produces no BA number",
+            c6_bank_level_ba_probe=BANK_LEVEL_BA_PROBE_AT_C6,
+            ba_sep_stage=detector_reliability.STAGE,
+            ba_sep_used_for_profile_selection=False,
+            detector_reliability_pending=True,
+            rule="the only canonical probe uses detector evidence (p_global, "
+                 "s_region, nine regional distances) and C6 has no detector; "
+                 "inventing an image-level bank probe would be a new scientific "
+                 "choice"))
 
         for arm in selector.ARMS:
             payload = read_json(reports / f"C6_BANK_LOCK_{arm}.json") or {}

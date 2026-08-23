@@ -1232,7 +1232,120 @@ c5_source_pair_plan_freeze:
                        crop_padding_interpolation]
       no_legitimate_population: [benign_glasses_makeup_lowlight]   # stays BLOCKED
 
-  # --- BLOCKING: the executable probe protocol --------------------------------
+  # --- SUPERSEDING DECISION: BA_sep moves to the detector stage ---------------
+  synthetic_vs_real_reliability_stage:
+    status: FROZEN
+    constant: SYNTHETIC_VS_REAL_RELIABILITY_STAGE
+    value: C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C
+    resolved_by: explicit user scientific decision
+    frozen_on: 2026-08-23
+    supersedes: >-
+      OPTION_B_POST_SELECTION_CLOSURE_GATE, with respect to the PLACEMENT of
+      BA_sep only. Option B's ordering guarantee is kept — reliability is not a
+      profile-selection input — and C6 simply has no reliability substage.
+    c6_ba_sep_probe_protocol: SUPERSEDED_BY_DETECTOR_LEVEL_STAGING
+    c6_bank_level_ba_probe: NOT_APPLICABLE_AT_C6
+    deferral_reason: DEFERRED_BY_FROZEN_PROTOCOL_DECISION
+
+    # The frozen text does not compose. Recorded, not silently rewritten.
+    staging_incompatibility_in_v1_5:
+      - "§3.1.1 evaluates BA_sep AFTER the common C6 synthetic gate is frozen"
+      - "§17 places the reliability gates BEFORE P3 target evaluation"
+      - "the C6 stage row reads 'shortcut gates pass or STOP'"
+      - "the only canonical synthetic-vs-real probe uses DETECTOR evidence
+        (p_global, s_region, nine normalized regional distances)"
+      - "C6 has no detector; C7 implements one and C8 trains it"
+      - "therefore 'C6 shortcut gates pass or STOP' is not executable as written"
+    why_not_invent_a_bank_probe: >-
+      an image-level probe at C6 would create a new feature extractor,
+      classifier, split, training budget and seed policy that v1.5 never froze.
+    decided_before: >-
+      any target access and any valid C6 profile or matched-bank result. No BA
+      value was observed to choose this.
+
+    c6_sequence_now:
+      - VERIFY_C5_POOL
+      - BUILD_SOURCE_REFERENCE
+      - FIT_NOMINAL_CALIBRATION
+      - BUILD_COMMON_PROFILES
+      - EVALUATE_GENERATED_CANDIDATES
+      - CHECK_PROFILE_MATCHED_FEASIBILITY
+      - SELECT_STRICTEST_PROFILE      # profile irrevocably frozen here
+      - BUILD_MATCHED_BANKS
+      - VERIFY_C6_LOCKS               # records BA_sep as deferred, never passed
+    c6_closure_contract: >-
+      profile selected by the STRICT -> NOMINAL -> PERMISSIVE matched-feasibility
+      rule alone; profile frozen; three banks of exactly 1024 = 512 Physics + 512
+      GPAT; selector V1 invariants; provenance closure; target_access 0. BA_sep is
+      neither a selection nor a closure input. The banks ARE scientifically usable
+      for C7/C8 source training; only the P3 path stays locked.
+    profile_immutability: >-
+      a later reliability failure blocks forward progress and never mutates C6
+      retrospectively: no reopened profile search, no changed thresholds, no
+      changed candidate selection, no C5 re-render, no changed source-domain
+      quotas, no rebuilt recipe banks.
+
+    barrier:
+      lock: reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json
+      module: prism_fas.evaluation.detector_reliability
+      deadline: after C8 source-only detector training, before C9 closes
+        SOURCE_MATRIX_LOCK_C
+      c9_precondition: >-
+        structural, not a PROJECT_STATE line: C9Adapter.semantic_preconditions
+        calls verify_lock, which requires every required test PASSED, the probe
+        protocol identity and detector checkpoint identities bound, and
+        target_access recorded as 0. UNRESOLVED never counts as a pass, so C10
+        and C11 stay unreachable.
+      required_tests: [synthetic_vs_real_spoof_probe, residual_scale_zero,
+                       recipe_region_shift, artifact_map_swap,
+                       cross_route_synthetic, benign_jpeg_corruption,
+                       benign_resize_corruption, benign_color_corruption,
+                       crop_padding_interpolation]
+      canonically_blocked: [benign_glasses_makeup_lowlight]   # never converted to PASSED
+      on_failure: >-
+        DETECTOR_RELIABILITY_LOCK_C = FAILED blocks C9, C10, C11 and target
+        prediction. Negative evidence preserved. No reopened C6, no other C6
+        profile, no regenerated C5, no tuned banks, no cherry-picked checkpoints,
+        no new probe seeds, no loosened 0.75. Redesign needs a new approved
+        protocol version.
+      c_h4_distinction: >-
+        the hard gate is BA_sep <= 0.75 per arm. C-H4 SUPPORT additionally
+        requires BA_sep_LLM below both controls with paired bootstrap CIs, plus
+        the validity and recipe-diversity conditions. Passing the gate implies
+        nothing about C-H4.
+
+  # --- BLOCKING before the first probe run ------------------------------------
+  open_decisions_detector_probe:
+    - id: DETECTOR_BA_SEP_PROBE_PROTOCOL
+      status: NEEDS_SCIENTIFIC_DECISION
+      note: >-
+        moving the probe solved the STAGING. The executable protocol is still
+        unfrozen: 20 result-affecting fields must be bound before any BA number
+        is produced, and none may be chosen after observing a BA value. See
+        detector_reliability.PROBE_PROTOCOL_REQUIRED_FIELDS.
+    - id: DETECTOR_BA_SEP_EVIDENCE_VECTOR
+      status: NEEDS_SCIENTIFIC_DECISION
+      finding: >-
+        Version-B's evidence vector is p_global, s_region and nine normalized
+        regional distances — REGIONAL quantities from a Track-R detector. But
+        Version-C Track-R primary rows are DET and LLM only (C-H3), and there is
+        no preregistered Track-R RND row, while BA_sep is required for all three
+        arms because C-H4 needs BA_sep_LLM < BA_sep_RND.
+      forbidden_silent_shortcuts: [add a Track-R RND experiment,
+                                   substitute a Track-G vector for RND,
+                                   use different feature spaces across arms,
+                                   drop RND from BA_sep]
+    - id: DETECTOR_BA_SEP_PROBE_SEEDS
+      status: NEEDS_SCIENTIFIC_DECISION
+      finding: >-
+        §3.1.1 says "the three frozen source-only probe seeds" and never names
+        them. §18.3 fixes the family 20260806-20260810 for 5-seed rows and the
+        first three for 3-seed rows, but that policy is scoped to hypothesis
+        TRAINING rows and the probe is not a training row. Inheritance is not
+        normative on this audit, and seeds may never be chosen after seeing a BA
+        value.
+
+  # --- BLOCKING: the executable probe protocol (superseded, see above) --------
   open_decisions_c6_probe:
     - id: C6_BA_SEP_PROBE_PROTOCOL
       status: NEEDS_SCIENTIFIC_DECISION

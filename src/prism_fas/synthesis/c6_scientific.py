@@ -436,6 +436,15 @@ def bank_lock_payload(*, arm: str, bank: Mapping[str, Any],
         "provenance_closure": dict(provenance),
         "q_used_for_selection": False,
         "q_purpose": "§11.2 synthetic sample-quality TRAINING WEIGHT only",
+        # BA_sep is staged at the detector-level barrier. Recorded as pending,
+        # never as a pass. This does NOT make the bank unusable for C7/C8 source
+        # training; it means the P3 path stays locked until the barrier resolves.
+        "ba_sep_stage": "C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C",
+        "ba_sep_used_for_profile_selection": False,
+        "c6_bank_level_ba_probe": "not_applicable",
+        "detector_reliability_pending": True,
+        "usable_for_c7_c8_source_training": True,
+        "target_access": 0,
         "no_target_capability_proof": {"target_roots_mounted": [],
                                        "target_labels_resolved": 0},
     }

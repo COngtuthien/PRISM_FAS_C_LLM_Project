@@ -26,6 +26,7 @@ from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
+from prism_fas.evaluation import detector_reliability
 from prism_fas.pipeline.execution import ExecutionContext
 
 STAGE_ID = "C9"
@@ -74,7 +75,39 @@ class C9Adapter(EngineeringAdapter):
                           "every executed source run's manifest, checkpoint and calibration"),
             RequiredInput("c8_acceptance", "reports/full/c8/C8_ACCEPTANCE.json",
                           "C8's own acceptance verdict over the completed matrix"),
+            # The pre-target reliability barrier. SOURCE_MATRIX_LOCK_C may not
+            # close over an unresolved one, and the file merely existing proves
+            # nothing — `semantic_preconditions` validates it.
+            RequiredInput("detector_reliability_lock",
+                          detector_reliability.LOCK_PATH,
+                          "the post-C8 pre-C9 reliability barrier, including the "
+                          "synthetic-vs-real probe"),
         )
+
+    def semantic_preconditions(self, request: AdapterRequest) -> list[dict[str, Any]]:
+        """SOURCE_MATRIX_LOCK_C closes only over a VALID reliability barrier.
+
+        Structural rather than a human-readable note in PROJECT_STATE: the lock
+        must resolve every required test to PASSED, bind the probe protocol and
+        detector checkpoint identities, and record zero target access. An
+        unresolved required test never counts as a pass, so C10 and C11 stay
+        unreachable until the barrier is genuinely resolved.
+        """
+        verification = detector_reliability.verify_lock(request.repo)
+        return [{
+            "name": "detector_reliability_resolved",
+            "path": detector_reliability.LOCK_PATH,
+            "present": verification["valid"],
+            "blocking": not verification["valid"],
+            "description": ("every required detector-level reliability test "
+                            "resolved to PASSED after C8 and before C9, with the "
+                            "probe protocol and checkpoint identities bound"),
+            "verifier": "prism_fas.evaluation.detector_reliability.verify_lock",
+            "problems": verification["problems"][:12],
+            "required_stage": verification["required_stage"],
+            "required_tests": list(
+                detector_reliability.REQUIRED_DETECTOR_RELIABILITY_TESTS),
+        }]
 
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:

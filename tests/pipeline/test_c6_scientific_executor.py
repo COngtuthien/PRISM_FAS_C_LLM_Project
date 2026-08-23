@@ -57,7 +57,6 @@ def _method_source(name: str, source: str = C6_SOURCE) -> str:
 SCIENTIFIC_METHODS = ("_scientific_workflow", "_verify_c5_pool",
                       "_build_source_reference", "_fit_nominal_calibration",
                       "_build_common_profiles", "_evaluate_generated_candidates",
-                      "_run_bank_level_reliability",
                       "_check_profile_matched_feasibility",
                       "_select_strictest_profile", "_build_matched_banks",
                       "_verify_c6_locks")
@@ -95,12 +94,12 @@ def test_the_engineering_workflow_is_unchanged_and_still_uses_its_fixtures() -> 
     assert "ENGINEERING_NOMINAL" in C6_SOURCE and "gate_metrics" in C6_SOURCE
 
 
-def test_the_ten_scientific_substages_run_in_the_declared_order() -> None:
+def test_the_nine_scientific_substages_run_in_the_declared_order() -> None:
     assert c6_module.SCIENTIFIC_MODES == (
         "VERIFY_C5_POOL", "BUILD_SOURCE_REFERENCE", "FIT_NOMINAL_CALIBRATION",
         "BUILD_COMMON_PROFILES", "EVALUATE_GENERATED_CANDIDATES",
         "CHECK_PROFILE_MATCHED_FEASIBILITY", "SELECT_STRICTEST_PROFILE",
-        "BUILD_MATCHED_BANKS", "RUN_BANK_LEVEL_RELIABILITY", "VERIFY_C6_LOCKS")
+        "BUILD_MATCHED_BANKS", "VERIFY_C6_LOCKS")
 
     source = _method_source("_scientific_workflow")
     order = [source.index(f"self._{mode.lower()}") for mode in c6_module.SCIENTIFIC_MODES]
