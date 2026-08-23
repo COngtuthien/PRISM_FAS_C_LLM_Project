@@ -47,7 +47,7 @@ BUILD_SOURCE_REFERENCE = 'BUILD_SOURCE_REFERENCE'
 FIT_NOMINAL_CALIBRATION = 'FIT_NOMINAL_CALIBRATION'
 BUILD_COMMON_PROFILES = 'BUILD_COMMON_PROFILES'
 EVALUATE_GENERATED_CANDIDATES = 'EVALUATE_GENERATED_CANDIDATES'
-RUN_RELIABILITY_GATES = 'RUN_RELIABILITY_GATES'
+RUN_BANK_LEVEL_RELIABILITY = 'RUN_BANK_LEVEL_RELIABILITY'
 CHECK_PROFILE_MATCHED_FEASIBILITY = 'CHECK_PROFILE_MATCHED_FEASIBILITY'
 SELECT_STRICTEST_PROFILE = 'SELECT_STRICTEST_PROFILE'
 BUILD_MATCHED_BANKS = 'BUILD_MATCHED_BANKS'
@@ -55,29 +55,73 @@ VERIFY_C6_LOCKS = 'VERIFY_C6_LOCKS'
 
 SCIENTIFIC_MODES: tuple[str, ...] = (
     VERIFY_C5_POOL, BUILD_SOURCE_REFERENCE, FIT_NOMINAL_CALIBRATION,
-    BUILD_COMMON_PROFILES, EVALUATE_GENERATED_CANDIDATES, RUN_RELIABILITY_GATES,
-    CHECK_PROFILE_MATCHED_FEASIBILITY, SELECT_STRICTEST_PROFILE,
-    BUILD_MATCHED_BANKS, VERIFY_C6_LOCKS)
+    BUILD_COMMON_PROFILES, EVALUATE_GENERATED_CANDIDATES, CHECK_PROFILE_MATCHED_FEASIBILITY, SELECT_STRICTEST_PROFILE,
+    BUILD_MATCHED_BANKS, RUN_BANK_LEVEL_RELIABILITY, VERIFY_C6_LOCKS)
 
 MODES: tuple[str, ...] = (APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATES,
                           MATCHED_BANKS, CARDINALITY_REFUSAL) + SCIENTIFIC_MODES
 
 QUALITY_CONFIG = "configs/synthesis/quality_gate_m8.yaml"
 
-RELIABILITY_SEQUENCE_UNRESOLVED = "C6_RELIABILITY_SEQUENCE_NEEDS_SCIENTIFIC_DECISION"
-
-#: The gates mandatory at C6 PROFILE-SELECTION time. `None` means unresolved, and
-#: while it is None C6 blocks rather than selecting a profile on no evidence.
+#: FROZEN by explicit user decision. Profile selection takes NO reliability
+#: input; the selected profile is frozen immediately; the bank-level probe then
+#: runs on the FINAL matched banks as a closure gate. A failure fails C6 and the
+#: profile is never reopened.
 #:
-#: It is not resolvable from the frozen spec. §11.4 requires the selected profile
-#: to pass "all mandatory source-only shortcut/reliability gates" but never
-#: enumerates which are mandatory at selection; §3.1.1 says the BA_sep-based C-H4
-#: is evaluated AFTER the common C6 gate is frozen; and §17's table is scoped
-#: "before P3 target evaluation", a much later deadline. Residual sensitivity
-#: cannot run at C6 under any reading — it needs a detector, and detectors start
-#: at C7 — so the mandatory-at-selection set is necessarily a subset the spec
-#: does not name.
-C6_REQUIRED_RELIABILITY_GATES: tuple[str, ...] | None = None
+#: This reconciles §3.1.1 (BA_sep evaluated AFTER the common C6 gate is frozen)
+#: with §17 ("if higher, C6 fails") and the C6 row's "shortcut gates pass or
+#: STOP": the freeze precedes the probe, and the probe can still stop C6.
+C6_RELIABILITY_SEQUENCE = "OPTION_B_POST_SELECTION_CLOSURE_GATE"
+
+#: Reliability plays no part in choosing among STRICT / NOMINAL / PERMISSIVE.
+C6_PROFILE_SELECTION_RELIABILITY_INPUTS: tuple[str, ...] = ()
+
+BA_SEP_CEILING = 0.75
+BA_SEP_PROBE_SEEDS_REQUIRED = 3
+
+#: Tri-state. NOT_YET_APPLICABLE is what holds before the final banks exist and
+#: is NEVER a pass; C6 closes only on PASSED.
+RELIABILITY_NOT_YET_APPLICABLE = "NOT_YET_APPLICABLE"
+RELIABILITY_PASSED, RELIABILITY_FAILED = "PASSED", "FAILED"
+RELIABILITY_BLOCKED = "BLOCKED"
+
+BA_SEP_PROBE_PROTOCOL_UNRESOLVED = "C6_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION"
+
+#: The executable bank-level probe protocol. `None` means unresolved, and while
+#: it is None the closure gate BLOCKS rather than inventing one.
+#:
+#: The audit found the protocol is not uniquely recoverable, and worse, that the
+#: one canonical description is incompatible with running at C6 at all. See
+#: `BA_SEP_PROBE_AUDIT`.
+BA_SEP_PROBE_PROTOCOL: dict[str, Any] | None = None
+
+BA_SEP_PROBE_AUDIT: tuple[str, ...] = (
+    "the only recorded protocol is Version-B reports/m10/RELIABILITY_EXECUTION"
+    ".json, whose acceptance reads: 'held-out balanced accuracy of a linear "
+    "probe on the DETECTOR'S OWN EVIDENCE VECTOR (p_global, s_region, nine "
+    "normalized regional distances)'. p_global and s_region are detector "
+    "tensors, so that probe cannot run at C6 — no detector exists until C7",
+    "neither tree contains an executable synthetic-vs-real probe: "
+    "evaluation/reliability.py DECLARES the test, and the Version-B numbers came "
+    "from a driver that is not in the repository",
+    "§3.1.1 defines BA_sep_arm over THREE frozen source-only probe seeds; "
+    "Version B recorded a single balanced accuracy with no seed, no split "
+    "identity and no training budget, so the three seeds are specified nowhere",
+    "running the gate at C6 would need a BANK-LEVEL feature definition computed "
+    "from the images themselves. No such feature set is specified or "
+    "implemented, and choosing one would mean inventing a classifier, feature "
+    "extractor, split, training budget and seeds",
+)
+
+#: The one test the decision names as the C6 closure gate. Recorded here as the
+#: DECLARED intent; whether it can execute at C6 is what the audit above blocks.
+C6_CLOSURE_RELIABILITY_GATE = "synthetic_vs_real_spoof_probe"
+
+#: Detector-dependent tests, frozen to their stage rather than their criteria.
+#: They execute after C8 source-only detector training and must be resolved
+#: before SOURCE_MATRIX_LOCK_C closes at C9 — never inside C6, and never tuned
+#: from target information at C10/C11.
+DETECTOR_RELIABILITY_STAGE = "C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C"
 
 #: Runnable once the accepted synthetic bank exists; no detector required.
 BANK_LEVEL_RELIABILITY_TESTS: tuple[str, ...] = ("synthetic_vs_real_spoof_probe",)
@@ -522,12 +566,15 @@ class C6Adapter(EngineeringAdapter):
         reports = stage_reports_dir(request, STAGE_ID)
         state: dict[str, Any] = {}
 
+        # The Option B order. Reliability moved AFTER the banks exist: the
+        # profile is selected on cardinality alone, frozen, the banks are built,
+        # and only then does the bank-level probe run as a closure gate.
         for stage in (self._verify_c5_pool, self._build_source_reference,
                       self._fit_nominal_calibration, self._build_common_profiles,
                       self._evaluate_generated_candidates,
-                      self._run_reliability_gates,
                       self._check_profile_matched_feasibility,
                       self._select_strictest_profile, self._build_matched_banks,
+                      self._run_bank_level_reliability,
                       self._verify_c6_locks):
             outcome = stage(request, state, reports)
             results.append(outcome)
@@ -1001,70 +1048,6 @@ class C6Adapter(EngineeringAdapter):
         return self.result(request, mode=EVALUATE_GENERATED_CANDIDATES, checks=checks,
                            artifacts=[artifact])
 
-    def _run_reliability_gates(self, request: AdapterRequest, state: dict[str, Any],
-                               reports: Path) -> AdapterResult:
-        """The mandatory source-only shortcut/reliability gates (§11.4, §17).
-
-        This substage used to set `state["reliability"] = {}` and report a pass.
-        Downstream then read `all({}.values()) if {} else True`, so ZERO executed
-        gates was interpreted as every gate passing. §11.4 requires the selected
-        profile to PASS the mandatory gates, and "none were run" is not a pass.
-
-        Which gates are mandatory AT SELECTION is not resolved — see
-        `C6_REQUIRED_RELIABILITY_GATES` — so the stage now blocks instead of
-        proceeding on an empty set.
-        """
-        from prism_fas.evaluation import reliability as reliability_module
-
-        checks: list[dict[str, Any]] = []
-        declared = reliability_module.declared_tests()
-        executed: dict[str, bool] = {}
-        state["reliability"] = executed
-        state["reliability_resolved"] = C6_REQUIRED_RELIABILITY_GATES is not None
-
-        checks.append(check(
-            "c6_reliability_evidence_is_explicit", bool(executed),
-            "at least one mandatory reliability gate produced a verdict",
-            executed=sorted(executed), executed_count=len(executed),
-            rule="an empty reliability set is NOT a pass; §11.4 requires the "
-                 "selected profile to pass the mandatory gates"))
-        checks.append(check(
-            "c6_required_reliability_set_is_frozen",
-            C6_REQUIRED_RELIABILITY_GATES is not None,
-            "the set of gates mandatory at C6 selection time is frozen",
-            required=C6_REQUIRED_RELIABILITY_GATES,
-            reason_code=(None if C6_REQUIRED_RELIABILITY_GATES is not None
-                         else RELIABILITY_SEQUENCE_UNRESOLVED),
-            declared_tests=[item.test_id for item in declared],
-            bank_level=list(BANK_LEVEL_RELIABILITY_TESTS),
-            detector_level=list(DETECTOR_LEVEL_RELIABILITY_TESTS),
-            audit=list(RELIABILITY_SEQUENCE_AUDIT)))
-
-        artifact = write_artifact(request, reports / "C6_RELIABILITY.json", {
-            "schema_version": "c6-reliability-v2", "generated_at_utc": utc(),
-            "mode": RUN_RELIABILITY_GATES,
-            "gates": dict(executed), "executed_count": len(executed),
-            "empty_is_not_a_pass": True,
-            "required_set_frozen": C6_REQUIRED_RELIABILITY_GATES is not None,
-            "required_set": C6_REQUIRED_RELIABILITY_GATES,
-            "declared_tests": [item.test_id for item in declared],
-            "bank_level_candidates": list(BANK_LEVEL_RELIABILITY_TESTS),
-            "detector_level_deferred": list(DETECTOR_LEVEL_RELIABILITY_TESTS),
-            "audit": list(RELIABILITY_SEQUENCE_AUDIT),
-            "is_scientific_lock": False, "fixture_backed": False})
-
-        if not all(item["ok"] for item in checks):
-            state["halt"] = True
-            return self.blocked(
-                request, RELIABILITY_SEQUENCE_UNRESOLVED,
-                "C6 cannot select a profile: the mandatory reliability gate set "
-                "is unresolved and no gate produced a verdict. An empty set is "
-                "not a pass.",
-                checks=checks, substage=RUN_RELIABILITY_GATES,
-                artifact=artifact)
-        return self.result(request, mode=RUN_RELIABILITY_GATES, checks=checks,
-                           artifacts=[artifact])
-
     def _check_profile_matched_feasibility(self, request: AdapterRequest,
                                            state: dict[str, Any],
                                            reports: Path) -> AdapterResult:
@@ -1085,14 +1068,11 @@ class C6Adapter(EngineeringAdapter):
                 decisions_by_profile[name][arm] = rows
                 accepted[arm] = science.eligible_candidates(
                     rows, state["selectable"][arm])
-            # An empty reliability set is NOT a pass. `_run_reliability_gates`
-            # blocks before this point while the mandatory set is unresolved, so
-            # reaching here with no verdicts would be a wiring error — and it
-            # still evaluates to False rather than to True.
-            reliability = state["reliability"]
+            # Reliability is NOT an input here. Option B selects on the frozen
+            # cardinality contract alone, freezes the profile, and only then runs
+            # the bank-level probe on the FINAL banks as a closure gate.
             assessments.append(science.assess_profile(
-                name, accepted, state["plans"],
-                reliability_passed=bool(reliability) and all(reliability.values())))
+                name, accepted, state["plans"]))
             state.setdefault("accepted", {})[name] = accepted
 
         state["assessments"] = assessments
@@ -1149,7 +1129,45 @@ class C6Adapter(EngineeringAdapter):
         artifact = write_artifact(request, reports / "C6_PROFILE_SELECTION.json", {
             "schema_version": "c6-profile-selection-v1", "generated_at_utc": utc(),
             "mode": SELECT_STRICTEST_PROFILE, **decision.as_dict(),
+            "reliability_inputs_to_selection": list(
+                C6_PROFILE_SELECTION_RELIABILITY_INPUTS),
+            "ba_sep_not_used_for_profile_selection": True,
             "fixture_backed": False})
+
+        # Freeze the selection IMMEDIATELY, before any reliability measurement.
+        # The lock is what makes "the profile was frozen first" checkable rather
+        # than merely asserted, and it is what the closure gate points back to.
+        if not decision.failed:
+            lock = write_artifact(request, reports / "C6_PROFILE_SELECTION_LOCK.json", {
+                "schema_version": "c6-profile-selection-lock-v1",
+                "generated_at_utc": utc(), "mode": SELECT_STRICTEST_PROFILE,
+                "is_scientific_lock": True,
+                "selected_profile": decision.selected,
+                "thresholds": dict(state["profiles"][decision.selected].thresholds),
+                "threshold_identity": state["threshold_identities"][decision.selected],
+                "selection_rule": ("the strictest profile in STRICT -> NOMINAL -> "
+                                   "PERMISSIVE order whose per-arm route floor and "
+                                   "common source-domain matched feasibility both "
+                                   "hold"),
+                "matched_feasibility_evidence": decision.as_dict()["evaluations"],
+                "reliability_inputs_to_selection": list(
+                    C6_PROFILE_SELECTION_RELIABILITY_INPUTS),
+                "ba_sep_not_used_for_profile_selection": True,
+                "reliability_sequence": C6_RELIABILITY_SEQUENCE,
+                "reopening_policy": ("the selected profile is frozen here and is "
+                                     "never reopened; a bank-reliability failure "
+                                     "fails C6 rather than selecting another "
+                                     "profile"),
+                "target_access": 0, "fixture_backed": False})
+            state["profile_lock"] = lock
+            state["profile_lock_written"] = True
+            checks.append(check(
+                "c6_selected_profile_is_frozen_immediately", True,
+                "the selected profile was serialized before any reliability "
+                "measurement could run",
+                lock=lock, selected_profile=decision.selected,
+                sequence=C6_RELIABILITY_SEQUENCE))
+
         if decision.failed:
             state["halt"] = True
             return self.result(request, mode=SELECT_STRICTEST_PROFILE, checks=checks,
@@ -1241,6 +1259,102 @@ class C6Adapter(EngineeringAdapter):
         return self.result(request, mode=BUILD_MATCHED_BANKS, checks=checks,
                            artifacts=artifacts)
 
+    def _run_bank_level_reliability(self, request: AdapterRequest,
+                                    state: dict[str, Any],
+                                    reports: Path) -> AdapterResult:
+        """The C6 closure gate: the bank-level probe on the FINAL matched banks.
+
+        Option B. By the time this runs the profile is frozen and serialized and
+        the three banks exist, so nothing here can steer the selection — which is
+        the property §3.1.1 asks for. A failure still stops C6, which is the
+        consequence §17 asks for.
+
+        `BA_sep_arm <= 0.75` must hold for EVERY arm. The C6 requirement is that
+        no primary synthetic arm is trivially identifiable by a generator
+        shortcut, which is a per-arm property; the comparative part of C-H4
+        (LLM below DET and RND, plus validity and diversity) is a different
+        question asked later and is not collapsed into this gate.
+        """
+        from prism_fas.synthesis import c6_matched_bank as selector
+
+        checks: list[dict[str, Any]] = []
+        selected = state["decision"].selected
+        banks = state["banks"]["banks"]
+
+        checks.append(check(
+            "c6_profile_is_frozen_before_the_probe",
+            bool(state.get("profile_lock_written")) and bool(selected),
+            "the selected profile was serialized before any reliability "
+            "measurement ran",
+            selected_profile=selected,
+            profile_lock=state.get("profile_lock"),
+            sequence=C6_RELIABILITY_SEQUENCE,
+            rule="§3.1.1: BA_sep is evaluated AFTER the common C6 synthetic gate "
+                 "is frozen"))
+        checks.append(check(
+            "c6_final_banks_exist_before_the_probe",
+            len(banks) == 3 and all(bank["size"] == selector.FINAL_BANK_PER_ARM
+                                    for bank in banks.values()),
+            "the probe measures the three FINAL matched banks, not a provisional "
+            "pool",
+            sizes={arm: bank["size"] for arm, bank in banks.items()}))
+
+        # The protocol itself. Unresolved, so the gate BLOCKS rather than
+        # inventing a classifier, feature set, split, budget or seeds.
+        resolved = BA_SEP_PROBE_PROTOCOL is not None
+        checks.append(check(
+            "c6_ba_sep_probe_protocol_is_frozen", resolved,
+            "the executable bank-level probe protocol is uniquely recoverable",
+            reason_code=None if resolved else BA_SEP_PROBE_PROTOCOL_UNRESOLVED,
+            protocol=BA_SEP_PROBE_PROTOCOL,
+            declared_gate=C6_CLOSURE_RELIABILITY_GATE,
+            audit=list(BA_SEP_PROBE_AUDIT)))
+
+        status = (RELIABILITY_BLOCKED if not resolved else RELIABILITY_NOT_YET_APPLICABLE)
+        payload = {
+            "schema_version": "c6-bank-reliability-v1", "generated_at_utc": utc(),
+            "mode": RUN_BANK_LEVEL_RELIABILITY,
+            "sequence": C6_RELIABILITY_SEQUENCE,
+            "gate": C6_CLOSURE_RELIABILITY_GATE,
+            "selected_profile": selected,
+            "profile_frozen_before_probe": True,
+            "ba_sep_ceiling": BA_SEP_CEILING,
+            "seeds_required": BA_SEP_PROBE_SEEDS_REQUIRED,
+            "pass_rule": (f"every arm must satisfy BA_sep_arm <= {BA_SEP_CEILING}; "
+                          f"equivalently max over RND/DET/LLM <= {BA_SEP_CEILING}"),
+            "distinct_from": ("the C-H4 SUPPORT rule, which additionally asks "
+                              "whether LLM beats DET and RND on separability and "
+                              "adds validity and diversity conditions"),
+            "per_arm": {arm: {"ba_sep": None, "per_seed": [], "status": status}
+                        for arm in sorted(banks)},
+            "overall": status,
+            "not_yet_applicable_is_not_a_pass": True,
+            "probe_protocol": BA_SEP_PROBE_PROTOCOL,
+            "protocol_audit": list(BA_SEP_PROBE_AUDIT),
+            "on_failure": ("C6 FAILS. The selected profile stays frozen and is "
+                           "never reopened: no looser profile, no stricter "
+                           "profile, no changed candidate selection, no discarded "
+                           "arm, no reseeded probe, no widened ceiling"),
+            "target_access": 0,
+            "is_scientific_lock": False, "fixture_backed": False}
+        artifact = write_artifact(request, reports / "C6_BANK_RELIABILITY.json",
+                                  payload)
+        state["bank_reliability"] = status
+
+        if status != RELIABILITY_PASSED:
+            state["halt"] = True
+            reason = (BA_SEP_PROBE_PROTOCOL_UNRESOLVED if not resolved
+                      else "C6_BANK_RELIABILITY_NOT_PASSED")
+            return self.blocked(
+                request, reason,
+                f"C6 cannot close: bank-level reliability is {status}, and "
+                f"{RELIABILITY_NOT_YET_APPLICABLE} is never a pass. The selected "
+                f"profile {selected!r} stays frozen.",
+                checks=checks, substage=RUN_BANK_LEVEL_RELIABILITY,
+                bank_reliability=status, artifact=artifact)
+        return self.result(request, mode=RUN_BANK_LEVEL_RELIABILITY, checks=checks,
+                           artifacts=[artifact])
+
     def _verify_c6_locks(self, request: AdapterRequest, state: dict[str, Any],
                          reports: Path) -> AdapterResult:
         """Verify the three BANK_LOCKs and the selector identity they bind."""
@@ -1248,6 +1362,20 @@ class C6Adapter(EngineeringAdapter):
 
         checks: list[dict[str, Any]] = []
         contract = state["selector_contract"]
+
+        # C6 closes only on PASSED. NOT_YET_APPLICABLE and BLOCKED are not
+        # passes, and the workflow halts before reaching here unless the closure
+        # gate returned PASSED — this check states the requirement anyway, so a
+        # future rewiring cannot close C6 on an unresolved gate.
+        checks.append(check(
+            "c6_closes_only_on_passed_bank_reliability",
+            state.get("bank_reliability") == RELIABILITY_PASSED,
+            "the bank-level reliability gate PASSED",
+            bank_reliability=state.get("bank_reliability"),
+            ceiling=BA_SEP_CEILING,
+            rule=f"{RELIABILITY_NOT_YET_APPLICABLE} and {RELIABILITY_BLOCKED} are "
+                 f"never passes; C6 closes only on {RELIABILITY_PASSED}"))
+
         for arm in selector.ARMS:
             payload = read_json(reports / f"C6_BANK_LOCK_{arm}.json") or {}
             bank = state["banks"]["banks"][arm]

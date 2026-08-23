@@ -1168,9 +1168,115 @@ c5_source_pair_plan_freeze:
       c6_scientific.assess_profile no longer defaults reliability_passed to True
       — the argument is required.
 
-  open_decisions_c6_reliability:
-    - id: C6_RELIABILITY_SEQUENCE
+  # --- FROZEN: C6_RELIABILITY_SEQUENCE = OPTION B -----------------------------
+  c6_reliability_sequence:
+    status: FROZEN
+    resolved_by: explicit user scientific decision
+    option: OPTION_B_POST_SELECTION_CLOSURE_GATE
+    constant: c6.C6_RELIABILITY_SEQUENCE = "OPTION_B_POST_SELECTION_CLOSURE_GATE"
+    frozen_on: 2026-08-23
+    not_observed_to_choose_it: >-
+      BA_sep was NOT observed. The previous GPU run carried embedded NOMINAL gate
+      side-effects from CandidateEvaluator but produced no valid profile or
+      matched-bank outcome, and those side-effects were not inspected to make
+      this decision. target_access = 0 throughout.
+    sequence:
+      - VERIFY_C5_POOL
+      - BUILD_SOURCE_REFERENCE
+      - FIT_NOMINAL_CALIBRATION
+      - BUILD_COMMON_PROFILES
+      - EVALUATE_GENERATED_CANDIDATES
+      - CHECK_PROFILE_MATCHED_FEASIBILITY
+      - SELECT_STRICTEST_PROFILE          # profile frozen here, lock written
+      - BUILD_MATCHED_BANKS               # final banks exist here
+      - RUN_BANK_LEVEL_RELIABILITY        # closure gate runs here
+      - VERIFY_C6_LOCKS                   # closes only on PASSED
+    selection_inputs: >-
+      STRICT -> NOMINAL -> PERMISSIVE order, per-arm Physics/GPAT floor, common
+      source-domain matched feasibility, C6_MATCHED_BANK_SELECTOR_V1. NO
+      reliability input: MatchedFeasibility has no reliability field and
+      assess_profile has no reliability parameter, so it cannot leak in.
+    pass_rule: >-
+      every arm must satisfy BA_sep_arm <= 0.75; equivalently
+      max(BA_sep_RND, BA_sep_DET, BA_sep_LLM) <= 0.75. This is the C6 hard gate —
+      no primary synthetic arm is trivially identifiable — and is NOT the C-H4
+      SUPPORT rule, which additionally asks whether LLM beats DET and RND and
+      adds validity and diversity conditions.
+    failure_semantics: >-
+      C6 FAILS. The selected profile stays frozen and is never reopened: no
+      looser profile, no stricter profile, no changed candidate selection, no
+      discarded arm, no reseeded probe, no widened ceiling. Selected profile,
+      bank artifacts and probe outputs are preserved as negative provenance and
+      no usable downstream C6 PASS lock is written.
+    tri_state: >-
+      NOT_YET_APPLICABLE before the final banks exist; then PASSED / FAILED /
+      BLOCKED. C6 closes only on PASSED, and NOT_YET_APPLICABLE is never a pass.
+    detector_reliability_staging:
+      stage: C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C
+      rule: >-
+        detector-dependent tests are not C6 selection inputs and are not required
+        to build the C6 bank-level lock, because no detector exists at C6. They
+        execute after C8 source-only detector training and must be resolved
+        before SOURCE_MATRIX_LOCK_C closes at C9. No reliability decision may be
+        newly tuned from target information at C10/C11. Residual sensitivity is
+        NOT moved into C6.
+      criteria: >-
+        only the stage/deadline is frozen here. Individual detector-level
+        pass/fail criteria remain typed future NEEDS_SCIENTIFIC_DECISION items to
+        be settled before their first execution.
+    classification:
+      bank_level: [synthetic_vs_real_spoof_probe]
+      detector_level: [residual_scale_zero, recipe_region_shift, artifact_map_swap,
+                       cross_route_synthetic, benign_jpeg_corruption,
+                       benign_resize_corruption, benign_color_corruption,
+                       crop_padding_interpolation]
+      no_legitimate_population: [benign_glasses_makeup_lowlight]   # stays BLOCKED
+
+  # --- BLOCKING: the executable probe protocol --------------------------------
+  open_decisions_c6_probe:
+    - id: C6_BA_SEP_PROBE_PROTOCOL
       status: NEEDS_SCIENTIFIC_DECISION
+      audited_on: 2026-08-23
+      finding: >-
+        the executable bank-level probe protocol is NOT uniquely recoverable, and
+        the one canonical description is incompatible with running at C6 at all.
+      evidence:
+        - "the only recorded protocol is Version-B reports/m10/
+          RELIABILITY_EXECUTION.json, whose acceptance reads: 'held-out balanced
+          accuracy of a linear probe on the DETECTOR'S OWN EVIDENCE VECTOR
+          (p_global, s_region, nine normalized regional distances)'. p_global and
+          s_region are detector tensors (detector/contracts.py), so that probe is
+          detector-level and cannot run at C6 — no detector exists until C7."
+        - "neither tree contains an executable synthetic-vs-real probe:
+          evaluation/reliability.py only DECLARES the test, and the Version-B
+          numbers (BA 0.9375, FAILED) came from a driver not in the repository."
+        - "§3.1.1 defines BA_sep_arm over THREE frozen source-only probe seeds;
+          Version B recorded a single balanced accuracy with no seed, no split
+          identity and no training budget, so the three seeds exist nowhere."
+        - "running the gate at C6 would need a BANK-LEVEL feature definition
+          computed from the images themselves. None is specified or implemented,
+          and choosing one would mean inventing a classifier, feature extractor,
+          split, training budget and seeds."
+      consequence: >-
+        the closure gate BLOCKS with
+        C6_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION. The Option B sequence
+        is implemented and C6 will run through selection, freeze and bank
+        construction, then stop at the gate.
+      tension_with_the_frozen_decision: >-
+        the decision names synthetic_vs_real_spoof_probe as a BANK-LEVEL C6
+        closure gate. The only canonical implementation of that test is
+        detector-level. Either a bank-level probe protocol must be specified, or
+        the gate must move to the detector-level stage.
+      decision_needed_from_user: >-
+        either (a) specify the bank-level probe protocol — feature definition,
+        classifier, split, training budget and the three seed values — or (b)
+        move the synthetic-vs-real gate to the detector-level stage alongside
+        residual sensitivity, leaving C6 to close on cardinality and matched
+        feasibility.
+
+  superseded_open_decisions_c6_reliability:
+    - id: C6_RELIABILITY_SEQUENCE
+      status: RESOLVED_BY_OPTION_B
       audited_on: 2026-08-23
       question: >-
         which reliability gates are mandatory AT C6 PROFILE-SELECTION time, and

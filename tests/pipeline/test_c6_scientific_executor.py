@@ -57,7 +57,7 @@ def _method_source(name: str, source: str = C6_SOURCE) -> str:
 SCIENTIFIC_METHODS = ("_scientific_workflow", "_verify_c5_pool",
                       "_build_source_reference", "_fit_nominal_calibration",
                       "_build_common_profiles", "_evaluate_generated_candidates",
-                      "_run_reliability_gates",
+                      "_run_bank_level_reliability",
                       "_check_profile_matched_feasibility",
                       "_select_strictest_profile", "_build_matched_banks",
                       "_verify_c6_locks")
@@ -99,8 +99,8 @@ def test_the_ten_scientific_substages_run_in_the_declared_order() -> None:
     assert c6_module.SCIENTIFIC_MODES == (
         "VERIFY_C5_POOL", "BUILD_SOURCE_REFERENCE", "FIT_NOMINAL_CALIBRATION",
         "BUILD_COMMON_PROFILES", "EVALUATE_GENERATED_CANDIDATES",
-        "RUN_RELIABILITY_GATES", "CHECK_PROFILE_MATCHED_FEASIBILITY",
-        "SELECT_STRICTEST_PROFILE", "BUILD_MATCHED_BANKS", "VERIFY_C6_LOCKS")
+        "CHECK_PROFILE_MATCHED_FEASIBILITY", "SELECT_STRICTEST_PROFILE",
+        "BUILD_MATCHED_BANKS", "RUN_BANK_LEVEL_RELIABILITY", "VERIFY_C6_LOCKS")
 
     source = _method_source("_scientific_workflow")
     order = [source.index(f"self._{mode.lower()}") for mode in c6_module.SCIENTIFIC_MODES]
@@ -183,13 +183,12 @@ def test_one_threshold_identity_is_shared_by_the_three_arms() -> None:
 # --- 32, 34. selection, and the failure that has no fallback -----------------
 
 def _assessment(profile: str, *, feasible: bool = True, floor: bool = True,
-                quota: bool = True, reliability: bool = True
-                ) -> science.MatchedFeasibility:
+                quota: bool = True) -> science.MatchedFeasibility:
+    """Reliability is deliberately absent: it is not a selection input."""
     return science.MatchedFeasibility(
         profile=profile, arm_route_counts={}, route_quotas={},
         arms_meet_route_floor=floor and feasible,
-        common_quota_feasible=quota and feasible,
-        reliability_passed=reliability and feasible)
+        common_quota_feasible=quota and feasible)
 
 
 def test_the_strictest_qualifying_profile_is_selected() -> None:
@@ -225,13 +224,15 @@ def test_a_common_quota_shortfall_alone_refuses_a_profile() -> None:
     assert decision.evaluations[0]["feasible"] is False
 
 
-def test_a_reliability_gate_failure_alone_refuses_a_profile() -> None:
+def test_reliability_cannot_refuse_a_profile_at_selection_time() -> None:
+    """Option B: the closure gate has no vote in choosing the profile."""
     decision = science.select_strictest_profile([
-        _assessment("STRICT", reliability=False),
-        _assessment("NOMINAL"), _assessment("PERMISSIVE")])
+        _assessment(name) for name in science.PROFILE_ORDER])
 
-    assert decision.evaluations[0]["reliability_passed"] is False
-    assert decision.evaluations[0]["feasible"] is False
+    assert decision.selected == "STRICT"
+    for evaluation in decision.evaluations:
+        assert evaluation["reliability_used_for_selection"] is False
+        assert "reliability_passed" not in evaluation
 
 
 def test_no_qualifying_profile_is_a_scientific_failure_with_no_fallback() -> None:
@@ -326,11 +327,15 @@ def test_the_lock_verification_checks_every_arm() -> None:
 
 # --- the matched-feasibility object ------------------------------------------
 
-def test_matched_feasibility_needs_all_three_conditions() -> None:
+def test_matched_feasibility_needs_both_cardinality_conditions() -> None:
     assert _assessment("STRICT").feasible is True
     assert _assessment("STRICT", floor=False).feasible is False
     assert _assessment("STRICT", quota=False).feasible is False
-    assert _assessment("STRICT", reliability=False).feasible is False
+    # ...and reliability is not among them; there is no third input.
+    import dataclasses
+
+    fields = {f.name for f in dataclasses.fields(science.MatchedFeasibility)}
+    assert "reliability_passed" not in fields
 
 
 def test_the_arm_count_test_alone_is_no_longer_sufficient() -> None:

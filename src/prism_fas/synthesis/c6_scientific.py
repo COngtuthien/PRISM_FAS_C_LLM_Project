@@ -54,12 +54,18 @@ class MatchedFeasibility:
     route_quotas: dict[str, dict[str, Any]]
     arms_meet_route_floor: bool
     common_quota_feasible: bool
-    reliability_passed: bool
 
     @property
     def feasible(self) -> bool:
-        return (self.arms_meet_route_floor and self.common_quota_feasible
-                and self.reliability_passed)
+        """Cardinality and matched feasibility. Reliability is NOT an input.
+
+        C6_RELIABILITY_SEQUENCE = OPTION_B_POST_SELECTION_CLOSURE_GATE: the
+        profile is chosen on the frozen cardinality contract alone and frozen
+        immediately, and the bank-level probe then runs on the FINAL banks as a
+        closure gate. Letting a probe result in here would make it a selection
+        objective, which is the reading §3.1.1 rules out.
+        """
+        return self.arms_meet_route_floor and self.common_quota_feasible
 
     def as_dict(self) -> dict[str, Any]:
         return {"profile": self.profile,
@@ -68,23 +74,23 @@ class MatchedFeasibility:
                 "route_quotas": dict(self.route_quotas),
                 "arms_meet_route_floor": self.arms_meet_route_floor,
                 "common_quota_feasible": self.common_quota_feasible,
-                "reliability_passed": self.reliability_passed,
                 "feasible": self.feasible,
+                "reliability_used_for_selection": False,
                 "rule": ("§11.4 route floor AND one identical source-domain quota "
-                         "vector per route across RND/DET/LLM AND all mandatory "
-                         "reliability gates")}
+                         "vector per route across RND/DET/LLM. Bank-level "
+                         "reliability is a post-selection closure gate, not a "
+                         "selection objective")}
 
 
 def assess_profile(profile: str, accepted_by_arm: Mapping[str, Sequence[
                        selector.SelectableCandidate]],
-                   plans: Mapping[str, Mapping[str, Any]], *,
-                   reliability_passed: bool) -> MatchedFeasibility:
-    """One profile's full feasibility, both tests and the reliability gates.
+                   plans: Mapping[str, Mapping[str, Any]]) -> MatchedFeasibility:
+    """One profile's feasibility: the route floor and the common domain quota.
 
-    `reliability_passed` has no default. It used to default to True, which meant
-    a caller that had run no reliability gate at all still produced a feasible
-    profile — §11.4 requires the selected profile to PASS the mandatory gates,
-    and "none were run" is not a pass.
+    Reliability is deliberately absent from the signature. It used to be a
+    parameter that defaulted to True — a fail-open — and under Option B it is
+    not a selection input at all, so the safest shape is one that cannot receive
+    it.
     """
     counts = {
         arm: {route: sum(1 for candidate in candidates if candidate.route == route)
@@ -99,8 +105,7 @@ def assess_profile(profile: str, accepted_by_arm: Mapping[str, Sequence[
         profile=profile, arm_route_counts=counts,
         route_quotas={route: quota.as_dict() for route, quota in quotas.items()},
         arms_meet_route_floor=floor_met,
-        common_quota_feasible=selector.matched_feasible(quotas),
-        reliability_passed=bool(reliability_passed))
+        common_quota_feasible=selector.matched_feasible(quotas))
 
 
 @dataclass
