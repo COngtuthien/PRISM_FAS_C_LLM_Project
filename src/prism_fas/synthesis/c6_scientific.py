@@ -22,7 +22,10 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
+
+if TYPE_CHECKING:                    # pragma: no cover - typing only
+    from .quality_gate import Thresholds
 
 from . import c6_matched_bank as selector
 from .c5_source_pair_plan import ARMS, GPAT, PHYSICS
@@ -341,13 +344,27 @@ def evaluate_pool(evaluator: Any, store: Any, bank: Mapping[str, Any], *,
 
 
 def gate_candidates(metrics_by_candidate: Mapping[str, Mapping[str, Any]],
-                    thresholds: Any) -> list[dict[str, Any]]:
+                    thresholds: "Thresholds") -> list[dict[str, Any]]:
     """Apply ONE threshold set to every candidate. Binary for selection.
 
     `quality_gate.evaluate` returns the hard-gate verdict and the §11.2 weight
     `q`. Both are recorded; only `accepted` reaches the selector.
+
+    `thresholds` must be a canonical `quality_gate.Thresholds`, not the raw
+    mapping a `GateProfile` stores. The annotation used to be `Any`, which is how
+    a `dict` reached `evaluate` and surfaced as `'dict' object has no attribute
+    'tau_fd'` at the first gating call. `GateProfile.as_thresholds()` is the
+    conversion; there is deliberately no dict-accepting compatibility path,
+    because two accepted representations at the gating boundary is what allowed
+    the mismatch in the first place.
     """
-    from .quality_gate import evaluate
+    from .quality_gate import Thresholds, evaluate
+
+    if not isinstance(thresholds, Thresholds):
+        raise ScientificGateError(
+            f"gate_candidates requires a quality_gate.Thresholds, got "
+            f"{type(thresholds).__name__}. Use GateProfile.as_thresholds(); the "
+            f"raw mapping is for hashing and serialization only.")
 
     decisions: list[dict[str, Any]] = []
     for candidate_id in sorted(metrics_by_candidate):

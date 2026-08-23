@@ -1048,7 +1048,11 @@ class C6Adapter(EngineeringAdapter):
             accepted: dict[str, list[Any]] = {}
             decisions_by_profile[name] = {}
             for arm in selector.ARMS:
-                rows = science.gate_candidates(state["metrics"][arm], profile.thresholds)
+                # `as_thresholds()` is GateProfile's own conversion and the one
+                # the engineering path already used. `profile.thresholds` is the
+                # raw dict, right for hashing and serialization and wrong here.
+                rows = science.gate_candidates(state["metrics"][arm],
+                                               profile.as_thresholds())
                 decisions_by_profile[name][arm] = rows
                 accepted[arm] = science.eligible_candidates(
                     rows, state["selectable"][arm])

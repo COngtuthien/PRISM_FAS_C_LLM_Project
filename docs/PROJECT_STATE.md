@@ -1232,6 +1232,70 @@ c5_source_pair_plan_freeze:
                        crop_padding_interpolation]
       no_legitimate_population: [benign_glasses_makeup_lowlight]   # stays BLOCKED
 
+  # --- FIXED: C6 gate-profile threshold type contract -------------------------
+  c6_threshold_type_contract:
+    status: FIXED
+    fixed_on: 2026-08-23
+    defect: >-
+      GateProfile.thresholds is a dict[str, float] and quality_gate.evaluate
+      reads thresholds.tau_fd, so the gate needs a quality_gate.Thresholds. The
+      scientific adapter passed the raw mapping into gate_candidates, and the run
+      crashed at the first gating call with "'dict' object has no attribute
+      'tau_fd'".
+    category: producer/consumer TYPE-CONTRACT mismatch. Not a threshold value,
+      §11.4, calibration, CUDA, measurement or matched-bank problem.
+    fix: >-
+      one call site: profile.as_thresholds(), which is GateProfile's own
+      conversion and what the engineering rehearsal already used. No threshold
+      value changed; derive_profile, Thresholds, quality_gate.evaluate,
+      CandidateEvaluator, raw metric extraction and selector V1 untouched.
+    type_contract_tightened: >-
+      gate_candidates' `thresholds: Any` became `thresholds: Thresholds` with a
+      fail-fast isinstance refusal naming as_thresholds(). `Any` is how the dict
+      reached evaluate silently. No dict-accepting compatibility path was added:
+      two accepted representations at the gating boundary is what allowed the
+      mismatch.
+    call_site_audit:
+      gate_execution_needs_Thresholds:
+        - c6.py _check_profile_matched_feasibility   # FIXED
+        - c6.py engineering _apply_common_gate       # already correct
+      mapping_is_correct_and_unchanged:
+        - c6.py threshold_identity(profile.thresholds)      # hashing
+        - c6.py artifact "thresholds": dict(profile.thresholds)  # serialization
+        - c6.py engineering unprofiled value comparison
+        - gate_profiles.py matched_bank_plan payload        # serialization
+    why_tests_missed_it: >-
+      every existing test built the object itself —
+      Thresholds.from_dict(profiles[name].thresholds) — performing the conversion
+      the production code omitted, and the engineering path called
+      as_thresholds(). Neither exercised the scientific adapter's wiring. The new
+      regression drives the real _check_profile_matched_feasibility and
+      intercepts quality_gate.evaluate to assert a real Thresholds arrives.
+
+  # --- ENGINEERING NEGATIVE EVIDENCE: the failed GPU run ----------------------
+  c6_failed_run_2026_08_23:
+    stage: C6
+    substage: CHECK_PROFILE_MATCHED_FEASIBILITY
+    category: IMPLEMENTATION_CONTRACT_FAILURE
+    reason: GateProfile threshold dict passed where a Thresholds object is required
+    candidate_measurement_completed: true
+    raw_metric_envelope_correction: worked
+    profile_assessment_completed: false
+    scientific_result_observed: false
+    acceptance_counts_for_any_profile: none
+    profile_selected: none
+    matched_bank: none
+    target_access: 0
+    embedded_nominal_side_effect: >-
+      still discarded, and NOT inspected to choose or validate this fix.
+    paper_use: >-
+      reproducibility / fail-closed implementation evidence. NOT a primary
+      scientific result and never mixed with an actual scientific gate failure.
+    retention: the log and diagnostics are kept, not deleted.
+    onnx_warnings: >-
+      the repeated SCRFD VerifyOutputSizes warnings did not cause this traceback.
+      SCRFD model, input size and provider are unchanged.
+
   # --- SUPERSEDING DECISION: BA_sep moves to the detector stage ---------------
   synthetic_vs_real_reliability_stage:
     status: FROZEN
