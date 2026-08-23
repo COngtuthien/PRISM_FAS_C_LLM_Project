@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
 from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, read_json,
@@ -63,6 +63,12 @@ MODES: tuple[str, ...] = (APPLY_COMMON_GATE, PROFILE_SELECTION, RELIABILITY_GATE
                           MATCHED_BANKS, CARDINALITY_REFUSAL) + SCIENTIFIC_MODES
 
 QUALITY_CONFIG = "configs/synthesis/quality_gate_m8.yaml"
+
+#: Provenance label for the assembled NOMINAL. Metadata only: `threshold_identity`
+#: hashes the threshold VALUES, so this string enters no scientific identity.
+NOMINAL_SOURCE_LABEL = (
+    "§11.4 assembled NOMINAL: Version-B inherited where semantically compatible; "
+    "source-reference derived where required")
 
 #: Candidates evaluated per arm in the rehearsal. The scientific number is 2048.
 SMOKE_CANDIDATES_PER_ARM = 8
@@ -691,10 +697,41 @@ class C6Adapter(EngineeringAdapter):
             request.repo.parent / "PRISM_FAS_B_Project")
         threshold_provenance["version_b_reverification"] = verification
 
+        # ONE canonical final payload, used for the in-memory state and for the
+        # serialized artifact alike. Building two near-duplicates is what let
+        # `thresholds` and `threshold_sha256` disagree: the override replaced the
+        # map and left the calibrator's hash of the map it superseded.
+        try:
+            calibration = _final_calibration_payload(
+                payload, nominal, threshold_provenance,
+                device=device, provenance=provenance, backends=backends,
+                package_identity=state["package_identity"])
+        except ThresholdIdentityMismatch as error:
+            state["halt"] = True
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code="THRESHOLD_IDENTITY_MISMATCH",
+                summary="C6 refused to write a calibration whose hash and "
+                        "thresholds disagree",
+                error_type=type(error).__name__, detail=str(error))
+
         state["backends"] = backends
-        state["calibration"] = {**payload, "thresholds": nominal}
+        state["calibration"] = calibration
         state["nominal"] = nominal
         state["threshold_provenance"] = threshold_provenance
+
+        checks.append(check(
+            "c6_final_threshold_identity_binds_the_final_thresholds", True,
+            "threshold_sha256 is the hash of the assembled §11.4 NOMINAL set, "
+            "and the calibrator's own fitted identity is kept beside it",
+            threshold_sha256=calibration["threshold_sha256"],
+            nominal_identity_sha256=threshold_provenance["nominal_identity_sha256"],
+            calibrator_fitted_threshold_sha256=calibration[
+                "calibrator_fitted_threshold_sha256"],
+            version_b_threshold_sha256=inheritance.VERSION_B_THRESHOLD_SHA256,
+            rule="FrozenCalibration.load recomputes the hash from the thresholds "
+                 "it is about to use; a producer that ships one map with another "
+                 "map's identity is refused, and rightly"))
 
         checks.append(check(
             "c6_nominal_assembled_per_metric", True,
@@ -737,21 +774,22 @@ class C6Adapter(EngineeringAdapter):
             "QUALITY_CALIBRATION is produced here and is not a C6 precondition",
             rule="requiring the fitted file first would make C6 depend on itself "
                  "and invite a hand-written scientific threshold"))
+        superseded = archive_superseded_calibration(
+            request, reports / "QUALITY_CALIBRATION.json")
+        if superseded is not None:
+            checks.append(check(
+                "c6_superseded_calibration_archived", True,
+                "the previous calibration was archived byte-for-byte and is "
+                "bound by SHA-256; it is diagnostic evidence, not a lock",
+                **superseded))
+
         artifact = write_artifact(request, reports / "QUALITY_CALIBRATION.json", {
             "schema_version": "c6-quality-calibration-v2", "generated_at_utc": utc(),
             "mode": FIT_NOMINAL_CALIBRATION, "is_scientific_lock": True,
-            "package_identity": state["package_identity"], "split": "source_train",
-            **payload,
-            # The assembled §11.4 set replaces the calibrator's own map, and the
-            # per-threshold provenance says which branch produced each value.
-            "thresholds": nominal,
-            "nominal_identity_sha256": threshold_provenance["nominal_identity_sha256"],
-            "threshold_provenance": threshold_provenance,
-            "calibrator_fitted_thresholds": payload.get("thresholds"),
-            "quality_backend_device_family": FROZEN_QUALITY_BACKEND_DEVICE,
-            "quality_backend_run_provenance": provenance,
-            "quality_models": payload.get("quality_models") or backends.manifest(),
-            "target_access": 0,
+            # The identical canonical payload the in-memory state holds, so the
+            # artifact and the state can never describe different thresholds.
+            **calibration,
+            **({"supersedes": superseded} if superseded else {}),
             "fixture_backed": False})
         state["calibration_path"] = request.repo / artifact
         return self.result(request, mode=FIT_NOMINAL_CALIBRATION, checks=checks,
@@ -794,8 +832,12 @@ class C6Adapter(EngineeringAdapter):
         checks: list[dict[str, Any]] = []
         nominal = dict(state["calibration"].get("thresholds") or {})
         try:
+            # The label is provenance metadata; it does not enter any threshold
+            # identity (`threshold_identity` hashes the threshold values alone).
+            # It became inaccurate after §11.4 reconciliation: this NOMINAL is
+            # not simply "fitted at C6".
             profiles = science.build_common_profiles(
-                nominal, nominal_source="source_train NOMINAL fitted at C6")
+                nominal, nominal_source=NOMINAL_SOURCE_LABEL)
         except Exception as error:                       # noqa: BLE001
             state["halt"] = True
             return self.blocked(
@@ -1164,6 +1206,126 @@ QUALITY_BACKEND_DEVICE_AUDIT: tuple[str, ...] = (
     "gpat_trainer.resolve_device is availability-based ('cuda if available'), "
     "which is an operational helper rather than a scientific policy",
 )
+
+
+def archive_superseded_calibration(request: AdapterRequest,
+                                   path: Path) -> dict[str, Any] | None:
+    """Preserve an existing calibration byte-for-byte before replacing it.
+
+    The GPU host holds a `QUALITY_CALIBRATION.json` whose thresholds and hash
+    disagree — a real run's real output, and scientifically invalid. L.8 forbids
+    winner-only cleanup, so it is copied to a deterministic diagnostic path and
+    its SHA bound into the replacement rather than being quietly overwritten. It
+    is recorded as diagnostic evidence and never as a scientific lock.
+    """
+    import hashlib
+    import shutil
+
+    path = Path(path)
+    if not path.is_file():
+        return None
+    original = path.read_bytes()
+    digest = hashlib.sha256(original).hexdigest()
+    previous = read_json(path) or {}
+
+    thresholds = previous.get("thresholds") or {}
+    recorded = str(previous.get("threshold_sha256") or "")
+    self_consistent = None
+    if thresholds and recorded:
+        try:
+            from prism_fas.synthesis.quality_gate import Thresholds
+
+            self_consistent = Thresholds.from_dict(thresholds).sha256() == recorded
+        except Exception:                                # noqa: BLE001
+            self_consistent = False
+
+    archive = path.parent / "superseded" / f"{path.stem}_{digest[:16]}.json"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if not archive.exists():
+        shutil.copyfile(path, archive)
+    return {
+        "archived_calibration": archive.relative_to(request.repo).as_posix(),
+        "archived_sha256": digest,
+        "archived_schema_version": previous.get("schema_version"),
+        "archived_generated_at_utc": previous.get("generated_at_utc"),
+        "archived_threshold_sha256": recorded,
+        "archived_was_self_consistent": self_consistent,
+        "is_scientific_lock": False,
+        "reason": ("superseded by the final-threshold-identity correction: the "
+                   "previous artifact recorded the assembled §11.4 NOMINAL "
+                   "thresholds alongside the calibrator's hash of the map they "
+                   "superseded, so FrozenCalibration.load refused it"),
+        "candidates_modified": False,
+    }
+
+
+class ThresholdIdentityMismatch(RuntimeError):
+    """A calibration payload whose recorded hash is not its thresholds' hash."""
+
+    reason_code = "THRESHOLD_IDENTITY_MISMATCH"
+
+
+def _final_calibration_payload(fitted: Mapping[str, Any],
+                               nominal: Mapping[str, float],
+                               threshold_provenance: Mapping[str, Any], *,
+                               device: str, provenance: Mapping[str, Any],
+                               backends: Any,
+                               package_identity: str) -> dict[str, Any]:
+    """The one final C6 calibration payload, with two identities kept apart.
+
+    `thresholds` / `threshold_sha256` are the FINAL scientific pair: the
+    assembled §11.4 NOMINAL and the hash of exactly those values. This is what
+    `CandidateEvaluator` consumes, so it is the pair that has to agree.
+
+    `calibrator_fitted_thresholds` / `calibrator_fitted_threshold_sha256` are the
+    source-reference values the calibrator produced and the hash of exactly
+    those. They stay as provenance — for an inherited metric they are evidence
+    about the population, never the gate — and they are never relabelled as the
+    final identity.
+
+    The mismatch is checked here rather than discovered downstream: a producer
+    that ships one threshold map carrying another map's hash should not get as
+    far as a consumer.
+    """
+    from prism_fas.synthesis.quality_gate import Thresholds
+
+    final_sha = Thresholds.from_dict(dict(nominal)).sha256()
+    expected = threshold_provenance["nominal_identity_sha256"]
+    if final_sha != expected:
+        raise ThresholdIdentityMismatch(
+            f"the hash of the assembled NOMINAL set ({final_sha}) is not the "
+            f"identity the inheritance recorded ({expected})")
+
+    fitted_map = dict(fitted.get("thresholds") or {})
+    fitted_sha = str(fitted.get("threshold_sha256") or "")
+
+    payload = {
+        **fitted,
+        # The final scientific pair. Both are replaced together, always.
+        "thresholds": {key: float(value) for key, value in nominal.items()},
+        "threshold_sha256": final_sha,
+        "nominal_identity_sha256": expected,
+        "threshold_provenance": dict(threshold_provenance),
+        # The superseded pair, preserved and labelled as what it is.
+        "calibrator_fitted_thresholds": fitted_map,
+        "calibrator_fitted_threshold_sha256": fitted_sha,
+        "calibrator_fitted_thresholds_are_provenance_only": True,
+        "final_threshold_identity_source": (
+            "§11.4 assembled NOMINAL: Version-B inherited where semantically "
+            "compatible; source-reference derived where required"),
+        "package_identity": package_identity,
+        "split": "source_train",
+        "quality_backend_device_family": FROZEN_QUALITY_BACKEND_DEVICE,
+        "quality_backend_run_provenance": dict(provenance),
+        "quality_models": fitted.get("quality_models") or backends.manifest(),
+        "target_access": 0,
+    }
+    # Self-check the invariant the consumer will enforce, before writing it.
+    if Thresholds.from_dict(payload["thresholds"]).sha256() != payload["threshold_sha256"]:
+        raise ThresholdIdentityMismatch(
+            "the assembled payload's thresholds do not hash to its own "
+            "threshold_sha256")
+    return payload
 
 
 class QualityBackendDeviceUnavailable(RuntimeError):

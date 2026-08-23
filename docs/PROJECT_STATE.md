@@ -1000,6 +1000,69 @@ c5_source_pair_plan_freeze:
       still run, because it supplies the fingerprint reference and the population
       evidence the evaluator needs — it simply no longer decides the thresholds.
 
+  # --- FIXED: C6 final threshold identity ------------------------------------
+  c6_final_threshold_identity:
+    status: FIXED
+    fixed_on: 2026-08-23
+    defect: >-
+      the §11.4 assembly replaced payload["thresholds"] with the inherited
+      NOMINAL but left payload["threshold_sha256"] as the calibrator's hash of
+      the map it had just superseded. FrozenCalibration.load recomputes the hash
+      from the thresholds it is about to hand the evaluator, found the
+      disagreement and refused. The consumer was right; the producer was wrong.
+    where_the_gpu_run_stopped: >-
+      _evaluate_generated_candidates, at FrozenCalibration.load. CUDA backend
+      construction and source_train calibration had succeeded and
+      QUALITY_CALIBRATION.json was written; NO candidate was measured, no
+      acceptance count existed, no profile outcome existed, no matched bank was
+      selected, target_access stayed 0.
+    two_identities_now_kept_apart:
+      final_scientific_pair:
+        thresholds: the assembled §11.4 NOMINAL
+        threshold_sha256: 8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19
+        equals_nominal_identity_sha256: true
+        equals_version_b_threshold_sha256: true   # under the all-inherited contract
+        consumed_by: CandidateEvaluator via FrozenCalibration
+      calibrator_fitted_pair:
+        calibrator_fitted_thresholds: the source-reference fitted values
+        calibrator_fitted_threshold_sha256: 4798a392243c85f89b37a14dc5195863…
+        role: provenance and population evidence only; never the gate
+    implementation: >-
+      _final_calibration_payload builds ONE canonical payload used for both
+      state["calibration"] and QUALITY_CALIBRATION.json, replaces the thresholds
+      and their hash together, preserves the fitted pair under its own names, and
+      self-checks the consumer's invariant before writing. FrozenCalibration.load
+      was NOT weakened, special-cased or given a fallback field.
+    threshold_values_changed: none
+    downstream_identity_audit: >-
+      every profile, bank-lock and selector identity derives from
+      threshold_identity(profile.thresholds), which hashes the profile's own
+      values. No downstream consumer ever bound the calibrator-fitted SHA, so no
+      field was renamed.
+    known_and_recorded: >-
+      derive_profile rounds to 12 decimals (frozen, pre-existing), so the NOMINAL
+      PROFILE identity is a hash of values rounded at 1e-12 and is NOT equal to
+      the calibration artifact's threshold_sha256. They are different hashes of
+      different objects; recorded so nobody later assumes they must match. The
+      rounding was not changed.
+    profile_source_label: >-
+      "source_train NOMINAL fitted at C6" became inaccurate after inheritance and
+      is now NOMINAL_SOURCE_LABEL. It is provenance metadata only —
+      threshold_identity hashes the threshold VALUES — and a test proves two
+      different labels yield identical profile identities.
+    invalid_gpu_artifact: >-
+      archive_superseded_calibration copies any existing QUALITY_CALIBRATION.json
+      byte-for-byte to reports/full/c6/superseded/, binds its SHA-256 and reason
+      into the replacement, and records archived_was_self_consistent=false and
+      is_scientific_lock=false. The invalid artifact is preserved as diagnostic
+      evidence and never treated as a lock. It was not hand-edited.
+    onnxruntime_warnings: >-
+      the GPU log emitted repeated SCRFD "Expected shape … does not match actual
+      shape" warnings. They did NOT cause this failure — calibration completed and
+      execution advanced past it. Recorded as an operational observation; SCRFD
+      input size, provider and model are unchanged. A separate audit is warranted
+      only if detector outputs later prove malformed.
+
   # --- reporting-only: the C3 blocker line -----------------------------------
   c3_blocker_line:
     status: STALE_GLOBAL_REPORTING_STATE
