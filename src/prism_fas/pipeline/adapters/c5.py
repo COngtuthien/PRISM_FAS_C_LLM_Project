@@ -1258,6 +1258,11 @@ def verify_c5_candidates(candidate_root: Path,
     per_arm: dict[str, dict[str, Any]] = {}
     problems: list[dict[str, Any]] = []
     generated = semantic_failed = runtime_unresolved = 0
+    # The identity set C6's provenance closure needs. Collected HERE, while every
+    # planned slot is already being validated, so the ids are the ones the strict
+    # verifier itself accepted as terminal semantic failures — never a list
+    # copied from a lock, and never inferred from a missing gate decision.
+    semantic_failed_ids: dict[str, list[str]] = {}
 
     def _problem(arm: str, candidate_id: str, reason: str, **detail: Any) -> None:
         if len(problems) < 32:
@@ -1299,6 +1304,8 @@ def verify_c5_candidates(candidate_root: Path,
                     counts["semantic_failed"] += 1
                     counts["semantic_failed_by_route"][route] += 1
                     semantic_failed += 1
+                    semantic_failed_ids.setdefault(arm, []).append(
+                        identity.candidate_id)
                 else:
                     counts["invalid"] += 1
                     _problem(arm, identity.candidate_id, "INVALID_FAILURE_RECORD",
@@ -1337,8 +1344,12 @@ def verify_c5_candidates(candidate_root: Path,
         and counts["planned_by_route"][GPAT] == expected_per_route
         for counts in per_arm.values())
 
+    by_arm_ids = {arm: sorted(ids) for arm, ids in sorted(semantic_failed_ids.items())}
     return {"planned": planned, "terminal": terminal, "generated": generated,
             "semantic_failed": semantic_failed,
+            "semantic_failed_candidate_ids": sorted(
+                candidate_id for ids in by_arm_ids.values() for candidate_id in ids),
+            "semantic_failed_candidate_ids_by_arm": by_arm_ids,
             "runtime_unresolved": runtime_unresolved,
             "per_arm": per_arm, "problems": problems,
             "expected_per_arm": CANDIDATES_PER_ARM,
@@ -1459,6 +1470,21 @@ def verify_c5_synthesis_lock(repo: Path, lock_path: Path) -> dict[str, Any]:
         candidate_root=str(payload.get("candidate_root", "")),
         rule="the bytes are re-read and re-hashed; hashing the recorded hashes "
              "would agree with itself after the file had been replaced"))
+    # The lock's historical id list must name the same candidates the verifier
+    # just re-derived. Compared as SETS: the lock caps its own list for
+    # readability and its order is a representation detail, so an ordering or
+    # truncation difference is not a disagreement about which candidates failed.
+    locked_ids = set(payload.get("failed_candidate_ids") or [])
+    derived_ids = set(candidates["semantic_failed_candidate_ids"])
+    checks.append(check(
+        "c5_lock_failure_ids_agree_with_the_pool",
+        not (locked_ids - derived_ids),
+        "every semantic failure the lock names is one the verifier re-derived "
+        "from the records on disk",
+        locked=len(locked_ids), derived=len(derived_ids),
+        named_by_lock_but_not_derived=sorted(locked_ids - derived_ids)[:16],
+        note="the lock truncates its own list, so derived may legitimately "
+             "exceed locked; the reverse would be a real disagreement"))
     checks.append(check(
         "c5_lock_counts_match_the_pool",
         int(payload.get("generated", -1)) == candidates["generated"]

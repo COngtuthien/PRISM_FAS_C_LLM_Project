@@ -387,7 +387,13 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
                 f"profile {profile.name!r} executes stage adapters, and the requested range "
                 f"includes stages that have none: {', '.join(unadapted)}. Those stages are "
                 "BLOCKED; the adapted ones still ran and their evidence is preserved.")
-        if profile.name == "full":
+        # Reporting only — `blockers` becomes `notes` on the state record and a
+        # field in the report, and nothing branches on it. It was emitted for
+        # every full-profile invocation regardless of the requested range, so a
+        # scoped `--from C5 --to C6` run printed a C3 blocker it could not act
+        # on. Now it appears only when C3 is actually in range. The C3 gate
+        # itself is untouched: no C3 artifact, lock or authorization changed.
+        if profile.name == "full" and any(stage.stage_id == "C3" for stage in selected):
             blockers.append(
                 "C3 live scientific generation remains gated on user approval of the "
                 "superseding bank-contract lock, a materialized quota snapshot and an "

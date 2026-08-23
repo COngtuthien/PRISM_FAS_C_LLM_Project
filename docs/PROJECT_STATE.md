@@ -1232,6 +1232,88 @@ c5_source_pair_plan_freeze:
                        crop_padding_interpolation]
       no_legitimate_population: [benign_glasses_makeup_lowlight]   # stays BLOCKED
 
+  # --- FIXED: C6 provenance closure accounting --------------------------------
+  c6_provenance_closure:
+    status: FIXED
+    fixed_on: 2026-08-23
+    defect: >-
+      _build_matched_banks passed [] where provenance_closure expects
+      semantic_failure_ids. candidate_pool() is built from the frozen PLAN, so
+      its keys include every planned slot including the ones that ended in a
+      terminal SemanticGenerationFailure. Those slots have no payload, are never
+      measured and carry no gate decision, so with an empty failure set they were
+      in `planned` but never in `covered` and closed was False. All three bank
+      locks failed for that reason.
+    confirmed_before_editing: >-
+      reproduced with a production-shaped fixture: semantic_failure_ids=[] gives
+      closed=False with the failed id in `unaccounted`; the actual ids give
+      closed=True. No scientific selection was altered to make it pass.
+    fix: >-
+      verify_c5_candidates now returns semantic_failed_candidate_ids and
+      semantic_failed_candidate_ids_by_arm, re-derived while it already validates
+      every planned slot — so the ids are the ones the strict verifier itself
+      accepted, never copied from a lock and never inferred from a missing gate
+      decision. _verify_c5_pool carries them in state and _build_matched_banks
+      passes the per-arm set.
+    lock_consistency_check: >-
+      the C5 lock's historical failed_candidate_ids are compared as SETS against
+      the re-derived set, because the lock truncates its own list and its order
+      is a representation detail. Derived may legitimately exceed locked; the
+      reverse is a real disagreement.
+    partition_contract: >-
+      the frozen planned schedule must partition EXACTLY into selected +
+      accepted_not_selected + rejected + semantic_failed, pairwise disjoint,
+      unioning to all planned ids, with selected subset of accepted and no
+      semantic failure carrying a gate decision. Overlaps and decision-carrying
+      failures are now reported and refuse closure.
+    result_invariance: >-
+      provenance accounting is a pure reader. Profile thresholds, profile order,
+      the selection rule, candidate metrics, gate decisions, q, selector V1,
+      source-domain quotas, exposure priorities, selected candidate ids,
+      selected_set_sha256, selector identity and the C5 bytes are all unchanged.
+      A production-path test re-runs the selector and asserts identical selected
+      sets and quotas.
+    strict_verifier: unchanged. The producer was made truthful, exactly as with
+      the earlier FrozenCalibration hash defect.
+
+  # --- ENGINEERING NEGATIVE EVIDENCE: the C6 lock-verification run ------------
+  c6_lock_verification_run_2026_08_23:
+    stage: C6
+    scientific_progress:
+      profile_assessment: VALID
+      profile_selection: VALID
+      matched_bank_construction: VALID
+    final_status: BLOCKED at VERIFY_C6_LOCKS
+    failed_checks: [c6_bank_lock_rnd_verifies, c6_bank_lock_det_verifies,
+                    c6_bank_lock_llm_verifies]
+    category: ENGINEERING_PROVENANCE_ACCOUNTING_FAILURE
+    scientific_negative_result: false
+    paper_use: reproducibility / provenance / fail-closed methodology evidence
+    note: >-
+      the selected profile and the matched banks are NOT a scientific failure.
+      The failed bank-lock artifacts are retained; a corrected run supersedes
+      them under the existing archive policy with SHA-256 and reason.
+    target_access: 0
+    onnx_warnings: >-
+      the SCRFD VerifyOutputSizes warnings did not cause this failure; detector
+      model, input size and provider unchanged.
+
+  # --- FIXED (reporting only): the stale C3 blocker line ----------------------
+  c3_blocker_line_reporting_fix:
+    status: FIXED_REPORTING_ONLY
+    finding: >-
+      the "C3 live scientific generation remains gated" line was appended for
+      every full-profile invocation and never consulted the requested stage
+      range, so a scoped --from C5 --to C6 run printed it too.
+    execution_impact: >-
+      none. `blockers` becomes `notes` on the state record and a report field;
+      nothing in the orchestrator branches on it. Verified by grep for
+      `if blockers` / `not blockers` / `len(blockers)` — no such branch exists.
+    fix: the line is emitted only when C3 is actually in the selected range.
+    not_touched: >-
+      no C3 artifact, lock, authorization flag or scientific evidence was
+      changed, and C3 was not reopened.
+
   # --- FIXED: C6 gate-profile threshold type contract -------------------------
   c6_threshold_type_contract:
     status: FIXED

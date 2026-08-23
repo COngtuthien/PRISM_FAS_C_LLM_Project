@@ -612,6 +612,12 @@ class C6Adapter(EngineeringAdapter):
             "plans": verification["current"]["plans"],
             "pool_counts": candidates,
             "candidate_root": request.repo / str(payload.get("candidate_root", "")),
+            # Positively verified terminal semantic failures, per arm. C6's
+            # provenance closure uses these and nothing else — an absent gate
+            # decision is not evidence of a semantic failure, it could equally be
+            # a pipeline defect.
+            "semantic_failure_ids_by_arm": dict(
+                candidates.get("semantic_failed_candidate_ids_by_arm") or {}),
             "c5_pool_lock_sha256": _sha256_file(request.repo / relative),
             "selectable": science_module().candidate_pool(verification["current"]["plans"]),
         })
@@ -1233,7 +1239,8 @@ class C6Adapter(EngineeringAdapter):
             selected_ids = [row["candidate_id"] for row in bank["selected"]]
             closure = science.provenance_closure(
                 list(state["selectable"][arm]),
-                [], state["decisions"][profile][arm], selected_ids)
+                state["semantic_failure_ids_by_arm"].get(arm, []),
+                state["decisions"][profile][arm], selected_ids)
             artifacts.append(write_artifact(
                 request, reports / f"C6_BANK_LOCK_{arm}.json",
                 {**science.bank_lock_payload(

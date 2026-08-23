@@ -420,13 +420,42 @@ def provenance_closure(pool_candidate_ids: Sequence[str],
 
     not_selected = accepted - selected
     covered = selected | not_selected | rejected | failures
+
+    # The partition, proved rather than counted. The four classes must be
+    # pairwise disjoint and must union to exactly the planned schedule: no
+    # planned candidate silently lost, and none in two classes at once.
+    classes = {"selected": selected, "accepted_not_selected": not_selected,
+               "rejected": rejected, "semantic_failed": failures}
+    overlaps: dict[str, list[str]] = {}
+    names = sorted(classes)
+    for index, left in enumerate(names):
+        for right in names[index + 1:]:
+            shared = classes[left] & classes[right]
+            if shared:
+                overlaps[f"{left}&{right}"] = sorted(shared)[:16]
+
+    # A semantic failure has no payload, so it can never have been measured and
+    # can never carry a gate decision. One that does means the two evidence
+    # sources disagree about what happened to that candidate.
+    decided = accepted | rejected
+    failures_with_decisions = sorted(failures & decided)
+
+    partitioned = (covered == planned and not overlaps
+                   and not failures_with_decisions
+                   and not (selected - accepted))
     return {"planned": len(planned), "selected": len(selected),
             "accepted_not_selected": len(not_selected),
             "rejected": len(rejected), "semantic_failed": len(failures),
             "covered": len(covered),
-            "closed": covered == planned and not (selected - accepted),
+            "closed": partitioned,
+            "pairwise_disjoint": not overlaps,
+            "category_overlaps": overlaps,
+            "semantic_failures_carrying_a_gate_decision": failures_with_decisions[:16],
             "unaccounted": sorted(planned - covered)[:32],
             "selected_outside_accepted": sorted(selected - accepted)[:32],
+            "partition": ("the frozen planned schedule partitions exactly into "
+                          "selected + accepted_not_selected + rejected + "
+                          "semantic_failed, pairwise disjoint"),
             "rule": ("no loser cleanup: rejected candidates, accepted-but-not-"
                      "selected candidates and C5 semantic failures are all "
                      "retained and addressable")}
