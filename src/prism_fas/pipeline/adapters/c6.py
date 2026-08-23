@@ -863,6 +863,30 @@ class C6Adapter(EngineeringAdapter):
             threshold_identities=identities,
             rule="§11.4: thresholds remain COMMON across RND/DET/LLM; no arm may "
                  "be relaxed independently"))
+        superseded_profiles = archive_superseded_artifact(
+            request, reports / "C6_GATE_PROFILES.json",
+            reason=("superseded by the §11.4 profile numeric-identity correction: "
+                    "derive_profile quantized every threshold at the twelfth "
+                    "decimal, so the NOMINAL profile did not contain the exact "
+                    "inherited Version-B values"))
+        if superseded_profiles is not None:
+            checks.append(check(
+                "c6_superseded_profiles_archived", True,
+                "the previous gate profiles were archived byte-for-byte; they are "
+                "diagnostic evidence and not valid scientific input",
+                **superseded_profiles))
+
+        checks.append(check(
+            "c6_nominal_profile_preserves_the_inherited_values_exactly",
+            profiles["NOMINAL"].thresholds == dict(nominal),
+            "the NOMINAL profile is the assembled §11.4 NOMINAL value for value, "
+            "with no rounding or quantization step",
+            nominal_profile=profiles["NOMINAL"].thresholds,
+            assembled_nominal=dict(nominal),
+            rule="§11.4 specifies the STRICT/PERMISSIVE formulas and nothing "
+                 "else; an inherited NOMINAL must survive the profile builder "
+                 "unchanged"))
+
         artifact = write_artifact(request, reports / "C6_GATE_PROFILES.json", {
             "schema_version": "c6-gate-profiles-v1", "generated_at_utc": utc(),
             "mode": BUILD_COMMON_PROFILES,
@@ -1206,6 +1230,35 @@ QUALITY_BACKEND_DEVICE_AUDIT: tuple[str, ...] = (
     "gpat_trainer.resolve_device is availability-based ('cuda if available'), "
     "which is an operational helper rather than a scientific policy",
 )
+
+
+def archive_superseded_artifact(request: AdapterRequest, path: Path, *,
+                                reason: str) -> dict[str, Any] | None:
+    """Copy an existing artifact byte-for-byte before it is replaced.
+
+    L.8 forbids winner-only cleanup, and a superseded artifact from a real run is
+    evidence about that run. It is preserved as a diagnostic and never as a
+    scientific lock.
+    """
+    import hashlib
+    import shutil
+
+    path = Path(path)
+    if not path.is_file():
+        return None
+    original = path.read_bytes()
+    digest = hashlib.sha256(original).hexdigest()
+    previous = read_json(path) or {}
+    archive = path.parent / "superseded" / f"{path.stem}_{digest[:16]}.json"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if not archive.exists():
+        shutil.copyfile(path, archive)
+    return {"archived_artifact": archive.relative_to(request.repo).as_posix(),
+            "archived_sha256": digest,
+            "archived_schema_version": previous.get("schema_version"),
+            "archived_generated_at_utc": previous.get("generated_at_utc"),
+            "is_scientific_lock": False, "reason": reason,
+            "candidates_modified": False}
 
 
 def archive_superseded_calibration(request: AdapterRequest,

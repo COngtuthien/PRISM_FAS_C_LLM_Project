@@ -1039,12 +1039,12 @@ c5_source_pair_plan_freeze:
       threshold_identity(profile.thresholds), which hashes the profile's own
       values. No downstream consumer ever bound the calibrator-fitted SHA, so no
       field was renamed.
-    known_and_recorded: >-
-      derive_profile rounds to 12 decimals (frozen, pre-existing), so the NOMINAL
-      PROFILE identity is a hash of values rounded at 1e-12 and is NOT equal to
-      the calibration artifact's threshold_sha256. They are different hashes of
-      different objects; recorded so nobody later assumes they must match. The
-      rounding was not changed.
+    superseded_note: >-
+      an earlier revision recorded the 12-decimal profile rounding as expected
+      behaviour. It was corrected in C6_PROFILE_NUMERIC_IDENTITY below: the
+      rounding is gone and the NOMINAL profile now equals the inherited values
+      exactly, so the profile values identity, the calibration threshold_sha256
+      and Version-B's threshold hash all coincide.
     profile_source_label: >-
       "source_train NOMINAL fitted at C6" became inaccurate after inheritance and
       is now NOMINAL_SOURCE_LABEL. It is provenance metadata only —
@@ -1062,6 +1062,58 @@ c5_source_pair_plan_freeze:
       execution advanced past it. Recorded as an operational observation; SCRFD
       input size, provider and model are unchanged. A separate audit is warranted
       only if detector outputs later prove malformed.
+
+  # --- FIXED: C6 §11.4 profile numeric identity -------------------------------
+  c6_profile_numeric_identity:
+    status: FIXED
+    fixed_on: 2026-08-23
+    defect: >-
+      gate_profiles.derive_profile ended with round(value, 12) + 0.0, applied to
+      NOMINAL, STRICT and PERMISSIVE alike. §11.4 specifies four formulas and a
+      range-safe exemption and no rounding, and for an inherited metric NOMINAL
+      must be the Version-B threshold EXACTLY. The quantization turned tau_id
+      0.547440037939055 into 0.547440037939, so the NOMINAL profile no longer
+      contained the value it is required to inherit.
+    origin: >-
+      commit f8d5a5f (2026-08-17), the C0-C13 engineering-readiness milestone.
+      It predates every scientific executor and the §11.4 inheritance
+      reconciliation. NOMINAL was fixture-derived then, so the rounding was
+      cosmetic; it became result-affecting only once NOMINAL became an exact
+      inherited value.
+    fix: >-
+      return {name: float(value) + 0.0 ...}. No replacement rounding, Decimal
+      quantization, string formatting, epsilon or nextafter. The trailing
+      "+ 0.0" is retained solely to canonicalize -0.0; it is exact for every
+      other float and a test proves it changes no inherited value bit-for-bit.
+    numeric_contract:
+      NOMINAL: exact assembled value, no quantization
+      higher_is_better_STRICT: a + 0.10 * (1.0 - a)
+      higher_is_better_PERMISSIVE: max(0.0, 0.90 * a)
+      lower_is_better_STRICT: 0.90 * a
+      lower_is_better_PERMISSIVE: 1.10 * a
+      RANGE_SAFE: exact original value, never profiled
+    identity_consequences:
+      nominal_profile_equals_inherited: true      # value for value
+      threshold_values_identity: >-
+        threshold_identity(NOMINAL profile) == Thresholds.from_dict(INHERITED).sha256()
+        == VERSION_B_THRESHOLD_SHA256 == the calibration artifact threshold_sha256.
+        Four names for one hash of one set of values, so agreement is legitimate
+        rather than forced.
+      gate_profile_identity: >-
+        GateProfile.identity additionally binds the profile NAME, so it is a hash
+        of a structurally different object and remains different from the
+        threshold-values identity. Not forced equal; STRICT, NOMINAL and
+        PERMISSIVE keep three distinct GateProfile identities.
+      strict_permissive_identities_changed: >-
+        yes, relative to the pre-fix implementation. No valid scientific C6
+        evidence is invalidated: no candidate was ever evaluated, no acceptance
+        count observed, no profile selected and no matched bank built.
+    superseded_artifacts: >-
+      archive_superseded_artifact copies any pre-fix C6_GATE_PROFILES.json
+      byte-for-byte to reports/full/c6/superseded/, binds its SHA and reason, and
+      marks it is_scientific_lock=false. A pre-fix profiles artifact is
+      diagnostic evidence and is not valid scientific input for the corrected
+      executor.
 
   # --- reporting-only: the C3 blocker line -----------------------------------
   c3_blocker_line:

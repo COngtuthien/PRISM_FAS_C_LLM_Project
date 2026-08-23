@@ -89,7 +89,16 @@ def derive_profile(nominal: Mapping[str, float], profile: str) -> dict[str, floa
             raise GateProfileError(
                 f"threshold {name!r} has no declared direction; §11.4 cannot derive a "
                 "profile for a metric whose better-is-higher/lower semantics are unknown")
-    return {name: round(value, 12) + 0.0 for name, value in values.items()}
+    # No rounding. §11.4 specifies the formulas and nothing else, and NOMINAL
+    # must be the inherited Version-B threshold EXACTLY: quantizing at the
+    # twelfth decimal turned tau_id 0.547440037939055 into 0.547440037939, so
+    # the NOMINAL profile stopped containing the value it is required to inherit.
+    # The rounding was cosmetic when it was written — NOMINAL was fixture-derived
+    # then — and only became result-affecting once §11.4 inheritance landed.
+    #
+    # `+ 0.0` is kept solely to canonicalize a -0.0 into 0.0. It is exact for
+    # every other float, so it changes no nonzero threshold.
+    return {name: float(value) + 0.0 for name, value in values.items()}
 
 
 @dataclass(frozen=True)

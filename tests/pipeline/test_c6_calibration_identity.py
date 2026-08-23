@@ -264,29 +264,44 @@ def test_the_label_enters_no_threshold_identity() -> None:
                 == threshold_identity(two[name].thresholds))
 
 
-def test_the_nominal_profile_matches_the_calibration_to_the_frozen_rounding() -> None:
-    """The two NOMINAL identities are close but NOT equal, and that is expected.
+def test_the_nominal_profile_identity_equals_the_final_threshold_hash() -> None:
+    """Now exact, and it has to be.
 
-    `derive_profile` returns `round(value, 12)`, which is frozen behaviour that
-    predates this milestone, so the NOMINAL PROFILE carries values rounded at the
-    twelfth decimal while the calibration artifact carries the inherited values
-    unrounded. The difference is ~1e-13 and below any measurement resolution, but
-    it means `quality_threshold_identity` and the calibration's
-    `threshold_sha256` are different hashes of different objects. Recorded here
-    so nobody later assumes they must match; the rounding is not changed.
+    An earlier `derive_profile` quantized every threshold at the twelfth
+    decimal, so the NOMINAL PROFILE carried 0.547440037939 where the inherited
+    tau_id is 0.547440037939055 — the profile no longer contained the value
+    §11.4 requires it to inherit. With the rounding gone the profile, the
+    calibration artifact and Version-B's own threshold hash all agree, because
+    all three are hashes of the same values.
     """
     from prism_fas.synthesis.c6_scientific import (build_common_profiles,
                                                    threshold_identity)
 
     profiles = build_common_profiles(INHERITED_NOMINAL,
                                      nominal_source=c6_module.NOMINAL_SOURCE_LABEL)
-    profile_nominal = dict(profiles["NOMINAL"].thresholds)
 
-    for name, value in INHERITED_NOMINAL.items():
-        assert profile_nominal[name] == pytest.approx(value, abs=1e-12), name
-    assert profile_nominal == {name: round(value, 12) + 0.0
-                               for name, value in INHERITED_NOMINAL.items()}
-    assert threshold_identity(profiles["NOMINAL"].thresholds) != VERSION_B_THRESHOLD_SHA256
+    assert dict(profiles["NOMINAL"].thresholds) == INHERITED_NOMINAL
+    assert threshold_identity(profiles["NOMINAL"].thresholds) == VERSION_B_THRESHOLD_SHA256
+    assert (threshold_identity(profiles["NOMINAL"].thresholds)
+            == Thresholds.from_dict(INHERITED_NOMINAL).sha256())
+
+
+def test_the_gate_profile_identity_is_a_different_object_and_stays_different() -> None:
+    """`GateProfile.identity` binds the profile NAME as well as the values.
+
+    So it is not the threshold-values identity and must not be forced to equal
+    it — STRICT and NOMINAL would otherwise be indistinguishable whenever their
+    values coincided.
+    """
+    from prism_fas.synthesis.c6_scientific import (build_common_profiles,
+                                                   threshold_identity)
+
+    profiles = build_common_profiles(INHERITED_NOMINAL, nominal_source="x")
+    values_identity = threshold_identity(profiles["NOMINAL"].thresholds)
+
+    assert profiles["NOMINAL"].identity != values_identity
+    assert len({profiles[name].identity for name in ("STRICT", "NOMINAL",
+                                                     "PERMISSIVE")}) == 3
 
 
 # --- no downstream consumer binds the fitted identity -------------------------
