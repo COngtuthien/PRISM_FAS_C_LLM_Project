@@ -245,6 +245,10 @@ GATED_LAZY_IMPORTS = {
     ("adapters/common.py", "torch"),
     ("adapters/c4.py", "torch"),
     ("adapters/c5.py", "torch"),
+    # C6 imports torch lazily for exactly two things: to REFUSE when the frozen
+    # CUDA quality-backend family is absent, and to record GPU run provenance
+    # beside the frozen family. It never selects a device with it.
+    ("adapters/c6.py", "torch"),
     ("adapters/c7.py", "torch"),
     ("adapters/c8.py", "torch"),
     ("adapters/c11.py", "prism_fas.evaluation.target_prediction"),

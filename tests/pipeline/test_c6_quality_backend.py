@@ -91,15 +91,25 @@ class _Recorder:
         self.calls.append((weight_root, dict(kwargs)))
         return self
 
+    def manifest(self) -> dict[str, Any]:
+        """The real backend records its pinned models; so does the double."""
+        return {"models": {}}
 
-def _run(root: Path, monkeypatch, *, device: str | None = "cpu",
-         binding_ok: bool = True, backend=None, fit=None) -> Any:
-    """Drive `_fit_nominal_calibration` with the expensive parts replaced."""
+
+def _run(root: Path, monkeypatch, *, device: str | None = "cuda",
+         cuda: bool = True, binding_ok: bool = True, backend=None,
+         fit=None) -> Any:
+    """Drive `_fit_nominal_calibration` with the expensive parts replaced.
+
+    `cuda` stands in for the host: the frozen family is CUDA, so a CPU test
+    machine would otherwise block before reaching the boundary under test.
+    """
     reports = root / "reports" / "full" / "c6"
     reports.mkdir(parents=True, exist_ok=True)
     (root / "configs" / "synthesis").mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(c6_module, "FROZEN_QUALITY_BACKEND_DEVICE", device)
+    monkeypatch.setattr(c6_module, "_cuda_present", lambda: cuda)
     monkeypatch.setattr(c6_module, "_verify_quality_model_binding",
                         lambda weight_root: {"ok": binding_ok,
                                              "roles": ["identity", "parsing", "detector"],
@@ -132,7 +142,7 @@ def test_the_production_method_constructs_the_backend_with_the_weight_root(
     weight_root, kwargs = recorder.calls[0]
     assert Path(weight_root) == tmp_path / "weights"
     assert list(kwargs) == ["device"], "the device is passed explicitly"
-    assert kwargs["device"] == "cpu"
+    assert kwargs["device"] == "cuda"
     assert result.status_axes.engineering != "BLOCKED"
     assert state["backends"] is recorder
 
@@ -163,7 +173,14 @@ def test_a_successful_fit_writes_the_calibration_as_a_c6_output(
     payload = json.loads((reports / "QUALITY_CALIBRATION.json")
                          .read_text(encoding="utf-8"))
 
-    assert payload["thresholds"] == fitted["thresholds"]
+    from prism_fas.synthesis.c6_threshold_inheritance import INHERITED_NOMINAL
+
+    # §11.4: the written thresholds are the assembled inherited set, and the
+    # calibrator's own fitted map is kept beside it as evidence, not as the gate.
+    assert payload["thresholds"] == INHERITED_NOMINAL
+    assert payload["calibrator_fitted_thresholds"] == fitted["thresholds"]
+    assert payload["quality_backend_device_family"] == "cuda"
+    assert payload["target_access"] == 0
     assert payload["split"] == "source_train"
     assert payload["is_scientific_lock"] is True
     assert state["calibration_path"] == reports / "QUALITY_CALIBRATION.json"
@@ -274,9 +291,12 @@ def test_the_device_is_never_defaulted_from_the_constructor_signature() -> None:
 def test_the_device_is_never_inferred_from_availability() -> None:
     source = inspect.getsource(c6_module._quality_backend_device)
 
-    for forbidden in ("cuda.is_available", "resolve_device", "torch"):
-        assert forbidden not in source, forbidden
     assert "FROZEN_QUALITY_BACKEND_DEVICE" in source
+    assert "resolve_device" not in source
+    # Availability is consulted only to REFUSE. There is no branch that picks a
+    # second device, so no CPU string appears at all.
+    assert '"cpu"' not in source and "'cpu'" not in source
+    assert "_cuda_present()" in source and "raise" in source
 
 
 def test_the_frozen_device_is_passed_straight_through(

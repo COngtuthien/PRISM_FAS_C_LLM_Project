@@ -618,8 +618,7 @@ class C6Adapter(EngineeringAdapter):
             checks.append(check(
                 "c6_quality_backend_device_is_frozen", False,
                 "the quality-backend execution device is not fixed by any frozen "
-                "contract, and CPU vs CUDA is result-affecting for the fitted "
-                "percentiles",
+                "contract, and CPU vs CUDA is result-affecting",
                 reason_code=error.reason_code, error=str(error),
                 audited=error.audited))
             state["halt"] = True
@@ -629,11 +628,32 @@ class C6Adapter(EngineeringAdapter):
                 summary="C6 cannot calibrate: the quality-backend device is "
                         "NEEDS_SCIENTIFIC_DECISION",
                 error_type=type(error).__name__, detail=str(error))
+        except QualityBackendDeviceUnavailable as error:
+            checks.append(check(
+                "c6_quality_backend_device_is_present", False,
+                "the frozen CUDA device family is not available on this host",
+                reason_code=error.reason_code, error=str(error),
+                fallback_to_cpu=False))
+            state["halt"] = True
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code=error.reason_code,
+                summary="C6 cannot measure: the frozen CUDA backend is absent "
+                        "and no CPU fallback is permitted",
+                error_type=type(error).__name__, detail=str(error))
 
+        provenance = quality_backend_provenance(device)
+        state["backend_device"] = device
+        state["backend_provenance"] = provenance
         checks.append(check(
             "c6_quality_backend_device_is_frozen", True,
-            "the quality-backend execution device comes from a frozen contract",
-            device=device))
+            f"the quality-backend device family is frozen at {device!r} and was "
+            f"not chosen from availability",
+            device=device, frozen_family=FROZEN_QUALITY_BACKEND_DEVICE,
+            run_provenance=provenance,
+            rule="the family is the contract; the GPU model, driver and library "
+                 "versions are run provenance, and no bitwise reproduction "
+                 "across NVIDIA models is claimed"))
         try:
             # The canonical construction API. `QualityBackends` has no `resolve`;
             # the classmethod that does is `QualityModelRegistry.resolve`, used
@@ -649,13 +669,68 @@ class C6Adapter(EngineeringAdapter):
                 summary="C6 could not fit its own source_train calibration",
                 error_type=type(error).__name__, detail=str(error))
 
+        # §11.4 assembles NOMINAL metric by metric. The calibrator's own fitted
+        # thresholds are the SOURCE-DERIVED branch and are used only for a metric
+        # with no semantically compatible inherited Version-B threshold. Today
+        # every metric has one, so the calibration run supplies the population
+        # evidence and the fingerprint reference while the thresholds inherit.
+        from prism_fas.synthesis import c6_threshold_inheritance as inheritance
+
+        try:
+            nominal, threshold_provenance = inheritance.assemble_nominal(
+                payload.get("thresholds"))
+        except inheritance.ThresholdInheritanceError as error:
+            state["halt"] = True
+            return self._calibration_blocked(
+                request, reports, checks, substage=FIT_NOMINAL_CALIBRATION,
+                reason_code="THRESHOLD_INHERITANCE_INVALID",
+                summary="C6 could not assemble the §11.4 NOMINAL threshold set",
+                error_type=type(error).__name__, detail=str(error))
+
+        verification = inheritance.verify_version_b_artifact(
+            request.repo.parent / "PRISM_FAS_B_Project")
+        threshold_provenance["version_b_reverification"] = verification
+
         state["backends"] = backends
-        state["calibration"] = payload
+        state["calibration"] = {**payload, "thresholds": nominal}
+        state["nominal"] = nominal
+        state["threshold_provenance"] = threshold_provenance
+
         checks.append(check(
-            "c6_nominal_fitted", True,
-            "NOMINAL was fitted from the source_train benign population at C6",
-            fitter="prism_fas.synthesis.quality_calibration.calibrate (canonical)",
-            thresholds=sorted(payload.get("thresholds", {}))))
+            "c6_nominal_assembled_per_metric", True,
+            "NOMINAL is assembled metric by metric: the unique inherited "
+            "Version-B threshold where semantically compatible, the frozen "
+            "source-reference percentile only where none exists",
+            inherited=threshold_provenance["inherited"],
+            frozen_range_constraints=threshold_provenance["frozen_range_constraints"],
+            source_reference_derived=threshold_provenance["source_reference_derived"],
+            nominal_identity=threshold_provenance["nominal_identity_sha256"],
+            version_b_artifact=inheritance.VERSION_B_ARTIFACT,
+            version_b_artifact_sha256=inheritance.VERSION_B_ARTIFACT_SHA256,
+            version_b_commit=inheritance.VERSION_B_COMMIT))
+        checks.append(check(
+            "c6_inherited_thresholds_were_not_refitted",
+            all(nominal[name] == inheritance.INHERITED_NOMINAL[name]
+                for name in threshold_provenance["inherited"]),
+            "no inherited threshold was overwritten by the calibration run",
+            ignored_calibrator_values=threshold_provenance[
+                "calibrator_values_ignored_because_inherited"],
+            rule="refitting tau_id, tau_lm or tau_parse here would resurrect the "
+                 "v1 values Version B itself superseded"))
+        checks.append(check(
+            "c6_version_b_artifact_reverifies",
+            (not verification.get("available"))
+            or (verification.get("artifact_sha256_matches")
+                and verification.get("values_match")),
+            "the vendored Version-B thresholds match the frozen artifact where "
+            "the Version-B tree is mounted",
+            **verification))
+        checks.append(check(
+            "c6_source_reference_still_computed", bool(payload.get("thresholds")),
+            "the source_train reference distributions were still computed; they "
+            "supply the fingerprint reference and the population evidence, and "
+            "would supply any metric that had no inherited threshold",
+            calibrator_thresholds=sorted(payload.get("thresholds", {}))))
         checks.append(check(
             "c6_calibration_is_an_output_not_an_input",
             "quality_calibration" not in {item.name for item in self.required_inputs()},
@@ -663,10 +738,21 @@ class C6Adapter(EngineeringAdapter):
             rule="requiring the fitted file first would make C6 depend on itself "
                  "and invite a hand-written scientific threshold"))
         artifact = write_artifact(request, reports / "QUALITY_CALIBRATION.json", {
-            "schema_version": "c6-quality-calibration-v1", "generated_at_utc": utc(),
+            "schema_version": "c6-quality-calibration-v2", "generated_at_utc": utc(),
             "mode": FIT_NOMINAL_CALIBRATION, "is_scientific_lock": True,
             "package_identity": state["package_identity"], "split": "source_train",
-            **payload, "fixture_backed": False})
+            **payload,
+            # The assembled §11.4 set replaces the calibrator's own map, and the
+            # per-threshold provenance says which branch produced each value.
+            "thresholds": nominal,
+            "nominal_identity_sha256": threshold_provenance["nominal_identity_sha256"],
+            "threshold_provenance": threshold_provenance,
+            "calibrator_fitted_thresholds": payload.get("thresholds"),
+            "quality_backend_device_family": FROZEN_QUALITY_BACKEND_DEVICE,
+            "quality_backend_run_provenance": provenance,
+            "quality_models": payload.get("quality_models") or backends.manifest(),
+            "target_access": 0,
+            "fixture_backed": False})
         state["calibration_path"] = request.repo / artifact
         return self.result(request, mode=FIT_NOMINAL_CALIBRATION, checks=checks,
                            artifacts=[artifact])
@@ -1041,16 +1127,21 @@ class QualityBackendDeviceUndetermined(RuntimeError):
         self.audited = list(audited)
 
 
-#: Set only by an explicit, recorded user decision. Until then C6 fails closed
-#: rather than picking a device, because the choice is result-affecting.
+#: FROZEN by explicit user decision, preregistered before any C6 fitted
+#: threshold, candidate quality result, acceptance count, profile feasibility
+#: result or matched-bank result was observed.
 #:
-#: `QualityBackends` sends the SCRFD provider, FaceXFormer parsing and the
-#: AdaFace embedding to this device. Each tau is a percentile (p1/p99) over a
-#: population of those measurements, so a kernel difference between CPU and CUDA
-#: can move a threshold. Defaulting to the constructor's `device="cpu"` would be
-#: choosing by accident; defaulting to CUDA because the GPU host has one would
-#: be choosing by convenience.
-FROZEN_QUALITY_BACKEND_DEVICE: str | None = None
+#: This is the DEVICE FAMILY, not a machine. Version-B's quality calibration ran
+#: on the CUDA backend family and Version C stays in it for the corresponding
+#: measurements. The exact GPU model, driver, CUDA runtime and library versions
+#: are RUN PROVENANCE and are recorded per run — Version B measured on an L4 and
+#: the Version-C host is an RTX 5090, so no bitwise reproduction across NVIDIA
+#: models is claimed or implied.
+#:
+#: There is no availability-based fallback. `QualityBackends` routes the SCRFD
+#: provider, FaceXFormer parsing and the AdaFace embedding to this device, and
+#: silently dropping to CPU would change the measurements the gate is applied to.
+FROZEN_QUALITY_BACKEND_DEVICE: str | None = "cuda"
 
 #: What was searched, so the report says where the answer is not.
 QUALITY_BACKEND_DEVICE_AUDIT: tuple[str, ...] = (
@@ -1075,16 +1166,78 @@ QUALITY_BACKEND_DEVICE_AUDIT: tuple[str, ...] = (
 )
 
 
+class QualityBackendDeviceUnavailable(RuntimeError):
+    """The frozen device family is not present. C6 blocks; it never falls back."""
+
+    reason_code = "C6_QUALITY_BACKEND_DEVICE_UNAVAILABLE"
+
+
 def _quality_backend_device(request: AdapterRequest) -> str:
-    """The frozen execution device for the quality backends, or fail closed."""
-    if FROZEN_QUALITY_BACKEND_DEVICE:
-        return FROZEN_QUALITY_BACKEND_DEVICE
-    raise QualityBackendDeviceUndetermined(
-        "C6 quality-backend device is not fixed by any frozen contract. CPU and "
-        "CUDA send SCRFD, FaceXFormer and AdaFace down different kernels, and "
-        "each tau is a percentile over those measurements, so the choice is "
-        "result-affecting. Refusing to pick one.",
-        audited=list(QUALITY_BACKEND_DEVICE_AUDIT))
+    """The frozen execution device for the quality backends, or fail closed.
+
+    Two refusals, never a substitution. If no device is frozen the stage stops
+    rather than picking one; if the frozen family is absent on this host the
+    stage stops rather than dropping to CPU. `torch.cuda.is_available()` appears
+    here only to REFUSE — never to choose.
+    """
+    if not FROZEN_QUALITY_BACKEND_DEVICE:
+        raise QualityBackendDeviceUndetermined(
+            "C6 quality-backend device is not fixed by any frozen contract. CPU "
+            "and CUDA send SCRFD, FaceXFormer and AdaFace down different "
+            "kernels, and each tau is a percentile over those measurements, so "
+            "the choice is result-affecting. Refusing to pick one.",
+            audited=list(QUALITY_BACKEND_DEVICE_AUDIT))
+
+    device = FROZEN_QUALITY_BACKEND_DEVICE
+    if device.startswith("cuda") and not _cuda_present():
+        raise QualityBackendDeviceUnavailable(
+            f"the frozen C6 quality-backend device family is {device!r} and this "
+            "host exposes no CUDA device. C6 scientific measurement BLOCKS; it "
+            "does not fall back to CPU, because the gate would then be applied "
+            "to measurements from a different backend than the one frozen.")
+    return device
+
+
+def _cuda_present() -> bool:
+    try:
+        import torch
+
+        return bool(torch.cuda.is_available())
+    except Exception:                                    # noqa: BLE001
+        return False
+
+
+def quality_backend_provenance(device: str) -> dict[str, Any]:
+    """What actually executed, recorded beside the frozen family.
+
+    The family is the contract; this is the run. Version B measured on an L4 and
+    this will not, so the artifact says which machine produced which numbers
+    instead of implying they are interchangeable.
+    """
+    record: dict[str, Any] = {"frozen_device_family": FROZEN_QUALITY_BACKEND_DEVICE,
+                              "requested_device": device,
+                              "bitwise_reproduction_across_gpu_models_claimed": False}
+    try:
+        import torch
+
+        record["torch"] = torch.__version__
+        record["cuda_available"] = bool(torch.cuda.is_available())
+        if torch.cuda.is_available():
+            record["gpu_name"] = torch.cuda.get_device_name(0)
+            record["cuda_runtime"] = torch.version.cuda
+            record["cudnn"] = torch.backends.cudnn.version()
+            record["gpu_memory_gb"] = round(
+                torch.cuda.get_device_properties(0).total_memory / 1024 ** 3, 2)
+    except Exception as error:                           # noqa: BLE001
+        record["torch_probe_error"] = type(error).__name__
+    try:
+        import onnxruntime
+
+        record["onnxruntime"] = onnxruntime.__version__
+        record["onnxruntime_providers"] = list(onnxruntime.get_available_providers())
+    except Exception as error:                           # noqa: BLE001
+        record["onnxruntime_probe_error"] = type(error).__name__
+    return record
 
 
 def _verify_quality_model_binding(weight_root: Path) -> dict[str, Any]:

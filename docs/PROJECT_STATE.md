@@ -919,8 +919,19 @@ c5_source_pair_plan_freeze:
       not_chosen_by: >-
         runtime speed, RTX 5090 availability, the observed C5 outcome, which
         option makes C6 pass, or any downstream result. No device was picked.
-      current_behaviour: >-
-        FROZEN_QUALITY_BACKEND_DEVICE is None, so C6 BLOCKS at
+      RESOLVED_BY: user decision, 2026-08-23 — C6_QUALITY_BACKEND_DEVICE = "cuda"
+      resolution: >-
+        FROZEN by explicit user decision, preregistered BEFORE any C6 fitted
+        threshold, candidate quality result, acceptance count, profile
+        feasibility result or matched-bank result was observed, with
+        target_access = 0. "cuda" is the DEVICE FAMILY / execution contract; the
+        GPU model, driver, CUDA runtime and PyTorch/ORT versions are RUN
+        PROVENANCE and are recorded per run. No bitwise reproduction across
+        NVIDIA models is claimed (Version B measured on an L4; the Version-C host
+        is an RTX 5090). No availability-based fallback: if CUDA is absent C6
+        BLOCKS with C6_QUALITY_BACKEND_DEVICE_UNAVAILABLE and never drops to CPU.
+      superseded_behaviour: >-
+        FROZEN_QUALITY_BACKEND_DEVICE was None, so C6 BLOCKED at
         FIT_NOMINAL_CALIBRATION with reason_code
         C6_QUALITY_BACKEND_DEVICE_NEEDS_SCIENTIFIC_DECISION and the audit list
         above. Setting that constant is the whole of the implementation once the
@@ -932,6 +943,62 @@ c5_source_pair_plan_freeze:
         threshold fresh. Whether C6 should inherit the six frozen Version-B taus
         instead is a SEPARATE question, not touched by this hotfix, and it would
         change how much the device choice affects.
+
+  # --- RECONCILED: §11.4 NOMINAL threshold inheritance -----------------------
+  c6_threshold_inheritance:
+    status: RECONCILED
+    decided_on: 2026-08-23
+    rule: >-
+      §11.4: for each gate metric NOMINAL uses the unique inherited Version-B
+      threshold when semantically compatible; only a metric with no compatible
+      inherited threshold is derived from the frozen source reference
+      distribution. The first C6 executor fitted every NOMINAL fresh, which takes
+      the second branch unconditionally.
+    defect_it_prevented: >-
+      quality_calibration.calibrate recomputes tau_id as p1 benign
+      self-similarity (~0.9995), tau_lm as p99 benign (~0.00214) and tau_parse as
+      p1 benign (~0.87478). Those are precisely the v1 values Version B itself
+      examined and replaced, so refitting would have resurrected superseded
+      science.
+    version_b_supersession_chain:
+      v1: reports/m8/quality_calibration.json — the M8 base calibration
+      v2: >-
+        reports/m8/quality_calibration_v2.json — tau_id_v2 = max(tau_genuine,
+        tau_impostor); demotes v1's value to v1_tau_id_informational_only
+      v3: >-
+        reports/m8/quality_calibration_v3.json — tau_lm_v3, tau_parse_v3, with
+        tau_lm_v1_superseded and tau_parse_v1_superseded recorded, carrying the
+        rest forward as unchanged_from_v2
+    authoritative_artifact:
+      path: reports/m8/quality_calibration_v3.json
+      sha256: a21cb3e168ab04b1f1fc06b4cc311a12357316e68d2cfcdc6f82395aa08d4c2c
+      threshold_sha256: 8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19
+      version_b_commit: 7799f7decd35db6987ce4578824e5bd8d9eab4ae
+      unique_final_value_per_metric: true   # no metric required a choice
+    inherited_nominal:
+      tau_fd: 0.5                    # pinned SCRFD production threshold
+      tau_id: 0.547440037939055      # v2
+      tau_lm: 0.00836817528937794    # v3
+      tau_parse: 0.7094826178704915  # v3
+      tau_out: 0.0                   # FROZEN_RANGE_CONSTRAINT, never profiled
+      tau_fp: 5.687657785453908
+    compatibility_basis: >-
+      provable identity rather than name matching. quality_gate.py,
+      quality_calibration.py, quality_models.py, synthetic_bank.py,
+      identity_calibration.py, structural_calibration.py and fingerprint.py are
+      byte-identical between the frozen Version-B tree and Version C; the three
+      pinned models resolve to the same SHA-256s; and Version B calibrated on the
+      same M3B package (b1cf29b6…dc6). Same measurement code, same models, same
+      population, same comparators, same scale.
+    source_reference_derived: []      # every metric has a compatible inherited value
+    cross_check: >-
+      the assembled NOMINAL identity equals Version-B's own recorded
+      threshold_sha256, so the inheritance is exact rather than approximate.
+    note_on_derived_branch: >-
+      the source-reference percentile branch stays implemented and tested; a
+      future metric without an inherited threshold must take it. calibrate() is
+      still run, because it supplies the fingerprint reference and the population
+      evidence the evaluator needs — it simply no longer decides the thresholds.
 
   # --- reporting-only: the C3 blocker line -----------------------------------
   c3_blocker_line:
