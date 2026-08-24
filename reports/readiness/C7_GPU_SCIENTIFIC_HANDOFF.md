@@ -232,9 +232,9 @@ PYTHONUNBUFFERED=1 /usr/bin/python3 -u train.py \
 ```
 
 **C7 only. Never add C8 to this invocation.** Stop after C7 whatever the outcome
-— PASS, FAIL or BLOCKED. The C7 lock has to be audited before C8 is considered,
-and C8 additionally waits on a detector-reliability barrier that is not yet
-frozen.
+— PASS, FAIL or BLOCKED. The one thing standing between C7 PASS and C8 is the
+audit of the C7 lock; detector reliability is a *later* barrier and does not
+gate C8. See §13 for the sequencing.
 
 ---
 
@@ -399,13 +399,30 @@ A successful C7 run means **all** of:
   checkpoints on disk
 - `target_access = 0`
 
-**It does not mean C8 is ready to run.** Two things stand between C7 PASS and
-C8:
+**It does not mean C8 may be launched.** Exactly one thing stands between C7
+PASS and C8: the C7 lock must be **audited** off the returned artifacts, not
+merely observed to exist. A file appearing at the expected path is not the same
+claim as a verified frozen configuration, and C8 trains 42 rows at whatever that
+file names.
 
-1. the C7 lock must be audited off the returned artifacts, not merely observed to
-   exist;
-2. C9 is blocked on `DETECTOR_RELIABILITY_LOCK_C`, whose probe protocol, evidence
-   vector and seed count are still `NEEDS_SCIENTIFIC_DECISION` — and they may not
-   be chosen from C8 outcomes.
+### Where detector reliability actually sits
 
-C8 stays unauthorized until both are addressed.
+It is a **post-C8 / pre-C9** barrier. It does **not** gate C8.
+
+```
+C7    bounded search -> DETECTOR_CONFIG_LOCK
+      -> AUDIT the lock                        <- the only gate before C8
+C8    the source-only scientific matrix, 42 rows
+POST-C8 / PRE-C9
+      execute and freeze detector reliability,
+      including BA_sep once its remaining protocol decisions are frozen
+C9    requires a valid DETECTOR_RELIABILITY_LOCK_C
+      before SOURCE_MATRIX_LOCK_C may close
+```
+
+`DETECTOR_BA_SEP_PROBE_PROTOCOL`, `DETECTOR_BA_SEP_EVIDENCE_VECTOR` and
+`DETECTOR_BA_SEP_PROBE_SEEDS` are still `NEEDS_SCIENTIFIC_DECISION`, and they may
+not be chosen from C8 outcomes — picking a probe protocol after seeing which
+detectors trained well would make the gate a function of the result it exists to
+test. That is a reason **C9** is blocked, not a reason to hold C8: the probe needs
+C8's trained detectors to exist before it can run at all.
