@@ -425,6 +425,172 @@ ENTRIES = [
             "regression": ("tests/pipeline/test_lr_track_g_coordinate.py, including "
                            "an injection test that restores the defective rule and "
                            "proves the Track-G envelope collapses to 12")}),
+    # --- the first real GPU C7 attempt ---------------------------------------
+    NegativeEvidence(
+        entry_id="C7-FROZEN-RECIPE-TEXT-CACHE-MISSING-2026-08-24",
+        stage="C7", substage="SCIENTIFIC_SOURCE_SEARCH",
+        classification=ENGINEERING_FAILURE,
+        occurred_on="2026-08-24",
+        result_affecting=False,
+        reason=(
+            "The first real GPU C7 attempt. VERIFY_C6_EVIDENCE passed 5/5 and the "
+            "search plan passed 19/19; SCIENTIFIC_SOURCE_SEARCH then BLOCKED. Track "
+            "G's state recorded status=COMPLETED with 15 result rows, all FAIL and "
+            "zero finite-valid, every one carrying the identical TextCacheError: the "
+            "frozen recipe text cache was absent from the host, looked for at "
+            "recipe_text_cache.npz, m9/recipe_text_cache.npz and "
+            "pretrained/m9/recipe_text_cache.npz. No Track-R search ran and no "
+            "DETECTOR_CONFIG_LOCK was produced.\n\n"
+            "This is NOT a scientific detector negative result. All 15 "
+            "configurations failed on one invariant host-level artifact before any "
+            "configuration-specific detector performance could be measured, and a "
+            "missing text cache is independent of the learning rate, the weight "
+            "decay, the warm-up and every loss weight. It may not consume 15 "
+            "scientific search outcomes, and the bounded envelope was NOT "
+            "exhausted."),
+        artifacts=("reports/full/c7/C7_SCIENTIFIC_SEARCH_STATE_G.json",
+                   "runs/full/c7/scientific/trial_*/C7_TRIAL_SUMMARY.json"),
+        paper_eligibility=(APPENDIX,),
+        detail={
+            "sub_classification": "GLOBAL_SCIENTIFIC_INPUT_PRECONDITION_MISSED",
+            "scientific_negative_result": False,
+            "scientific_envelope_exhausted": False,
+            "scientific_candidate_quality_observed": False,
+            "candidates_legitimately_consumed": 0,
+            "target_accessed": False,
+            "missing_artifact": {
+                "file": "recipe_text_cache.npz",
+                "file_sha256":
+                    "bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa",
+                "cache_identity_sha256":
+                    "10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141",
+                "pin_source": "configs/models/m9_detector.yaml (model.prompt)",
+                "historical_location":
+                    "/vol/models/pretrained/m9/recipe_text_cache.npz",
+                "may_be_rebuilt": False,
+                "why_not": (
+                    "encoding the 128 frozen descriptions is deterministic within one "
+                    "environment but not bit-identical across torch/transformers "
+                    "builds or across CPU and GPU, so a rebuild yields a different "
+                    "content identity for the same science")},
+            "root_cause": (
+                "the cache was pinned in configs/models/m9_detector.yaml all along "
+                "but was absent from the portable asset inventory, from "
+                "sources.verify_detector_inputs and from C7's semantic "
+                "preconditions. The bundle validated, weights/ validated, SigLIP2 "
+                "and ConvNeXt validated, and nothing ever asked for it"),
+            "fix": (
+                "sources._frozen_recipe_text_cache verifies it twice — file SHA-256 "
+                "and re-derived semantic identity through the canonical loader — as "
+                "part of verify_detector_inputs, which C7 and C8 share; and it is a "
+                "required_for_gpu_science asset in the portable inventory, which now "
+                "names it in the preflight blocker list before a trial exists"),
+            "regression": "tests/pipeline/test_c7_global_input_preflight.py"}),
+    NegativeEvidence(
+        entry_id="C7-GLOBAL-FAILURE-CONSUMED-SCIENTIFIC-CANDIDATES-2026-08-24",
+        stage="C7", substage="SCIENTIFIC_SOURCE_SEARCH",
+        classification=ENGINEERING_FAILURE,
+        occurred_on="2026-08-24",
+        result_affecting=False,
+        reason=(
+            "The mechanism that turned a missing file into a scientific verdict. "
+            "`_run_scientific_trial` wrapped everything in one broad `except "
+            "Exception` and returned a FAIL TrialResult, and `coordinate_search` did "
+            "the same for anything an evaluator raised. Correct for a "
+            "configuration-specific failure; wrong for a GLOBAL one. Each of the 15 "
+            "identical TextCacheErrors therefore became a retained scientific FAIL, "
+            "the coordinate pass 'completed' with zero finite-valid trials, and "
+            "EnvelopeExhausted was raised — which under §15.2.2 means the bounded "
+            "envelope produced no valid configuration and Claude must STOP with "
+            "NEEDS_SCIENTIFIC_DECISION. A statement about detector configurations, "
+            "produced by a filesystem."),
+        artifacts=("src/prism_fas/search/coordinate.py",
+                   "src/prism_fas/pipeline/adapters/c7.py"),
+        paper_eligibility=(APPENDIX,),
+        detail={
+            "sub_classification": "GLOBAL_SCIENTIFIC_INPUT_PRECONDITION_MISSED",
+            "scientific_negative_result": False,
+            "fix": (
+                "a typed FatalDependencyError, raised by the trial runner for a TYPED "
+                "allowlist of global-input exceptions and propagated untouched by the "
+                "engine. The stage catches it as an engineering BLOCK: the search "
+                "state is preserved, no candidate is consumed, and the envelope is "
+                "not reported exhausted. Configuration-specific failures still become "
+                "retained FAIL and non-finite metrics still become DIVERGED"),
+            "why_typed_not_prose": (
+                "matching exception text would break the first time a message was "
+                "reworded, and would classify by how an error was phrased rather than "
+                "by what owns it"),
+            "c4_unaffected": (
+                "C4 shares the engine and raises none of the new exception; a test "
+                "asserts C4 never references it"),
+            "regression": "tests/pipeline/test_c7_global_input_preflight.py"}),
+    NegativeEvidence(
+        entry_id="C7-ENVELOPE-EXHAUSTED-MISCLASSIFIED-2026-08-24",
+        stage="C7", substage="SCIENTIFIC_SOURCE_SEARCH",
+        classification=ENGINEERING_FAILURE,
+        occurred_on="2026-08-24",
+        result_affecting=False,
+        reason=(
+            "The run printed the check id c7_track_g_resume_state_matches_this_envelope "
+            "— SEARCH_STATE_IDENTITY_MISMATCH — while the embedded exception text was "
+            "\"the bounded 'c7_detector_coordinate_v1' envelope executed 15 trial(s) "
+            "and produced no finite valid configuration\", i.e. EnvelopeExhausted. "
+            "`EnvelopeExhausted` subclasses `SearchError`, and the handler order was "
+            "`except SearchError` first, so the specific branch was dead code and "
+            "every envelope exhaustion was reported as a state-identity mismatch. Two "
+            "opposite operator actions hang off that distinction: a mismatch means "
+            "preserve the state and investigate which identity moved, while an "
+            "exhaustion means STOP with NEEDS_SCIENTIFIC_DECISION and never widen the "
+            "search."),
+        artifacts=("src/prism_fas/pipeline/adapters/c7.py",),
+        paper_eligibility=(APPENDIX,),
+        detail={
+            "sub_classification": "EXCEPTION_HANDLER_ORDER",
+            "scientific_negative_result": False,
+            "fix": ("handlers reordered FatalDependencyError -> EnvelopeExhausted -> "
+                    "SearchError, with a structural regression asserting the order "
+                    "and a behavioural one for each verdict"),
+            "regression": ("tests/pipeline/test_c7_global_input_preflight.py::"
+                           "test_c7_catches_the_specific_handlers_before_the_broad_one")}),
+    NegativeEvidence(
+        entry_id="C7-LOGICAL-TRIAL-ARTIFACT-COLLISION-2026-08-24",
+        stage="C7", substage="SCIENTIFIC_SOURCE_SEARCH",
+        classification=ENGINEERING_FAILURE,
+        occurred_on="2026-08-24",
+        result_affecting=False,
+        reason=(
+            "The run recorded 15 Track-G result rows but left only 11 "
+            "C7_TRIAL_SUMMARY.json files. Not a lost trial: a coordinate pass "
+            "evaluates each coordinate's candidates while the others sit at the "
+            "current best, so whenever the anchor wins a coordinate the anchor "
+            "CONFIGURATION recurs at the next one — the same canonical config SHA at "
+            "a different search position. The trial run root was keyed by config SHA "
+            "alone, so the later occurrence overwrote the earlier occurrence's "
+            "provenance and the pass could no longer say which search positions it "
+            "had evaluated. Derived from the canonical plan: Track G is 15 logical "
+            "occurrences over 11 unique configurations, Track R 24 over 17."),
+        artifacts=("src/prism_fas/pipeline/adapters/c7.py",),
+        paper_eligibility=(APPENDIX,),
+        detail={
+            "sub_classification": "EVIDENCE_MODEL_COLLISION",
+            "scientific_negative_result": False,
+            "derived_counts": {
+                "track_g": {"logical_occurrences": 15, "unique_configurations": 11},
+                "track_r": {"logical_occurrences": 24, "unique_configurations": 17},
+                "total": {"logical_occurrences": 39, "unique_configurations": 28}},
+            "corrected_compute_accounting": {
+                "optimizer_steps_unique_trainings": 44100,
+                "optimizer_steps_if_every_occurrence_retrained": 61425,
+                "note": ("the earlier handoff quoted 61,425, which counts every "
+                         "logical occurrence as a separate training. Training one "
+                         "configuration twice is identical work, so the honest "
+                         "estimate is the unique count")},
+            "fix": ("two artifacts: C7_TRIAL_SUMMARY keyed by config SHA holds the "
+                    "trained configuration, and C7_TRIAL_OCCURRENCE keyed by track, "
+                    "coordinate and trial index holds the search position and "
+                    "references it, declaring config_evidence_reused explicitly"),
+            "regression": "tests/pipeline/test_c7_global_input_preflight.py"}),
 ]
 
 

@@ -5,7 +5,7 @@ measurement, and nothing here may support a claim. It answers one question
 per stage: could `--profile full` produce a scientific result today, and if
 not, exactly what stops it.
 
-Generated `2026-08-24T10:03:25.898225Z` on development laptop; no CUDA, no source package, no target package.
+Generated `2026-08-24T11:57:24.888059Z` on development laptop; no CUDA, no source package, no target package.
 `target_access = 0` — no target path, label or
 metric was resolved while producing it.
 

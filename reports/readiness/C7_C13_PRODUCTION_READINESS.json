@@ -1,7 +1,7 @@
 {
   "artifact_kind": "ENGINEERING_AUDIT_NOT_SCIENTIFIC_EVIDENCE",
   "execution_profile": "none",
-  "generated_at_utc": "2026-08-24T10:03:25.898225Z",
+  "generated_at_utc": "2026-08-24T11:57:24.888059Z",
   "host": "development laptop; no CUDA, no source package, no target package",
   "schema_version": "prism-c7-c13-readiness-v1",
   "scientific_eligible": false,

@@ -213,6 +213,49 @@ def build_assets(repo: Path) -> list[Asset]:
                 size_bytes=convnext.stat().st_size if convnext else None,
                 how_to_obtain="timm hub at the pinned name and sha256",
                 notes=("Track R only; Track G instantiates no local backbone",)))
+
+            # The frozen recipe text cache. Absent from this inventory until the
+            # first real GPU C7 attempt, which is exactly why that attempt got
+            # as far as it did: the bundle validated, the weights validated, and
+            # the cache was simply never asked for. Every Track-G candidate then
+            # failed on it in turn, and the bounded envelope was reported
+            # exhausted — a scientific verdict about detector configurations,
+            # produced by a missing file.
+            #
+            # It is NOT re-obtainable by re-running anything. Encoding the 128
+            # frozen descriptions is deterministic within one environment and not
+            # bit-identical across torch/transformers builds or across CPU and
+            # GPU, so a rebuild yields a different content identity for the same
+            # science. It has to be recovered from the artifact store.
+            import yaml as _yaml
+
+            prompt = dict((_yaml.safe_load(
+                (repo / "configs/models/m9_detector.yaml").read_text(
+                    encoding="utf-8")).get("model") or {}).get("prompt") or {})
+            expected_sha = str(prompt.get("cache_file_sha256") or "")
+            text_cache = next(
+                (cache / relative for relative in
+                 ("recipe_text_cache.npz", "m9/recipe_text_cache.npz",
+                  "pretrained/m9/recipe_text_cache.npz")
+                 if (cache / relative).exists()), None)
+            measured = _sha256_file(text_cache) if text_cache else None
+            assets.append(Asset(
+                logical_name="frozen_recipe_text_cache",
+                expected_path=str(text_cache or cache / "recipe_text_cache.npz"),
+                origin=EXTERNAL_ROOT, access=READ_ONLY, required_stage="C7",
+                required_for_cpu_rehearsal=False, required_for_gpu_science=True,
+                present=bool(expected_sha) and measured == expected_sha,
+                identity=expected_sha, identity_kind="sha256_file",
+                size_bytes=text_cache.stat().st_size if text_cache else None,
+                how_to_obtain=(
+                    "NOT re-obtainable by rebuilding: recover the exact frozen "
+                    "artifact from the M9 artifact store (historically "
+                    "/vol/models/pretrained/m9/recipe_text_cache.npz)"),
+                notes=("PromptHead text embeddings for the 128 frozen M7 recipes",
+                       "verified twice: file sha256 and re-derived cache identity "
+                       f"({prompt.get('cache_identity_sha256', '')})",
+                       "rebuilding across environments changes the content "
+                       "identity for the same science, so it is never rebuilt")))
         except Exception as error:                            # noqa: BLE001
             assets.append(Asset(
                 logical_name="pinned_backbones", expected_path=str(cache),

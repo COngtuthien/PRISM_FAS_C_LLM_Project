@@ -303,8 +303,20 @@ def test_absent_derived_trees_do_not_block_a_scientific_plan() -> None:
                  "target_label_artifact"}
     assert generated & {item["logical_name"]
                         for item in plan.bundle["produced_by_the_run"]} == generated
-    assert plan.ready, plan.blockers
-    assert not plan.blockers
+
+    # The claim is about DERIVED TREES, so that is what is asserted. Not one of
+    # them may appear as a blocker, whatever else is missing on this machine.
+    #
+    # This used to assert `plan.ready` outright, which held only because the
+    # frozen recipe text cache was absent from the asset inventory altogether.
+    # It is a required operator-supplied asset now — the first real GPU C7 run
+    # failed on exactly that gap — so on a laptop without it the plan correctly
+    # reports one missing item. That is the sibling test's territory
+    # (`test_a_missing_operator_supplied_asset_still_blocks`), not this one's.
+    missing = {item["logical_name"] for item in plan.bundle["missing"]}
+    assert generated & missing == set(), (
+        f"a tree the run BUILDS is being demanded up front: {generated & missing}")
+    assert plan.bundle["produced_by_the_run_absent"] == len(generated)
 
 
 def test_a_missing_operator_supplied_asset_still_blocks(tmp_path) -> None:

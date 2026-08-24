@@ -76,6 +76,46 @@ class EnvelopeExhausted(SearchError):
     """
 
 
+class FatalDependencyError(Exception):
+    """An evaluator could not run because a GLOBAL, immutable input is wrong.
+
+    Deliberately NOT a `SearchError`: it is raised by the evaluator, travels
+    through the engine untouched, and is caught by the stage. Deliberately not a
+    `TrialResult` either, which is the whole point.
+
+    The distinction it draws is between two things the engine could otherwise
+    only see as "the evaluator raised":
+
+    * a CONFIGURATION-SPECIFIC failure — this learning rate diverged, this weight
+      decay produced a non-finite loss. That is a finding ABOUT the candidate,
+      it becomes a retained FAIL, and the pass continues to the next one.
+    * a GLOBAL failure — a pinned artifact is missing, a frozen identity moved,
+      the source package vanished. That is a finding about the HOST, it is true
+      of every candidate equally, and recording it as a candidate's outcome
+      spends a scientific search slot on a fact about the filesystem.
+
+    The first real GPU C7 attempt is why this exists. The frozen recipe text
+    cache was absent, every one of Track G's 15 candidates raised the identical
+    `TextCacheError`, the engine's generic `except Exception` converted each into
+    a FAIL, the coordinate pass "completed" with zero finite-valid trials, and
+    the run reported the bounded envelope as exhausted — a scientific verdict
+    about detector configurations, from a missing file.
+
+    A raiser must be sure: this aborts the pass. Anything that could plausibly
+    differ between candidates belongs in the FAIL branch instead.
+    """
+
+    #: Machine-readable, so a stage can classify without parsing prose.
+    reason_code = "GLOBAL_DEPENDENCY_UNAVAILABLE"
+
+    def __init__(self, message: str, *, reason_code: str | None = None,
+                 dependency: str = "") -> None:
+        super().__init__(message)
+        if reason_code:
+            self.reason_code = reason_code
+        self.dependency = dependency
+
+
 def _utc() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -436,6 +476,17 @@ def coordinate_search(plan: SearchPlan, evaluate: Evaluator, *,
                 interrupted = True
                 status = "INTERRUPTED"
                 break
+            except FatalDependencyError:
+                # A GLOBAL input is wrong, so every remaining candidate would
+                # fail identically. Propagated untouched: converting it into a
+                # FAIL would spend a scientific search slot on a fact about the
+                # host, and — once every candidate had spent one — would report
+                # the bounded envelope as exhausted, which is a verdict about
+                # detector configurations. The state written so far stays on
+                # disk; the caller decides what to do.
+                _write_state(state_path, plan, results, best, completed,
+                             "BLOCKED_ON_DEPENDENCY") if state_path else None
+                raise
             except Exception as error:  # one bad config must not lose the others
                 result = TrialResult(
                     trial=trial, status="FAIL",
@@ -510,6 +561,7 @@ def _write_state(path: Path, plan: SearchPlan, results: Sequence[TrialResult],
 
 
 __all__ = ["SCHEMA_VERSION", "TRIAL_STATUS", "FINITE_VALID", "SEARCH_STATE_FILE",
-           "SearchError", "SearchInterrupted", "EnvelopeExhausted", "Trial",
+           "SearchError", "SearchInterrupted", "EnvelopeExhausted",
+           "FatalDependencyError", "Trial",
            "TrialResult", "rank_key", "SearchOutcome", "load_state",
            "coordinate_search", "Evaluator"]

@@ -284,7 +284,16 @@ def verify_detector_inputs(repo: Path, *, arms: Sequence[str] = ()) -> dict[str,
     * the frozen M7 recipe bank, through the canonical frozen-bank gate;
     * the pinned SigLIP2 tower and ConvNeXt V2 Atto weight, SHA-verified by
       `detector.pretrained` -- never a shape-exact stub and never a download;
+    * the FROZEN recipe text cache, by file SHA-256 AND by re-derived semantic
+      identity;
     * the C5 candidate tree the matched banks address.
+
+    The text cache is here because it was not, and the first real GPU C7 attempt
+    paid for that: absent from the host, it raised inside every one of Track G's
+    15 candidates, each became a retained FAIL, and the bounded envelope was
+    reported exhausted -- a scientific verdict about detector configurations,
+    produced by a missing file. It is a global input, so it is proven before a
+    trial is constructed rather than discovered inside one.
 
     Reads locks, a package lock and weight file hashes. Opens no image, no
     manifest row and no target.
@@ -335,6 +344,7 @@ def verify_detector_inputs(repo: Path, *, arms: Sequence[str] = ()) -> dict[str,
             "rendered bytes live there, and there is no substitute for them")
 
     weights = _pinned_detector_weights(repo)
+    text_cache = _frozen_recipe_text_cache(repo)
 
     return {
         "package_root": SOURCE_PACKAGE_ROOT,
@@ -346,6 +356,7 @@ def verify_detector_inputs(repo: Path, *, arms: Sequence[str] = ()) -> dict[str,
         "candidates_root": C5_CANDIDATES_ROOT,
         "weight_root": WEIGHT_ROOT,
         "pretrained": weights,
+        "recipe_text_cache": text_cache,
         "c6": evidence.as_dict(),
         "c6_arms": list(requested),
         "identities_agree": True,
@@ -396,6 +407,87 @@ def _pinned_detector_weights(repo: Path) -> dict[str, Any]:
         },
         "resolved_by": "prism_fas.detector.pretrained (SHA-verified pins)",
         "stub_substituted": False,
+        "downloaded_during_run": False,
+    }
+
+
+def _frozen_recipe_text_cache(repo: Path) -> dict[str, Any]:
+    """The frozen recipe text cache, verified two independent ways.
+
+    The cache is an uploaded ARTIFACT, not a recomputation: encoding the 128
+    frozen recipe descriptions is deterministic within one environment but not
+    bit-identical across torch/transformers builds or across CPU and GPU. A run
+    that rebuilt it would hand itself a different content identity for the same
+    science, so it is built once, shipped beside the SigLIP2 pin, and only ever
+    verified.
+
+    Two checks, because they catch different things. The FILE SHA-256 proves the
+    bytes are the frozen bytes. The re-derived semantic identity proves the
+    contents mean what the pin says they mean -- `read_recipe_text_cache`
+    recomputes the identity from the stored binding and the content identity from
+    the embeddings, so a hand-edited cache cannot claim an identity it does not
+    have. A file could satisfy either alone; the frozen artifact satisfies both.
+
+    Both expected values are read from `configs/models/m9_detector.yaml`, which
+    has always carried them. Nothing here restates a hash.
+    """
+    import hashlib
+
+    import yaml
+
+    from prism_fas.detector.heads import (RECIPE_TEXT_CACHE_RELPATHS, TextCacheError,
+                                          resolve_recipe_text_cache)
+
+    repo = Path(repo)
+    model = yaml.safe_load(
+        (repo / "configs/models/m9_detector.yaml").read_text(encoding="utf-8"))
+    pin = dict((model.get("model") or {}).get("prompt") or model.get("prompt") or {})
+    expected_sha = str(pin.get("cache_file_sha256") or "")
+    expected_identity = str(pin.get("cache_identity_sha256") or "")
+    if not expected_sha or not expected_identity:
+        raise DetectorInputsUnavailable(
+            "configs/models/m9_detector.yaml declares no cache_file_sha256 / "
+            "cache_identity_sha256 for the recipe text cache; the pin is the "
+            "authority and there is no substitute for it")
+
+    root = repo / WEIGHT_ROOT
+    path = next((root / relative for relative in RECIPE_TEXT_CACHE_RELPATHS
+                 if (root / relative).is_file()), None)
+    if path is None:
+        raise DetectorInputsUnavailable(
+            f"the frozen recipe text cache is absent under {WEIGHT_ROOT}; looked "
+            f"for {list(RECIPE_TEXT_CACHE_RELPATHS)}. It is an uploaded frozen "
+            "artifact and may NOT be rebuilt on this host: re-encoding the 128 "
+            "descriptions under a different torch/transformers build produces "
+            "different bytes for the same science. Recover the exact artifact "
+            f"(sha256 {expected_sha}) from the M9 artifact store.")
+
+    measured = hashlib.sha256(path.read_bytes()).hexdigest()
+    if measured != expected_sha:
+        raise DetectorInputsUnavailable(
+            f"{_relative_to(path, repo)} hashes to {measured}, but the pin in "
+            f"configs/models/m9_detector.yaml declares {expected_sha}. This is not "
+            "the frozen artifact. Do not rebuild it and do not accept it.")
+
+    try:
+        cache = resolve_recipe_text_cache(root, expected_identity=expected_identity)
+    except TextCacheError as error:
+        raise DetectorInputsUnavailable(
+            f"the recipe text cache at {_relative_to(path, repo)} has the frozen "
+            f"bytes but does not verify semantically: {error}") from error
+
+    return {
+        "path": _relative_to(path, repo),
+        "file_sha256": measured,
+        "cache_identity_sha256": cache.identity,
+        "recipe_count": cache.count,
+        "embedding_dim": cache.dim,
+        "expected_file_sha256": expected_sha,
+        "expected_cache_identity_sha256": expected_identity,
+        "pin_source": "configs/models/m9_detector.yaml (model.prompt)",
+        "verified_by": ("file sha256 AND re-derived semantic identity via "
+                        "prism_fas.detector.heads.resolve_recipe_text_cache"),
+        "rebuilt_at_runtime": False,
         "downloaded_during_run": False,
     }
 

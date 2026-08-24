@@ -4656,16 +4656,172 @@ c7_c13_readiness_milestone:
       - tests/pipeline/test_lr_track_g_coordinate.py   # 25, incl. an injection test
       - tests/pipeline/test_portable_runner.py         # the test that asserted it
 
+  # --- FIRST REAL GPU C7 ATTEMPT — engineering failure, not science ----------
+  #
+  # Recorded in full because the shape of it matters more than the fix: a missing
+  # file produced a scientific-looking verdict about detector configurations, and
+  # every layer that should have caught it passed.
+  c7_first_gpu_attempt:
+    attempted_on: 2026-08-24
+    code_head: 3f18628511be7d022924b379db0599f5e4f8d87e
+    outcome:
+      VERIFY_C6_EVIDENCE: PASS 5/5
+      C7_SCIENTIFIC_PLAN: PASS 19/19
+      SCIENTIFIC_SOURCE_SEARCH: BLOCKED
+    track_g_state:
+      status: COMPLETED
+      search_plan_identity: 6177df34b4fbda945ed2780b0fd4da26d472dca10762ba4b42976709de3feca8
+      completed_coordinates: [learning_rate_multiplier, weight_decay, warmup,
+                              lambda_syn, lambda_risk]
+      results: 15
+      status_fail: 15
+      finite_valid: 0
+      one_shared_cause: >-
+        TextCacheError: the frozen recipe text cache is missing under weights;
+        looked for recipe_text_cache.npz, m9/recipe_text_cache.npz,
+        pretrained/m9/recipe_text_cache.npz
+    track_r_state: none          # no Track-R search occurred
+    detector_config_lock: none
+
+    classification:
+      stage: C7
+      category: ENGINEERING_GLOBAL_INPUT_FAILURE
+      defect: FROZEN_RECIPE_TEXT_CACHE_MISSING_FROM_PREFLIGHT
+      scientific_negative_result: false
+      scientific_envelope_exhausted: false
+      scientific_candidate_quality_observed: false
+      candidates_legitimately_consumed: 0
+      target_access: 0
+      why: >-
+        all 15 configurations failed on one invariant host-level artifact before
+        any configuration-specific detector performance could be measured. A
+        missing text cache is independent of the learning rate, the weight decay,
+        the warm-up and every loss weight, so it may not consume 15 scientific
+        search outcomes.
+
+    training_progress_reached:
+      claim: >-
+        the 15 rows show no completed training stage, no optimizer-step evidence,
+        no checkpoint and no source-selection metric.
+      how_it_is_established: >-
+        NOT assumed from the failure message. scripts/recover_c7_invalid_search_state.py
+        reads every C7_TRIAL_SUMMARY.json on the host and reports
+        checkpoints_present, rows_with_selection_metrics, completed_training_stages
+        and failure_phases. If any of those is non-empty the state is INELIGIBLE
+        for recovery and the exact boundary is reported instead. The claim above is
+        the expectation; the script is the authority, and it runs on the GPU host
+        where the artifacts are.
+
+    four_defects_found:
+      - id: C7_FROZEN_RECIPE_TEXT_CACHE_MISSING
+        detail: >-
+          the cache was pinned in configs/models/m9_detector.yaml all along
+          (cache_file_sha256, cache_identity_sha256) but was absent from the
+          portable asset inventory, from sources.verify_detector_inputs and from
+          C7's semantic preconditions. The bundle validated, weights/ validated,
+          SigLIP2 and ConvNeXt validated, and nothing ever asked for it.
+      - id: C7_GLOBAL_FAILURE_CONSUMED_SCIENTIFIC_CANDIDATES
+        detail: >-
+          _run_scientific_trial wrapped everything in one broad except Exception
+          and returned a FAIL TrialResult; coordinate_search did the same for
+          anything an evaluator raised. Correct for a configuration-specific
+          failure, wrong for a global one.
+      - id: C7_ENVELOPE_EXHAUSTED_MISCLASSIFIED
+        detail: >-
+          EnvelopeExhausted subclasses SearchError and the handler order was
+          `except SearchError` first, so the specific branch was dead code. A
+          genuine envelope exhaustion was reported as
+          SEARCH_STATE_IDENTITY_MISMATCH. The two demand opposite operator
+          actions.
+      - id: C7_LOGICAL_TRIAL_ARTIFACT_COLLISION
+        detail: >-
+          15 result rows left 11 summary files. Not a lost trial: the anchor
+          configuration recurs whenever it wins a coordinate, and the run root was
+          keyed by config SHA alone, so the later occurrence overwrote the
+          earlier one's provenance.
+
+    fixes:
+      preflight: >-
+        sources._frozen_recipe_text_cache verifies the cache twice — file SHA-256
+        AND re-derived semantic identity through the canonical
+        resolve_recipe_text_cache — inside verify_detector_inputs, which C7 and C8
+        share. No fallback, no download, no rebuild. The portable asset inventory
+        carries it as required_for_gpu_science, so the preflight now names it as a
+        missing item before a trial exists.
+      failure_taxonomy: >-
+        a typed FatalDependencyError, raised by the trial runner for a TYPED
+        allowlist of global-input exception classes and propagated untouched by
+        the engine. The stage catches it as an engineering BLOCK: state preserved,
+        no candidate consumed, envelope not reported exhausted.
+        Configuration-specific failures still become retained FAIL and non-finite
+        metrics still become DIVERGED. No prose matching anywhere.
+      exception_order: >-
+        FatalDependencyError -> EnvelopeExhausted -> SearchError, with a
+        structural regression asserting the order.
+      evidence_model: >-
+        C7_TRIAL_SUMMARY keyed by config SHA holds the trained configuration;
+        C7_TRIAL_OCCURRENCE keyed by track/coordinate/trial index holds the search
+        position and references it, declaring config_evidence_reused explicitly.
+
+    corrected_cost_accounting:
+      note: >-
+        the earlier handoff quoted 39 trials and 61,425 optimizer steps. 39 is the
+        LOGICAL occurrence count and was right; 61,425 counted every occurrence as
+        a separate training, which it is not.
+      track_g: {logical_occurrences: 15, unique_configurations: 11}
+      track_r: {logical_occurrences: 24, unique_configurations: 17}
+      total: {logical_occurrences: 39, unique_configurations: 28}
+      optimizer_steps_unique_trainings: 44100
+      optimizer_steps_if_every_occurrence_retrained: 61425
+      derived_from: >-
+        prism_fas.pipeline.adapters.c7._unique_configurations, which replays the
+        engine's own coordinate walk over the canonical plan. Not hard-coded.
+
+    recovery:
+      script: scripts/recover_c7_invalid_search_state.py
+      wired_into_train_py: false     # a person runs it, deliberately, after reading
+      preserves: [search state bytes + sha256, every trial summary + sha256,
+                  gpu_c7_*.log if present]
+      preserved_under: reports/evidence/quarantine/
+      clears: only reports/full/c7/C7_SCIENTIFIC_SEARCH_STATE_<TRACK>.json
+      refuses_if: >-
+        any finite-valid row, any PASS row, rows with differing or unrecognised
+        causes, a mismatched search-plan identity, an existing
+        DETECTOR_CONFIG_LOCK, or artifacts showing real training progress.
+      not_touched: [C7 search arm DET, the §15.2.2 envelope, the LR decision,
+                    C6, C5]
+      not_a_result_driven_restart: >-
+        there was no configuration-specific scientific result to restart from.
+
+    frozen_artifact_status:
+      artifact: recipe_text_cache.npz
+      file_sha256: bb7d3fb4b82ad6ac89ebb06eeac9eb679e2fbb3bab500112cd1e304c187683aa
+      cache_identity_sha256: 10f4ec35b7563b2b658cacc94599d35b9f93b531963a065459d4694d5dc2c141
+      present_on_this_laptop: false
+      searched: >-
+        the whole working tree; no file named recipe_text_cache* exists anywhere
+        outside .git.
+      may_be_rebuilt: false
+      why_not: >-
+        encoding the 128 frozen descriptions is deterministic within one
+        environment but not bit-identical across torch/transformers builds or
+        across CPU and GPU, so a rebuild yields a different content identity for
+        the same science.
+      recovery_source: >-
+        the historical M9 artifact store, canonically
+        /vol/models/pretrained/m9/recipe_text_cache.npz
+      consequence: C7 GPU RERUN = BLOCKED until the exact bytes are restored
+
   # --- the regression that authorized this commit ---------------------------
   tests:
     measured_at_utc: 2026-08-24
     broad_exact_command: >-
       python -m pytest -q --no-header -p no:cacheprovider
       --continue-on-collection-errors
-    broad: {passed: 2953, failed: 7, skipped: 104, seconds: 2027}
+    broad: {passed: 2985, failed: 7, skipped: 104, seconds: 2264}
     c7_and_pipeline_exact_command: >-
       python -m pytest tests/c7 tests/pipeline -q -p no:cacheprovider
-    c7_and_pipeline: {passed: 1516, failed: 0, skipped: 3, seconds: 1617}
+    c7_and_pipeline: {passed: 1548, failed: 0, skipped: 3, seconds: 1743}
     inherited_known_failures: 7
     inherited_failure_set_identical: true   # compared test-id by test-id
     new_unexplained_failures: 0
@@ -4679,7 +4835,7 @@ c7_c13_readiness_milestone:
       - tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass
       - tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive
     all_seven_are_missing_version_b_build_products: true
-    new_tests_this_milestone: 156
+    new_tests_this_milestone: 188
     new_test_files:
       - tests/pipeline/test_c6_evidence_and_bank.py        # 26
       - tests/pipeline/test_c7_scientific_path.py          # 27
@@ -4687,6 +4843,7 @@ c7_c13_readiness_milestone:
       - tests/pipeline/test_c8_scientific_path.py          # 16
       - tests/pipeline/test_c9_scientific_evidence.py       # 16
       - tests/pipeline/test_lr_track_g_coordinate.py        # 25
+      - tests/pipeline/test_c7_global_input_preflight.py    # 32
       - tests/pipeline/c6_bank_fixture.py                  # shared, not collected
     extended_test_files:
       - tests/pipeline/test_scientific_fixture_leakage.py  # +13 anti-leak regressions

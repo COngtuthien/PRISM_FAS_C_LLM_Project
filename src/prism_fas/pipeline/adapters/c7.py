@@ -97,7 +97,26 @@ SCIENTIFIC_CONFIG_LOCK_PATH = f"{SCIENTIFIC_REPORTS}/{DETECTOR_CONFIG_LOCK}"
 #: one directory; `coordinate_search` additionally refuses a state whose recorded
 #: plan identity differs, and the two plans always differ.
 SCIENTIFIC_SEARCH_STATE = "C7_SCIENTIFIC_SEARCH_STATE.json"
+
+#: Two artifacts, because a bounded coordinate pass has two different units and
+#: conflating them loses evidence.
+#:
+#: `TRIAL_SUMMARY` is the CONFIGURATION run: one trained detector, keyed by the
+#: canonical config SHA. `TRIAL_OCCURRENCE` is the LOGICAL search position: one
+#: (coordinate, candidate value, trial index) that the pass evaluated, which
+#: references the configuration run it used.
+#:
+#: They differ in number. A coordinate pass evaluates each coordinate's
+#: candidates while the others sit at the current best, so whenever the anchor
+#: wins a coordinate the anchor configuration is evaluated AGAIN at the next
+#: one — the same configuration, a different search position. Track G declares 15
+#: occurrences over 11 unique configurations, Track R 24 over 17.
+#:
+#: The first real GPU C7 attempt made this visible the wrong way round: 15 result
+#: rows and only 11 summary files on disk, because the occurrences shared a
+#: config-keyed path and the later one overwrote the earlier one's metadata.
 TRIAL_SUMMARY = "C7_TRIAL_SUMMARY.json"
+TRIAL_OCCURRENCE = "C7_TRIAL_OCCURRENCE.json"
 
 #: The two v1.5 tracks as flag sets. Track G is global-only by design (§13.4.1);
 #: primary Track R is regions + PromptHead with manifold OFF (§13.2), so the
@@ -1017,18 +1036,37 @@ class C7Adapter(EngineeringAdapter):
         epochs = int(config["stages"]["total_epochs"])
         steps = int(config["batch"]["steps_per_epoch"])
         declared = sum(item["plan"].total_trials for item in plans.values())
+        # Two numbers, not one. `total_trials` counts LOGICAL search positions;
+        # `_unique_configurations` walks the same coordinate pass and counts
+        # distinct canonical config SHAs. They differ because the anchor
+        # configuration recurs whenever it wins a coordinate, and the compute
+        # estimate must use the second — training the same configuration twice
+        # would be identical work.
+        occurrences = {track: item["plan"].total_trials
+                       for track, item in plans.items()}
+        unique = {track: _unique_configurations(item["plan"])
+                  for track, item in plans.items()}
+        unique_total = sum(unique.values())
         checks.append(check(
             "c7_trial_schedule_is_not_shortened",
             decision.trial_schedule == "frozen_m9_schedule",
             "every trial runs the full frozen schedule; L.12 forbids shrinking a "
             "scientific budget to fit a machine",
             epochs_per_trial=epochs, steps_per_epoch=steps,
-            declared_trials_per_track={track: item["plan"].total_trials
-                                       for track, item in plans.items()},
+            declared_trials_per_track=dict(occurrences),
             declared_trials=declared,
-            total_optimizer_steps=declared * epochs * steps,
-            note="the cost is reported here, before the first trial, so authorizing "
-                 "the run is an informed decision rather than a discovery"))
+            logical_occurrences_per_track=dict(occurrences),
+            logical_occurrences=declared,
+            unique_configurations_per_track=dict(unique),
+            unique_configurations=unique_total,
+            optimizer_steps_if_every_occurrence_retrained=declared * epochs * steps,
+            total_optimizer_steps=unique_total * epochs * steps,
+            note="two counts, deliberately. The pass evaluates `logical_occurrences` "
+                 "search positions over `unique_configurations` distinct detector "
+                 "configurations, because the anchor recurs whenever it wins a "
+                 "coordinate. The compute estimate uses the unique count: training "
+                 "one configuration twice is identical work, and the second "
+                 "occurrence reuses the first's evidence"))
         checks.append(check(
             "c7_optimizer_family_is_the_inherited_one",
             str(config["optimizer"]["name"]) == "AdamW",
@@ -1068,8 +1106,17 @@ class C7Adapter(EngineeringAdapter):
                         "plan": item["plan"].as_dict()}
                 for track, item in sorted(plans.items())},
             "cost": {"epochs_per_trial": epochs, "steps_per_epoch": steps,
+                     "logical_occurrences": declared,
+                     "logical_occurrences_per_track": dict(occurrences),
+                     "unique_configurations": unique_total,
+                     "unique_configurations_per_track": dict(unique),
                      "declared_trials": declared,
-                     "total_optimizer_steps": declared * epochs * steps}})
+                     "total_optimizer_steps": unique_total * epochs * steps,
+                     "optimizer_steps_if_every_occurrence_retrained":
+                         declared * epochs * steps,
+                     "accounting": ("`total_optimizer_steps` counts UNIQUE detector "
+                                    "trainings; an occurrence of an already-trained "
+                                    "configuration reuses its evidence")}})
 
         state = {"plans": plans, "decision": decision, "lr_record": record,
                  "config": config, "binding": dict(binding["c7_search_binding"]),
@@ -1087,7 +1134,8 @@ class C7Adapter(EngineeringAdapter):
                            state: dict[str, Any], reports: Path,
                            runs: Path) -> tuple[dict[str, Any] | None, AdapterResult]:
         """One bounded pass per track. Every trial is a real detector run."""
-        from prism_fas.search.coordinate import (EnvelopeExhausted, SearchError,
+        from prism_fas.search.coordinate import (EnvelopeExhausted,
+                                                 FatalDependencyError, SearchError,
                                                  TrialResult, coordinate_search)
 
         decision = state["decision"]
@@ -1130,7 +1178,52 @@ class C7Adapter(EngineeringAdapter):
                 outcome = coordinate_search(plan, evaluate, state_path=state_path,
                                             resume=request.resume,
                                             require_valid_winner=True)
+            except FatalDependencyError as error:
+                # A GLOBAL input is wrong. Every remaining candidate would fail
+                # identically, so this is a fact about the HOST and not about any
+                # configuration: it consumes no scientific search slot, and the
+                # envelope is NOT reported exhausted. The state on disk is
+                # preserved for the recovery procedure.
+                checks.append(check(
+                    f"c7_track_{track.lower()}_global_dependency_available", False,
+                    f"Track {track} could not run: {error}",
+                    reason_code=error.reason_code, dependency=error.dependency,
+                    search_plan_identity=plan.identity,
+                    state=state_path.relative_to(request.repo).as_posix(),
+                    scientific_envelope_exhausted=False,
+                    candidates_consumed=0,
+                    rule="a missing or wrong immutable input is an engineering "
+                         "block. Recording it as a candidate outcome would spend "
+                         "a scientific search slot on a fact about the filesystem "
+                         "and, once every candidate had spent one, would report "
+                         "the bounded envelope as exhausted"))
+                return None, self.result(
+                    request, mode=SCIENTIFIC_SEARCH, checks=checks, artifacts=artifacts,
+                    summary=f"C7 Track {track} BLOCKED on a global dependency: "
+                            f"{error.dependency or error.reason_code}")
+            except EnvelopeExhausted as error:
+                checks.append(check(
+                    f"c7_track_{track.lower()}_winner_exists", False,
+                    f"Track {track}'s bounded envelope produced no valid configuration; "
+                    "§15.2.2 requires stopping rather than widening the search",
+                    error=str(error), reason_code="NEEDS_SCIENTIFIC_DECISION",
+                    search_plan_identity=plan.identity,
+                    forbidden=["widening a candidate set", "a second pass",
+                               "a new optimizer family", "a new backbone",
+                               "a new loss term", "an arm-specific rescue search",
+                               "any use of a P1/P2/P3 result"]))
+                return None, self.result(
+                    request, mode=SCIENTIFIC_SEARCH, checks=checks,
+                    summary="C7_SOURCE_SEARCH = NEEDS_SCIENTIFIC_DECISION")
+
             except SearchError as error:
+                # LAST, deliberately. `EnvelopeExhausted` subclasses `SearchError`,
+                # so a broad handler placed first makes the specific one dead code
+                # — which is exactly what happened on the first real GPU C7 run:
+                # a genuine EnvelopeExhausted was reported as
+                # SEARCH_STATE_IDENTITY_MISMATCH, with the true exception text
+                # visible only inside the message.
+                #
                 # A recorded state written under a DIFFERENT plan identity. The
                 # engine refuses to resume across two frozen envelopes, and the
                 # commonest way to get here is that a bound input moved: the
@@ -1149,21 +1242,6 @@ class C7Adapter(EngineeringAdapter):
                 return None, self.result(
                     request, mode=SCIENTIFIC_SEARCH, checks=checks, artifacts=artifacts,
                     summary=f"C7 Track {track} search state belongs to another envelope")
-            except EnvelopeExhausted as error:
-                checks.append(check(
-                    f"c7_track_{track.lower()}_winner_exists", False,
-                    f"Track {track}'s bounded envelope produced no valid configuration; "
-                    "§15.2.2 requires stopping rather than widening the search",
-                    error=str(error), reason_code="NEEDS_SCIENTIFIC_DECISION",
-                    search_plan_identity=plan.identity,
-                    forbidden=["widening a candidate set", "a second pass",
-                               "a new optimizer family", "a new backbone",
-                               "a new loss term", "an arm-specific rescue search",
-                               "any use of a P1/P2/P3 result"]))
-                return None, self.result(
-                    request, mode=SCIENTIFIC_SEARCH, checks=checks,
-                    summary="C7_SOURCE_SEARCH = NEEDS_SCIENTIFIC_DECISION")
-
             payload = outcome.as_dict()
             if outcome.status != "COMPLETED":
                 checks.append(check(
@@ -1453,6 +1531,55 @@ def _trial_run_root(runs: Path, config_sha256: str) -> Path:
     return Path(runs) / "scientific" / f"trial_{config_sha256[:16]}"
 
 
+def _unique_configurations(plan: Any) -> int:
+    """How many DISTINCT configurations one bounded pass can train.
+
+    Replays the engine's own coordinate walk with the anchor winning every
+    coordinate, which is the worst case for collisions and the case a pass hits
+    whenever the inherited configuration is already the best. The count is
+    derived from the canonical plan rather than written down, so a changed
+    envelope moves it automatically.
+
+    Fewer than `plan.total_trials` because a coordinate pass evaluates each
+    coordinate's candidates while the others sit at the current best: when the
+    anchor wins, the anchor configuration is evaluated again at the next
+    coordinate under a different search position but the same canonical SHA.
+    """
+    from prism_fas.search.coordinate import Trial
+
+    best = dict(plan.base_config)
+    for coordinate in plan.coordinates:
+        if coordinate.applicable and coordinate.name not in best:
+            best[coordinate.name] = coordinate.anchor
+
+    seen: set[str] = set()
+    index = 0
+    for coordinate in plan.coordinates:
+        if not coordinate.applicable:
+            continue
+        for value in coordinate.candidates:
+            trial = Trial.create(
+                trial_index=index, coordinate=coordinate.name, value=value,
+                config=plan.config_for(coordinate.name, value, best),
+                plan_identity=plan.identity)
+            seen.add(trial.config_sha256)
+            index += 1
+        best[coordinate.name] = coordinate.anchor
+    return len(seen)
+
+
+def _occurrence_root(runs: Path, track: str, trial: Any) -> Path:
+    """Where one LOGICAL search position records itself.
+
+    Keyed by track, coordinate and trial index rather than by configuration, so
+    two occurrences of the same configuration cannot overwrite one another. The
+    trial index is the pass's own ordering, which makes the directory listing
+    read in search order.
+    """
+    return (Path(runs) / "scientific" / "occurrences" / track.lower()
+            / f"{trial.trial_index:03d}_{trial.coordinate}")
+
+
 def _sha256_file(path: Path) -> str:
     import hashlib
 
@@ -1534,6 +1661,7 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
     from prism_fas.detector.trainer import M9Trainer, run_source_only_flow
     from prism_fas.evaluation import source_selection
     from prism_fas.pipeline.state import atomic_write_json
+    from prism_fas.search.coordinate import FatalDependencyError
 
     decision = state["decision"]
     plan, variant, lr = item["plan"], item["variant"], item["lr"]
@@ -1543,11 +1671,56 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
     arm = decision.training_arm
     evidence = inputs["c6"]["banks"][arm]
 
+    occurrence_root = _occurrence_root(runs, track, trial)
+    occurrence_path = occurrence_root / TRIAL_OCCURRENCE
+
     def persist(payload: dict[str, Any]) -> dict[str, Any]:
-        atomic_write_json(summary_path, payload)
+        """Write the CONFIGURATION run, then this LOGICAL occurrence of it.
+
+        Both, always. The configuration run is keyed by config SHA and may be
+        shared by several occurrences; the occurrence is keyed by search position
+        and is never shared. Writing only the first would leave the pass unable
+        to say which positions it actually evaluated — which is how 15 result
+        rows came to have 11 artifacts.
+        """
+        existing = read_json(summary_path)
+        reused = bool(existing
+                      and existing.get("trial_config_sha256") == trial.config_sha256
+                      and existing.get("status") == payload.get("status"))
+        if not reused:
+            atomic_write_json(summary_path, payload)
+        atomic_write_json(occurrence_path, {
+            "schema_version": "c7-scientific-trial-occurrence-v1",
+            "generated_at_utc": utc(),
+            "track": track,
+            "trial_index": trial.trial_index,
+            "coordinate": trial.coordinate,
+            "value": trial.value,
+            "config_id": trial.config_id,
+            "config_sha256": trial.config_sha256,
+            "search_plan_identity": plan.identity,
+            "status": payload.get("status"),
+            "reason": payload.get("reason", ""),
+            "selection_metrics": dict(payload.get("selection_metrics") or {}),
+            # The configuration run this occurrence used, and whether this
+            # occurrence is the one that produced it.
+            "config_run_root": run_root.relative_to(request.repo).as_posix(),
+            "config_run_summary": summary_path.relative_to(request.repo).as_posix(),
+            "config_evidence_reused": reused,
+            "config_evidence_produced_here": not reused,
+            "reuse_rule": ("an identical configuration under the same frozen search "
+                           "plan is identical work; the occurrence references the "
+                           "existing run rather than retraining or overwriting it"),
+            "parent_identities": dict(payload.get("parent_identities") or {}),
+            "scientific_eligible": True, "fixture_backed": False,
+            "target_paths_resolved": 0, "target_labels_resolved": 0,
+        })
         return {**payload,
                 "run_root": run_root.relative_to(request.repo).as_posix(),
-                "trial_summary": summary_path.relative_to(request.repo).as_posix()}
+                "trial_summary": summary_path.relative_to(request.repo).as_posix(),
+                "occurrence_record": occurrence_path.relative_to(
+                    request.repo).as_posix(),
+                "config_evidence_reused": reused}
 
     base = {
         "schema_version": "c7-scientific-trial-summary-v2",
@@ -1581,6 +1754,14 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
                         "reason": f"{arm} is not the frozen search arm",
                         "selection_metrics": {}})
 
+    # PHASE 1 — resolve the global inputs and construct. Everything reached here
+    # depends on immutable, host-level artifacts: the CUDA device, the frozen C6
+    # bank, the pinned backbones, the frozen recipe text cache, the source
+    # package. A failure among them is true of every candidate, so it aborts the
+    # pass instead of consuming this one. `verify_detector_inputs` already proved
+    # all of it before the search began; this is the second lock, for anything
+    # that moves mid-pass.
+    global_errors = _global_dependency_errors()
     try:
         device = _scientific_device()
         bank = open_arm_bank(
@@ -1604,6 +1785,30 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
             weight_root=request.repo / inputs["weight_root"],
             loader_config_path=request.repo / "configs/data/loader_m4.yaml",
             device=device, synthetic_bank=bank)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except global_errors as error:
+        raise FatalDependencyError(
+            f"C7 Track {track} cannot construct a scientific trial: "
+            f"{type(error).__name__}: {error}",
+            dependency=type(error).__name__) from error
+    except Exception as error:                        # noqa: BLE001
+        # Not a recognised global input. Conservative direction: treat it as a
+        # property of THIS configuration, retain it, and let the pass continue.
+        return persist({
+            **base, "generated_at_utc": utc(), "status": "FAIL",
+            "reason": f"{type(error).__name__}: {error}"[:600],
+            "failure_phase": "construct", "selection_metrics": {},
+            "retention": ("§15.2.2 retains invalid and divergent trials; this one is "
+                          "ranked after every finite-valid trial and is never deleted"),
+        })
+
+    # PHASE 2 — train and evaluate. A failure here really can be a property of
+    # this configuration: a learning rate that diverges, a loss weight that
+    # produces a non-finite objective. Those are findings ABOUT the candidate and
+    # are retained as FAIL. A global input that moves mid-training is still
+    # global and still aborts.
+    try:
         flow = run_source_only_flow(trainer, resume=request.resume)
 
         frames = source_selection.source_dev_frame_rows(trainer)
@@ -1621,6 +1826,13 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
         # Somebody stopped the process. Not an outcome for this trial: everything
         # already on disk stays, and the next invocation resumes this trial.
         raise
+    except global_errors as error:
+        # A frozen input moved while this trial was training. Still global, still
+        # true of every remaining candidate, still not this configuration's fault.
+        raise FatalDependencyError(
+            f"C7 Track {track} lost a global dependency mid-trial: "
+            f"{type(error).__name__}: {error}",
+            dependency=type(error).__name__) from error
     except Exception as error:                        # noqa: BLE001
         # A trial that will not train is a retained NEGATIVE result, not a reason
         # to widen the envelope or skip a coordinate. It ranks after every
@@ -1633,7 +1845,7 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
         return persist({
             **base, "generated_at_utc": utc(), "status": "FAIL",
             "reason": f"{type(error).__name__}: {error}"[:600],
-            "selection_metrics": {},
+            "failure_phase": "train", "selection_metrics": {},
             "retention": ("§15.2.2 retains invalid and divergent trials; this one is "
                           "ranked after every finite-valid trial and is never deleted"),
         })
@@ -1679,6 +1891,34 @@ def _run_scientific_trial(request: AdapterRequest, *, inputs: dict[str, Any],
         "code_lineage": {"git_commit": flow["run_summary"].get("git_commit")},
         "device": flow["run_summary"].get("device"),
     })
+
+
+def _global_dependency_errors() -> tuple[type[BaseException], ...]:
+    """Exception types that mean a GLOBAL immutable input is wrong.
+
+    A TYPED allowlist, never a string match on exception prose. Each of these is
+    raised by the module that OWNS one frozen input, and each is true of every
+    candidate equally: the text cache is missing, a pinned weight does not
+    resolve, the C6 bank moved, the source package is unreadable, there is no
+    CUDA device. None of them can differ between two learning rates.
+
+    Anything NOT in this tuple is treated as configuration-specific and becomes a
+    retained FAIL, which is the conservative direction: a global failure
+    misclassified as a FAIL costs one search slot and is visible in the
+    leaderboard, whereas a configuration failure misclassified as global would
+    abort a pass that should have continued.
+    """
+    from prism_fas.detector.c6_bank import C6BankError
+    from prism_fas.detector.dataset import DatasetError
+    from prism_fas.detector.heads import TextCacheError
+    from prism_fas.detector.pretrained import PretrainedError
+    from prism_fas.detector.region_cache import RegionCacheError
+    from prism_fas.evaluation.c6_evidence import C6EvidenceError
+    from prism_fas.pipeline.adapters.sources import SourceUnavailable
+
+    return (TextCacheError, PretrainedError, C6BankError, C6EvidenceError,
+            DatasetError, RegionCacheError, SourceUnavailable,
+            ScientificDeviceUnavailable)
 
 
 def _arm_evidence(repo: Path, arm: str) -> Any:
@@ -2056,7 +2296,7 @@ __all__ = ["STAGE_ID", "MODES", "SCIENTIFIC_MODES", "TRACK_G_READINESS",
            "VARIANT_MATRIX_AUDIT", "SOURCE_SEARCH", "VERIFY_C6_EVIDENCE",
            "SCIENTIFIC_SEARCH", "FINALIZE_DETECTOR_CONFIG", "VERIFY_CONFIG_LOCK",
            "SCIENTIFIC_REPORTS", "DETECTOR_CONFIG_LOCK", "SCIENTIFIC_CONFIG_LOCK_PATH",
-           "SCIENTIFIC_SEARCH_STATE", "TRIAL_SUMMARY",
+           "SCIENTIFIC_SEARCH_STATE", "TRIAL_SUMMARY", "TRIAL_OCCURRENCE",
            "TRACK_G_FLAGS", "TRACK_R_FLAGS", "TRACK_R_K4_FLAGS",
            "ScientificDeviceUnavailable", "verify_detector_config_lock",
            "C7Adapter"]
