@@ -73,20 +73,39 @@ class M9TrainingDataset:
     def __init__(self, package_root: Path, bank_root: Path, loader_config: LoaderConfig, *,
                  cache_root: Path, recipe_ids: Sequence[str] = (), backend: str = "loose",
                  progress: Callable[[int, int], None] | None = None,
-                 variant: Any = None, bank_identity: str | None = None, bank_id: str | None = None):
+                 variant: Any = None, bank_identity: str | None = None, bank_id: str | None = None,
+                 bank: Any = None, domains: Sequence[str] = DOMAINS):
         from prism_fas.data.loader.loose_dataset import CanonicalPackageDataset
         from .variant import ResolvedExperimentVariant
         assert_source_only(TRAINING_SPLIT)
         self.variant = (variant or ResolvedExperimentVariant.reference()).validate()
+        # §19: P1 trains on CASIA only and P2 on MSU only. Restricting the real
+        # POOLS is the whole of that difference — no row is relabelled, no
+        # package is rebuilt and the default is both domains, so the Version-B
+        # reference dataset is byte-for-byte what it was.
+        self.domains = tuple(str(name) for name in domains)
+        unknown = sorted(set(self.domains) - set(DOMAINS))
+        if unknown: raise DatasetError(f"unknown source domain(s) {unknown}; the source package holds {DOMAINS}")
+        if not self.domains: raise DatasetError("a training dataset needs at least one source domain")
         self.real = CanonicalPackageDataset(Path(package_root), TRAINING_SPLIT, loader_config, mode="training")
         # A row that declares `recipe_conditioning: random_operators` opens the M10
         # random-operator bank instead of the M7-structured M8 v3 bank. Both are
         # opened fail-closed against their own pinned identity; neither is a fallback
         # for the other, and no threshold or acceptance rule is shared by accident.
-        open_kwargs: dict[str, Any] = {"backend": backend}
-        if bank_identity: open_kwargs["expected_identity"] = bank_identity
-        if bank_id: open_kwargs["expected_bank_id"] = bank_id
-        self.bank = SyntheticBankReader.open(Path(bank_root), **open_kwargs)
+        #
+        # `bank` is the Version-C seam: C7/C8 train against one arm's frozen C6
+        # matched bank, which is a different artifact in a different shape and is
+        # opened by its own fail-closed reader (`detector.c6_bank`). It is passed
+        # in ALREADY VERIFIED rather than resolved here, so this class keeps one
+        # way of reaching a synthetic sample and no code path can construct a
+        # bank in place of opening one.
+        if bank is not None:
+            self.bank = bank
+        else:
+            open_kwargs: dict[str, Any] = {"backend": backend}
+            if bank_identity: open_kwargs["expected_identity"] = bank_identity
+            if bank_id: open_kwargs["expected_bank_id"] = bank_id
+            self.bank = SyntheticBankReader.open(Path(bank_root), **open_kwargs)
         self.package_root = Path(package_root)
         self.package_identity = self.real.index.content_identity
         if self.bank.lock["package_identity"] != self.package_identity:
@@ -108,11 +127,25 @@ class M9TrainingDataset:
 
     # --- pools --------------------------------------------------------------
     def _real_pools(self) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
+        """Real rows by class and domain, restricted to the protocol's domains.
+
+        A domain the protocol excludes contributes NO pool at all, rather than an
+        empty one: an empty pool would let a domain-balanced sampler ask for
+        `quota // 2` rows from a source the protocol never trains on and fail deep
+        inside a stream, and it would make `summary()` report a domain this row
+        did not use.
+        """
         live: dict[str, list[int]] = {}
         spoof: dict[str, list[int]] = {}
         for position, row in enumerate(self.real.index.rows):
+            if row["dataset"] not in self.domains: continue
             bucket = live if row["label_live_spoof"] == "live" else spoof
             bucket.setdefault(row["dataset"], []).append(position)
+        for label, bucket in (("live", live), ("spoof", spoof)):
+            missing = [name for name in self.domains if not bucket.get(name)]
+            if missing:
+                raise DatasetError(
+                    f"source_train has no real {label} rows for declared domain(s) {missing}")
         return live, spoof
 
     def _synthetic_pools(self) -> dict[str, list[int]]:
@@ -205,6 +238,8 @@ class M9TrainingDataset:
         return {"schema_version": DATASET_SCHEMA_VERSION,
                 "package_identity_sha256": self.package_identity,
                 "bank_id": self.bank.bank_id, "bank_identity_sha256": self.bank.identity,
+                "bank_backend": self.bank.backend,
+                "source_domains": list(self.domains),
                 "real_total": len(self.real),
                 "real_live": {name: len(values) for name, values in sorted(self.real_live.items())},
                 "real_spoof": {name: len(values) for name, values in sorted(self.real_spoof.items())},
@@ -240,13 +275,32 @@ class M9ValidationDataset:
     """
 
     def __init__(self, package_root: Path, loader_config: LoaderConfig, *, cache_root: Path,
-                 limit: int | None = None, progress: Callable[[int, int], None] | None = None):
+                 limit: int | None = None, progress: Callable[[int, int], None] | None = None,
+                 domains: Sequence[str] = DOMAINS):
         from prism_fas.data.loader.loose_dataset import CanonicalPackageDataset
         assert_source_only(VALIDATION_SPLIT)
+        self.domains = tuple(str(name) for name in domains)
+        unknown = sorted(set(self.domains) - set(DOMAINS))
+        if unknown: raise DatasetError(f"unknown source domain(s) {unknown}; the source package holds {DOMAINS}")
         self.real = CanonicalPackageDataset(Path(package_root), VALIDATION_SPLIT, loader_config, mode="validation")
         self.package_identity = self.real.index.content_identity
         rows = list(self.real.index.rows)
-        self.positions = tuple(range(len(rows) if limit is None else min(int(limit), len(rows))))
+        # §19/§15.4: P1 selects and calibrates on CASIA-dev, P2 on MSU-dev and a
+        # P3-ready row on both with equal weight. The prior cache is still built
+        # over EVERY row so its identity does not change with the protocol; only
+        # which positions this dataset yields does.
+        eligible = [position for position, row in enumerate(rows) if row["dataset"] in self.domains]
+        if not eligible:
+            raise DatasetError(f"source_dev has no rows for domain(s) {list(self.domains)}")
+        self.positions = tuple(eligible if limit is None else eligible[:int(limit)])
+        self.domain_of = {position: str(rows[position]["dataset"]) for position in self.positions}
+        # The safe record identifier, carried by the loader index. Video-level
+        # selection metrics group on it, so it is exposed here rather than
+        # re-derived from a sample id by a naming convention.
+        self._record_of = {position: str(rows[position]["source_record_id"])
+                           for position in self.positions}
+        self._sample_id_of = {position: str(rows[position]["sample_id"])
+                              for position in self.positions}
         Path(cache_root).mkdir(parents=True, exist_ok=True)
         self.prior_cache, self.prior_cache_state = load_or_build_region_prior_cache(
             Path(cache_root), Path(package_root), rows, package_identity=self.package_identity,
@@ -270,9 +324,31 @@ class M9ValidationDataset:
         for start in range(0, len(self.positions), int(batch_size)):
             yield self.batch(self.positions[start:start + int(batch_size)])
 
+    def record_of(self, position: int) -> str:
+        return self._record_of[int(position)]
+
+    def sample_id_of(self, position: int) -> str:
+        return self._sample_id_of[int(position)]
+
+    def domain_positions(self) -> dict[str, tuple[int, ...]]:
+        """This split's positions grouped by source domain.
+
+        What an equal-weight P3-ready selection needs: the per-domain metric is
+        computed over each group and then averaged, rather than over a pooled
+        split whose average would be weighted by however many rows each domain
+        happens to contribute.
+        """
+        grouped: dict[str, list[int]] = {}
+        for position in self.positions:
+            grouped.setdefault(self.domain_of[position], []).append(int(position))
+        return {name: tuple(values) for name, values in sorted(grouped.items())}
+
     def summary(self) -> dict[str, Any]:
         return {"schema_version": DATASET_SCHEMA_VERSION, "split": VALIDATION_SPLIT,
                 "package_identity_sha256": self.package_identity, "rows": len(self.positions),
+                "source_domains": list(self.domains),
+                "rows_per_domain": {name: len(values) for name, values
+                                    in self.domain_positions().items()},
                 "available_rows": len(self.real), "produces_gradient": False,
                 "region_prior_cache": {"state": self.prior_cache_state,
                                        "identity_sha256": self.prior_cache.identity}}

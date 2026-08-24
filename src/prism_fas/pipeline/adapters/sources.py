@@ -26,7 +26,7 @@ any of them.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from prism_fas.pipeline.adapters import AdapterError
 from prism_fas.pipeline.preparation import (DERIVED_PACKAGES, M7_RECIPE_BANK,
@@ -255,6 +255,158 @@ def _real_support_batch(repo: Path, size: int, *,
         "source_only_audit": audit.report()}
 
 
+#: Where a scientific C5 wrote its rendered candidates. The C6 matched banks name
+#: candidate ids; the bytes for those ids live here, and C7/C8 resolve them
+#: through `detector.c6_bank` rather than by scanning the directory.
+C5_CANDIDATES_ROOT = "runs/full/c5/scientific/candidates"
+
+#: The pinned pretrained weight root. Weights are never vendored into git; this
+#: is where the GPU host materializes them.
+WEIGHT_ROOT = "weights"
+
+
+class DetectorInputsUnavailable(SourceUnavailable):
+    """A scientific detector run's frozen inputs are not usable on this host."""
+
+    reason_code = "MISSING_DETECTOR_INPUT"
+
+
+def verify_detector_inputs(repo: Path, *, arms: Sequence[str] = ()) -> dict[str, Any]:
+    """Prove every frozen input a scientific C7/C8 detector run consumes.
+
+    Five artifacts have to agree before one tensor is built, and each is checked
+    by the module that OWNS it rather than by a second opinion here:
+
+    * the frozen C6 closure and its three arm BANK_LOCKs
+      (`evaluation.c6_evidence.verify_c6_evidence`, which applies the same strict
+      rules C6's own VERIFY_C6_LOCKS applies);
+    * the M3B source package, present and recording its own validation as passed;
+    * the frozen M7 recipe bank, through the canonical frozen-bank gate;
+    * the pinned SigLIP2 tower and ConvNeXt V2 Atto weight, SHA-verified by
+      `detector.pretrained` -- never a shape-exact stub and never a download;
+    * the C5 candidate tree the matched banks address.
+
+    Reads locks, a package lock and weight file hashes. Opens no image, no
+    manifest row and no target.
+    """
+    import json
+
+    from prism_fas.evaluation import c6_evidence
+    from prism_fas.pipeline.preparation import PreparationError, validate_recipe_bank
+
+    repo = Path(repo)
+    package_root = repo / SOURCE_PACKAGE_ROOT
+
+    package_lock = package_root / "PACKAGE_LOCK.json"
+    if not package_lock.is_file():
+        raise DetectorInputsUnavailable(
+            f"{SOURCE_PACKAGE_ROOT}/PACKAGE_LOCK.json is absent; a scientific detector "
+            "run trains on the frozen M3B package or it does not train")
+    package = json.loads(package_lock.read_text(encoding="utf-8"))
+    if package.get("status") != "validated" or (
+            package.get("package_validation") or {}).get("status") != "passed":
+        raise DetectorInputsUnavailable(
+            f"{SOURCE_PACKAGE_ROOT} reports status {package.get('status')!r} and "
+            f"validation {(package.get('package_validation') or {}).get('status')!r}; "
+            "a scientific run trains only against a package its own validator passed")
+
+    try:
+        bank = validate_recipe_bank(repo)
+    except PreparationError as error:
+        raise DetectorInputsUnavailable(
+            f"the frozen M7 recipe bank is not usable: {error}") from error
+
+    try:
+        evidence = c6_evidence.verify_c6_evidence(repo)
+    except c6_evidence.C6EvidenceError as error:
+        raise DetectorInputsUnavailable(
+            f"the frozen C6 closure does not verify: {error}") from error
+
+    requested = tuple(arms) or evidence.arms
+    unknown = sorted(set(requested) - set(evidence.arms))
+    if unknown:
+        raise DetectorInputsUnavailable(
+            f"C6 froze no matched bank for arm(s) {unknown}; it froze {evidence.arms}")
+
+    candidates_root = repo / C5_CANDIDATES_ROOT
+    if not candidates_root.is_dir():
+        raise DetectorInputsUnavailable(
+            f"{C5_CANDIDATES_ROOT} is absent; the C6 banks name candidate ids whose "
+            "rendered bytes live there, and there is no substitute for them")
+
+    weights = _pinned_detector_weights(repo)
+
+    return {
+        "package_root": SOURCE_PACKAGE_ROOT,
+        "package_identity": str(package.get("content_identity_sha256")),
+        "recipe_bank_root": RECIPE_BANK_ROOT,
+        "recipe_bank_id": bank["bank_id"],
+        "recipe_bank_identity": str(bank["bank_content_identity_sha256"]),
+        "recipe_bank_recipe_count": bank["recipe_count"],
+        "candidates_root": C5_CANDIDATES_ROOT,
+        "weight_root": WEIGHT_ROOT,
+        "pretrained": weights,
+        "c6": evidence.as_dict(),
+        "c6_arms": list(requested),
+        "identities_agree": True,
+        "target_paths_resolved": 0,
+        "target_labels_resolved": 0,
+        "verified_by": "prism_fas.pipeline.adapters.sources.verify_detector_inputs",
+    }
+
+
+def _pinned_detector_weights(repo: Path) -> dict[str, Any]:
+    """The two pinned backbones, resolved and SHA-verified, or a refusal.
+
+    `SigLIP2Artifacts.resolve` and `resolve_convnext_weight` verify every pinned
+    file hash themselves. A missing or altered weight raises `PretrainedError`,
+    which is translated rather than swallowed: a scientific detector may not fall
+    back to a randomly initialized tower, and the audit fixture model that C7
+    readiness builds is not a substitute for one.
+    """
+    from prism_fas.detector.pretrained import (PretrainedError, SigLIP2Artifacts,
+                                               resolve_convnext_weight, sha256_file)
+
+    repo = Path(repo)
+    root = repo / WEIGHT_ROOT
+    try:
+        siglip = SigLIP2Artifacts.resolve(root)
+        convnext = resolve_convnext_weight(root)
+    except (PretrainedError, OSError) as error:
+        raise DetectorInputsUnavailable(
+            f"the pinned detector backbones are not resolvable under {WEIGHT_ROOT}: "
+            f"{error}. A scientific detector binds the frozen SigLIP2 tower and the "
+            "pinned ConvNeXt V2 Atto weight, never a shape-exact stub and never a "
+            "silent download") from error
+
+    return {
+        "global_tower": {
+            "role": "frozen_global_tower",
+            "component": "siglip",
+            "path": _relative_to(siglip.root, repo),
+            "identity_sha256": siglip.identity(),
+            "frozen": True,
+        },
+        "local_backbone": {
+            "role": "trainable_local_branch",
+            "component": "convnext",
+            "path": _relative_to(convnext, repo),
+            "weight_sha256": sha256_file(convnext),
+            "frozen": False,
+        },
+        "resolved_by": "prism_fas.detector.pretrained (SHA-verified pins)",
+        "stub_substituted": False,
+        "downloaded_during_run": False,
+    }
+
+
+def _relative_to(path: Path, repo: Path) -> str:
+    try:
+        return Path(path).relative_to(Path(repo)).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
 def target_roots(repo: Path, reports: Path, context: Any) -> tuple[dict[str, Path],
                                                                    dict[str, Any]]:
     """The C10 target package roots.
@@ -328,5 +480,7 @@ def _real_target_roots(repo: Path) -> tuple[dict[str, Path], dict[str, Any]]:
 
 __all__ = ["SourceUnavailable", "support_batch", "target_roots",
            "SupportIdentityMismatch", "verify_support_inputs",
+           "DetectorInputsUnavailable", "verify_detector_inputs",
            "SOURCE_PACKAGE_ROOT", "GPAT_PAIR_ROOT", "RECIPE_BANK_ROOT",
+           "C5_CANDIDATES_ROOT", "WEIGHT_ROOT",
            "REHEARSAL_CONDITIONING_SOURCE"]

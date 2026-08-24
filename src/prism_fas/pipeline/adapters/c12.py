@@ -31,7 +31,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput, check,
                                                 read_json, resume_decision,
                                                 stage_reports_dir, utc, write_artifact)
 from prism_fas.pipeline.execution import ExecutionContext
@@ -69,6 +70,20 @@ class C12Adapter(EngineeringAdapter):
 
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:
+        """Score the C11 predictions. Labels are fabricated, so this is rehearsal.
+
+        `_score` and `_statistics` invent labels with `tiny.evaluation_labels`,
+        which is what makes the metric, bootstrap and Holm paths runnable offline
+        and what makes them incapable of producing a Version-C P3 number. A
+        scientific C12 unlocks the SEALED labels inside the isolated C-G8 scorer,
+        which is a different resolution path and is not written yet — so the
+        guard fires rather than letting fabricated labels be scored under a
+        scientific profile.
+        """
+        assert_fixture_permitted(
+            request.context,
+            "the C12 fabricated evaluation labels and the fixture scoring path")
+
         reports = stage_reports_dir(request, STAGE_ID)
         predictions = self._load_predictions(request)
         return [

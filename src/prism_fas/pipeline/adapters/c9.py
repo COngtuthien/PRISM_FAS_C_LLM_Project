@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
 from prism_fas.evaluation import detector_reliability
@@ -35,17 +36,43 @@ BUILD_LOCK = "BUILD_LOCK"
 VALIDATE_LOCK = "VALIDATE_LOCK"
 REFUSAL_CASES = "REFUSAL_CASES"
 
-MODES: tuple[str, ...] = (BUILD_LOCK, VALIDATE_LOCK, REFUSAL_CASES)
+#: Scientific-only substages. `REFUSAL_CASES` is deliberately not among them: it
+#: CONSTRUCTS seven broken evidence sets to prove the gate refuses, which is
+#: rehearsal evidence and would be fabrication inside a scientific pass.
+LOAD_C8_EVIDENCE = "LOAD_C8_EVIDENCE"
+FREEZE_SOURCE_MATRIX = "FREEZE_SOURCE_MATRIX"
+
+SCIENTIFIC_MODES: tuple[str, ...] = (LOAD_C8_EVIDENCE, FREEZE_SOURCE_MATRIX,
+                                     VALIDATE_LOCK)
+
+MODES: tuple[str, ...] = (BUILD_LOCK, VALIDATE_LOCK, REFUSAL_CASES,
+                          LOAD_C8_EVIDENCE, FREEZE_SOURCE_MATRIX)
+
+#: The one governing artifact scientific C9 produces. C10 declares this exact
+#: path as a required input, so it is named once here.
+SCIENTIFIC_REPORTS = "reports/full/c9"
+SOURCE_MATRIX_LOCK = "SOURCE_MATRIX_LOCK_C.json"
 
 
-def _complete_evidence(plan: Any) -> list[Any]:
+def _complete_evidence(plan: Any, context: Any = None) -> list[Any]:
     """Synthetic complete evidence for every planned row.
 
     Fixture evidence, clearly: the hashes are derived from each row's own
     identity rather than from a trained checkpoint. What it exercises is the
-    lock's completeness logic, which is a pure function of the evidence shape.
+    lock's completeness logic, which is a pure function of the evidence shape,
+    and exercising it that way is the only way to reach the refusal branches at
+    all — a real complete matrix has none of them.
+
+    `context` is not optional in practice. Every caller inside the adapter passes
+    it, and passing a scientific one raises: a SOURCE_MATRIX_LOCK_C built over
+    rows this function invented would be a freeze over an experiment nobody
+    performed. The default exists only so the rehearsal-only helpers in the tests
+    can call it without a request.
     """
     from prism_fas.evaluation.source_lock import RowEvidence
+
+    if context is not None:
+        assert_fixture_permitted(context, "the C9 constructed complete evidence set")
 
     return [RowEvidence(
         row_id=row.row_id, run_identity=row.run_identity,
@@ -111,11 +138,197 @@ class C9Adapter(EngineeringAdapter):
 
     def workflow(self, request: AdapterRequest,
                  context: ExecutionContext) -> list[AdapterResult]:
+        """Two workflows, chosen by the context — never one that adapts.
+
+        The rehearsal builds a lock over constructed evidence and proves the
+        seven refusal cases. The scientific path loads the real C8 manifests,
+        re-hashes the checkpoints they name and refuses to build anything at all
+        if a single planned row is absent, failed, fixture-backed or drifted.
+        `_complete_evidence` raises under a scientific context, so the two cannot
+        meet even if a future edit reconnected them.
+        """
+        if context.is_scientific:
+            return self._scientific_workflow(request, context)
+        return self._engineering_workflow(request, context)
+
+    def _engineering_workflow(self, request: AdapterRequest,
+                              context: ExecutionContext) -> list[AdapterResult]:
         reports = stage_reports_dir(request, STAGE_ID)
         lock, build_result = self._build(request, reports)
         return [build_result,
                 self._validate(request, lock, reports),
                 self._refusals(request, reports)]
+
+    # --- the scientific workflow ---------------------------------------------
+
+    def _scientific_workflow(self, request: AdapterRequest,
+                             context: ExecutionContext) -> list[AdapterResult]:
+        """The real C9: freeze what C8 actually produced, or refuse and say why."""
+        reports = stage_reports_dir(request, STAGE_ID)
+        evidence, load_result = self._scientific_evidence(request, reports)
+        if evidence is None:
+            return [load_result]
+        lock, freeze_result = self._scientific_freeze(request, evidence, reports)
+        results = [load_result, freeze_result]
+        if lock is not None:
+            results.append(self._scientific_validate(request, evidence, lock, reports))
+        return results
+
+    def _scientific_evidence(self, request: AdapterRequest,
+                             reports: Path) -> tuple[dict[str, Any] | None, AdapterResult]:
+        """Load REAL C8 row evidence. Nothing here constructs a row."""
+        from prism_fas.evaluation import source_evidence
+        from prism_fas.evaluation.source_matrix import build_plan
+
+        checks: list[dict[str, Any]] = []
+        plan = build_plan()
+        report = source_evidence.evidence_report(request.repo, plan)
+
+        checks.append(check(
+            "c9_c8_acceptance_present_and_scientific", report["available"],
+            "C8's own acceptance verdict exists, is scientifically eligible and is "
+            "not fixture-backed",
+            reason_code=report["reason_code"], error=report["error"][:400],
+            loader="prism_fas.evaluation.source_evidence.evidence_report"))
+        if not report["available"]:
+            return None, self.result(request, mode=LOAD_C8_EVIDENCE, checks=checks,
+                                     summary="C9 has no scientific C8 evidence to freeze")
+
+        checks.append(check(
+            "c9_evidence_is_real_not_constructed", True,
+            "every row of evidence came from a C8 run manifest on disk; the "
+            "constructed-evidence helper raises under a scientific context",
+            rows_found=report["rows_found"], rows_planned=report["rows_planned"],
+            loaded_by=report["loaded_by"], runs_root=report["runs_root"],
+            constructed_evidence_reachable=False))
+        checks.append(check(
+            "c9_every_planned_row_has_readable_evidence",
+            report["rows_found"] == report["rows_planned"] and not report["problems"],
+            f"{report['rows_found']}/{report['rows_planned']} planned rows produced "
+            "readable, identity-matching, byte-verified evidence",
+            problems=report["problems"][:12],
+            problem_count=len(report["problems"])))
+        checks.append(check(
+            "c9_c8_accepted_its_own_matrix", report["acceptance_accepted"],
+            "C8 accepted the matrix it produced; C9 does not overrule a C8 refusal",
+            **{key: report["acceptance"].get(key) for key in
+               ("accepted", "rows_declared", "rows_terminal", "rows_passed",
+                "rows_failed", "hidden_rows", "missing_rows")}))
+
+        artifact = write_artifact(request, reports / "C9_C8_EVIDENCE.json", {
+            "schema_version": "c9-c8-evidence-v1", "generated_at_utc": utc(),
+            "mode": LOAD_C8_EVIDENCE, "fixture_backed": False,
+            "matrix_identity": plan.identity,
+            "rows_planned": report["rows_planned"], "rows_found": report["rows_found"],
+            "problems": report["problems"],
+            "acceptance": report["acceptance"],
+            "rows": [item.as_dict() for item in report["evidence"]]})
+
+        if not all(item["ok"] for item in checks):
+            return None, self.result(request, mode=LOAD_C8_EVIDENCE, checks=checks,
+                                     artifacts=[artifact],
+                                     summary="C9 refuses: the C8 evidence is incomplete")
+
+        state = {"plan": plan, "evidence": report["evidence"], "report": report}
+        return state, self.result(request, mode=LOAD_C8_EVIDENCE, checks=checks,
+                                  artifacts=[artifact],
+                                  parent_identities={"c8_source_matrix": plan.identity})
+
+    def _scientific_freeze(self, request: AdapterRequest, state: dict[str, Any],
+                           reports: Path) -> tuple[dict[str, Any] | None, AdapterResult]:
+        """Build SOURCE_MATRIX_LOCK_C from the real evidence, or refuse."""
+        from prism_fas.evaluation.source_lock import SourceLockError, audit, build
+
+        checks: list[dict[str, Any]] = []
+        plan, evidence = state["plan"], state["evidence"]
+        report = audit(plan, evidence)
+
+        checks.append(check(
+            "c9_audit_finds_no_blocking_refusal", report["freezable"],
+            "the real evidence produces no blocking refusal",
+            planned_rows=report["planned_rows"], evidence_rows=report["evidence_rows"],
+            accepted_rows=report["accepted_rows"],
+            blocking=report["blocking_refusals"]))
+
+        lock: dict[str, Any] | None = None
+        error = ""
+        try:
+            acceptance = state["report"]["acceptance"]
+            lock = build(plan, evidence,
+                         code_lineage={"c8_acceptance": acceptance},
+                         artifact_identities={
+                             "c7_detector_config_sha256":
+                                 str(acceptance.get("c7_detector_config_sha256")),
+                             "c6_selector_identity_sha256":
+                                 str(acceptance.get("c6_selector_identity_sha256")),
+                             "source_package_identity":
+                                 str(acceptance.get("source_package_identity"))})
+        except SourceLockError as failure:
+            error = str(failure)
+
+        checks.append(check(
+            "c9_lock_builds_from_real_evidence", lock is not None,
+            "SOURCE_MATRIX_LOCK_C builds when every real row is present, terminal "
+            "and passing",
+            error=error[:400], lock_identity=(lock or {}).get("lock_identity")))
+        if lock is not None:
+            checks.append(check(
+                "c9_lock_covers_every_planned_row",
+                lock["row_count"] == len(plan.rows),
+                "the lock covers every preregistered row",
+                row_count=lock["row_count"], planned=len(plan.rows)))
+            checks.append(check(
+                "c9_lock_declares_no_target_capability",
+                lock["target_capability"]["target_labels_resolved"] == 0,
+                "the lock carries a no-target-capability proof",
+                **lock["target_capability"]))
+
+        payload = {**(lock or {"status": "NOT_BUILT", "error": error}),
+                   "generated_at_utc": utc(), "mode": FREEZE_SOURCE_MATRIX,
+                   "is_scientific_lock": lock is not None,
+                   "fixture_backed": False,
+                   "evidence_source": state["report"]["loaded_by"]}
+        artifact = write_artifact(request, reports / SOURCE_MATRIX_LOCK, payload)
+        return lock, self.result(request, mode=FREEZE_SOURCE_MATRIX, checks=checks,
+                                 artifacts=[artifact],
+                                 parent_identities={"c8_source_matrix": plan.identity})
+
+    def _scientific_validate(self, request: AdapterRequest, state: dict[str, Any],
+                             lock: dict[str, Any], reports: Path) -> AdapterResult:
+        """Re-derive the lock from its own material and from the evidence on disk."""
+        from prism_fas.evaluation.source_lock import validate
+
+        checks: list[dict[str, Any]] = []
+        plan, evidence = state["plan"], state["evidence"]
+        report = validate(lock, plan, evidence)
+
+        checks.append(check(
+            "c9_lock_identity_reproduces", report["identity_reproduces"],
+            "the lock body hashes to its own recorded identity",
+            lock_identity=report["lock_identity"],
+            recomputed=report["lock_identity_recomputed"]))
+        checks.append(check(
+            "c9_lock_validates_against_the_plan_and_disk", report["valid"],
+            "the lock validates against the matrix plan and the evidence currently "
+            "on disk",
+            problems=report["problems"], rows_locked=report["rows_locked"]))
+
+        artifact = write_artifact(request, reports / "C9_LOCK_VALIDATION.json", {
+            "schema_version": "c9-lock-validation-v1", "generated_at_utc": utc(),
+            "mode": VALIDATE_LOCK, "fixture_backed": False, "validation": report})
+        decision = resume_decision(request, "c9_source_matrix_lock",
+                                   reports / SOURCE_MATRIX_LOCK,
+                                   expected_identity=lock["lock_identity"],
+                                   identity_key="lock_identity")
+        checks.append(check(
+            "c9_resume_is_identity_aware", decision["identity_matches"],
+            "resume validates the lock by its recorded identity", **decision))
+
+        passed = all(item["ok"] for item in checks)
+        return self.result(request, mode=VALIDATE_LOCK, checks=checks,
+                           artifacts=[artifact],
+                           # The ONE place C9 claims scientific evidence.
+                           scientific_evidence=passed)
 
     # --- modes ----------------------------------------------------------------
 
@@ -126,7 +339,7 @@ class C9Adapter(EngineeringAdapter):
 
         checks: list[dict[str, Any]] = []
         plan = build_plan()
-        evidence = _complete_evidence(plan)
+        evidence = _complete_evidence(plan, request.context)
         report = audit(plan, evidence)
 
         checks.append(check(
@@ -186,7 +399,7 @@ class C9Adapter(EngineeringAdapter):
                                 "no lock was produced by the build mode"))
             return self.result(request, mode=VALIDATE_LOCK, checks=checks)
 
-        report = validate(lock, plan, _complete_evidence(plan))
+        report = validate(lock, plan, _complete_evidence(plan, request.context))
         checks.append(check(
             "c9_lock_identity_reproduces", report["identity_reproduces"],
             "the lock body hashes to its own recorded identity",
@@ -198,7 +411,7 @@ class C9Adapter(EngineeringAdapter):
             problems=report["problems"], rows_locked=report["rows_locked"]))
 
         drifted = validate(lock, plan, [replace(item, checkpoint_sha256="moved")
-                                        for item in _complete_evidence(plan)])
+                                        for item in _complete_evidence(plan, request.context)])
         checks.append(check(
             "c9_validation_detects_drifted_evidence", not drifted["valid"],
             "changing a frozen checkpoint hash makes validation fail",
@@ -228,7 +441,7 @@ class C9Adapter(EngineeringAdapter):
 
         checks: list[dict[str, Any]] = []
         plan = build_plan()
-        base = _complete_evidence(plan)
+        base = _complete_evidence(plan, request.context)
 
         def refuses(name: str, evidence: list[Any]) -> dict[str, Any]:
             try:
@@ -275,4 +488,6 @@ class C9Adapter(EngineeringAdapter):
         return self.result(request, mode=REFUSAL_CASES, checks=checks, artifacts=[artifact])
 
 
-__all__ = ["STAGE_ID", "MODES", "BUILD_LOCK", "VALIDATE_LOCK", "REFUSAL_CASES", "C9Adapter"]
+__all__ = ["STAGE_ID", "MODES", "SCIENTIFIC_MODES", "BUILD_LOCK", "VALIDATE_LOCK",
+           "REFUSAL_CASES", "LOAD_C8_EVIDENCE", "FREEZE_SOURCE_MATRIX",
+           "SCIENTIFIC_REPORTS", "SOURCE_MATRIX_LOCK", "C9Adapter"]

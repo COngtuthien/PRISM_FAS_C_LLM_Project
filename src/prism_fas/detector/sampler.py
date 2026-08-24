@@ -60,6 +60,12 @@ class BatchContract:
     # A03 single-route variants restrict the ACCEPTED rows; they never regenerate a
     # bank and never change a quality threshold.
     routes: tuple[str, ...] = ROUTES
+    # Which SOURCE domains the real partitions are drawn from. §19: P1 trains on
+    # CASIA alone and P2 on MSU alone, so "domain-balanced" for those protocols
+    # means balanced over the one domain they have. Defaults to both, which is
+    # what every Version-B row used, so the reference contract identity does not
+    # move.
+    domains: tuple[str, ...] = DOMAINS
 
     @property
     def batch_size(self) -> int: return self.real_live + self.real_spoof + self.synthetic
@@ -79,8 +85,15 @@ class BatchContract:
             raise SamplerError("mixed training requires synthetic samples in every batch (Table 36)")
         if self.synthetic * 4 > self.batch_size:
             raise SamplerError("synthetic may never exceed 25 % of a batch (Table 9)")
-        if self.domain_balance and (self.real_live % len(DOMAINS) or self.real_spoof % len(DOMAINS)):
-            raise SamplerError(f"domain-balanced real quotas must divide by {len(DOMAINS)}")
+        if not self.domains:
+            raise SamplerError("a batch contract must declare at least one source domain")
+        unknown_domains = sorted(set(self.domains) - set(DOMAINS))
+        if unknown_domains: raise SamplerError(f"unknown source domain(s) {unknown_domains}")
+        if self.domain_balance and (self.real_live % len(self.domains)
+                                    or self.real_spoof % len(self.domains)):
+            raise SamplerError(
+                f"domain-balanced real quotas must divide by {len(self.domains)} "
+                f"for domains {list(self.domains)}")
         if self.synthetic and not self.routes:
             raise SamplerError("a mixed batch must declare at least one synthetic route")
         unknown = sorted(set(self.routes) - set(ROUTES))
@@ -105,6 +118,10 @@ class BatchContract:
         # Carried only when the row restricts the accepted bank to one route, so the
         # reference contract keeps the hash its M9 checkpoints were written with.
         if tuple(self.routes) != ROUTES: body["routes"] = list(self.routes)
+        # Same rule for the protocol's source domains: present only when the row
+        # is not the both-domains default, so a P1/P2 contract hashes differently
+        # from a P3-ready one and neither disturbs the inherited reference hash.
+        if tuple(self.domains) != DOMAINS: body["domains"] = list(self.domains)
         return body
 
     def identity(self) -> str:
@@ -194,7 +211,7 @@ class M9BatchSampler:
                                 if name in self.contract.routes}
         if self.contract.domain_balance:
             for label, pools in (("live", self.real_live_pools), ("spoof", self.real_spoof_pools)):
-                missing = [name for name in DOMAINS if not pools.get(name)]
+                missing = [name for name in self.contract.domains if not pools.get(name)]
                 if missing: raise SamplerError(f"domain balance needs real {label} samples from {missing}")
         else:
             for label, pools in (("live", self.real_live_pools), ("spoof", self.real_spoof_pools)):
@@ -228,10 +245,12 @@ class M9BatchSampler:
         return streams
 
     def _real(self, streams: dict[str, _Stream], prefix: str, quota: int) -> list[int]:
-        # Table 36 requires domain balance on both real partitions.
-        per_domain = quota // len(DOMAINS)
+        # Table 36 requires domain balance on both real partitions — over the
+        # domains the PROTOCOL declares, which for P1/P2 is a single one.
+        domains = self.contract.domains
+        per_domain = quota // len(domains)
         out: list[int] = []
-        for name in DOMAINS: out.extend(streams[f"{prefix}/{name}"].take(per_domain))
+        for name in domains: out.extend(streams[f"{prefix}/{name}"].take(per_domain))
         return out
 
     def _naive_real(self, epoch: int, step: int) -> tuple[list[int], list[int]]:

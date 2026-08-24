@@ -56,6 +56,13 @@ reports/*
 !reports/c13/
 !reports/final/
 !reports/v15_reconciliation/
+# Cross-cutting evidence roots. Same reasoning as the milestone roots above:
+# small, hand-auditable JSON/Markdown that has to travel with the code it
+# describes. `readiness/` is an ENGINEERING AUDIT and says so in its own
+# payload; `evidence/` is the classified index of retained failures, which is
+# worthless if it lives only on the machine that produced it.
+!reports/readiness/
+!reports/evidence/
 # The v1.5 execution-profile namespaces (Appendix L.2). Same reasoning as the
 # milestone roots above: the per-stage status artifacts and the run summary are
 # small and hand-auditable, and a blocked or failing run is evidence that must

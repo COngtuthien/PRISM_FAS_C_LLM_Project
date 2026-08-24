@@ -28,14 +28,18 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C6_MATCHED_BANK_SELECTOR_V1_AND_SCIENTIFIC_EXECUTOR
-current_substage: the runtime-recovery policy is frozen and implemented. Only a
-                  proven deterministic candidate-semantic failure consumes a
-                  candidate; interruptions propagate; every other exception is
-                  non-terminal operational provenance that aborts the pass and is
-                  retried, identically, by the next run.
-                  Nothing has been RENDERED: no GPU, no C4 lock on this host.
-previous_milestone: C5_SCIENTIFIC_LOCK_C6_HANDOFF_CLOSURE
+current_milestone: C7_C13_PRODUCTION_PATH_READINESS
+current_substage: >-
+  C6 is SCIENTIFIC CLOSED on the GPU host. C7, C8 and C9 now have REAL scientific
+  executors, structurally separated from their rehearsal paths, and the one
+  under-specified C7 input is frozen: C7_SOURCE_SEARCH_SYNTHETIC_ARM = DET. C7
+  runs one bounded pass per TRACK, both anchored on the DET bank, into one
+  DETECTOR_CONFIG_LOCK with a sub-config per track; every primary generator arm
+  of a track trains at that track's single configuration in C8.
+  NOTHING WAS RUN SCIENTIFICALLY. No detector was trained, no scientific metric
+  exists, and no stage reports a scientific PASS. The GPU host still holds the
+  only C4/C5/C6 scientific evidence; this laptop has none of it.
+previous_milestone: C6_MATCHED_BANK_SELECTOR_V1_AND_SCIENTIFIC_EXECUTOR
 execution_profile: rehearsal   # `python train.py` resolved CPU_FULL_REHEARSAL here
 pipeline_phase: engineering-readiness
 
@@ -4285,6 +4289,327 @@ deviations_recorded_in_the_previous_session:
   - A non-scientific profile writes its C3 live state under its own reports namespace
     (reports/smoke/c3/live/) rather than reports/c3/live/, so a fixture rehearsal can
     never be mistaken for scientific generation evidence.
+
+# ==========================================================================
+# C7-C13 PRODUCTION-PATH READINESS AND THE C7 SOURCE-SEARCH ARM DECISION
+# ==========================================================================
+#
+# What this milestone did NOT do: run C7 or C8 scientifically. No detector was
+# trained, no scientific metric exists, and no stage below reports a scientific
+# PASS. What it did is make the scientific paths REAL and fail-closed, and find
+# - on a laptop, before a GPU hour was spent - the class of wiring defect the
+# three C6 reruns cost.
+c7_c13_readiness_milestone:
+  milestone: C7_C13_PRODUCTION_PATH_READINESS
+  executed_on: 2026-08-24
+  execution_profile: none   # audit + rehearsal + offline tests only
+  scientific_execution: NONE
+  target_access: 0
+  gpu_used: false
+
+  # --- the scientific decision this milestone froze -------------------------
+  c7_source_search_synthetic_arm:
+    decision_id: C7_SOURCE_SEARCH_SYNTHETIC_ARM
+    value: DET
+    status: FROZEN
+    source: EXPLICIT_SCIENTIFIC_DECISION
+    spec_status: UNDER_SPECIFIED_IN_V1_5
+    timing: BEFORE_FIRST_C7_SCIENTIFIC_TRIAL
+    frozen_on: 2026-08-24
+    record: configs/search/c7_source_search_decision.yaml
+    decision_identity: ed4f6b777d9f95f089a76191b863e2fb2df0b9e13434470ffd736d6e511b474e
+    loader: prism_fas.search.c7_decision.load_decision
+    question: >-
+      15.2.2 freezes the bounded detector/loss SOURCE_SEARCH envelope completely
+      - coordinate order, multipliers, one pass, ranking tuple, tie-break - and
+      never names which of C6's three matched banks supplies the synthetic
+      quarter of the batch while the search runs. Result-affecting, so it could
+      not be guessed.
+    rationale:
+      - >-
+        DET is the structured NON-LLM control. A generator arm, exercising the
+        same synthetic machinery, but not the thing under test.
+      - >-
+        LLM is the proposed treatment. Tuning the common detector configuration
+        on the treatment bank and then comparing that treatment against its own
+        controls would be a tuning advantage no statistic removes.
+      - >-
+        DET is the only generator arm PRIMARY in both tracks. Track G runs
+        RND/DET/LLM and Track R runs DET/LLM, so one non-treatment anchor serves
+        both track searches. Track-R RND is a compute-conditional diagnostic,
+        not a primary required row.
+      - >-
+        Conservative for the LLM claim. The treatment receives no
+        treatment-specific hyperparameter tuning.
+      - >-
+        Frozen before any C7 scientific metric existed, so it cannot have been
+        chosen from a result.
+    not_a_spec_claim: >-
+      v1.5 does not choose DET. This is an explicit closure decision over an
+      under-specified input, recorded as such.
+    prohibited_after_freeze:
+      - RND
+      - LLM
+      - a separate hyperparameter search per generator arm
+      - pooled or result-dependent arm selection
+      - a second pass that changes the arm
+      - >-
+        a new pooled RND/DET/LLM search bank, an arm-balanced sampler, a rotated
+        batch composition, an averaged arm objective or per-arm hyperparameter
+        voting
+    reopening_policy: >-
+      config_G and config_R are immutable for the C8 primary comparisons. A poor
+      RND, DET, LLM, P1, P2 or P3 result does not reopen C7. No second pass, no
+      arm-specific rescue search, no LLM-specific fine-tuning.
+
+  # --- what C7 now is -------------------------------------------------------
+  c7:
+    engineering_readiness: PASS   # unchanged CPU fixture obligation
+    scientific_executor: IMPLEMENTED
+    scientific_status: NOT_RUN
+    workflow_dispatch: >-
+      _engineering_workflow / _scientific_workflow, chosen on the context
+    requires_gpu_for_science: true
+    searches: 2   # one bounded pass per TRACK, never per arm
+    track_g:
+      search_population: C6 DET matched bank
+      variant: TRACK_G_FLAGS
+      tunes: [learning_rate_multiplier, weight_decay, warmup, lambda_syn,
+              lambda_risk]
+      not_applicable: [lambda_local, lambda_MIL, lambda_P, lambda_M, lambda_out,
+                       lambda_clean]
+      why: >-
+        Track G instantiates no ConvNeXt, no regions, no manifold and no
+        PromptHead, so those terms never evaluate. 15.2.2 skips inactive terms
+        rather than inventing a weight for them.
+      c8_consumers: [C-G-RND, C-G-DET, C-G-LLM]
+    track_r:
+      search_population: C6 DET matched bank
+      variant: TRACK_R_FLAGS   # manifold OFF
+      tunes: [learning_rate_multiplier, weight_decay, warmup, lambda_syn,
+              lambda_local, lambda_MIL, lambda_P, lambda_risk]
+      not_applicable: [lambda_M, lambda_out, lambda_clean]
+      why: >-
+        manifold=OFF primary Track R executes no L_real / L_out / L_clean, so the
+        K=4-only weights are NOT_APPLICABLE. K=4 remains an explicit typed
+        secondary variant with its own path.
+      c8_consumers: [C-R-DET, C-R-LLM, C-R-NOPROMPT]
+    fairness_invariant: >-
+      ONE frozen configuration WITHIN a track, shared by every primary generator
+      arm of that track. NOT one identical numeric loss vector across two
+      structurally different architectures - the two tracks legitimately differ,
+      and forcing one vector across them would be a different claim.
+    protocol: P3
+    selection_tuple: P3_READY   # equal-weight CASIA-dev + MSU-dev, 15.4
+    trial_schedule: frozen_m9_schedule   # 3 G1 + 2 G2 + 30 G5; never shortened
+    lock: reports/full/c7/DETECTOR_CONFIG_LOCK.json
+    lock_shape: "ONE lock, one sub-config per track under `tracks`"
+    lock_verifier: prism_fas.pipeline.adapters.c7.verify_detector_config_lock
+    lock_verifier_shared_with: C8   # module level; C8 never writes a laxer one
+    trainer: "prism_fas.detector.trainer.run_source_only_flow (canonical)"
+    bank_reader: prism_fas.detector.c6_bank.C6MatchedBankReader
+    input_verifier: prism_fas.evaluation.c6_evidence.verify_c6_evidence
+    binds_into_every_trial_and_the_lock:
+      - the search-decision identity
+      - the DET bank's selected_set_sha256 and its bank-lock path
+      - the C6 selector identity, selected profile and threshold identity
+      - the source package identity
+      - the track, the typed variant identity and the decision_graph_hash
+      - the winning config SHA, its checkpoint SHA and its source_dev calibration
+    no_treatment_arm_feedback: >-
+      before DETECTOR_CONFIG_LOCK closes, no RND or LLM detector performance and
+      no arm comparison is computed or read. The selection is a function only of
+      frozen DET training evidence, source-only dev evidence, the frozen
+      selection tuple, the canonical tie-break and the frozen envelope.
+
+  # --- what C8 now is -------------------------------------------------------
+  c8:
+    scientific_executor: IMPLEMENTED
+    scientific_status: NOT_RUN
+    workflow_dispatch: >-
+      _engineering_workflow / _scientific_workflow, chosen on the context
+    matrix: >-
+      42 rows, from prism_fas.evaluation.source_matrix.build_plan
+    consumes: >-
+      the C7 lock's per-TRACK sub-config, resolved by row.track
+    per_arm_configuration: false
+    outputs: [C8_MATRIX_PLAN, C8_SCHEDULE, per-row run_manifest, checkpoint,
+              calibration, history, complexity, resources,
+              C8_SOURCE_MATRIX_RESULTS, C8_CROSS_SOURCE_DIAGNOSTICS,
+              C8_CALIBRATION_STABILITY, C8_TARGET_ISOLATION, C8_ACCEPTANCE]
+    selection: >-
+      source_dev of the row's own protocol only
+    cross_source: >-
+      diagnostic only, at the row's own frozen temperature and threshold
+    p3_cross_source: >-
+      none. A P3-ready row's test domain is the held-out target, predicted at C11
+
+  # --- what C9 now is -------------------------------------------------------
+  c9:
+    scientific_executor: IMPLEMENTED
+    scientific_status: NOT_RUN
+    evidence_loader: prism_fas.evaluation.source_evidence.load_row_evidence
+    reads: >-
+      real C8 run manifests, re-hashing the checkpoints they name
+    constructed_evidence_under_science: REFUSED   # _complete_evidence raises
+    still_blocked_by: DETECTOR_RELIABILITY_LOCK_C
+    blocked_because: >-
+      DETECTOR_BA_SEP_PROBE_PROTOCOL, DETECTOR_BA_SEP_EVIDENCE_VECTOR and
+      DETECTOR_BA_SEP_PROBE_SEEDS remain NEEDS_SCIENTIFIC_DECISION. They may not
+      be chosen from C8 outcomes. C8 may finish; C9 stays blocked.
+
+  c10_c11_c12:
+    scientific_executor: NOT_IMPLEMENTED
+    fixture_leak_guards: IMPLEMENTED
+    note: >-
+      each stage's fixture producer now refuses under a scientific context. No
+      target byte was opened by this milestone.
+
+  # --- defects this milestone found, before any GPU hour --------------------
+  rehearsal_discovered_defects:
+    classification: ENGINEERING_FAILURE / PRE-SCIENTIFIC_REHEARSAL
+    not_scientific_negative_results: true
+    index: reports/evidence/NEGATIVE_EVIDENCE_INDEX.json
+    found:
+      - id: C8_FIXTURE_EXECUTOR_REACHABLE_UNDER_SCIENCE
+        severity: highest
+        detail: >-
+          C8 had ONE workflow whose row executor called audit_batch and
+          build_audit_detector unconditionally. The scheduler was already correct
+          - under a scientific context ExecutionContext.limit returns the full 42
+          and never reads SMOKE_ROWS - so --profile full would have trained all
+          42 rows on fixture batches through an audit model and written 42 PASS
+          manifests for C9 to freeze. Every check would have passed.
+      - id: C7_SCIENTIFIC_LOCK_ASSERTED_ABSENT
+        detail: >-
+          C7's only search path used a deterministic analytic objective and
+          asserted that reports/full/c7/DETECTOR_CONFIG_LOCK.json does NOT exist,
+          while C8 declares that exact path as a required input. The full profile
+          could never legitimately produce the lock C8 needs.
+      - id: C10_FIXTURE_LABELS_WRITABLE_INTO_SEALED_TARGET
+        detail: >-
+          _build_fixture mkdir-ed every root sources.target_roots returned and
+          wrote a labels.json of invented labels into it. Under a scientific
+          context those are the REAL sealed target roots.
+      - id: SEARCH_ENGINE_COMPLETED_PASS_RESUME
+        detail: >-
+          resuming a COMPLETED coordinate pass re-walked the coordinates with
+          best restored to the final winning vector, so the EARLY coordinates'
+          trials were regenerated with the LATE coordinates already moved -
+          different configs, different hashes, missing the reuse table. A rerun
+          of a finished search would have silently retrained GPU trials, and the
+          trials it produced would not be the ones the pass selected from.
+        fix: >-
+          a COMPLETED state under a matching plan identity is RETURNED, not
+          re-walked. L.11 at pass granularity.
+      - id: C7_COORDINATE_ORDER_VS_LR_MULTIPLIER
+        detail: >-
+          the order check compared against the literal learning_rate while the
+          approved decision replaces that coordinate in place with
+          learning_rate_multiplier. It failed a correctly executing search.
+      - id: C7_DUPLICATE_CHECK_KWARG
+        detail: >-
+          TypeError from two values for decision_logit_name in one check() call.
+      - id: C7_LOCK_ANALYTIC_SUBSTRING_CHECK
+        detail: >-
+          the verifier grepped metrics_source for "analytic", which the honest
+          description "no analytic objective" trips over - failing a real lock
+          and passing one that omitted the phrase. Now a declared boolean.
+      - id: C7_TRIAL_STATUS_VOCABULARY
+        detail: >-
+          the trial runner returned FAILED, outside coordinate.TRIAL_STATUS, so
+          the summary on disk and the leaderboard disagreed about the same
+          configuration.
+      - id: C8_ROW_HISTORY_CONDITIONAL
+        detail: >-
+          the per-row history was written only inside a loop over the stage
+          lineage, so a row could finish with no history file at all.
+      - id: C8_MANIFEST_READ_THE_TRAINERS_VARIANT
+        detail: >-
+          the run manifest recorded trainer.variant rather than the variant the
+          ROW resolved from its preregistered flags. The same object in
+          production, but a trainer that substituted a variant would have agreed
+          with itself instead of being caught.
+
+  new_modules:
+    - src/prism_fas/evaluation/c6_evidence.py       # strict C6 closure verifier
+    - src/prism_fas/evaluation/source_selection.py  # 15.4 video-level tuples
+    - src/prism_fas/evaluation/source_evidence.py   # real C8 evidence for C9
+    - src/prism_fas/detector/c6_bank.py             # C6 matched bank reader
+    - src/prism_fas/search/c7_decision.py           # the frozen arm decision
+    - src/prism_fas/reporting/negative_evidence.py  # classified failure index
+  new_capabilities:
+    - >-
+      protocol-scoped source domains (19: P1=CASIA, P2=MSU, P3=both) through
+      BatchContract.domains, M9TrainingDataset and M9ValidationDataset. The
+      both-domains default is carried out of the payload, so every inherited
+      Version-B contract and config identity is unchanged.
+    - >-
+      run_source_only_flow lifted out of modal_m9.py into detector.trainer, so
+      C7 trials, C8 rows and the Modal entrypoint share ONE G1-G2-G5-G6 driver.
+  audit_artifacts:
+    - reports/readiness/C7_C13_PRODUCTION_READINESS.md
+    - reports/readiness/C7_C13_PRODUCTION_READINESS.json
+    - reports/evidence/NEGATIVE_EVIDENCE_INDEX.json
+  audit_generator: scripts/audit_c7_c13_readiness.py   # inspects source, not belief
+  audit_classification: ENGINEERING_AUDIT_NOT_SCIENTIFIC_EVIDENCE
+
+  # --- the regression that authorized this commit ---------------------------
+  tests:
+    measured_at_utc: 2026-08-24
+    broad_exact_command: >-
+      python -m pytest -q --no-header -p no:cacheprovider
+      --continue-on-collection-errors
+    broad: {passed: 2928, failed: 7, skipped: 104, seconds: 1860}
+    c7_and_pipeline_exact_command: >-
+      python -m pytest tests/c7 tests/pipeline -q -p no:cacheprovider
+    c7_and_pipeline: {passed: 1491, failed: 0, skipped: 3, seconds: 1559}
+    inherited_known_failures: 7
+    inherited_failure_set_identical: true   # compared test-id by test-id
+    new_unexplained_failures: 0
+    comparison_source: reports/c0/C0_TEST_SUITE.json
+    observed_failures:
+      - tests/test_m2_validation.py::test_actual_small_acceptance_validation_passes
+      - tests/test_m2_validation.py::test_status_reports_expected_counts
+      - tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_lock_records_identities_and_seed
+      - tests/test_m8_gpat_synthetic_bank.py::test_pair_plan_identity_excludes_non_portable_fields
+      - tests/test_m10_closure.py::test_synthetic_exposure_is_derived_from_the_audited_batch_contract
+      - tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass
+      - tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive
+    all_seven_are_missing_version_b_build_products: true
+    new_tests_this_milestone: 131
+    new_test_files:
+      - tests/pipeline/test_c6_evidence_and_bank.py        # 26
+      - tests/pipeline/test_c7_scientific_path.py          # 27
+      - tests/pipeline/test_c7_search_arm_decision.py      # 30
+      - tests/pipeline/test_c8_scientific_path.py          # 16
+      - tests/pipeline/test_c9_scientific_evidence.py      # 16
+      - tests/pipeline/c6_bank_fixture.py                  # shared, not collected
+    extended_test_files:
+      - tests/pipeline/test_scientific_fixture_leakage.py  # +13 anti-leak regressions
+      - tests/pipeline/test_search_engine.py               # +3 resume regressions
+    offline: >-
+      unchanged. Sockets blocked and ambient credentials deleted by an autouse
+      fixture; no provider, no Modal, no GPU and no target label is reachable from
+      any test added by this milestone.
+
+  unchanged_by_this_milestone:
+    version_b: >-
+      7799f7decd35db6987ce4578824e5bd8d9eab4ae, tag
+      m10-blind-evaluation-checkpoint, clean, untouched
+    c5: >-
+      scientific candidate pool, render logic and lock unchanged
+    c6: >-
+      CLOSED. No C6 scientific artifact, selector, threshold, profile or bank was
+      rewritten. git diff over src/prism_fas/synthesis/, adapters/c5.py,
+      adapters/c6.py, reports/ and assets/ is empty, so the selector identity
+      27c20b71ff7c1d42dca1f7034f81bfd61400b5a17a2421fe823603c102e17ef3 and the
+      three selected_set_sha256 values are unchanged by construction. They could
+      not be re-derived here: reports/full/c6 lives on the GPU host and is absent
+      from this laptop.
+    target_firewall: >-
+      unchanged; target_access 0 throughout
+
 
 next_authorized_action: >
   BUILD THE C5 SCIENTIFIC RENDER EXECUTOR ON TOP OF THE FROZEN PLAN.

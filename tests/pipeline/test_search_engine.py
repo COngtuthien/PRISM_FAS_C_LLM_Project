@@ -291,6 +291,113 @@ def test_an_interrupted_pass_checkpoints_and_resumes_at_the_same_trial(
     assert second.best_config == {"alpha": 2.0, "beta": 1.0}
 
 
+def test_resuming_a_completed_pass_re_executes_nothing() -> None:
+    """A pass that already CLOSED is returned, not re-walked.
+
+    The defect this is the regression for, found by the C7 rehearsal before any
+    GPU run: reuse is keyed on config identity, and `best` is restored to the
+    final winning vector. Re-walking the coordinates therefore generated the
+    EARLY coordinates' trials with the LATE coordinates already at their winning
+    values — different configurations, different hashes, missing the reuse table.
+    A rerun of a finished search silently retrained, and the trials it produced
+    were not the ones the pass selected from.
+
+    L.11 says a validated completed unit is not recomputed. The completed unit
+    here is the whole pass.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as directory:
+        state = Path(directory) / "SEARCH_STATE.json"
+        first = coordinate_search(simple_plan(), distance_objective(),
+                                  state_path=state, resume=False)
+        assert first.status == "COMPLETED"
+
+        executed: list[str] = []
+
+        def counting(trial):
+            executed.append(trial.config_sha256)
+            return distance_objective()(trial)
+
+        second = coordinate_search(simple_plan(), counting, state_path=state,
+                                   resume=True)
+
+    assert executed == [], "a completed pass re-executed trials on resume"
+    assert second.status == "COMPLETED"
+    assert second.plan.identity == first.plan.identity
+    assert second.best_config == first.best_config
+    assert second.completed_coordinates == first.completed_coordinates
+    assert ([item.trial.config_sha256 for item in second.results]
+            == [item.trial.config_sha256 for item in first.results])
+    assert second.winner is not None
+    assert second.winner.trial.config_sha256 == first.winner.trial.config_sha256
+    assert any("returned unchanged" in note for note in second.notes)
+
+
+def test_resuming_an_interrupted_pass_executes_only_the_incomplete_trials() -> None:
+    """The other half: an interrupted pass resumes at the trial that stopped.
+
+    Named separately from the completed case because the two behaviours are
+    different and only one of them was ever exercised. A completed pass is
+    returned; an interrupted one continues, reusing every trial whose
+    configuration identity the state already records.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as directory:
+        state = Path(directory) / "SEARCH_STATE.json"
+        calls = {"n": 0}
+
+        def flaky(trial):
+            calls["n"] += 1
+            if calls["n"] == 4:
+                raise SearchInterrupted("engineering budget exhausted")
+            return distance_objective()(trial)
+
+        first = coordinate_search(simple_plan(), flaky, state_path=state,
+                                  resume=False, require_valid_winner=False)
+        assert first.status == "INTERRUPTED"
+        completed_before = {item.trial.config_sha256 for item in first.results
+                            if item.status == "PASS"}
+
+        executed: list[str] = []
+
+        def counting(trial):
+            executed.append(trial.config_sha256)
+            return distance_objective()(trial)
+
+        second = coordinate_search(simple_plan(), counting, state_path=state,
+                                   resume=True)
+
+    assert second.status == "COMPLETED"
+    # No configuration the first pass completed was executed again.
+    assert not set(executed) & completed_before
+    # Every coordinate appears exactly once: no revisit, no second pass.
+    assert second.completed_coordinates == ["alpha", "beta"]
+    assert len(second.completed_coordinates) == len(set(second.completed_coordinates))
+    # And the interrupted trial itself really did run this time.
+    assert executed, "a resumed interrupted pass executed nothing at all"
+
+
+def test_a_completed_pass_with_no_valid_winner_still_refuses_on_resume() -> None:
+    """Returning a completed pass may not skip the EnvelopeExhausted refusal."""
+    import tempfile
+
+    from prism_fas.search.coordinate import EnvelopeExhausted
+
+    def always_fails(trial):
+        return TrialResult(trial=trial, status="DIVERGED", metrics={})
+
+    with tempfile.TemporaryDirectory() as directory:
+        state = Path(directory) / "SEARCH_STATE.json"
+        coordinate_search(simple_plan(), always_fails, state_path=state,
+                          resume=False, require_valid_winner=False)
+
+        with pytest.raises(EnvelopeExhausted, match="no finite valid configuration"):
+            coordinate_search(simple_plan(), always_fails, state_path=state,
+                              resume=True, require_valid_winner=True)
+
+
 def test_resume_refuses_a_state_written_under_a_different_plan(tmp_path: Path) -> None:
     """L.11: a changed identity fails closed rather than mixing two envelopes."""
     state = tmp_path / "SEARCH_STATE.json"

@@ -358,6 +358,35 @@ def coordinate_search(plan: SearchPlan, evaluate: Evaluator, *,
                 f"resumed from {state_path.name}: {len(prior_by_sha)} recorded trial(s) "
                 "are reused by config identity and are not re-executed (L.11)")
 
+            # A pass that already CLOSED is not resumed — it is returned. Reuse is
+            # keyed on config identity, and `best` is restored to the final winning
+            # vector, so re-walking the coordinates would generate the EARLY
+            # coordinates' trials with the LATE coordinates already at their winning
+            # values. Those are different configurations with different hashes, so
+            # they miss the reuse table and execute: a rerun of a finished search
+            # would silently retrain, and the trials it produced would not be the
+            # ones the pass selected from. L.11 says a validated completed unit is
+            # not recomputed, and the completed unit here is the whole pass.
+            if str(payload.get("status")) == "COMPLETED":
+                outcome = SearchOutcome(
+                    plan=plan, results=prior, best_config=best,
+                    completed_coordinates=list(payload.get("completed_coordinates") or ()),
+                    status="COMPLETED",
+                    started_at_utc=str(payload.get("started_at_utc", started)),
+                    finished_at_utc=str(payload.get("finished_at_utc", _utc())),
+                    tie_break_trace=list(payload.get("tie_break_trace") or ()),
+                    notes=[*notes,
+                           "the recorded pass is COMPLETED under this exact plan "
+                           "identity; it is returned unchanged and no trial was "
+                           "re-executed"])
+                if (require_valid_winner and plan.total_trials
+                        and outcome.winner is None):
+                    raise EnvelopeExhausted(
+                        f"the recorded {plan.plan_id!r} pass completed with no finite "
+                        "valid configuration; §15.2.2 requires stopping rather than "
+                        "widening the search")
+                return outcome
+
     # The anchor itself is the starting point (§15.2.2: "start from the inherited
     # anchor"), so every coordinate not yet searched sits at its anchor value.
     for coordinate in plan.coordinates:

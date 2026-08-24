@@ -1,0 +1,676 @@
+{
+  "artifact_kind": "ENGINEERING_AUDIT_NOT_SCIENTIFIC_EVIDENCE",
+  "execution_profile": "none",
+  "generated_at_utc": "2026-08-24T08:51:16.695414Z",
+  "host": "development laptop; no CUDA, no source package, no target package",
+  "schema_version": "prism-c7-c13-readiness-v1",
+  "scientific_eligible": false,
+  "stages": [
+    {
+      "blocked_on_inputs": [
+        "data/packages/prism_data_v1_m3b",
+        "reports/full/c6",
+        "runs/full/c5/scientific/candidates"
+      ],
+      "blockers": [
+        "reports/full/c6 absent on this host (the C6 GPU evidence lives on the execution backend)",
+        "data/packages/prism_data_v1_m3b absent",
+        "runs/full/c5/scientific/candidates absent",
+        "weights/ pinned SigLIP2 + ConvNeXt absent",
+        "no CUDA device"
+      ],
+      "claims_scientific_evidence": true,
+      "code_path_ready": true,
+      "code_paths_never_exercised": [
+        "the real M9Trainer flow inside a C7 trial (rehearsed with a stub trainer; the trainer itself is covered by tests/test_m9_regional_detector)",
+        "C6MatchedBankReader over 1024 real candidates (rehearsed at 4)",
+        "the CUDA branch of _scientific_device"
+      ],
+      "engineering_workflow": true,
+      "fixture_call_sites": [
+        {
+          "function": "_decision_audit",
+          "guarded": true,
+          "producers": [
+            "_fixture_batch",
+            "build_audit_detector"
+          ]
+        },
+        {
+          "function": "_fixture_batch",
+          "guarded": true,
+          "producers": [
+            "audit_batch"
+          ]
+        },
+        {
+          "function": "_track_readiness",
+          "guarded": true,
+          "producers": [
+            "_fixture_batch",
+            "build_audit_detector"
+          ]
+        }
+      ],
+      "forbidden_target_capability": "all",
+      "hard_acceptance": [
+        "Track G and Track R typed variants instantiate, forward, produce a finite loss, backward, step, checkpoint and resume on a CPU fixture",
+        "no experiment-id branching; both tracks are configurations of one implementation",
+        "Track-R ConvNeXt and RegionFusion have non-zero autograd dependency on the fused logit, and the branch-intervention audit passes",
+        "Track G decides on global_logit_G / p_G; Track R on fused_logit_R / p_R",
+        "decision_graph_hash serialized into run identity",
+        "manifold=OFF primary Track R executes no L_real / L_out / L_clean",
+        "K=4 is an explicit typed secondary variant",
+        "calibration fits and thresholds the SAME decision quantity",
+        "one deterministic coordinate pass in the frozen §15.2.2 order, candidates anchor x {0.5,1,2} (warm-up x {0.5,1,1.5} clipped to [0,0.20]), inactive terms skipped, every trial retained, canonical SHA-256 tie-break",
+        "DETECTOR_CONFIG_LOCK.json written only after the envelope is terminal"
+      ],
+      "lock_verifier": "prism_fas.pipeline.adapters.c7.verify_detector_config_lock (module level; shared with C8)",
+      "modes": [
+        "TRACK_G_READINESS",
+        "TRACK_R_READINESS",
+        "DECISION_DEPENDENCY_AUDIT",
+        "CALIBRATION_GUARDS",
+        "VARIANT_MATRIX_AUDIT",
+        "SOURCE_SEARCH",
+        "VERIFY_C6_EVIDENCE",
+        "SCIENTIFIC_SOURCE_SEARCH",
+        "FINALIZE_DETECTOR_CONFIG",
+        "VERIFY_CONFIG_LOCK"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c7.py",
+      "produces_lock": "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+      "purpose": "prove every typed primary row is executable on a CPU fixture, enforce the §13.5 decision-dependency guards, and close the §15.2.2 detector/loss envelope in ONE bounded coordinate pass before C8",
+      "required_inputs": [
+        {
+          "description": "the frozen detector training configuration and loss weights",
+          "name": "detector_config",
+          "path": "configs/train/m9_reference.yaml",
+          "present_on_this_host": true
+        },
+        {
+          "description": "the frozen detector architecture pins",
+          "name": "detector_model_config",
+          "path": "configs/models/m9_detector.yaml",
+          "present_on_this_host": true
+        },
+        {
+          "description": "the pinned frozen SigLIP2 tower and ConvNeXt V2 Atto weights",
+          "name": "pretrained_weights",
+          "path": "weights",
+          "present_on_this_host": true
+        },
+        {
+          "description": "the validated M3B source package supplying source_train and source_dev",
+          "name": "source_package",
+          "path": "data/packages/prism_data_v1_m3b",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the matched 1024-per-arm synthetic banks C7 trains against",
+          "name": "c6_matched_banks",
+          "path": "reports/full/c6",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the rendered candidate bytes the C6 banks address",
+          "name": "c5_candidates",
+          "path": "runs/full/c5/scientific/candidates",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "none",
+      "requires_gpu": true,
+      "resolved_decisions": [
+        "C7_SOURCE_SEARCH_SYNTHETIC_ARM = DET, FROZEN 2026-08-24 before any C7 scientific metric existed. One bounded pass per TRACK, both anchored on the C6 DET bank; every primary generator arm of a track trains at that track's single frozen configuration in C8. Record: configs/search/c7_source_search_decision.yaml, identity ed4f6b777d9f95f089a76191b863e2fb2df0b9e13434470ffd736d6e511b474e",
+        "the learning-rate anchor interpretation (B_common_multiplier), APPROVED in configs/search/lr_anchor_decision.yaml",
+        "the optimizer family, uniquely inherited as AdamW from configs/train/m9_reference.yaml",
+        "the protocol (P3), the ranking tuple (P3_READY) and the per-trial schedule (frozen_m9_schedule), all in the same decision record"
+      ],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NO on this laptop — the scientific path requires CUDA, the M3B package, the pinned weights, the C5 candidate tree and the frozen C6 closure, none of which is here. Every result-affecting DECISION is now frozen, so what remains is inputs and hardware. The engineering readiness path runs on CPU.",
+      "scientific_modes": [
+        "VERIFY_C6_EVIDENCE",
+        "SCIENTIFIC_SOURCE_SEARCH",
+        "FINALIZE_DETECTOR_CONFIG",
+        "VERIFY_CONFIG_LOCK"
+      ],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": true,
+      "semantic_preconditions_declared": true,
+      "stage": "C7",
+      "title": "Detector readiness and configuration search",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": true
+    },
+    {
+      "blocked_on_inputs": [
+        "reports/full/c6",
+        "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+        "data/packages",
+        "data/packages/pretrained"
+      ],
+      "blockers": [
+        "reports/full/c7/DETECTOR_CONFIG_LOCK.json absent — C7's decisions are all frozen but C7 has not RUN scientifically, so the lock does not exist yet",
+        "the same absent C6/C5/package/weight inputs as C7",
+        "no CUDA device"
+      ],
+      "claims_scientific_evidence": true,
+      "code_path_ready": true,
+      "code_paths_never_exercised": [
+        "the real M9Trainer flow inside a row (rehearsed with a stub trainer)",
+        "_cross_source_evaluation over a real second M9ValidationDataset",
+        "the full 42-row schedule (4 representative rows rehearsed)"
+      ],
+      "engineering_workflow": true,
+      "fixture_call_sites": [
+        {
+          "function": "_run_one",
+          "guarded": true,
+          "producers": [
+            "audit_batch",
+            "build_audit_detector"
+          ]
+        }
+      ],
+      "forbidden_target_capability": "all",
+      "hard_acceptance": [
+        "Track-G P1/P2: RND/DET/LLM at 3 seeds each",
+        "Track-G P3-ready: RND/DET/LLM at 5 seeds each",
+        "Track-R P3-ready: DET/LLM at 3 seeds each",
+        "PromptHead LLM ON/OFF ablation at 3 seeds",
+        "42 atomic rows, each with durable evidence; no hidden row, no omitted row",
+        "P1/P2 checkpoint selection on that protocol's source_dev only; the cross-domain side is diagnostic and never a selection signal",
+        "P3-ready selection on equal-weight CASIA-dev + MSU-dev, never SiW",
+        "calibration on source_dev only, fitting and thresholding the row's own decision logit and score",
+        "cross-source diagnostics and calibration stability exist before C9",
+        "no SiW P3 scoring"
+      ],
+      "lock_verifier": "prism_fas.pipeline.adapters.c8.C8Adapter._scientific_acceptance, over the canonical plan",
+      "modes": [
+        "PLAN_MATRIX",
+        "SCHEDULE",
+        "EXECUTE_ROWS",
+        "FAILURE_PRESERVATION",
+        "TARGET_ISOLATION",
+        "VERIFY_INPUTS",
+        "CROSS_SOURCE_DIAGNOSTICS",
+        "CALIBRATION_STABILITY",
+        "ACCEPTANCE"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c8.py",
+      "produces_lock": "reports/full/c8/C8_ACCEPTANCE.json",
+      "purpose": "execute the frozen §18 source-only matrix — 42 atomic runs over protocol x method x config x seed — at the configuration C7 froze, and emit durable per-run evidence for every one",
+      "required_inputs": [
+        {
+          "description": "the matched 1024-per-arm synthetic banks every row trains on",
+          "name": "c6_matched_banks",
+          "path": "reports/full/c6",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the frozen detector configuration the matrix runs at",
+          "name": "c7_config_lock",
+          "path": "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the preprocessed CASIA and MSU source packages",
+          "name": "source_packages",
+          "path": "data/packages",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the pinned SigLIP2 and ConvNeXt weights",
+          "name": "pretrained_weights",
+          "path": "data/packages/pretrained",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "none",
+      "requires_gpu": true,
+      "resolved_decisions": [
+        "the §18 matrix composition and the fixed seed family 20260806-20260810, materialized by prism_fas.evaluation.source_matrix.build_plan"
+      ],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NO on this laptop — blocked on the same missing inputs as C7 plus a verifying DETECTOR_CONFIG_LOCK. The rehearsal path runs on CPU over a bounded sample.",
+      "scientific_modes": [
+        "VERIFY_INPUTS",
+        "CROSS_SOURCE_DIAGNOSTICS",
+        "CALIBRATION_STABILITY",
+        "ACCEPTANCE"
+      ],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": true,
+      "semantic_preconditions_declared": true,
+      "stage": "C8",
+      "title": "Source matrix over arms, tracks, configs and seeds",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": true
+    },
+    {
+      "blocked_on_inputs": [
+        "runs/full/c8",
+        "reports/full/c8/C8_ACCEPTANCE.json",
+        "reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json"
+      ],
+      "blockers": [
+        "DETECTOR_RELIABILITY_LOCK_C absent and its protocol unfrozen",
+        "C8 has not run scientifically"
+      ],
+      "claims_scientific_evidence": true,
+      "code_path_ready": false,
+      "code_paths_never_exercised": [
+        "the freeze over 42 real C8 manifests (rehearsed over 42 synthetic ones written in C8's own manifest schema)"
+      ],
+      "engineering_workflow": true,
+      "fixture_call_sites": [
+        {
+          "function": "_build",
+          "guarded": true,
+          "producers": [
+            "_complete_evidence"
+          ]
+        },
+        {
+          "function": "_refusals",
+          "guarded": true,
+          "producers": [
+            "_complete_evidence"
+          ]
+        },
+        {
+          "function": "_validate",
+          "guarded": true,
+          "producers": [
+            "_complete_evidence"
+          ]
+        }
+      ],
+      "forbidden_target_capability": "all",
+      "hard_acceptance": [
+        "all mandatory C8 rows complete and terminal",
+        "no failed and no hidden row",
+        "every checkpoint, calibration and run identity frozen",
+        "DETECTOR_RELIABILITY_LOCK_C valid"
+      ],
+      "lock_verifier": "prism_fas.evaluation.source_lock.validate",
+      "modes": [
+        "BUILD_LOCK",
+        "VALIDATE_LOCK",
+        "REFUSAL_CASES",
+        "LOAD_C8_EVIDENCE",
+        "FREEZE_SOURCE_MATRIX"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c9.py",
+      "produces_lock": "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+      "purpose": "freeze SOURCE_MATRIX_LOCK_C over the completed source matrix, or refuse and name every reason",
+      "required_inputs": [
+        {
+          "description": "every executed source run's manifest, checkpoint and calibration",
+          "name": "c8_runs",
+          "path": "runs/full/c8",
+          "present_on_this_host": false
+        },
+        {
+          "description": "C8's own acceptance verdict over the completed matrix",
+          "name": "c8_acceptance",
+          "path": "reports/full/c8/C8_ACCEPTANCE.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the post-C8 pre-C9 reliability barrier, including the synthetic-vs-real probe",
+          "name": "detector_reliability_lock",
+          "path": "reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "none",
+      "requires_gpu": false,
+      "resolved_decisions": [
+        "the staging of the synthetic-vs-real barrier: after C8, before C9 (SYNTHETIC_VS_REAL_RELIABILITY_STAGE, frozen 2026-08-23)"
+      ],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NO — and correctly so. C9 BLOCKS on DETECTOR_RELIABILITY_LOCK_C, whose protocol is unfrozen. The barrier must be decided separately; it may NOT be chosen from C8 outcomes.",
+      "scientific_modes": [
+        "LOAD_C8_EVIDENCE",
+        "FREEZE_SOURCE_MATRIX",
+        "VALIDATE_LOCK"
+      ],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": true,
+      "semantic_preconditions_declared": true,
+      "stage": "C9",
+      "title": "Source matrix freeze",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [
+        "DETECTOR_BA_SEP_PROBE_PROTOCOL — NEEDS_SCIENTIFIC_DECISION",
+        "DETECTOR_BA_SEP_EVIDENCE_VECTOR — NEEDS_SCIENTIFIC_DECISION",
+        "DETECTOR_BA_SEP_PROBE_SEEDS — NEEDS_SCIENTIFIC_DECISION"
+      ],
+      "workflow_dispatches_on_context": true
+    },
+    {
+      "blocked_on_inputs": [
+        "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+        "data/processed/prism_target_eval_v2"
+      ],
+      "blockers": [
+        "reports/full/c9/SOURCE_MATRIX_LOCK_C.json absent",
+        "data/processed/prism_target_eval_v2 absent",
+        "no scientific workflow is written; the stage is rehearsal-only"
+      ],
+      "claims_scientific_evidence": false,
+      "code_path_ready": false,
+      "code_paths_never_exercised": [
+        "every scientific target-package path"
+      ],
+      "engineering_workflow": false,
+      "fixed_this_task": "`_build_fixture` called `sources.target_roots(...)` and then `mkdir`-ed every returned root and wrote a `labels.json` of INVENTED labels into it. Under a scientific context that call returns the REAL sealed package roots, so the stage would have written fabricated labels inside the artifact the firewall exists to protect. Now guarded by `assert_fixture_permitted` before any path is created.",
+      "fixture_call_sites": [],
+      "forbidden_target_capability": "labels, under every profile; features under any non-eligible profile",
+      "hard_acceptance": [
+        "the target feature package is mounted READ-ONLY for C11",
+        "no training/LLM/synthesis stage may resolve a label root",
+        "package identity verified and tamper-detectable"
+      ],
+      "lock_verifier": "prism_fas.evaluation.firewall.TargetLabelFirewall",
+      "modes": [
+        "BUILD_FIXTURE_PACKAGE",
+        "FIREWALL_PERMISSIONS",
+        "PACKAGE_IDENTITY",
+        "TARGET_LOCK",
+        "TAMPER_DETECTION"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c10.py",
+      "produces_lock": "reports/full/c10/TARGET_PACKAGE_LOCK.json (rehearsal-only today)",
+      "purpose": "build and lock the sealed SiW-Mv2 target package and the label firewall, without opening a label",
+      "required_inputs": [
+        {
+          "description": "the frozen roots, permissions and prediction schema",
+          "name": "target_evaluation_config",
+          "path": "configs/evaluation/m10_target.yaml",
+          "present_on_this_host": true
+        },
+        {
+          "description": "the source freeze that must precede any target work",
+          "name": "c9_source_lock",
+          "path": "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the SiW-Mv2 v2 feature package, mounted READ-ONLY for C11",
+          "name": "target_feature_package",
+          "path": "data/processed/prism_target_eval_v2",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "sealed_real (scientific only)",
+      "requires_gpu": false,
+      "resolved_decisions": [],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NOT in this task. Dry structural validation only; no target bytes were opened.",
+      "scientific_modes": [],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": false,
+      "semantic_preconditions_declared": false,
+      "stage": "C10",
+      "title": "Target package and label firewall",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": false
+    },
+    {
+      "blocked_on_inputs": [
+        "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+        "reports/full/c10/TARGET_PACKAGE_LOCK.json",
+        "data/processed/prism_target_eval_v2"
+      ],
+      "blockers": [
+        "C9 and C10 have not run scientifically",
+        "no scientific workflow is written; prediction rows come from adapters.tiny under rehearsal"
+      ],
+      "claims_scientific_evidence": false,
+      "code_path_ready": false,
+      "code_paths_never_exercised": [
+        "every scientific target-inference path"
+      ],
+      "engineering_workflow": false,
+      "fixed_this_task": "`_build` constructed prediction rows from `tiny.prediction_rows` with no context guard, so a scientific context would have written invented scores behind a PREDICTION_LOCK. Now guarded.",
+      "fixture_call_sites": [
+        {
+          "function": "_build",
+          "guarded": true,
+          "producers": [
+            "prediction_rows"
+          ]
+        }
+      ],
+      "forbidden_target_capability": "labels",
+      "hard_acceptance": [
+        "no prediction row carries a ground-truth label, attack family, raw path, subject/session taxonomy or hidden target metadata",
+        "each row's PREDICTION_LOCK binds its checkpoint, calibration, inference config and package identity",
+        "the TARGET_PREDICTION_LOCKSET is validated twice before label capability is granted"
+      ],
+      "lock_verifier": "prism_fas.evaluation.target_prediction.validate_predictions",
+      "modes": [
+        "BUILD_PREDICTIONS",
+        "LABEL_ISOLATION_AUDIT",
+        "PREDICTION_LOCKS",
+        "DOUBLE_VALIDATION"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c11.py",
+      "produces_lock": "reports/full/c11/TARGET_PREDICTION_LOCKSET.json (rehearsal-only today)",
+      "purpose": "run label-isolated P3 prediction over the sealed target package",
+      "required_inputs": [
+        {
+          "description": "the source freeze that must precede any prediction",
+          "name": "c9_source_lock",
+          "path": "reports/full/c9/SOURCE_MATRIX_LOCK_C.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the target package and capability lock",
+          "name": "c10_target_lock",
+          "path": "reports/full/c10/TARGET_PACKAGE_LOCK.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the label-free SiW feature package, mounted READ-ONLY",
+          "name": "target_feature_package",
+          "path": "data/processed/prism_target_eval_v2",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "features, read-only",
+      "requires_gpu": true,
+      "resolved_decisions": [],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NOT in this task. No target inference was executed.",
+      "scientific_modes": [],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": false,
+      "semantic_preconditions_declared": false,
+      "stage": "C11",
+      "title": "Label-isolated P3 prediction",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": false
+    },
+    {
+      "blocked_on_inputs": [
+        "reports/full/c11/TARGET_PREDICTION_LOCKSET.json",
+        "data/evaluation_only/prism_target_v2_labels"
+      ],
+      "blockers": [
+        "C11 has not run scientifically",
+        "no scientific workflow is written; labels are fabricated from video ids by adapters.tiny under rehearsal"
+      ],
+      "claims_scientific_evidence": false,
+      "code_path_ready": false,
+      "code_paths_never_exercised": [
+        "the real sealed-label resolution path"
+      ],
+      "engineering_workflow": false,
+      "fixed_this_task": "`workflow` scored fabricated labels with no context guard. Now guarded, so a scientific profile cannot score invented labels.",
+      "fixture_call_sites": [
+        {
+          "function": "_dry_run",
+          "guarded": true,
+          "producers": [
+            "evaluation_labels"
+          ]
+        },
+        {
+          "function": "_score",
+          "guarded": true,
+          "producers": [
+            "evaluation_labels"
+          ]
+        },
+        {
+          "function": "_statistics",
+          "guarded": true,
+          "producers": [
+            "evaluation_labels"
+          ]
+        }
+      ],
+      "forbidden_target_capability": "any label access outside the scorer; any write to model state or calibration",
+      "hard_acceptance": [
+        "the scorer's import closure contains no training capability",
+        "a dry run validates preconditions without opening label bytes",
+        "label capability is refused before a lockset exists",
+        "nothing C12 writes can mutate a C0-C11 artifact",
+        "a single-seed comparison is refused rather than reported"
+      ],
+      "lock_verifier": "prism_fas.evaluation.scoring (isolated C-G8 scorer)",
+      "modes": [
+        "SCORER_ISOLATION",
+        "DRY_RUN",
+        "UNLOCK_AND_SCORE",
+        "STATISTICS",
+        "NO_FEEDBACK"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c12.py",
+      "produces_lock": null,
+      "purpose": "unlock the sealed labels inside the isolated C-G8 scorer and compute the P3 statistics",
+      "required_inputs": [
+        {
+          "description": "the validated prediction lockset that gates the label reveal",
+          "name": "c11_lockset",
+          "path": "reports/full/c11/TARGET_PREDICTION_LOCKSET.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the evaluation-only label artifact, readable by C-G8 alone",
+          "name": "target_labels",
+          "path": "data/evaluation_only/prism_target_v2_labels",
+          "present_on_this_host": false
+        }
+      ],
+      "required_target_capability": "labels, read-only, scorer-scoped",
+      "requires_gpu": false,
+      "resolved_decisions": [],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NOT in this task. No label capability was granted and no label byte was opened.",
+      "scientific_modes": [],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": false,
+      "semantic_preconditions_declared": false,
+      "stage": "C12",
+      "title": "Scoring, statistics and hypothesis tests",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": false
+    },
+    {
+      "blocked_on_inputs": [
+        "reports/full/c12/C12_ACCEPTANCE.json"
+      ],
+      "blockers": [
+        "C4-C12 have not run scientifically"
+      ],
+      "claims_scientific_evidence": false,
+      "code_path_ready": false,
+      "code_paths_never_exercised": [
+        "C_ACCEPTANCE under a complete pipeline"
+      ],
+      "engineering_workflow": false,
+      "fixture_call_sites": [],
+      "forbidden_target_capability": "all",
+      "hard_acceptance": [
+        "the acceptance matrix assembles over real upstream status",
+        "negative and blocked results survive into the evidence package",
+        "artifact integrity is checked by re-hashing, not by trusting a manifest",
+        "a superiority claim with no statistical support is rejected",
+        "C13 proposes a tag; it never creates the scientific tag"
+      ],
+      "lock_verifier": null,
+      "modes": [
+        "ACCEPTANCE_MATRIX",
+        "NEGATIVE_PRESERVATION",
+        "ARTIFACT_INTEGRITY",
+        "CLAIM_POLICY",
+        "FINAL_REPORT"
+      ],
+      "module": "src/prism_fas/pipeline/adapters/c13.py",
+      "produces_lock": "reports/full/c13/C_ACCEPTANCE.json (never produced)",
+      "purpose": "final acceptance, the evidence package, and the refusal to declare completion while upstream milestones are incomplete",
+      "required_inputs": [
+        {
+          "description": "the completed scoring, statistics and hypothesis tests",
+          "name": "c12_statistics",
+          "path": "reports/full/c12/C12_ACCEPTANCE.json",
+          "present_on_this_host": false
+        },
+        {
+          "description": "the catalog every evidence row must remain addressable from",
+          "name": "master_run_index",
+          "path": "state/MASTER_RUN_INDEX.json",
+          "present_on_this_host": true
+        }
+      ],
+      "required_target_capability": "none",
+      "requires_gpu": false,
+      "resolved_decisions": [],
+      "runnable_on_this_host": false,
+      "safe_to_run": "NOT as science. C13's honest verdict today is a refusal naming C4-C12 as scientifically incomplete.",
+      "scientific_modes": [],
+      "scientific_path_ever_executed": false,
+      "scientific_workflow": false,
+      "semantic_preconditions_declared": false,
+      "stage": "C13",
+      "title": "Acceptance, evidence package and report",
+      "unguarded_fixture_sites": [],
+      "unresolved_decisions": [],
+      "workflow_dispatches_on_context": false
+    }
+  ],
+  "summary": {
+    "code_path_ready": [
+      "C7",
+      "C8"
+    ],
+    "runnable_on_this_host": [],
+    "scientific_path_ever_executed": [],
+    "with_scientific_workflow": [
+      "C7",
+      "C8",
+      "C9"
+    ],
+    "with_unguarded_fixture_sites": [],
+    "with_unresolved_decisions": [
+      "C9"
+    ],
+    "without_scientific_workflow": [
+      "C10",
+      "C11",
+      "C12",
+      "C13"
+    ]
+  },
+  "target_access": 0
+}

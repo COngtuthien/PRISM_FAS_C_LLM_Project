@@ -1,0 +1,129 @@
+# C7_SOURCE_SEARCH_SYNTHETIC_ARM — FROZEN.
+#
+# THE SCIENTIFIC DECISION RECORD resolving an input §15.2.2 leaves
+# under-specified. The v1.5 text freezes the bounded detector/loss SOURCE_SEARCH
+# envelope completely — coordinate order, multipliers, one pass, ranking tuple,
+# tie-break — and does not name WHICH of C6's three matched banks supplies the
+# synthetic quarter of the batch while that search runs. Choosing it is
+# result-affecting, so it is decided here, by name, with a reason, and BEFORE any
+# scientific C7 trial exists.
+#
+# Do not read this as a claim that v1.5 chose DET. It did not. This is an
+# explicit closure decision over an under-specified input.
+#
+# ---------------------------------------------------------------------------
+# WHY DET
+# ---------------------------------------------------------------------------
+#
+# 1. DET is the structured NON-LLM control. It is a generator arm, so it
+#    exercises the same synthetic machinery the treatment does, and it is not
+#    the thing under test.
+#
+# 2. LLM is the proposed treatment. Tuning the common detector configuration on
+#    the treatment bank and then comparing that treatment against its controls
+#    would give the treatment a tuning advantage no statistic can remove.
+#
+# 3. DET is the only generator arm that appears in the PRIMARY comparison
+#    structure of BOTH detector tracks:
+#
+#        Track G primary:   RND, DET, LLM
+#        Track R primary:        DET, LLM
+#
+#    Track-R RND is a compute-conditional diagnostic, not a primary required
+#    row. DET is therefore the one non-treatment anchor compatible with both
+#    track searches, so both tracks can be searched against one bank without
+#    either search touching a bank the other track never runs.
+#
+# 4. It is conservative with respect to the LLM claim: the proposed treatment
+#    receives no treatment-specific hyperparameter tuning.
+#
+# 5. It is frozen before any C7 scientific metric exists, so it cannot have been
+#    chosen from a result.
+#
+# ---------------------------------------------------------------------------
+# WHAT THIS DECISION DOES NOT AUTHORIZE
+# ---------------------------------------------------------------------------
+#
+# It does NOT authorize a per-arm search. C7 runs ONE bounded pass per TRACK, and
+# every primary generator arm of that track trains at the resulting frozen
+# configuration in C8. A separate search per arm would confound the generator
+# effect with detector tuning, which is the confound this whole design removes.
+#
+# It does NOT authorize a new pooled search bank, an arm-balanced sampler, a
+# rotated batch composition, an averaged arm objective or per-arm hyperparameter
+# voting. Each of those is a fourth search population with an allocation policy
+# v1.5 never froze. The frozen choice is simply: the existing frozen C6 DET bank.
+#
+# It does NOT authorize identical numeric loss vectors across the two tracks. A
+# Track-G row instantiates no ConvNeXt, no regions, no manifold and no
+# PromptHead, so lambda_local / lambda_MIL / lambda_P are NOT APPLICABLE there
+# and §15.2.2 skips inactive terms. The fairness invariant is "one frozen
+# configuration within a track", not "the two tracks pretend to share an
+# architecture".
+#
+# ---------------------------------------------------------------------------
+# AFTER THE FREEZE
+# ---------------------------------------------------------------------------
+#
+# config_G and config_R are immutable for the C8 primary comparisons. A poor
+# RND, DET, LLM, P1, P2 or P3 result does not reopen C7. No second pass, no
+# arm-specific rescue search, no LLM-specific fine-tuning.
+#
+# Changing any value here is a change to a frozen scientific contract and needs a
+# new record naming the old identity, the new identity, the reason and the count
+# of already-executed affected trials.
+schema_version: "prism-c7-source-search-decision-v1"
+
+decision_id: C7_SOURCE_SEARCH_SYNTHETIC_ARM
+decision_status: FROZEN
+value: DET
+source: EXPLICIT_SCIENTIFIC_DECISION
+spec_status: UNDER_SPECIFIED_IN_V1_5
+timing: BEFORE_FIRST_C7_SCIENTIFIC_TRIAL
+approved_by: user
+frozen_on: "2026-08-24"
+spec_clauses: ["§15.2.2", "§15.4", "§18.1", "§19"]
+
+# --- the frozen fields ------------------------------------------------------
+# The single synthetic treatment bank the bounded search trains against.
+training_arm: DET
+
+# One bounded pass PER TRACK, both against the DET bank. Each track searches only
+# the coordinates its own variant declares active.
+tracks: [G, R]
+
+# The protocol the search trains and selects under, and the §15.4 tuple that
+# ranks its trials. P3 trains on CASIA + MSU and selects on the equal-weight
+# two-domain tuple, which is the protocol C8's primary rows use.
+protocol: P3
+selection_tuple_name: P3_READY
+
+# The only permitted value. L.12 forbids shrinking a scientific budget to fit a
+# machine, so a shortened per-trial schedule is not an option this record offers.
+trial_schedule: frozen_m9_schedule
+
+rationale: >-
+  DET is the structured non-LLM control and the only generator arm primary in
+  both Track G and Track R, so one non-treatment anchor serves both track
+  searches. Tuning on LLM would hand the proposed treatment a hyperparameter
+  advantage over its own controls; tuning on RND would anchor on the arm least
+  like the ones under test and is not primary in Track R. The decision is frozen
+  before any C7 scientific metric exists.
+
+prohibited_alternatives_after_freeze:
+  - RND
+  - LLM
+  - "a separate hyperparameter search per generator arm"
+  - "pooled or result-dependent arm selection"
+  - "a second pass that changes the arm"
+  - "a new pooled RND/DET/LLM search bank, an arm-balanced sampler, a rotated
+     batch composition, an averaged arm objective or per-arm hyperparameter
+     voting"
+
+not_approved:
+  - "changing the coordinate order, the multiplier sets or the clip ranges"
+  - "a second search pass, or widening a candidate set after seeing a result"
+  - "a shortened per-trial schedule, or any other reduction of the scientific budget"
+  - "reopening this decision from any P1/P2/P3 result"
+
+target_access: 0

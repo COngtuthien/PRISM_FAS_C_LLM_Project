@@ -27,7 +27,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
 from prism_fas.pipeline.execution import ExecutionContext
@@ -97,9 +98,24 @@ class C10Adapter(EngineeringAdapter):
 
     def _build_fixture(self, request: AdapterRequest,
                        reports: Path) -> tuple[dict[str, Path], AdapterResult]:
-        checks: list[dict[str, Any]] = []
+        """Build the synthetic target package this stage exercises the firewall on.
+
+        The guard is the first statement, and it is not decoration. Under a
+        scientific context `sources.target_roots` returns the REAL sealed package
+        roots, and the loop below would then `mkdir` inside them and write a
+        `labels.json` of invented labels into the sealed target — fabricating the
+        answer to the experiment inside the artifact the firewall exists to
+        protect. Nothing downstream would have flagged it: the files would be
+        real, readable and wrong.
+        """
         from prism_fas.pipeline.adapters import sources
 
+        assert_fixture_permitted(
+            request.context,
+            "the C10 synthetic target package (fixture roots, fixture features and "
+            "invented labels)")
+
+        checks: list[dict[str, Any]] = []
         roots, provenance = sources.target_roots(request.repo, reports, request.context)
         for name, path in roots.items():
             path.mkdir(parents=True, exist_ok=True)

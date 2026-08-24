@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.pipeline.adapters import AdapterRequest, AdapterResult
-from prism_fas.pipeline.adapters.common import (EngineeringAdapter, RequiredInput, check,
+from prism_fas.pipeline.adapters.common import (assert_fixture_permitted,
+                                                EngineeringAdapter, RequiredInput, check,
                                                 resume_decision, stage_reports_dir, utc,
                                                 write_artifact)
 from prism_fas.pipeline.execution import ExecutionContext
@@ -97,10 +98,22 @@ class C11Adapter(EngineeringAdapter):
 
     def _build(self, request: AdapterRequest,
                reports: Path) -> tuple[list[dict[str, Any]], AdapterResult]:
+        """Build the fixture prediction rows the label-isolation contract is tested on.
+
+        Guarded first: these rows are constructed from video ids and scores by
+        `adapters.tiny.prediction_rows`, and a scientific C11 must produce
+        predictions by running the frozen checkpoints over the sealed feature
+        package. Writing constructed scores into a scientific PREDICTION_LOCK
+        would put invented numbers behind a lockset C12 is required to validate
+        twice before label capability is granted.
+        """
         from prism_fas.evaluation.target_prediction import (VariantCapabilities,
                                                             build_prediction_row,
                                                             prediction_logical_identity,
                                                             validate_predictions)
+
+        assert_fixture_permitted(request.context,
+                                 "the C11 constructed target prediction rows")
 
         checks: list[dict[str, Any]] = []
         from prism_fas.detector.variant import ResolvedExperimentVariant

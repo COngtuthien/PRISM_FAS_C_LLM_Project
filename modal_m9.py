@@ -232,36 +232,21 @@ def m9_train_reference(run_id: str = REFERENCE_RUN_ID, resume: bool = True) -> d
     gpu = _require_cuda()
     verified = _verify_inputs()
     trainer, pins = _trainer(run_id)
-    resumed = None
-    if resume and trainer.checkpoint_path("last").is_file():
-        resumed = trainer.resume("last")
-        print(json.dumps({"resumed": resumed["global_step"], "stage": resumed["stage"]}), flush=True)
-    stages = {}
-    if trainer.lineage.current is None: stages["G1"] = trainer.run_g1()
-    if trainer.lineage.current == "G1": stages["G2"] = trainer.run_g2()
-    if trainer.lineage.current == "G2": stages["G5"] = trainer.run_g5()
-    if trainer.lineage.current == "G5":
-        stages["G6"] = trainer.run_g6(checkpoint=trainer.checkpoint_path("best"))
-    closure = trainer.finish()
-    from prism_fas.detector.trainer import source_isolation_report
-    # A resumed run only executes the stages that were still outstanding, so the
-    # per-stage evidence is taken from the restored lineage and then overlaid with
-    # whatever this invocation actually produced. The report is complete either way.
-    merged: dict = {}
-    for entry in trainer.lineage.payload():
-        merged[str(entry["stage"])] = {"status": entry.get("status"),
-                                       **(entry.get("output_hashes") or {})}
-    # Merge per stage rather than replacing, so a stage this invocation ran keeps the
-    # lineage's status instead of dropping it.
-    for name, value in stages.items(): merged[name] = {**merged.get(name, {}), **value}
-    stages = merged
-    summary = trainer.run_summary()
-    isolation = source_isolation_report(trainer, source_dev_opened=True)
+    # The G1 -> G2 -> G5 -> G6 sequence, its resume rule and its per-stage evidence
+    # merge live in `detector.trainer` because C7's search trials and C8's matrix
+    # rows run the same flow. This entrypoint supplies the GPU, the volumes and
+    # the pins; it does not own the flow.
+    from prism_fas.detector.trainer import run_source_only_flow
+    flow = run_source_only_flow(trainer, resume=resume)
+    if flow["resumed_from"] is not None:
+        print(json.dumps({"resumed": flow["resumed_from"], "stage": flow["resumed_stage"]}),
+              flush=True)
     runs_volume.commit()
     return {"stage": "train_reference", "gpu": gpu, **verified, **pins,
-            "resumed_from": resumed["global_step"] if resumed else None,
-            "stages": stages, "run_summary": summary, "run_closure": closure,
-            "source_isolation": isolation,
+            "resumed_from": flow["resumed_from"],
+            "stages": flow["stages"], "run_summary": flow["run_summary"],
+            "run_closure": flow["run_closure"],
+            "source_isolation": flow["source_isolation"],
             "remote_run_path": str(Path(REMOTE_RUNS_ROOT) / run_id),
             "best_checkpoint": str(trainer.checkpoint_path("best")),
             "last_checkpoint": str(trainer.checkpoint_path("last")),

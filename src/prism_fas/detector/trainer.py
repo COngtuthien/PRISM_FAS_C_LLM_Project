@@ -32,7 +32,8 @@ from .checkpoint import (STAGE_ORDER, M9CheckpointError, RunIdentity, StageLinea
                          checkpoint_summary, config_hash, git_commit, load_checkpoint,
                          save_checkpoint)
 from .contracts import LIVE, REGION_COUNT, DetectorBatch
-from .dataset import M9TrainingDataset, M9ValidationDataset, batch_composition, domain_composition
+from .dataset import (DOMAINS as SOURCE_DOMAINS, M9TrainingDataset, M9ValidationDataset,
+                      batch_composition, domain_composition)
 from .heads import read_recipe_text_cache
 from .losses import (DEFAULT_CLEAN_CAP, DEFAULT_MIL_TEMPERATURE, DEFAULT_PROMPT_TEMPERATURE,
                      DEFAULT_WEIGHTS, LOSS_NAMES, compute_losses, loss_contract_identity,
@@ -116,6 +117,11 @@ class M9TrainingConfig:
     # field is what puts it in the TRAINING CONFIG identity as well, so an A02
     # checkpoint can never be resumed against the structured bank.
     synthetic_bank_identity: str = ""
+    # The §19 protocol's source domains. Both is the Version-B reference and is
+    # carried into the config payload only when a protocol restricts it, so a P1
+    # or P2 row hashes differently while every inherited row keeps the config
+    # hash its checkpoints were written with.
+    source_domains: tuple[str, ...] = SOURCE_DOMAINS
 
     @property
     def total_epochs(self) -> int:
@@ -135,11 +141,11 @@ class M9TrainingConfig:
     # `variant` is excluded from the raw dump and re-entered below as a DELTA, so the
     # M9 reference configuration keeps the config hash its checkpoints were written
     # with while every ablation gets a different one.
-    HASH_EXCLUDED_FIELDS = ("run_id", "variant", "synthetic_bank_identity")
+    HASH_EXCLUDED_FIELDS = ("run_id", "variant", "synthetic_bank_identity", "source_domains")
 
     def payload(self, *, include_run_id: bool = False) -> dict[str, Any]:
         body = {key: value for key, value in vars(self).items()
-                if key not in ("variant", "synthetic_bank_identity")
+                if key not in ("variant", "synthetic_bank_identity", "source_domains")
                 and (include_run_id or key not in self.HASH_EXCLUDED_FIELDS)}
         body["schema_version"] = TRAINER_SCHEMA_VERSION
         body["total_epochs"] = self.total_epochs
@@ -149,6 +155,8 @@ class M9TrainingConfig:
         # every structured row keeps the config hash its checkpoints were written with.
         if self.synthetic_bank_identity:
             body["synthetic_bank_identity"] = str(self.synthetic_bank_identity)
+        if tuple(self.source_domains) != SOURCE_DOMAINS:
+            body["source_domains"] = list(self.source_domains)
         return body
 
     def hash(self) -> str: return config_hash(self.payload())
@@ -212,16 +220,17 @@ def batch_contract_for(stage: str, config: M9TrainingConfig) -> BatchContract:
     the row's own sampler policy.
     """
     variant = config.variant
+    domains = tuple(config.source_domains)
     if stage in ("G1", "G2") or not variant.uses_synthetic:
         return BatchContract(real_live=16, real_spoof=16, synthetic=0, phase="real_only",
                              accumulation_steps=config.accumulation_steps,
-                             domain_balance=variant.domain_balance,
+                             domain_balance=variant.domain_balance, domains=domains,
                              require_both_routes=False, routes=variant.synthetic_routes or ("physics", "gpat"))
     return BatchContract(real_live=DEFAULT_COMPOSITION["real_live"],
                          real_spoof=DEFAULT_COMPOSITION["real_spoof"],
                          synthetic=DEFAULT_COMPOSITION["synthetic"],
                          accumulation_steps=config.accumulation_steps,
-                         domain_balance=variant.domain_balance,
+                         domain_balance=variant.domain_balance, domains=domains,
                          require_both_routes=variant.requires_both_routes,
                          routes=variant.synthetic_routes)
 
@@ -250,6 +259,12 @@ class M9Trainer:
     # neither is ever a fallback for the other.
     bank_identity: str | None = None
     bank_id: str | None = None
+    # An ALREADY-VERIFIED synthetic bank reader. Version C's C7/C8 pass one arm's
+    # frozen C6 matched bank here (`detector.c6_bank.C6MatchedBankReader`), which
+    # is a different artifact from the M8 v3 export and is opened by its own
+    # fail-closed reader. `None` keeps the inherited behaviour exactly: the M8 v3
+    # bank is opened from `bank_root` against its pinned identity.
+    synthetic_bank: Any = None
 
     def __post_init__(self) -> None:
         from prism_fas.data.loader.config import load_loader_config
@@ -280,6 +295,8 @@ class M9Trainer:
                                          cache_root=self.cache_root, recipe_ids=self.recipe_ids,
                                          variant=self.variant,
                                          bank_identity=self.bank_identity, bank_id=self.bank_id,
+                                         bank=self.synthetic_bank,
+                                         domains=self.config.source_domains,
                                          progress=lambda done, total: self._emit(
                                              {"stage": "prepare", "cache_progress": done, "total": total}))
         self.text_embeddings = self.text_cache.tensor(device=self.device)
@@ -740,34 +757,82 @@ class M9Trainer:
             self._validation = M9ValidationDataset(
                 self.package_root, self.loader_config, cache_root=self.cache_root,
                 limit=self.validation_limit if self.validation_limit is not None else self.config.validation_limit,
+                domains=self.config.source_domains,
                 progress=lambda done, total: self._emit({"stage": "validate", "cache_progress": done, "total": total}))
         return self._validation
 
     @torch.no_grad()
-    def source_dev_logits(self) -> tuple[np.ndarray, np.ndarray]:
+    def source_dev_logits(self, positions: Sequence[int] | None = None) -> tuple[np.ndarray, np.ndarray]:
         """`source_dev` forward under `no_grad`. It cannot create a gradient, and
-        the caller never backpropagates it."""
+        the caller never backpropagates it.
+
+        `output.global_logit` is the DECISION logit slot, whatever the variant
+        names it: for a `glr_concat` Track-R row the same tensor is
+        `fused_logit_R`, produced by the fusion classifier over the concatenated
+        global/local/region summary. Reading a different field for Track R would
+        calibrate one quantity and threshold another — the §16.2 defect
+        `calibration_identity_guard` exists to refuse — so the slot is read once
+        here and its NAME travels with the metrics.
+        """
         self.model.eval()
         logits: list[np.ndarray] = []
         targets: list[np.ndarray] = []
-        for batch in self.validation().batches(self.config.validation_batch_size):
+        validation = self.validation()
+        stream = (validation.batches(self.config.validation_batch_size) if positions is None
+                  else (validation.batch(list(positions)[start:start + self.config.validation_batch_size])
+                        for start in range(0, len(list(positions)), self.config.validation_batch_size)))
+        for batch in stream:
             moved = batch.to(self.device)
             output = self.model(moved)
             logits.append(output.global_logit.detach().float().cpu().numpy().reshape(-1))
             targets.append(moved.label.detach().cpu().numpy().reshape(-1))
+        if not logits:
+            raise TrainerError("source_dev produced no rows for the requested positions")
         return np.concatenate(logits), np.concatenate(targets)
 
-    def validate(self) -> dict[str, Any]:
-        """The Table 37 checkpoint criterion, computed on `source_dev` only."""
+    @property
+    def decision_logit_name(self) -> str:
+        return self.variant.decision_logit_name
+
+    @property
+    def decision_score_name(self) -> str:
+        return self.variant.decision_score_name
+
+    @staticmethod
+    def _dev_metrics(logits: np.ndarray, targets: np.ndarray) -> dict[str, float]:
         from prism_fas.train.metrics import negative_log_likelihood, roc_auc, select_min_acer_threshold
-        logits, targets = self.source_dev_logits()
         probabilities = 1.0 / (1.0 + np.exp(-logits))
         selected = select_min_acer_threshold(probabilities, targets)["selected"]
-        return {"source_dev/acer": float(selected["acer"]), "source_dev/apcer": float(selected["apcer"]),
-                "source_dev/bpcer": float(selected["bpcer"]), "source_dev/threshold": float(selected["threshold"]),
-                "source_dev/nll": float(negative_log_likelihood(probabilities, targets)),
-                "source_dev/roc_auc": float(roc_auc(probabilities, targets)),
-                "source_dev/samples": int(targets.size)}
+        return {"acer": float(selected["acer"]), "apcer": float(selected["apcer"]),
+                "bpcer": float(selected["bpcer"]), "threshold": float(selected["threshold"]),
+                "nll": float(negative_log_likelihood(probabilities, targets)),
+                "roc_auc": float(roc_auc(probabilities, targets)),
+                "samples": int(targets.size)}
+
+    def validate(self) -> dict[str, Any]:
+        """The Table 37 checkpoint criterion, computed on `source_dev` only.
+
+        Per-domain metrics are computed BESIDE the pooled ones rather than
+        instead of them. §15.4's P3-ready tuple is an equal-weight mean over
+        CASIA-dev and MSU-dev, and a pooled average is weighted by whichever
+        domain happens to contribute more rows — a different quantity. The
+        pooled numbers stay because P1/P2 select on their single domain, where
+        the two coincide, and every inherited row keeps the metric keys its
+        history was written with.
+        """
+        logits, targets = self.source_dev_logits()
+        pooled = self._dev_metrics(logits, targets)
+        metrics: dict[str, Any] = {f"source_dev/{name}": value for name, value in pooled.items()}
+        per_domain: dict[str, dict[str, float]] = {}
+        grouped = self.validation().domain_positions()
+        if len(grouped) > 1:
+            for domain, positions in grouped.items():
+                domain_logits, domain_targets = self.source_dev_logits(positions)
+                per_domain[domain] = self._dev_metrics(domain_logits, domain_targets)
+        metrics["source_dev/per_domain"] = per_domain
+        metrics["source_dev/decision_logit_name"] = self.decision_logit_name
+        metrics["source_dev/decision_score_name"] = self.decision_score_name
+        return metrics
 
     def is_better(self, metrics: dict[str, Any]) -> bool:
         """ACER primary, BPCER tie-break, then calibration NLL (Table 37). Never a
@@ -944,3 +1009,70 @@ def source_isolation_report(trainer: M9Trainer, *, source_dev_opened: bool) -> d
             "raw_dataset_opened": False, "m8_rejected_candidates_used": False,
             "m8_v1_v2_banks_used": False,
             "source_package_identity_sha256": trainer.dataset.package_identity}
+
+def run_source_only_flow(trainer: M9Trainer, *, resume: bool = True) -> dict[str, Any]:
+    """The declared source-only flow, G1 -> G2 -> G5 -> G6, run to closure.
+
+    Lifted out of the Modal entrypoint because it is not deployment glue: it is
+    the sequence a detector run IS, and C7's search trials and C8's matrix rows
+    both need it. Two copies of "which stage comes next after a resume" would be
+    two scientific authorities, and they would disagree the first time one was
+    edited.
+
+    Three properties the loop has to have, and each is a consequence of the
+    lineage rather than of a flag:
+
+    * **Resume executes only what is outstanding.** The stage to run next comes
+      from `lineage.current` after the checkpoint is restored, so a run
+      interrupted inside G5 continues in G5 and does not redo G1.
+    * **A variant without a manifold never enters G2.** `variant.required_stages`
+      decides the flow; `stage_for_epoch` already spends those two epochs in G1,
+      so the schedule length is identical and no comparison is confounded by it.
+    * **G6 calibrates the BEST checkpoint, on source_dev alone.** Not the last
+      one: the selected checkpoint and the calibrated one must be the same
+      model, or the operating threshold belongs to a model nobody ships.
+
+    Returns the merged per-stage evidence, the run closure, the run summary and
+    the trainer's own source-isolation report. Opens no target.
+    """
+    resumed: dict[str, Any] | None = None
+    if resume and trainer.checkpoint_path("last").is_file():
+        resumed = trainer.resume("last")
+
+    executed: dict[str, Any] = {}
+    stages = tuple(trainer.stages)
+    if trainer.lineage.current is None and "G1" in stages:
+        executed["G1"] = trainer.run_g1()
+    if trainer.lineage.current == "G1" and "G2" in stages:
+        executed["G2"] = trainer.run_g2()
+    if trainer.lineage.current in ("G1", "G2") and "G5" in stages:
+        executed["G5"] = trainer.run_g5()
+    if trainer.lineage.current == "G5" and "G6" in stages:
+        executed["G6"] = trainer.run_g6(checkpoint=trainer.checkpoint_path("best"))
+    closure = trainer.finish()
+
+    # A resumed run executes only the outstanding stages, so per-stage evidence
+    # comes from the restored lineage and is then overlaid with whatever THIS
+    # invocation produced. Merged per stage rather than replaced, so a stage this
+    # invocation ran keeps the lineage's status instead of dropping it.
+    merged: dict[str, Any] = {}
+    for entry in trainer.lineage.payload():
+        merged[str(entry["stage"])] = {"status": entry.get("status"),
+                                       **(entry.get("output_hashes") or {})}
+    for name, value in executed.items():
+        merged[name] = {**merged.get(name, {}), **value}
+
+    return {
+        "schema_version": TRAINER_SCHEMA_VERSION,
+        "resumed_from": resumed["global_step"] if resumed else None,
+        "resumed_stage": resumed["stage"] if resumed else None,
+        "stages_executed_here": sorted(executed),
+        "stages": merged,
+        "declared_stages": list(stages),
+        "run_closure": closure,
+        "run_summary": trainer.run_summary(),
+        "source_isolation": source_isolation_report(trainer, source_dev_opened=True),
+        "best_checkpoint": trainer.checkpoint_path("best").as_posix(),
+        "last_checkpoint": trainer.checkpoint_path("last").as_posix(),
+        "target_test_opened": False,
+    }
