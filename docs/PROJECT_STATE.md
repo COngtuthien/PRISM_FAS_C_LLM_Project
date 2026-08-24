@@ -4554,16 +4554,118 @@ c7_c13_readiness_milestone:
   audit_generator: scripts/audit_c7_c13_readiness.py   # inspects source, not belief
   audit_classification: ENGINEERING_AUDIT_NOT_SCIENTIFIC_EVIDENCE
 
+  # --- IMPLEMENTATION CORRECTION, before the first C7 scientific trial -------
+  c7_track_g_learning_rate_correction:
+    defect_id: C7_TRACK_G_LEARNING_RATE_COORDINATE_NOT_SEARCHED
+    classification: IMPLEMENTATION_CORRECTION
+    sub_classification: PRE_SCIENTIFIC_EXECUTION_DEFECT
+    found_on: 2026-08-24
+    found_while: >-
+      deriving the declared trial count for the C7 GPU handoff. The handoff is
+      required to print that count before launch, which is what surfaced it.
+    scientific_result_observed: false
+    c7_scientific_trials_executed_before_correction: 0
+    target_accessed: false
+    record: reports/handoff/LR_ANCHOR_DECISION_CORRECTION.json
+
+    root_cause: >-
+      search/lr_decision.py derived "is the learning-rate coordinate searched"
+      from "does the multiplier expand over more than one parameter group", so
+      UNIQUE_INHERITED_ANCHOR produced candidates = () and an INAPPLICABLE
+      coordinate, reasoned as "there is no ambiguity to search and no multiplier
+      to apply". The second clause is correct - one applicable group has no
+      inherited ratio to hold - but the first turned "no user decision needed"
+      into "no search performed".
+    consequence_if_executed: >-
+      Track G would have run 12 trials instead of 15 and frozen config_G's
+      learning rate at the inherited anchor without evaluating 0.5x or 2x.
+      config_G is what C-G-RND, C-G-DET and C-G-LLM all train at in C8, so every
+      Track-G number would have rested on an unsearched coordinate, under a lock
+      recording a complete-looking one-pass envelope.
+    why_it_survived_review: >-
+      the UNIQUE_INHERITED_ANCHOR branch existed but had never been routed into a
+      search plan - C4 and C7 Track R are both B_common_multiplier, and Track G's
+      scientific search was first wired at 390fcb2. Three C7 plan checks passed
+      over it: the coordinate was PRESENT in the frozen order (just
+      inapplicable), the executability gate blocks only on AMBIGUOUS skip
+      reasons, and the active-terms check inspects loss weights only. A
+      pre-existing test, test_track_g_carries_no_multiplier_because_it_needs_none,
+      asserted the defect as intended behaviour, and the frozen 2026-08-17 LR
+      record captured it in trial_count_change.C7_TRACK_G.note.
+
+    corrected_semantics:
+      unique_inherited_anchor: >-
+        describes HOW the anchor was resolved - exactly one inherited LR scalar
+        is applicable, so no user decision is required to choose one. It says
+        nothing about whether the coordinate is searched.
+      learning_rate_coordinate: >-
+        15.2.2 puts it first in the frozen order with candidates
+        anchor x {0.5, 1.0, 2.0}, under EVERY approved interpretation that has an
+        applicable inherited anchor.
+      representation: >-
+        ONE coordinate, learning_rate_multiplier, for both interpretations. No
+        second scalar-valued LR coordinate, no independent per-group LR search.
+      track_g_effective_learning_rates: {0.5: 5.0e-5, 1.0: 1.0e-4, 2.0: 2.0e-4}
+      track_g_anchor_trial_reproduces_inherited: true
+      track_g_parameter_groups: [heads]     # backbone_lr controls zero parameters
+
+    identity_change:
+      lr_decision_identity_before: 7ef3492263507d4399828089bbe1af79438bc892e50c8ad732585c1d40c8397c
+      lr_decision_identity_after: 16800cb4da6167d66ab34f1b444e794ff7ac6b96c3873fb8fcd9eb2a75207e58
+      why_it_moved: >-
+        LRDecisionRecord.identity_material hashes the canonical SEMANTIC payload
+        of every component, and Track G's now truthfully carries its multipliers,
+        its coordinate name and its per-multiplier learning rates. Pretending the
+        identity was unchanged would mean two different envelopes sharing one.
+      decision_config_bytes_changed: false
+      why_no_byte_changed: >-
+        configs/search/lr_anchor_decision.yaml was already correct. Its values
+        (multipliers [0.5, 1.0, 2.0], Track-G anchor head_lr 1.0e-4, Track-G
+        parameter_groups [heads]) were right, and its prose says Track G "needed
+        no approval" - never that Track G has nothing to search. The approved
+        scientific decision did not require correction; only its implementation
+        did.
+      c4_gpat_search_plan_identity_changed: false
+      c4_identity_guard: >-
+        71bfff29bfe1e7ba71d083831a0337a6ae6e0dcfc7f7a75eb9e6f3f3a4ac2b6a, held
+        byte-stable and asserted by a test. C4 has already executed
+        scientifically and C5 renders through the checkpoint its lock names. An
+        intermediate version of this correction decorated Coordinate.anchor_source,
+        which enters the plan identity, and moved C4's hash for a cosmetic
+        reason; both strings are now identical on the multiplier branch.
+      c7_track_g_plan_identity_before: 9ce24e12627f198c5378c48e33e8c09ba8f3a0ef39da38bcd7d8c63bd37cf9d1
+      c7_track_g_plan_identity_changed: true   # required: 12 -> 15 trials
+      c7_track_r_envelope_changed: false       # 24 trials, 1:10 ratio, unchanged
+      c7_search_decision_identity_changed: false   # DET, ed4f6b77..., untouched
+      supersession_safe_because: >-
+        the correction landed before the first scientific C7 trial. No
+        measurement was taken under the superseded identity, nothing needs
+        regenerating, and no result changes.
+
+    corrected_declaration:
+      track_g_declared_trials: 15
+      track_r_declared_trials: 24
+      total_declared_trials: 39
+      epochs_per_trial: 35
+      steps_per_epoch: 45
+      total_declared_optimizer_steps: 61425
+      derived_from: >-
+        prism_fas.search.plan.detector_search_plan over the canonical configs,
+        asserted in tests rather than hard-coded as the authority
+    regressions:
+      - tests/pipeline/test_lr_track_g_coordinate.py   # 25, incl. an injection test
+      - tests/pipeline/test_portable_runner.py         # the test that asserted it
+
   # --- the regression that authorized this commit ---------------------------
   tests:
     measured_at_utc: 2026-08-24
     broad_exact_command: >-
       python -m pytest -q --no-header -p no:cacheprovider
       --continue-on-collection-errors
-    broad: {passed: 2928, failed: 7, skipped: 104, seconds: 1860}
+    broad: {passed: 2953, failed: 7, skipped: 104, seconds: 2027}
     c7_and_pipeline_exact_command: >-
       python -m pytest tests/c7 tests/pipeline -q -p no:cacheprovider
-    c7_and_pipeline: {passed: 1491, failed: 0, skipped: 3, seconds: 1559}
+    c7_and_pipeline: {passed: 1516, failed: 0, skipped: 3, seconds: 1617}
     inherited_known_failures: 7
     inherited_failure_set_identical: true   # compared test-id by test-id
     new_unexplained_failures: 0
@@ -4577,13 +4679,14 @@ c7_c13_readiness_milestone:
       - tests/test_m10_closure.py::test_backend_parity_is_reported_as_measured_not_as_a_pass
       - tests/test_m10_target_evaluation.py::test_isolation_declarations_do_not_false_positive
     all_seven_are_missing_version_b_build_products: true
-    new_tests_this_milestone: 131
+    new_tests_this_milestone: 156
     new_test_files:
       - tests/pipeline/test_c6_evidence_and_bank.py        # 26
       - tests/pipeline/test_c7_scientific_path.py          # 27
       - tests/pipeline/test_c7_search_arm_decision.py      # 30
       - tests/pipeline/test_c8_scientific_path.py          # 16
-      - tests/pipeline/test_c9_scientific_evidence.py      # 16
+      - tests/pipeline/test_c9_scientific_evidence.py       # 16
+      - tests/pipeline/test_lr_track_g_coordinate.py        # 25
       - tests/pipeline/c6_bank_fixture.py                  # shared, not collected
     extended_test_files:
       - tests/pipeline/test_scientific_fixture_leakage.py  # +13 anti-leak regressions

@@ -451,11 +451,15 @@ def _apply_lr_decision(coordinates: tuple["Coordinate", ...],
 
     Without a decision the plan keeps its honest pre-decision shape: the
     `learning_rate` coordinate stays AMBIGUOUS and contributes no trials. With
-    one, that coordinate is replaced in place — same position, still exactly one
-    learning-rate step — by the multiplier the decision authorizes, and the
+    one, that coordinate is replaced in place — same position, still exactly ONE
+    learning-rate coordinate — by the multiplier the decision authorizes, and the
     frozen anchor vector is bound into the plan's base config so it enters the
     plan identity. An evaluator therefore cannot search a different vector than
     the one the decision approved.
+
+    "In place" is the invariant that matters here: the replacement never adds a
+    second LR coordinate beside the first, so the frozen §15.2.2 order keeps
+    exactly one learning-rate step whichever interpretation applies.
     """
     config = dict(base_config or {})
     if decision is None:
@@ -469,7 +473,10 @@ def _apply_lr_decision(coordinates: tuple["Coordinate", ...],
     config["lr_anchor_vector"] = dict(decision.anchor_vector)
     config["lr_interpretation"] = decision.interpretation
     config["lr_preserved_ratio"] = list(decision.preserved_ratio)
-    if decision.searches_a_multiplier:
+    # Seeded whenever the coordinate is SEARCHED, not whenever the multiplier
+    # expands over several groups. Gating it on the second left a searched
+    # single-group coordinate with no anchor value in the base config.
+    if decision.searches_the_learning_rate:
         config[replacement.name] = 1.0
     return updated, config
 

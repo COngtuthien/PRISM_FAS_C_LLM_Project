@@ -360,6 +360,71 @@ ENTRIES = [
                                         "pooled or result-dependent arm selection",
                                         "a second pass that changes the arm"],
             "regression": "tests/pipeline/test_c7_search_arm_decision.py"}),
+    NegativeEvidence(
+        entry_id="C7-TRACK-G-LEARNING-RATE-COORDINATE-NOT-SEARCHED-2026-08-24",
+        stage="C7", substage="SCIENTIFIC_SOURCE_SEARCH",
+        classification=ENGINEERING_FAILURE,
+        occurred_on="2026-08-24",
+        result_affecting=False,
+        reason=(
+            "PRE_SCIENTIFIC_EXECUTION_DEFECT, found while deriving the declared "
+            "trial count for the GPU handoff and BEFORE the first C7 scientific "
+            "trial. `search/lr_decision.py` derived 'is the learning-rate "
+            "coordinate searched' from 'does the multiplier expand over more than "
+            "one parameter group', so the UNIQUE_INHERITED_ANCHOR interpretation "
+            "produced `candidates = ()` and an INAPPLICABLE coordinate with the "
+            "reason 'there is no ambiguity to search and no multiplier to apply'. "
+            "The second clause is right — one applicable group has no inherited "
+            "ratio to hold — but the first turned 'no user decision needed' into "
+            "'no search performed'. Track G's bounded pass therefore omitted "
+            "`learning_rate`, the FIRST coordinate of the frozen 15.2.2 order: 12 "
+            "trials instead of 15, with config_G's learning rate frozen at the "
+            "inherited anchor without 0.5x or 2x ever being evaluated. config_G is "
+            "what C-G-RND, C-G-DET and C-G-LLM all train at in C8, so every "
+            "Track-G number would have rested on an unsearched coordinate under a "
+            "lock recording a complete-looking one-pass envelope."),
+        artifacts=("src/prism_fas/search/lr_decision.py",
+                   "reports/handoff/LR_ANCHOR_DECISION_CORRECTION.json"),
+        paper_eligibility=(APPENDIX,),
+        detail={
+            "sub_classification": "PRE_SCIENTIFIC_EXECUTION_DEFECT",
+            "scientific_result_observed": False,
+            "c7_scientific_trials_executed": 0,
+            "target_accessed": False,
+            "why_it_survived_review": (
+                "the UNIQUE_INHERITED_ANCHOR branch existed but had never been "
+                "routed into a search plan — C4 and C7 Track R are both "
+                "B_common_multiplier, and Track G's scientific search was first "
+                "wired at 390fcb2. Three C7 plan checks passed over it: the "
+                "coordinate was PRESENT in the frozen order (just inapplicable), "
+                "the executability gate blocks only on AMBIGUOUS skip reasons, and "
+                "the active-terms check inspects loss weights only. The frozen "
+                "2026-08-17 LR record even captured the defect as intended "
+                "behaviour in trial_count_change.C7_TRACK_G.note."),
+            "fix": (
+                "`searches_the_learning_rate` separated from "
+                "`searches_a_multiplier` at the canonical LR-decision boundary; "
+                "every approved component with an applicable inherited anchor now "
+                "yields the ONE frozen coordinate under the same "
+                "learning_rate_multiplier representation. No C7 special case, no "
+                "second LR coordinate, no per-group search."),
+            "identity_move": {
+                "lr_decision_identity_before":
+                    "7ef3492263507d4399828089bbe1af79438bc892e50c8ad732585c1d40c8397c",
+                "lr_decision_identity_after":
+                    "16800cb4da6167d66ab34f1b444e794ff7ac6b96c3873fb8fcd9eb2a75207e58",
+                "decision_config_bytes_changed": False,
+                "c4_search_plan_identity_changed": False,
+                "track_g_declared_trials": "12 -> 15",
+                "c7_total_declared_trials": "36 -> 39"},
+            "why_not_a_scientific_negative_result": (
+                "no detector was trained, no metric was produced and no target was "
+                "touched. It is evidence about our implementation and about "
+                "fail-closed methodology, not about face anti-spoofing, and it may "
+                "never appear in Results or Discussion."),
+            "regression": ("tests/pipeline/test_lr_track_g_coordinate.py, including "
+                           "an injection test that restores the defective rule and "
+                           "proves the Track-G envelope collapses to 12")}),
 ]
 
 

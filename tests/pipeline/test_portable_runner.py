@@ -466,13 +466,36 @@ def test_the_lr_decision_is_approved_and_preserves_every_ratio() -> None:
         assert c4.ratio_preserved(multiplier), multiplier
 
 
-def test_track_g_carries_no_multiplier_because_it_needs_none() -> None:
+def test_track_g_needs_no_decision_but_is_still_searched() -> None:
+    """UNIQUE_INHERITED_ANCHOR is about the ANCHOR, not about the search.
+
+    This test previously asserted `track_g.candidates == ()` under the name
+    "carries no multiplier because it needs none". It was encoding a defect: the
+    interpretation records that exactly one inherited LR scalar is applicable, so
+    no USER DECISION was needed to choose one. It does not follow that the
+    coordinate is skipped, and 15.2.2 puts `learning_rate` first in the frozen
+    order with candidates anchor x {0.5, 1.0, 2.0} for every component that has
+    an applicable anchor. Track G was omitting its own learning rate.
+
+    Corrected before the first C7 scientific trial; the full contract lives in
+    tests/pipeline/test_lr_track_g_coordinate.py and the identity move is
+    recorded in reports/handoff/LR_ANCHOR_DECISION_CORRECTION.json.
+    """
     from prism_fas.search.lr_decision import load_decision
 
     track_g = load_decision(REPO).for_component("C7_TRACK_G")
+
+    # How the anchor was resolved: unique, so no user decision was required.
     assert track_g.interpretation == "UNIQUE_INHERITED_ANCHOR"
-    assert track_g.candidates == ()
     assert track_g.compliance_class == "ALREADY_IMPLIED_BY_FROZEN_SPEC"
+    assert dict(track_g.anchor_vector) == {"head_lr": 1.0e-4}
+    # ...and it expands over one group, so there is no inherited ratio to hold.
+    assert track_g.searches_a_multiplier is False
+
+    # Whether the frozen coordinate is searched: yes, like every other component.
+    assert track_g.searches_the_learning_rate is True
+    assert track_g.candidates == (0.5, 1.0, 2.0)
+    assert track_g.lr_for_groups(1.0) == {"head_lr": 1.0e-4}
 
 
 def test_an_unapproved_decision_record_is_refused(tmp_path: Path) -> None:

@@ -19,8 +19,26 @@ safe rather than merely convenient:
   derives every group's rate from the frozen anchor vector, so an evaluator
   cannot accidentally search one group and freeze another.
 
-Track G is present here for completeness and carries no multiplier: it has one
-applicable scalar, which the frozen rules already resolve.
+**Two questions, not one.** This module answers *how the anchor was resolved* —
+`B_common_multiplier` when several inherited scalars are simultaneously
+applicable, `UNIQUE_INHERITED_ANCHOR` when exactly one is. It does NOT answer
+whether the learning-rate coordinate is searched: §15.2.2 puts `learning_rate`
+first in the frozen coordinate order with candidates `anchor x {0.5, 1.0, 2.0}`,
+and declares no exemption for a component whose anchor happens to be unique.
+
+Conflating the two was a real defect. `UNIQUE_INHERITED_ANCHOR` produced an
+INAPPLICABLE coordinate on the reasoning that there is "no ambiguity to search
+and no multiplier to apply". The second half is right — with one applicable
+group there is no ratio to hold — but the first turned "no decision needed" into
+"no search performed", and Track G would have frozen its learning rate at the
+inherited anchor without ever evaluating 0.5x or 2x. Found before the first C7
+scientific trial; see `reports/evidence/NEGATIVE_EVIDENCE_INDEX.json`.
+
+So an approved component with an applicable inherited anchor always yields the
+ONE frozen learning-rate coordinate, under both interpretations and under the
+same `learning_rate_multiplier` representation. What differs between them is how
+many groups that multiplier expands over, which is what `lr_for_groups` already
+handles.
 """
 from __future__ import annotations
 
@@ -59,12 +77,36 @@ class LRAnchorDecision:
 
     @property
     def searches_a_multiplier(self) -> bool:
+        """Whether the multiplier expands over MORE THAN ONE parameter group.
+
+        A statement about the shape of the expansion, not about whether the
+        coordinate is searched. `UNIQUE_INHERITED_ANCHOR` has one applicable
+        group, so there is no inherited ratio to hold fixed — and it is still
+        searched, because §15.2.2 declares no exemption for it.
+        """
         return self.interpretation == COMMON_MULTIPLIER
 
     @property
+    def searches_the_learning_rate(self) -> bool:
+        """Whether this component contributes the frozen §15.2.2 LR coordinate.
+
+        True whenever an applicable inherited anchor exists, under EITHER
+        interpretation. The only case that contributes no coordinate is a
+        component with no applicable LR scalar at all, which no approved
+        interpretation currently describes and which would be an absent anchor
+        rather than a resolved one.
+        """
+        return bool(self.anchor_vector) and bool(self.multipliers)
+
+    @property
     def candidates(self) -> tuple[float, ...]:
-        """The multiplier values, ascending. Track G contributes none of its own."""
-        return tuple(sorted(self.multipliers)) if self.searches_a_multiplier else ()
+        """The multiplier values, ascending.
+
+        Every approved component with an applicable anchor carries the frozen
+        multiplier set. Returning `()` for `UNIQUE_INHERITED_ANCHOR` is what
+        removed Track G's learning rate from its own bounded search.
+        """
+        return tuple(sorted(self.multipliers)) if self.searches_the_learning_rate else ()
 
     def lr_for_groups(self, multiplier: float) -> dict[str, float]:
         """Every group's learning rate at one multiplier.
@@ -77,6 +119,13 @@ class LRAnchorDecision:
                 for name, anchor in self.anchor_vector.items()}
 
     def ratio_preserved(self, multiplier: float) -> bool:
+        """Whether scaling by `multiplier` leaves the inherited ratio intact.
+
+        Trivially true for a single applicable group: one number has no ratio to
+        break. Kept as a real computation rather than short-circuited on the
+        interpretation, so a record that grew a second group without changing its
+        interpretation would still be checked.
+        """
         scaled = self.lr_for_groups(multiplier)
         base = list(self.anchor_vector.values())
         moved = list(scaled.values())
@@ -90,7 +139,10 @@ class LRAnchorDecision:
             "component": self.component,
             "interpretation": self.interpretation,
             "compliance_class": self.compliance_class,
-            "coordinate_name": self.coordinate_name if self.searches_a_multiplier else None,
+            "coordinate_name": (self.coordinate_name if self.searches_the_learning_rate
+                                else None),
+            "searches_the_learning_rate": self.searches_the_learning_rate,
+            "expands_over_multiple_groups": self.searches_a_multiplier,
             "anchor_vector": dict(self.anchor_vector),
             "anchor_source": self.anchor_source,
             "multipliers": list(self.candidates),
@@ -98,10 +150,13 @@ class LRAnchorDecision:
             "parameter_groups": list(self.parameter_groups),
             "lr_at_each_multiplier": {str(value): self.lr_for_groups(value)
                                       for value in self.candidates},
+            # m = 1.0 must reproduce the inherited configuration EXACTLY, under
+            # both interpretations. Previously asserted only for the multi-group
+            # one, which is the case that cannot silently drift.
             "anchor_trial_reproduces_version_b":
                 self.lr_for_groups(1.0) == {name: float(value) for name, value
                                             in self.anchor_vector.items()}
-                if self.searches_a_multiplier else True,
+                if self.searches_the_learning_rate else True,
             "rationale": self.rationale,
         }
 
@@ -195,7 +250,10 @@ def load_decision(repo: Path) -> LRDecisionRecord:
             interpretation=interpretation,
             anchor_vector={name: float(value)
                            for name, value in dict(block["anchor_vector"]).items()},
-            multipliers=multipliers if interpretation == COMMON_MULTIPLIER else (),
+            # The frozen §15.2.2 set, for EVERY approved interpretation. Gating
+            # this on COMMON_MULTIPLIER is what removed Track G's learning-rate
+            # coordinate from its own bounded search.
+            multipliers=multipliers,
             coordinate_name=coordinate,
             preserved_ratio=tuple(float(value)
                                   for value in block.get("preserved_ratio") or ()),
@@ -215,29 +273,47 @@ def load_decision(repo: Path) -> LRDecisionRecord:
 
 
 def lr_coordinate(decision: LRAnchorDecision) -> Any:
-    """The single learning-rate coordinate this decision authorizes.
+    """The ONE learning-rate coordinate this decision authorizes.
 
-    Returns a `Coordinate` anchored at multiplier 1.0, so its candidate set is
-    exactly {0.5, 1.0, 2.0} and the anchor trial reproduces Version B. Track G
-    returns an inapplicable coordinate carrying its reason, which is how the
-    engine already represents "resolved, nothing to search".
+    Anchored at multiplier 1.0, so its candidate set is exactly {0.5, 1.0, 2.0}
+    and the anchor trial reproduces the inherited configuration. Both approved
+    interpretations produce this same coordinate, in the same position of the
+    frozen §15.2.2 order and under the same multiplier representation; they
+    differ only in how many parameter groups `lr_for_groups` expands it over.
+
+    A component with NO applicable inherited anchor returns an inapplicable
+    coordinate. That is an absent anchor, which §15.2.3 skips — a different thing
+    from a uniquely RESOLVED one, and the distinction the earlier implementation
+    lost.
     """
     from prism_fas.search.plan import Coordinate
 
-    if not decision.searches_a_multiplier:
+    if not decision.searches_the_learning_rate:
         return Coordinate(
-            name=decision.coordinate_name, anchor=None,
-            multipliers=(), skip_reason=(
-                f"{decision.compliance_class}: {decision.component} has exactly one "
-                f"applicable inherited LR scalar "
-                f"({', '.join(decision.anchor_vector)}), so there is no ambiguity to "
-                "search and no multiplier to apply"),
-            anchor_source=decision.anchor_source, spec_clause="§13.4.1 / §15.2.3")
+            name=decision.coordinate_name, anchor=None, multipliers=(),
+            skip_reason=(
+                f"ABSENT: {decision.component} declares no applicable inherited LR "
+                "scalar, so there is no anchor to multiply; §15.2.3 skips an absent "
+                "scalar rather than inventing one"),
+            anchor_source=decision.anchor_source, spec_clause="§15.2.3")
+
+    # `anchor_source` and `spec_clause` enter `Coordinate.as_dict`, which enters
+    # the SearchPlan identity. C4 has already executed scientifically under the
+    # multiplier branch, so its two strings are held byte-identical to what that
+    # run hashed; decorating them would have moved C4's frozen plan identity for
+    # a purely cosmetic reason. Only the branch that was previously unreachable
+    # gets a new clause.
+    if decision.searches_a_multiplier:
+        return Coordinate(
+            name=decision.coordinate_name, anchor=1.0,
+            multipliers=decision.multipliers, non_negative=True,
+            anchor_source=decision.anchor_source,
+            spec_clause="§15.2.2 learning rate, approved interpretation B")
     return Coordinate(
         name=decision.coordinate_name, anchor=1.0,
         multipliers=decision.multipliers, non_negative=True,
         anchor_source=decision.anchor_source,
-        spec_clause="§15.2.2 learning rate, approved interpretation B")
+        spec_clause="§15.2.2 learning rate, uniquely inherited anchor")
 
 
 __all__ = ["SCHEMA_VERSION", "DECISION_CONFIG", "COMMON_MULTIPLIER", "UNIQUE_ANCHOR",

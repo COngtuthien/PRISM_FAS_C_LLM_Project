@@ -1,0 +1,219 @@
+{
+  "affected_scientific_evidence": {
+    "c4_artifacts_touched": 0,
+    "c5_artifacts_touched": 0,
+    "c6_artifacts_touched": 0,
+    "c7_scientific_metrics_existing_before_correction": 0,
+    "c7_scientific_trials_executed_before_correction": 0,
+    "c8_rows_executed": 0,
+    "detector_config_lock_written_before_correction": false,
+    "target_access": 0,
+    "target_accessed": false,
+    "why_supersession_is_safe": "the correction landed before the first scientific C7 trial, so no measurement was taken under the superseded identity. Nothing needs regenerating and no result changes."
+  },
+  "authorized_by": "user, in session, as an implementation correction to the already frozen §15.2.2 envelope",
+  "classification": "IMPLEMENTATION_CORRECTION",
+  "consequence_if_executed": "Track G would have run 12 trials instead of 15 and frozen config_G's learning rate at the inherited anchor without evaluating 0.5x or 2x. config_G is what C-G-RND, C-G-DET and C-G-LLM all train at in C8, so every Track-G number would have rested on an unsearched coordinate, and the lock would have recorded a complete-looking one-pass envelope.",
+  "corrected_declaration": {
+    "c7_search_arm": "DET",
+    "derived_from": "prism_fas.search.plan.detector_search_plan over the canonical configs; not hard-coded",
+    "epochs_per_trial": 35,
+    "steps_per_epoch": 45,
+    "total_declared_optimizer_steps": 61425,
+    "total_declared_trials": 39,
+    "tracks": {
+      "G": {
+        "applicable_coordinates": [
+          "learning_rate_multiplier",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_risk"
+        ],
+        "coordinate_order": [
+          "learning_rate_multiplier",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_local",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_risk",
+          "lambda_M",
+          "lambda_out",
+          "lambda_clean"
+        ],
+        "declared_trials": 15,
+        "learning_rate": {
+          "anchor_trial_reproduces_inherited": true,
+          "anchor_vector": {
+            "head_lr": 0.0001
+          },
+          "applicable": true,
+          "coordinate_name": "learning_rate_multiplier",
+          "effective_learning_rates": {
+            "0.5": {
+              "head_lr": 5e-05
+            },
+            "1.0": {
+              "head_lr": 0.0001
+            },
+            "2.0": {
+              "head_lr": 0.0002
+            }
+          },
+          "interpretation": "UNIQUE_INHERITED_ANCHOR",
+          "multipliers": [
+            0.5,
+            1.0,
+            2.0
+          ],
+          "parameter_groups": [
+            "heads"
+          ]
+        },
+        "search_plan_identity": "bfbca322bf9532733558f4f79112f7c5c7c6003431d467389bc7e34406256734"
+      },
+      "R": {
+        "applicable_coordinates": [
+          "learning_rate_multiplier",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_local",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_risk"
+        ],
+        "coordinate_order": [
+          "learning_rate_multiplier",
+          "weight_decay",
+          "warmup",
+          "lambda_syn",
+          "lambda_local",
+          "lambda_MIL",
+          "lambda_P",
+          "lambda_risk",
+          "lambda_M",
+          "lambda_out",
+          "lambda_clean"
+        ],
+        "declared_trials": 24,
+        "learning_rate": {
+          "anchor_trial_reproduces_inherited": true,
+          "anchor_vector": {
+            "backbone_lr": 1e-05,
+            "head_lr": 0.0001
+          },
+          "applicable": true,
+          "coordinate_name": "learning_rate_multiplier",
+          "effective_learning_rates": {
+            "0.5": {
+              "backbone_lr": 5e-06,
+              "head_lr": 5e-05
+            },
+            "1.0": {
+              "backbone_lr": 1e-05,
+              "head_lr": 0.0001
+            },
+            "2.0": {
+              "backbone_lr": 2e-05,
+              "head_lr": 0.0002
+            }
+          },
+          "interpretation": "B_common_multiplier",
+          "multipliers": [
+            0.5,
+            1.0,
+            2.0
+          ],
+          "parameter_groups": [
+            "backbone",
+            "heads"
+          ]
+        },
+        "search_plan_identity": "d671eb002ea3262f2b193ee010db33694cbf031e2bcfbabb73f187c94c46cba3"
+      }
+    }
+  },
+  "corrected_semantics": {
+    "UNIQUE_INHERITED_ANCHOR": "describes HOW the anchor was resolved — exactly one inherited LR scalar is applicable, so no user decision is required to choose one. It says nothing about whether the coordinate is searched.",
+    "expansion": "`lr_for_groups` expands the multiplier over the applicable groups: three for C4, two for Track R holding the frozen 1:10 ratio, one for Track G where there is no ratio to hold.",
+    "learning_rate_coordinate": "§15.2.2 puts it first in the frozen order with candidates anchor x {0.5, 1.0, 2.0}, under EVERY approved interpretation that has an applicable inherited anchor.",
+    "representation": "one coordinate, `learning_rate_multiplier`, for both interpretations. No second scalar-valued LR coordinate exists, and no independent per-group LR search is introduced."
+  },
+  "defect_id": "C7_TRACK_G_LEARNING_RATE_COORDINATE_NOT_SEARCHED",
+  "executed": {
+    "gpu_seconds": 0,
+    "scientific_training_runs": 0,
+    "trials": 0,
+    "winners_selected": 0
+  },
+  "generated_at_utc": "2026-08-24T09:59:53.571866Z",
+  "git": {
+    "branch": "portable-one-command-full-run",
+    "commit": "390fcb2d04f534a854c63a326bdb701fea0d8465"
+  },
+  "identity_change": {
+    "c4_gpat_search_plan_identity": {
+      "changed": false,
+      "expected_unchanged": "71bfff29bfe1e7ba71d083831a0337a6ae6e0dcfc7f7a75eb9e6f3f3a4ac2b6a",
+      "value": "71bfff29bfe1e7ba71d083831a0337a6ae6e0dcfc7f7a75eb9e6f3f3a4ac2b6a",
+      "why_it_must_not_change": "C4 has already executed scientifically and C5 renders through the checkpoint its lock names. An intermediate version of this correction decorated `Coordinate.anchor_source`, which enters the plan identity, and moved C4's plan hash for a purely cosmetic reason. Both strings are now held byte-identical on the multiplier branch."
+    },
+    "c7_search_decision_identity": {
+      "changed": false,
+      "value": "ed4f6b777d9f95f089a76191b863e2fb2df0b9e13434470ffd736d6e511b474e",
+      "why_not": "C7_SOURCE_SEARCH_SYNTHETIC_ARM = DET is untouched by this correction."
+    },
+    "c7_track_g_search_plan_identity": {
+      "after": "bfbca322bf9532733558f4f79112f7c5c7c6003431d467389bc7e34406256734",
+      "before": "9ce24e12627f198c5378c48e33e8c09ba8f3a0ef39da38bcd7d8c63bd37cf9d1",
+      "changed": true,
+      "why": "the applicable envelope changed from 12 to 15 trials. This change is required, not incidental."
+    },
+    "c7_track_r_search_plan_identity": {
+      "envelope_unchanged": true,
+      "note": "Track R's ENVELOPE is untouched: 24 trials, multipliers [0.5, 1.0, 2.0], 1:10 ratio held. Its plan identity as built by the C7 adapter still moves, because that plan binds the LR decision identity into its base config and that identity moved. Nothing has executed, so nothing is invalidated.",
+      "value": "d671eb002ea3262f2b193ee010db33694cbf031e2bcfbabb73f187c94c46cba3"
+    },
+    "decision_config_bytes": {
+      "changed": false,
+      "path": "configs/search/lr_anchor_decision.yaml",
+      "sha256": "a55059d35aef5624823c0c61ddae6201dad15d44e24d0e50a60160af8a6dd00d",
+      "sha256_in_frozen_record": "a55059d35aef5624823c0c61ddae6201dad15d44e24d0e50a60160af8a6dd00d",
+      "why_not": "the approved record's scientific values were always correct — multipliers [0.5, 1.0, 2.0], Track-G anchor head_lr 1.0e-4, Track-G parameter_groups [heads] — and its prose says Track G 'needed no approval', never that Track G has nothing to search. No frozen byte required correction, so none was made."
+    },
+    "lr_decision_identity": {
+      "after": "16800cb4da6167d66ab34f1b444e794ff7ac6b96c3873fb8fcd9eb2a75207e58",
+      "before": "7ef3492263507d4399828089bbe1af79438bc892e50c8ad732585c1d40c8397c",
+      "changed": true,
+      "why": "`LRDecisionRecord.identity_material` hashes the canonical SEMANTIC payload of every component. Track G's payload now truthfully carries its multipliers, its coordinate name and its per-multiplier learning rates, where it previously carried empty values. The identity therefore had to move: pretending otherwise would mean two different envelopes sharing one identity."
+    }
+  },
+  "immutability": {
+    "rewrite_permitted": false
+  },
+  "not_authorized_as": "a deliberate Track-G learning-rate exemption",
+  "regressions": [
+    "tests/pipeline/test_lr_track_g_coordinate.py",
+    "tests/pipeline/test_c7_search_arm_decision.py",
+    "tests/pipeline/test_search_engine.py"
+  ],
+  "root_cause": "`search/lr_decision.py` derived 'is the learning-rate coordinate searched' from 'does the multiplier expand over more than one parameter group'. `UNIQUE_INHERITED_ANCHOR` therefore produced `candidates = ()` and an INAPPLICABLE coordinate, with the reason 'there is no ambiguity to search and no multiplier to apply'. The second clause is correct — one applicable group has no inherited ratio to hold — but the first turned 'no user decision needed' into 'no search performed'.",
+  "schema_version": "prism-lr-anchor-correction-v1",
+  "status": "IMPLEMENTATION_CORRECTION_APPLIED",
+  "supersedes": {
+    "record": "reports/handoff/LR_ANCHOR_DECISION_RECORD.json",
+    "record_preserved_unchanged": true,
+    "record_sha256": "ec33077a035dfe0483bc8e41bd11c86f599f9d1a3be64131ab79c4f1ffaf3db7",
+    "rule": "the 2026-08-17 record is the evidence of what was DECIDED and is never rewritten; this record is the evidence of what was CORRECTED in the implementation of it. Both are kept.",
+    "superseded_claim": {
+      "after": 12,
+      "before": 12,
+      "note": "unchanged; Track G's LR coordinate is inapplicable because backbone_lr controls no Track-G parameter"
+    },
+    "superseded_field": "trial_count_change.C7_TRACK_G"
+  },
+  "why_it_was_not_caught_earlier": "the UNIQUE_INHERITED_ANCHOR branch existed but had never been routed into a search plan: C4 and C7 Track R are both B_common_multiplier, and Track G's scientific search was first wired at 390fcb2. The frozen 2026-08-17 record even captured the defect as intended behaviour in trial_count_change.C7_TRACK_G.note."
+}
