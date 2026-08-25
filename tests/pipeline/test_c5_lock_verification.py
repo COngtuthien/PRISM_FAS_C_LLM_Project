@@ -612,12 +612,23 @@ def test_an_unsatisfied_semantic_precondition_blocks_like_a_missing_file(tmp_pat
 def test_the_presence_only_gate_is_no_longer_the_whole_story() -> None:
     from prism_fas.pipeline.adapters.common import EngineeringAdapter
 
-    source = _function_source(
-        "full_precondition_gate",
-        (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "common.py"
-         ).read_text(encoding="utf-8"))
-
-    assert "self.semantic_preconditions(request)" in source
+    common_source = (REPO / "src" / "prism_fas" / "pipeline" / "adapters" / "common.py"
+                     ).read_text(encoding="utf-8")
+    gate_source = _function_source("full_precondition_gate", common_source)
+    # `full_precondition_gate` and the read-only `--preflight-only` path
+    # (`EngineeringAdapter._preflight_result`) share ONE computation —
+    # `_gate_checks` — so a stage's semantic preconditions are consulted by
+    # both without a second, looser verifier existing anywhere. The call site
+    # moved from `full_precondition_gate` itself into that shared helper; the
+    # substring check follows it there rather than pinning one function's
+    # literal body.
+    assert "self._gate_checks(request)" in gate_source
+    gate_checks_source = _function_source("_gate_checks", common_source)
+    assert "self.semantic_preconditions(request)" in gate_checks_source
+    preflight_source = _function_source("_preflight_result", common_source)
+    assert "self._gate_checks(request)" in preflight_source, (
+        "the preflight-only path must read the SAME semantic preconditions, "
+        "not a separate, weaker check")
     assert EngineeringAdapter().semantic_preconditions(None) == [], (
         "stages that need nothing more are unaffected")
 

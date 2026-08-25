@@ -344,6 +344,7 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
         phase: str | None = None, mode: str | None = None,
         provider_binding: "ProviderBinding | None" = None,
         authorized_live_generation: bool = False,
+        preflight_only: bool = False,
         adapter_options: dict[str, Any] | None = None) -> RunResult:
     """Execute one orchestration run and return its result.
 
@@ -356,6 +357,15 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
     purpose. L.2 lets the full profile do scientific work; it does not authorize
     spending live provider quota on the frozen C3 schedule, and nothing in this
     signature lets that authorization arrive implicitly.
+
+    `preflight_only` is carried onto every `AdapterRequest` this run builds.
+    `EngineeringAdapter.run` (C4-C13) reads it and, after the SAME canonical
+    precondition gate a real run would apply, stops before calling
+    `workflow()` — so no stage in that range can train, step an optimizer,
+    write a checkpoint or mark a row complete. It does not change validate
+    (already pure readiness checks) and it is not read by the C0-C3 adapters,
+    which are either verification-only or separately gated on their own
+    explicit authorization flag.
     """
     repo = Path(repo).resolve()
     profile = load_profile(profile_name, repo=repo)
@@ -415,7 +425,7 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
             request = AdapterRequest(
                 repo=repo, profile=profile, mode=mode, provider_binding=binding,
                 resume=resume, authorized_live_generation=authorized_live_generation,
-                options=dict(adapter_options or {}))
+                preflight_only=preflight_only, options=dict(adapter_options or {}))
             outcomes.append(_execute_stage(stage, request))
             ledger.spend("stages")
 
@@ -439,6 +449,20 @@ def run(*, repo: Path, profile_name: str, resume: bool = False,
                        run_id=run_id, ledger=ledger, blockers=blockers,
                        stage_range=(selected[0].stage_id, selected[-1].stage_id)
                        if selected else None)
+
+    if preflight_only:
+        # Genuinely read-only: not one byte is written. No per-stage report
+        # under `reports/full/<stage>/`, no `state/MASTER_RUN_INDEX.json` row
+        # (which would otherwise stamp `scientific_eligible=true` the moment a
+        # stage's precondition gate cleared — before anything scientific ran),
+        # and no `state/PIPELINE_STATE.json` mutation (no stage enters
+        # `completed_stages`, nothing claims a resume position moved). Every
+        # verdict above already came from the stage's own canonical
+        # `full_precondition_gate` — the same one a real run applies — so this
+        # early return changes nothing about WHAT was checked, only that
+        # checking it leaves no trace on disk.
+        result.written = []
+        return result
 
     result.written = _write_reports(repo, result)
 

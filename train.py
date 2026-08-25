@@ -260,7 +260,8 @@ def _explicit(args: argparse.Namespace) -> int:
         result = run(repo=REPO, profile_name=args.profile, resume=args.resume,
                      first_stage=args.first_stage, last_stage=args.last_stage,
                      phase=args.phase, mode=args.mode, provider_binding=binding,
-                     authorized_live_generation=args.authorized_live_generation)
+                     authorized_live_generation=args.authorized_live_generation,
+                     preflight_only=args.preflight_only)
     except (ProfileError, StageError, OrchestratorError, AdapterError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return EXIT_USAGE
@@ -271,19 +272,35 @@ def _explicit(args: argparse.Namespace) -> int:
     print(f"scientific_eligible  {profile.scientific_eligible}")
     print(f"run_id               {result.run_id}")
     print(f"phase                {result.phase}")
+    if args.preflight_only:
+        print("preflight_only       true  (workflow() was never called for any stage; "
+              "see below)")
     print()
     _print_stage_table(result)
     print()
-    for path in result.written:
-        print(f"  wrote {path}")
-    print("  wrote state/PIPELINE_STATE.json")
-    print("  wrote state/MASTER_RUN_INDEX.json")
+    if args.preflight_only:
+        # Genuinely nothing was written: orchestrator.run() returns before
+        # _write_reports / record / write_state when preflight_only is set.
+        print("  --preflight-only: nothing was executed and nothing was written "
+              "(no reports/full/*, no state/PIPELINE_STATE.json, no "
+              "state/MASTER_RUN_INDEX.json).")
+    else:
+        for path in result.written:
+            print(f"  wrote {path}")
+        print("  wrote state/PIPELINE_STATE.json")
+        print("  wrote state/MASTER_RUN_INDEX.json")
     if result.blockers:
         print()
         for blocker in result.blockers:
             print(f"  BLOCKER {blocker}")
     print()
-    print(f"outcome              {result.outcome}")
+    if args.preflight_only:
+        verdict = "PASS" if result.outcome == "PASS" else "BLOCKED"
+        print(f"preflight            {verdict}")
+        print("outcome              " + result.outcome +
+              "  (preflight-only: no scientific work of any kind was started)")
+    else:
+        print(f"outcome              {result.outcome}")
     if profile.name == "validate":
         print("meaning              engineering readiness evidence only. This run "
               "executed no\n                     scientific work and completes no "

@@ -141,6 +141,14 @@ class AdapterRequest:
     provider_binding: ProviderBinding | None = None
     resume: bool = False
     authorized_live_generation: bool = False
+    #: When true, an `EngineeringAdapter` verifies its full-profile precondition
+    #: gate (the same canonical checks a real run uses) and stops — `workflow()`
+    #: is never called, so nothing trains, no optimizer steps, no checkpoint is
+    #: written and no row is marked complete. Read by `EngineeringAdapter.run`;
+    #: C0-C3 adapters do not consume it (they carry their own, separately
+    #: gated, execution controls — e.g. C3 live generation requires its own
+    #: explicit `authorized_live_generation` flag regardless of this one).
+    preflight_only: bool = False
     options: dict[str, Any] = field(default_factory=dict)
 
     @property

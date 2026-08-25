@@ -5063,6 +5063,29 @@ c7_scientific_closure_reconciliation:
       user_authorization_required: true
       exact_command: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
       target_access: 0
+      pre_launch_engineering_defect_found_and_fixed:
+        id: EXPLICIT_PREFLIGHT_ONLY_NOT_HONORED
+        found_on: 2026-08-25
+        found_before_first_c8_scientific_run: true
+        detail: >-
+          `train.py::_explicit` parsed --preflight-only into args.preflight_only
+          and never read it; it called orchestrator.run(...) unconditionally, so
+          the handoff's advertised read-only preflight command
+          (`python train.py --profile full --from C8 --to C8 --preflight-only`)
+          was not guaranteed read-only and could have reached
+          C8Adapter.workflow() and trained a real detector.
+        fix: >-
+          preflight_only threaded onto AdapterRequest, through
+          orchestrator.run(), into EngineeringAdapter.run() (C4-C13); stops
+          before workflow() after the SAME full_precondition_gate a real run
+          applies; orchestrator.run() returns before _write_reports/record/
+          write_state when preflight_only, so no reports/full/c8 artifact, no
+          MASTER_RUN_INDEX row and no PIPELINE_STATE mutation can occur.
+        regression_tests: tests/pipeline/test_explicit_preflight_only.py
+        c8_rows_executed_by_the_defect: 0
+        detector_trained: false
+        target_access: 0
+        closure_record: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
     c9:
       status: BLOCKED_ON_DETECTOR_RELIABILITY
       blocker: DETECTOR_RELIABILITY_LOCK_C

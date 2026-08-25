@@ -217,6 +217,18 @@ class EngineeringAdapter:
             gate = self.full_precondition_gate(request)
             if gate is not None:
                 return [gate]
+        if request.preflight_only:
+            # `--preflight-only` means what it says. The gate above is the ONLY
+            # place this stage decides whether it could execute scientifically,
+            # and it has ALREADY run by this point — a BLOCKED verdict already
+            # returned above, before `preflight_only` is even inspected. What
+            # remains here can only be "the gate passed" (scientific context) or
+            # "no scientific gate applies" (smoke/rehearsal). Either way,
+            # `workflow()` — the only thing in this class that can train, step
+            # an optimizer, write a checkpoint or mark a row complete — is never
+            # called. There is no second, looser preflight verifier: the checks
+            # shown below are the exact `_gate_checks` the gate above computed.
+            return [self._preflight_result(request, context)]
         return list(self.workflow(request, context))
 
     def full_precondition_gate(self, request: AdapterRequest) -> AdapterResult | None:
@@ -225,6 +237,34 @@ class EngineeringAdapter:
         Returning BLOCKED here rather than falling back to a fixture is the whole
         contract: a full-profile artifact built on a fixture would be a
         scientifically eligible claim about something that never ran.
+        """
+        missing, checks = self._gate_checks(request)
+        if not missing:
+            return None
+        names = ", ".join(item["name"] for item in missing)
+        return AdapterResult(
+            stage_id=self.stage_id, substage=self.stage_id, mode="FULL_PRECONDITION_GATE",
+            provider_binding=ProviderBinding.NONE, status="BLOCKED",
+            status_axes=DualStatus(engineering="BLOCKED", scientific="BLOCKED"),
+            summary=f"{self.stage_id} cannot execute scientifically here: {names}",
+            checks=checks, provider_calls=0,
+            notes=[f"{MISSING_INPUT}: {names}",
+                   "the stage is engineering-ready; it is BLOCKED on inputs, not on code",
+                   "no fixture is substituted under the full profile"],
+            detail={"missing_inputs": missing,
+                    "resolution": "supply these on the execution backend and rerun "
+                                  "`python train.py --profile full --from "
+                                  f"{self.stage_id} --to {self.stage_id} --resume`"})
+
+    def _gate_checks(self, request: AdapterRequest) -> tuple[list[dict[str, Any]],
+                                                              list[dict[str, Any]]]:
+        """The ONE computation `full_precondition_gate` and `--preflight-only`
+        both read. Never re-derived a second, looser way — a preflight verdict
+        and a real scientific run's gate verdict come from the same call.
+
+        Returns `(missing, checks)`: `missing` is the blocking subset (empty
+        means every precondition is satisfied); `checks` is every check run,
+        satisfied or not, for a preflight summary to show its work.
         """
         resolved = [item.resolve(request.repo) for item in self.required_inputs()]
         # Presence is the weakest question that can be asked of an input. For a
@@ -251,23 +291,36 @@ class EngineeringAdapter:
                                 "description": "scientific training requires a real GPU; "
                                                "L.12 forbids shrinking the scientific "
                                                "budget to fit the machine"})
+        return missing, checks
 
-        if not missing:
-            return None
-        names = ", ".join(item["name"] for item in missing)
+    def _preflight_result(self, request: AdapterRequest,
+                          context: ExecutionContext) -> AdapterResult:
+        """`--preflight-only`, reached only after `run()` confirms the gate did
+        NOT block. Verifies with the exact canonical checks and stops before
+        `workflow()` — no training, no optimizer step, no checkpoint write, no
+        row marked complete, regardless of profile.
+        """
+        if context.is_scientific:
+            missing, checks = self._gate_checks(request)
+            summary = (f"{self.stage_id} preflight PASS: every scientific "
+                      "precondition is satisfied; execution skipped (--preflight-only)")
+        else:
+            missing, checks = [], []
+            summary = (f"{self.stage_id} preflight: profile {context.profile_name!r} has "
+                      "no scientific precondition gate; execution skipped "
+                      "(--preflight-only)")
         return AdapterResult(
-            stage_id=self.stage_id, substage=self.stage_id, mode="FULL_PRECONDITION_GATE",
-            provider_binding=ProviderBinding.NONE, status="BLOCKED",
-            status_axes=DualStatus(engineering="BLOCKED", scientific="BLOCKED"),
-            summary=f"{self.stage_id} cannot execute scientifically here: {names}",
-            checks=checks, provider_calls=0,
-            notes=[f"{MISSING_INPUT}: {names}",
-                   "the stage is engineering-ready; it is BLOCKED on inputs, not on code",
-                   "no fixture is substituted under the full profile"],
-            detail={"missing_inputs": missing,
-                    "resolution": "supply these on the execution backend and rerun "
-                                  "`python train.py --profile full --from "
-                                  f"{self.stage_id} --to {self.stage_id} --resume`"})
+            stage_id=self.stage_id, substage=self.stage_id, mode="PREFLIGHT_ONLY",
+            provider_binding=ProviderBinding.NONE, status="PASS",
+            status_axes=DualStatus(engineering="NOT_TESTED", scientific="NOT_RUN"),
+            summary=summary, checks=checks, provider_calls=0,
+            notes=["--preflight-only: workflow() was never called; zero training calls, "
+                  "zero optimizer steps, zero checkpoint writes, zero rows marked "
+                  "complete, zero target paths or labels resolved",
+                  "these are the same checks a real full-profile run's precondition "
+                  "gate would compute; there is no separate, looser preflight verifier"],
+            detail={"missing_inputs": missing, "preflight_only": True,
+                   "scientific_context": context.is_scientific})
 
     def semantic_preconditions(self, request: AdapterRequest) -> list[dict[str, Any]]:
         """Conditions beyond existence that this stage's inputs must satisfy.
