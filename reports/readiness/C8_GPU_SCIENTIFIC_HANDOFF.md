@@ -59,6 +59,82 @@ description of what it does and does not do.
 
 ---
 
+## SECOND PRE-LAUNCH ENGINEERING DEFECT: C8_PRELAUNCH_REQUIRED_INPUT_ROOT_DRIFT
+
+**Found by the first real corrected, read-only C8 preflight, run on the GPU
+host, before any C8 scientific row executed:**
+
+```
+python train.py --profile full --from C8 --to C8 --resume --preflight-only
+
+C8 FULL_PRECONDITION_GATE BLOCKED
+checks 6/7
+Failed:
+    c8_input_pretrained_weights: data/packages/pretrained is absent
+```
+
+The preflight itself worked correctly — it ran no workflow, wrote no
+scientific state or artifacts, and honestly reported what it checked. What it
+checked was wrong. `C8Adapter.required_inputs()` declared:
+
+```
+pretrained_weights  ->  data/packages/pretrained
+source_packages     ->  data/packages
+```
+
+Neither is a real scientific root. `data/packages/pretrained` is a path
+nothing in this codebase ever writes — the actual pinned SigLIP2/ConvNeXt
+weights live under `sources.WEIGHT_ROOT = "weights"`, the same root
+`C7Adapter.required_inputs()` already declared, and the same root C7's
+completed GPU scientific run actually trained against. `data/packages` is the
+PARENT of the real M3B source package
+(`sources.SOURCE_PACKAGE_ROOT = "data/packages/prism_data_v1_m3b"`) — a
+directory existing one level up proves nothing about the package itself, and
+is in fact the exact class of defect `sources.py`'s own header comment
+already documents as having been found and fixed once before for
+`SOURCE_PACKAGE_ROOT` itself ("`SOURCE_PACKAGE_ROOT` was `data/packages` — the
+parent directory..."). C8 had silently reintroduced it locally.
+
+**Deeper gap, found by the same audit:** even with the roots corrected, C8's
+precondition gate only ever checked *presence* of these paths — never the
+SHA-verified pinned weights, the frozen recipe text cache's file SHA-256 and
+re-derived semantic identity, the validated M3B package status, or the frozen
+M7 recipe bank, all of which C7's `_scientific_prepare` already required
+before its first trial through `sources.verify_detector_inputs`. A directory
+merely existing was never proof any of that was true.
+
+**Fix**, both parts reusing the canonical owning module rather than
+re-spelling or re-implementing anything:
+
+* `required_inputs()` for both C7 and C8 now import
+  `sources.WEIGHT_ROOT`, `sources.SOURCE_PACKAGE_ROOT`,
+  `sources.C5_CANDIDATES_ROOT`, `c6_evidence.C6_REPORTS` and
+  `c7.SCIENTIFIC_CONFIG_LOCK_PATH` instead of hand-spelling the same strings —
+  a fast presence-only first layer that structurally cannot drift between the
+  two stages again, because both read the same module attribute.
+* `C8Adapter.semantic_preconditions()` now ALSO calls
+  `sources.verify_detector_inputs()` — the identical, SHA-verifying canonical
+  check C7 already used — so the preflight gate genuinely validates the pinned
+  weights, the text cache and the package, not merely their presence. There is
+  no second, looser verifier anywhere in this path.
+* C8 was also missing a `c5_candidates` required-input entirely (present in
+  C7's declaration); it is now declared, using
+  `sources.C5_CANDIDATES_ROOT`.
+
+**Not fixed by creating `data/packages/pretrained`.** That directory is not
+created anywhere in this change; doing so would have hidden the drift instead
+of closing it.
+
+This record is preserved, not erased, alongside the FIRST defect above — both
+were found on real GPU-host or GPU-equivalent preflight runs before any C8
+scientific row executed. See `tests/pipeline/test_c8_precondition_root_drift.py`
+for the regression suite (path/import audit, real SHA-verification mechanics
+against small fixture weights under a monkeypatched pin, and end-to-end
+`orchestrator.run(..., preflight_only=True)` proof that a real failure from
+the canonical verifier still BLOCKS and a real success still PASSES).
+
+---
+
 ## 0. What C8 does, in one paragraph
 
 C8 trains the frozen §18 source-only experiment matrix: 42 rows spanning
@@ -100,10 +176,18 @@ not trust this document. It runs:
   `reports/full/c7/DETECTOR_CONFIG_LOCK.json` — the identical, MODULE-LEVEL
   shared verifier C7 used to write the lock (`lock_verifier_shared_with: C8`
   in `docs/PROJECT_STATE.md`). There is no separate, laxer C8 verifier.
+- `prism_fas.pipeline.adapters.sources.verify_detector_inputs` — added by the
+  second defect fix above — the same canonical, SHA-verifying check C7's own
+  `_scientific_prepare` already required: the validated M3B package
+  (`data/packages/prism_data_v1_m3b`), the frozen M7 recipe bank, the pinned
+  SigLIP2 tower and ConvNeXt V2 Atto weight by content SHA-256
+  (`weights/...`), the frozen recipe text cache by file SHA-256 and
+  re-derived semantic identity (`weights/recipe_text_cache.npz`), and the C5
+  candidate tree (`runs/full/c5/scientific/candidates`).
 
-If either fails, C8 blocks before training row 0. The reporting-only fix in
-the closure audit does not change what this verifier checks (§1.3 there), so
-it will not fail on the reporting grounds the audit investigated.
+If any of these fail, C8 blocks before training row 0. The reporting-only fix
+in the closure audit does not change what the lock verifier checks (§1.3
+there), so it will not fail on the reporting grounds the audit investigated.
 
 ---
 
@@ -210,13 +294,31 @@ Stop and report rather than proceeding if, at launch time on the GPU host:
 ```
 C8 READY:  YES
 BLOCKERS:  none identified from source; final confirmation is the GPU host's
-           own --preflight-only run (now genuinely read-only — see the defect
-           record above) and the live semantic_preconditions gate, which this
-           document does not substitute for.
-PRE-LAUNCH ENGINEERING DEFECT: found and fixed before any C8 scientific run.
-           --preflight-only under the explicit --profile path did not stop
-           execution. Fixed with regression tests; see the defect record
-           above. No C8 row, checkpoint, optimizer step or target access
-           occurred under the broken command.
-C8 WAS NOT RUN as part of this audit or as part of finding/fixing this defect.
+           own --preflight-only run (now genuinely read-only, and now checking
+           the real canonical roots and the real SHA-verified inputs — see
+           both defect records above) and the live semantic_preconditions
+           gate, which this document does not substitute for.
+
+PRE-LAUNCH ENGINEERING DEFECT 1 (EXPLICIT_PREFLIGHT_ONLY_NOT_HONORED):
+           found and fixed before any C8 scientific run. --preflight-only
+           under the explicit --profile path did not stop execution. Fixed
+           with regression tests. No C8 row, checkpoint, optimizer step or
+           target access occurred under the broken command.
+
+PRE-LAUNCH ENGINEERING DEFECT 2 (C8_PRELAUNCH_REQUIRED_INPUT_ROOT_DRIFT):
+           found by the first corrected, genuinely read-only preflight run on
+           the real GPU host. C8's required inputs named
+           data/packages/pretrained (nothing ever writes this path) and
+           data/packages (the M3B package's parent, not the package) instead
+           of the canonical weights and data/packages/prism_data_v1_m3b roots
+           C7 already trained against. Fixed to import the canonical roots
+           and to run sources.verify_detector_inputs (the SHA-verifying
+           check) as part of the gate, with regression tests. No C8 row,
+           checkpoint, optimizer step or target access occurred under the
+           drifted command; both preflight runs it produced (BLOCKED, then
+           the correct verdict once the host supplies the real assets) are
+           preserved as engineering evidence, not erased.
+
+C8 WAS NOT RUN as part of this audit or as part of finding/fixing either
+defect.
 ```

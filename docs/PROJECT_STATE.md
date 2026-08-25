@@ -5063,29 +5063,70 @@ c7_scientific_closure_reconciliation:
       user_authorization_required: true
       exact_command: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
       target_access: 0
-      pre_launch_engineering_defect_found_and_fixed:
-        id: EXPLICIT_PREFLIGHT_ONLY_NOT_HONORED
-        found_on: 2026-08-25
-        found_before_first_c8_scientific_run: true
-        detail: >-
-          `train.py::_explicit` parsed --preflight-only into args.preflight_only
-          and never read it; it called orchestrator.run(...) unconditionally, so
-          the handoff's advertised read-only preflight command
-          (`python train.py --profile full --from C8 --to C8 --preflight-only`)
-          was not guaranteed read-only and could have reached
-          C8Adapter.workflow() and trained a real detector.
-        fix: >-
-          preflight_only threaded onto AdapterRequest, through
-          orchestrator.run(), into EngineeringAdapter.run() (C4-C13); stops
-          before workflow() after the SAME full_precondition_gate a real run
-          applies; orchestrator.run() returns before _write_reports/record/
-          write_state when preflight_only, so no reports/full/c8 artifact, no
-          MASTER_RUN_INDEX row and no PIPELINE_STATE mutation can occur.
-        regression_tests: tests/pipeline/test_explicit_preflight_only.py
-        c8_rows_executed_by_the_defect: 0
-        detector_trained: false
-        target_access: 0
-        closure_record: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
+      pre_launch_engineering_defects_found_and_fixed:
+        - id: EXPLICIT_PREFLIGHT_ONLY_NOT_HONORED
+          found_on: 2026-08-25
+          found_before_first_c8_scientific_run: true
+          detail: >-
+            `train.py::_explicit` parsed --preflight-only into args.preflight_only
+            and never read it; it called orchestrator.run(...) unconditionally, so
+            the handoff's advertised read-only preflight command
+            (`python train.py --profile full --from C8 --to C8 --preflight-only`)
+            was not guaranteed read-only and could have reached
+            C8Adapter.workflow() and trained a real detector.
+          fix: >-
+            preflight_only threaded onto AdapterRequest, through
+            orchestrator.run(), into EngineeringAdapter.run() (C4-C13); stops
+            before workflow() after the SAME full_precondition_gate a real run
+            applies; orchestrator.run() returns before _write_reports/record/
+            write_state when preflight_only, so no reports/full/c8 artifact, no
+            MASTER_RUN_INDEX row and no PIPELINE_STATE mutation can occur.
+          regression_tests: tests/pipeline/test_explicit_preflight_only.py
+          c8_rows_executed_by_the_defect: 0
+          detector_trained: false
+          target_access: 0
+          closure_record: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
+        - id: C8_PRELAUNCH_REQUIRED_INPUT_ROOT_DRIFT
+          found_on: 2026-08-25
+          found_by: >-
+            the first real, corrected, read-only C8 preflight, run on the GPU
+            host: `python train.py --profile full --from C8 --to C8 --resume
+            --preflight-only` reported FULL_PRECONDITION_GATE BLOCKED,
+            checks 6/7, failing c8_input_pretrained_weights
+            (data/packages/pretrained is absent) — the preflight itself
+            behaved correctly; the path it checked was wrong.
+          found_before_first_c8_scientific_run: true
+          false_required_paths: [data/packages/pretrained, data/packages]
+          canonical_roots: [sources.WEIGHT_ROOT (weights),
+                            sources.SOURCE_PACKAGE_ROOT
+                            (data/packages/prism_data_v1_m3b)]
+          detail: >-
+            C8Adapter.required_inputs() declared pretrained_weights at
+            data/packages/pretrained (nothing ever writes this path) and
+            source_packages at data/packages (the M3B package's PARENT, not
+            the package). C7Adapter.required_inputs() already used the
+            correct roots and C7's completed GPU scientific run actually
+            trained against them. Deeper gap: C8's gate only ever checked
+            presence, never the SHA-verified pinned weights or the frozen
+            recipe text cache C7's own _scientific_prepare already required
+            via sources.verify_detector_inputs.
+          fix: >-
+            required_inputs() for both C7 and C8 now import
+            sources.WEIGHT_ROOT, sources.SOURCE_PACKAGE_ROOT,
+            sources.C5_CANDIDATES_ROOT, c6_evidence.C6_REPORTS and
+            c7.SCIENTIFIC_CONFIG_LOCK_PATH instead of hand-spelling them, so
+            the two stages cannot independently drift. C8Adapter
+            .semantic_preconditions() now also calls
+            sources.verify_detector_inputs() - the same canonical,
+            SHA-verifying check C7 already used - so the gate genuinely
+            validates the pinned weights, the text cache and the package, not
+            merely their presence. data/packages/pretrained was NOT created;
+            hiding the drift was explicitly rejected as a fix.
+          regression_tests: tests/pipeline/test_c8_precondition_root_drift.py
+          c8_rows_executed_by_the_defect: 0
+          detector_trained: false
+          target_access: 0
+          closure_record: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
     c9:
       status: BLOCKED_ON_DETECTOR_RELIABILITY
       blocker: DETECTOR_RELIABILITY_LOCK_C
@@ -5130,5 +5171,5 @@ c7_scientific_closure_reconciliation:
     BLOCKED_ON_DETECTOR_RELIABILITY regardless of C8's outcome, and detector
     reliability / BA_sep sequencing stays POST-C8 / PRE-C9.
 
-last_updated_utc: 2026-08-25   # C7 scientific closure + PROJECT_STATE reconciliation
+last_updated_utc: 2026-08-25   # C8 precondition root-drift fix (found by the first real GPU preflight)
 ```

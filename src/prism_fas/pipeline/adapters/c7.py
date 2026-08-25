@@ -177,19 +177,26 @@ class C7Adapter(EngineeringAdapter):
     requires_gpu: bool = True
 
     def required_inputs(self) -> tuple[RequiredInput, ...]:
+        """Paths come from the module that owns each root, never re-spelled —
+        the same constants `semantic_preconditions`' `sources.verify_detector_inputs`
+        reads, so C7 and C8 cannot independently drift to different roots for
+        the same asset."""
+        from prism_fas.evaluation import c6_evidence
+        from prism_fas.pipeline.adapters import sources
+
         return (
             RequiredInput("detector_config", DETECTOR_CONFIG,
                           "the frozen detector training configuration and loss weights"),
             RequiredInput("detector_model_config", "configs/models/m9_detector.yaml",
                           "the frozen detector architecture pins"),
-            RequiredInput("pretrained_weights", "weights",
+            RequiredInput("pretrained_weights", sources.WEIGHT_ROOT,
                           "the pinned frozen SigLIP2 tower and ConvNeXt V2 Atto weights"),
-            RequiredInput("source_package", "data/packages/prism_data_v1_m3b",
+            RequiredInput("source_package", sources.SOURCE_PACKAGE_ROOT,
                           "the validated M3B source package supplying source_train and "
                           "source_dev"),
-            RequiredInput("c6_matched_banks", "reports/full/c6",
+            RequiredInput("c6_matched_banks", c6_evidence.C6_REPORTS,
                           "the matched 1024-per-arm synthetic banks C7 trains against"),
-            RequiredInput("c5_candidates", "runs/full/c5/scientific/candidates",
+            RequiredInput("c5_candidates", sources.C5_CANDIDATES_ROOT,
                           "the rendered candidate bytes the C6 banks address"),
         )
 

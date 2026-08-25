@@ -86,26 +86,59 @@ class C8Adapter(EngineeringAdapter):
     requires_gpu: bool = True
 
     def required_inputs(self) -> tuple[RequiredInput, ...]:
+        """Fast, presence-only first layer. Paths are IMPORTED from the module
+        that owns each root, never re-spelled — the exact defect this stage
+        shipped with: `pretrained_weights` named `data/packages/pretrained`,
+        which nothing ever writes, instead of `sources.WEIGHT_ROOT`
+        (`weights`), and `source_packages` named the parent `data/packages`
+        instead of the actual M3B package root `sources.SOURCE_PACKAGE_ROOT`.
+        C7 already trained scientifically against the correct roots; C8 must
+        resolve the SAME ones, by construction, not by a second literal that
+        can drift from them. `semantic_preconditions` below does the real,
+        SHA-verifying check through the same canonical verifier C7 uses
+        (`sources.verify_detector_inputs`); these four are only "is it there
+        at all", so a preflight fails fast and by name before the deeper
+        checks run.
+        """
+        from prism_fas.evaluation import c6_evidence
+        from prism_fas.pipeline.adapters import sources
+        from prism_fas.pipeline.adapters.c7 import SCIENTIFIC_CONFIG_LOCK_PATH
+
         return (
-            RequiredInput("c6_matched_banks", "reports/full/c6",
+            RequiredInput("c6_matched_banks", c6_evidence.C6_REPORTS,
                           "the matched 1024-per-arm synthetic banks every row trains on"),
-            RequiredInput("c7_config_lock", "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+            RequiredInput("c7_config_lock", SCIENTIFIC_CONFIG_LOCK_PATH,
                           "the frozen detector configuration the matrix runs at"),
-            RequiredInput("source_packages", "data/packages",
-                          "the preprocessed CASIA and MSU source packages"),
-            RequiredInput("pretrained_weights", "data/packages/pretrained",
+            RequiredInput("source_package", sources.SOURCE_PACKAGE_ROOT,
+                          "the validated M3B source package supplying source_train and "
+                          "source_dev"),
+            RequiredInput("c5_candidates", sources.C5_CANDIDATES_ROOT,
+                          "the rendered candidate bytes the C6 banks address"),
+            RequiredInput("pretrained_weights", sources.WEIGHT_ROOT,
                           "the pinned SigLIP2 and ConvNeXt weights"),
         )
 
     def semantic_preconditions(self, request: AdapterRequest) -> list[dict[str, Any]]:
-        """Beyond existence: the C7 lock must VERIFY, under C7's own verifier.
+        """Beyond existence: every frozen scientific input must be TRUE.
 
         `DETECTOR_CONFIG_LOCK.json` existing proves nothing — a refused, drifted
         or rehearsal-shaped lock is a file that exists. C8 trains 42 rows at the
         configuration it names, so the gate is the same strict verification C7
         applies at the moment it writes it.
+
+        `sources.verify_detector_inputs` is the SAME canonical, SHA-verifying
+        check C7's own `_scientific_prepare` runs before its first trial: the
+        M3B package's own validator passed, the frozen M7 recipe bank, the
+        pinned SigLIP2 tower and ConvNeXt V2 Atto weight by content SHA (never
+        a shape-exact stub, never a silent download), the frozen recipe text
+        cache by file SHA-256 AND its re-derived semantic identity, and the C5
+        candidate tree the C6 banks address. A directory merely existing is not
+        equivalent to this — it is exactly the gap `required_inputs` above
+        cannot close on its own, and there is no second, looser verifier here
+        that reimplements any part of it.
         """
         from prism_fas.evaluation import c6_evidence
+        from prism_fas.pipeline.adapters import sources
         from prism_fas.pipeline.adapters.c7 import (SCIENTIFIC_CONFIG_LOCK_PATH,
                                                     verify_detector_config_lock)
 
@@ -114,6 +147,14 @@ class C8Adapter(EngineeringAdapter):
             request.repo, request.repo / SCIENTIFIC_CONFIG_LOCK_PATH)
         problems = [item["check_id"] for item in verification["checks"]
                     if not item["ok"]]
+
+        try:
+            inputs = sources.verify_detector_inputs(request.repo)
+            inputs_ok, inputs_problem = True, ""
+        except sources.SourceUnavailable as error:
+            inputs, inputs_ok = None, False
+            inputs_problem = f"{type(error).__name__}: {error}"
+
         return [
             {"name": "c6_closure_verified", "path": c6_evidence.C6_REPORTS,
              "present": closure["valid"], "blocking": not closure["valid"],
@@ -129,6 +170,20 @@ class C8Adapter(EngineeringAdapter):
              "verifier": "prism_fas.pipeline.adapters.c7.verify_detector_config_lock",
              "reason_code": "C7_CONFIG_LOCK_INVALID" if problems else "",
              "problems": problems[:12]},
+            {"name": "c8_scientific_inputs_verified", "path": sources.WEIGHT_ROOT,
+             "present": inputs_ok, "blocking": not inputs_ok,
+             "description": ("the validated M3B package, the frozen M7 recipe bank, the "
+                             "SHA-verified pinned SigLIP2 tower and ConvNeXt V2 Atto "
+                             "weight, the frozen recipe text cache (file SHA-256 and "
+                             "re-derived semantic identity) and the C5 candidate tree — "
+                             "the same inputs, checked the same way, C7 required before "
+                             "its first scientific trial"),
+             "verifier": "prism_fas.pipeline.adapters.sources.verify_detector_inputs",
+             "reason_code": "MISSING_DETECTOR_INPUT" if not inputs_ok else "",
+             "problems": [inputs_problem] if inputs_problem else [],
+             "package_identity": (inputs or {}).get("package_identity"),
+             "recipe_bank_identity": (inputs or {}).get("recipe_bank_identity"),
+             "pretrained": (inputs or {}).get("pretrained")},
         ]
 
     def workflow(self, request: AdapterRequest,

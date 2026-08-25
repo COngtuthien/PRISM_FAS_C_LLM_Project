@@ -235,11 +235,18 @@ def test_preflight_only_under_a_non_scientific_profile_also_skips_workflow(
 # --- Tier 3: the real C8 adapter, a real frozen C7 lock, no mocked verifier --
 
 def _mark_data_packages_present(repo: Path) -> None:
-    """C8's `required_inputs` presence-checks these two paths by existence
-    only; the sandbox never copies real package bytes (they are large), so a
-    genuinely-satisfied preflight test creates just the directories."""
-    (repo / "data" / "packages").mkdir(parents=True, exist_ok=True)
-    (repo / "data" / "packages" / "pretrained").mkdir(parents=True, exist_ok=True)
+    """C8's `required_inputs` presence-checks the CANONICAL roots
+    (`sources.SOURCE_PACKAGE_ROOT`, `sources.WEIGHT_ROOT`) by existence only;
+    the sandbox never copies real package bytes (they are large), so a
+    genuinely-satisfied preflight test creates just the directories. See
+    `tests/pipeline/test_c8_precondition_root_drift.py` for the regression
+    that closes the root-drift defect these two paths used to have
+    (`data/packages` and `data/packages/pretrained` — neither is a real
+    scientific root)."""
+    from prism_fas.pipeline.adapters import sources
+
+    (repo / sources.SOURCE_PACKAGE_ROOT).mkdir(parents=True, exist_ok=True)
+    (repo / sources.WEIGHT_ROOT).mkdir(parents=True, exist_ok=True)
 
 
 def _assert_nothing_scientific_was_written(repo: Path) -> None:
