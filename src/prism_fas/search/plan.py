@@ -574,12 +574,22 @@ def detector_search_plan(anchors: Mapping[str, Any], *,
 
 def anchor_resolution_report(resolutions: Mapping[str, AnchorResolution]) -> dict[str, Any]:
     """A machine-readable account of which anchors are executable, and which owe
-    a user decision before the full profile may run this envelope."""
+    a user decision before the full profile may run this envelope.
+
+    This is a PRE-DECISION structural diagnostic: it looks up each coordinate's
+    raw candidate paths in the inherited configuration and says nothing about
+    whether an approved decision (e.g. an LR interpretation, §15.2.2) has since
+    resolved a coordinate this report still shows as ambiguous. A caller that
+    embeds this report in FINAL evidence (a search plan, a config lock) alongside
+    the actual resolved/executed state must not read `executable_under_full` or
+    `blocking_reason` as a statement about that final state - see `diagnostic_scope`.
+    """
     rows = [item.as_dict() for item in resolutions.values()]
     ambiguous = sorted(name for name, item in resolutions.items()
                        if item.needs_user_decision)
     absent = sorted(name for name, item in resolutions.items() if item.state == ABSENT)
     return {
+        "diagnostic_scope": "PRE_DECISION_STRUCTURAL",
         "coordinates": rows,
         "resolved": sorted(name for name, item in resolutions.items() if item.unique),
         "absent": absent,
@@ -595,6 +605,14 @@ def anchor_resolution_report(resolutions: Mapping[str, AnchorResolution]) -> dic
         "absent_note": (
             "an absent scalar is skipped rather than invented (§15.2.3); it is not a "
             "blocker" if absent else ""),
+        "scope_note": (
+            "this report is computed from the raw inherited configuration only, before "
+            "any approved decision is applied. `ambiguous` and `executable_under_full` "
+            "describe that pre-decision structural state, not whether a bounded "
+            "scientific search subsequently executed. A caller that has an approved "
+            "decision for a coordinate listed here as ambiguous must treat that "
+            "decision's resolution, not this report, as the final state for that "
+            "coordinate."),
     }
 
 

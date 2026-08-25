@@ -607,3 +607,193 @@ def test_a_c6_closure_that_does_not_verify_blocks_the_stage(scientific) -> None:
     assert closure["present"] is False
     assert closure["blocking"] is True
     assert closure["problems"]
+
+
+# --- C7 closure audit: `inherited_anchor_report` is a pre-decision diagnostic,
+# --- never a final-state blocker --------------------------------------------
+#
+# The defect class this section guards against: `inherited_anchor_report` is
+# computed from the RAW inherited configuration, before the approved LR decision
+# replaces the ambiguous per-scalar `learning_rate` coordinate in place
+# (`plan._apply_lr_decision`). Both tracks' inherited config declares more than
+# one candidate LR scalar (backbone_lr AND head_lr), so this report shows
+# `ambiguous: ["learning_rate"]` / `executable_under_full: false` for EVERY real
+# C7 run, Track G and Track R alike, regardless of whether the coordinate was
+# actually searched and resolved. These tests prove that fact is (a) explicitly
+# labeled as pre-decision in the lock, (b) never the source of any pass/fail
+# decision C7 or C8 makes, and (c) carried beside — never instead of — the
+# actual resolved, executed state for that track.
+
+def test_track_g_final_lock_carries_the_approved_unique_anchor_resolution(
+        scientific) -> None:
+    from prism_fas.search.lr_decision import UNIQUE_ANCHOR
+
+    _approve(scientific)
+    _run(scientific)
+    payload = json.loads(
+        (scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH).read_text(encoding="utf-8"))
+    sub = payload["tracks"]["G"]
+
+    # The FINAL, resolved state: Track G's learning-rate coordinate WAS searched
+    # and resolved to a unique inherited anchor.
+    assert sub["lr_interpretation"] == UNIQUE_ANCHOR
+    assert sub["lr_anchor_vector"] == {"head_lr": 0.0001}
+    assert sub["lr_decision_identity"]
+    resolution = sub["lr_decision_resolution"]
+    assert resolution["interpretation"] == UNIQUE_ANCHOR
+    assert resolution["searches_the_learning_rate"] is True
+    assert resolution["multipliers"] == [0.5, 1.0, 2.0]
+
+    # A real learning-rate coordinate was actually in the search plan and is
+    # retained among the trials, i.e. this track was NOT blocked.
+    assert any(row["coordinate"] == "learning_rate_multiplier"
+              for row in sub["retained_trials"])
+
+
+def test_track_r_final_lock_carries_the_approved_common_multiplier_resolution(
+        scientific) -> None:
+    from prism_fas.search.lr_decision import COMMON_MULTIPLIER
+
+    _approve(scientific)
+    _run(scientific)
+    payload = json.loads(
+        (scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH).read_text(encoding="utf-8"))
+    sub = payload["tracks"]["R"]
+
+    assert sub["lr_interpretation"] == COMMON_MULTIPLIER
+    assert sub["lr_decision_identity"]
+    resolution = sub["lr_decision_resolution"]
+    assert resolution["interpretation"] == COMMON_MULTIPLIER
+    assert resolution["searches_the_learning_rate"] is True
+    assert resolution["preserved_ratio"]
+    # The 1:10 backbone:head ratio is preserved at every multiplier.
+    for values in resolution["lr_at_each_multiplier"].values():
+        backbone = values.get("backbone_lr")
+        head = values.get("head_lr")
+        if backbone:
+            assert round(head / backbone, 6) == 10.0
+
+    assert any(row["coordinate"] == "learning_rate_multiplier"
+              for row in sub["retained_trials"])
+
+
+@pytest.mark.parametrize("track", ["G", "R"])
+def test_the_pre_decision_diagnostic_cannot_be_mistaken_for_a_final_blocker(
+        scientific, track) -> None:
+    """The exact stale-report scenario this audit exists to close out.
+
+    `inherited_anchor_report` is the raw pre-decision anchor lookup: both tracks'
+    inherited config carries backbone_lr AND head_lr, so the raw lookup is always
+    ambiguous and `executable_under_full` is always False there — independent of
+    whether the coordinate was actually searched. A reader must not be able to
+    confuse that with the track's real, final execution state.
+    """
+    _approve(scientific)
+    _run(scientific)
+    payload = json.loads(
+        (scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH).read_text(encoding="utf-8"))
+    sub = payload["tracks"][track]
+    report = sub["inherited_anchor_report"]
+
+    # The report is explicitly self-scoped, so it cannot be silently read as the
+    # final state.
+    assert report["diagnostic_scope"] == "PRE_DECISION_STRUCTURAL"
+    assert "learning_rate" in report["ambiguous"]
+    assert report["executable_under_full"] is False
+    assert report["scope_note"]
+
+    # Right beside it, the FINAL resolved state says the opposite: the track ran
+    # to completion with real trials and a real winner.
+    assert sub["lr_interpretation"]
+    assert sub["lr_decision_resolution"]["searches_the_learning_rate"] is True
+    assert sub["trials_executed"] > 0
+    assert sub["trials_by_status"].get("PASS", 0) > 0
+    assert sub["winner_config_sha256"]
+    assert sub["winner_checkpoint_sha256"]
+
+    # And the lock as a whole still verifies clean — the pre-decision diagnostic
+    # is not read as a gating signal anywhere in the verifier.
+    verification = c7.verify_detector_config_lock(
+        scientific, scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH)
+    assert verification["valid"] is True
+
+
+def test_deleting_the_pre_decision_diagnostic_does_not_change_lock_validity(
+        scientific) -> None:
+    """`verify_detector_config_lock` (shared by C7 and C8) must never read
+    `inherited_anchor_report`, `executable_under_full`, `ambiguous` or
+    `blocking_reason` as a scientific decision input."""
+    _approve(scientific)
+    _run(scientific)
+    path = scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for track in payload["tracks"]:
+        del payload["tracks"][track]["inherited_anchor_report"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    verification = c7.verify_detector_config_lock(scientific, path)
+    assert verification["valid"] is True, [
+        item["check_id"] for item in verification["checks"] if not item["ok"]]
+
+
+def test_c8_track_configuration_reads_only_final_fields_not_the_diagnostic(
+        scientific) -> None:
+    """C8's per-row detector configuration never touches the pre-decision report
+    or the raw ambiguity vocabulary — only the frozen `winner_config` and the
+    identities in `_track_parents`."""
+    from prism_fas.pipeline.adapters import c8
+
+    _approve(scientific)
+    _run(scientific)
+    payload = json.loads(
+        (scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH).read_text(encoding="utf-8"))
+
+    for track in payload["tracks"]:
+        poisoned = json.loads(json.dumps(payload))
+        poisoned["tracks"][track]["inherited_anchor_report"] = {
+            "diagnostic_scope": "PRE_DECISION_STRUCTURAL",
+            "ambiguous": ["learning_rate"], "executable_under_full": False,
+            "blocking_reason": "poisoned for this test"}
+        sub = c8.track_configuration(poisoned, track)
+        assert sub["winner_config"] == payload["tracks"][track]["winner_config"]
+        parents = c8._track_parents(poisoned, track)
+        assert parents["c7_detector_config"] == \
+            payload["tracks"][track]["winner_config_sha256"]
+
+
+def test_target_access_is_zero_throughout_the_finalized_lock(scientific) -> None:
+    _approve(scientific)
+    _run(scientific)
+    payload = json.loads(
+        (scientific / c7.SCIENTIFIC_CONFIG_LOCK_PATH).read_text(encoding="utf-8"))
+
+    assert payload["target_access"] == 0
+    assert payload["no_target_capability_proof"]["target_roots_mounted"] == []
+    assert payload["no_target_capability_proof"]["target_labels_resolved"] == 0
+    for track in payload["tracks"].values():
+        assert track["winner_config_sha256"]
+
+
+def test_reporting_metadata_never_enters_the_search_plan_identity() -> None:
+    """The diagnostic keys added to `anchor_resolution_report` (`diagnostic_scope`,
+    `scope_note`) and the per-track lock additions (`lr_decision_resolution`,
+    `lr_decision_identity`) live entirely outside `SearchPlan.identity_material`,
+    so no reporting-only change can move a search-plan identity, a winner config
+    SHA or a trial-set digest."""
+    import yaml
+
+    from prism_fas.search.plan import (K4_ONLY_WEIGHTS, anchor_resolution_report,
+                                       detector_search_plan)
+
+    config = yaml.safe_load(
+        (REPO / "configs/train/m9_reference.yaml").read_text(encoding="utf-8"))
+    plan, resolutions = detector_search_plan(config, k4_weights=K4_ONLY_WEIGHTS)
+    report = anchor_resolution_report(resolutions)
+
+    assert report["diagnostic_scope"] == "PRE_DECISION_STRUCTURAL"
+    material = plan.identity_material()
+    serialized = json.dumps(material, sort_keys=True)
+    for leaked_key in ("diagnostic_scope", "scope_note", "inherited_anchor_report",
+                       "lr_decision_resolution", "blocking_reason"):
+        assert leaked_key not in serialized, (
+            f"{leaked_key!r} leaked into the search-plan identity material")

@@ -2083,8 +2083,24 @@ def _finalize_track(request: AdapterRequest, *, inputs: dict[str, Any],
         "selection_tuple": payload["selection_tuple"],
         "tie_break": payload["tie_break"],
         "one_pass": payload["one_pass"],
+        # FINAL, RESOLVED learning-rate state for this track. `lr_interpretation`
+        # and `lr_anchor_vector` are kept as their own top-level keys for existing
+        # readers; `lr_decision_resolution` is the full record (multipliers, the
+        # per-multiplier learning rates, the preserved ratio, whether the anchor
+        # trial reproduces Version B) and `lr_decision_identity` names the exact
+        # approved decision this track trained under.
         "lr_interpretation": item["lr"].interpretation,
         "lr_anchor_vector": dict(item["lr"].anchor_vector),
+        "lr_decision_identity": state["lr_record"].identity,
+        "lr_decision_resolution": item["lr"].as_dict(),
+        # PRE-DECISION structural diagnostic, retained verbatim for audit
+        # traceability. It is computed from the raw inherited configuration
+        # BEFORE the approved LR decision above is applied, so it may show
+        # `ambiguous: ["learning_rate"]` / `executable_under_full: false` even
+        # though this track's learning-rate coordinate WAS searched and resolved
+        # under `lr_interpretation` / `lr_decision_resolution`. See
+        # `inherited_anchor_report.scope_note`; do not read this field as the
+        # final scientific-execution state.
         "inherited_anchor_report": item["anchor_resolution"],
         "trials_declared": payload["trials_declared"],
         "trials_executed": payload["trials_executed"],
