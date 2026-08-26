@@ -1,0 +1,405 @@
+# POST_FAILURE_EXPLORATORY_TARGET_V3
+#
+# FINAL PRE-TARGET PROVENANCE / ACCESS / STATISTICS HARDENING of
+# POST_FAILURE_EXPLORATORY_TARGET_V2
+# (configs/evaluation/post_failure_exploratory_target_v2.yaml, identity
+# 2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9).
+#
+# V2 was NEVER scientifically executed: no target feature package has been
+# scientifically opened under V2, no SiW-Mv2 prediction has been generated,
+# no target label has been opened, no target metric has been observed. This
+# is the FINAL corrected protocol before any target access. V1 and V2 are
+# preserved byte-for-byte as historical pre-target designs; V3 never writes
+# into either namespace.
+
+schema_version: post-failure-exploratory-target-v3
+decision_id: POST_FAILURE_EXPLORATORY_TARGET_V3
+status: FROZEN_NOT_RUN
+document_kind: EXPLORATORY_POST_FAILURE_NOT_A_CONFIRMATORY_PATH
+frozen_on: "2026-08-26"
+approved_by: explicit user direction (final pre-target provenance/access/statistics hardening)
+
+supersedes:
+  superseded:
+    - decision_id: POST_FAILURE_EXPLORATORY_TARGET_V1
+      protocol_identity: 8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51
+      status: SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS
+    - decision_id: POST_FAILURE_EXPLORATORY_TARGET_V2
+      protocol_identity: 2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9
+      status: SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS
+      reason: PRETARGET_AUDIT_FOUND_PROVENANCE_ACCESS_AND_STATISTICS_DEFECTS
+  v1_v2_preserved_unchanged: true
+  scientific_target_accesses_before_supersession: 0
+
+# --- the immutable upstream scientific state this protocol may never touch --
+immutable_upstream_state:
+  c7_scientific_closed: true
+  c8_scientific_closed: true
+  ba_sep_option1_v2_protocol_identity: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+  ba_sep_by_arm: {RND: 0.7843079833902619, DET: 0.8514170182841069, LLM: 0.7902658339472685}
+  ba_sep_observed_verdict: FAIL
+  ba_sep_rerun: FORBIDDEN
+  detector_reliability_lock_c_overall: FAILED
+  c9_may_close: false
+  c9_original_confirmatory_path: BLOCKED
+  post_failure_source_diagnostics_v2_overall: FAIL
+  post_failure_diagnostic_interpretation_status: REGISTERED_ON_GPU
+  can_this_protocol_change_the_above: false
+  can_this_protocol_reopen_c9_or_original_path: false
+  can_this_protocol_set_c9_may_close_true: false
+  exploratory_target_status: POST_FAILURE_EXPLORATORY
+
+# --- explicit target access state (Defect C) --------------------------------
+# `target_access` is retired for this protocol's own artifacts — it conflated
+# three genuinely different accesses. Every V3 artifact carries this object
+# instead, and NEVER claims all-false once a real access has occurred.
+target_access_state:
+  target_feature_identity_accessed: false
+  target_prediction_features_accessed: false
+  target_labels_accessed: false
+  target_feature_access_count: 0
+  target_label_access_count: 0
+  semantics:
+    initial: {feature_identity_accessed: false, prediction_features_accessed: false, labels_accessed: false}
+    after_gpu_feature_package_identity_verification: {feature_identity_accessed: true, prediction_features_accessed: false, labels_accessed: false}
+    after_successful_e1_prediction: {feature_identity_accessed: true, prediction_features_accessed: true, labels_accessed: false}
+    after_authorized_e2_reveal: {feature_identity_accessed: true, prediction_features_accessed: true, labels_accessed: true}
+  rule: >-
+    no artifact may claim target_access=0 (or any all-false access state)
+    after a real target feature or label read; backward-compatibility
+    fields may exist but must never misrepresent what was opened
+
+target_labels_opened: false
+target_labels_revealed: false
+target_predictions_observed: false
+target_metrics_observed: false
+
+# --- namespaces — disjoint from V1/V2 and from C9-C13 -----------------------
+namespaces:
+  config: configs/evaluation/post_failure_exploratory_target_v3.yaml
+  report_root: reports/full/exploratory_target_v3
+  run_root: runs/exploratory_target_v3
+  staging_root: runs/exploratory_target_v3/.staging
+  state_root: state/exploratory_target_v3
+  never_collides_with: [reports/full/exploratory_target_v1, runs/exploratory_target_v1,
+                        reports/full/exploratory_target_v2, runs/exploratory_target_v2,
+                        state/exploratory_target_v1, state/exploratory_target_v2]
+  never_writes_into: [reports/full/c9, reports/full/c10, reports/full/c11,
+                      reports/full/c12, reports/full/c13, runs/full/c8,
+                      reports/full/c8/reliability/synthetic_vs_real_spoof_probe,
+                      reports/full/c8/reliability/post_failure_source_diagnostics_v1,
+                      reports/full/c8/reliability/post_failure_source_diagnostics_v2,
+                      reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json,
+                      reports/full/c8/C8_ACCEPTANCE.json]
+
+legacy_m10_reuse:
+  legacy_config_path: configs/evaluation/m10_target.yaml
+  legacy_config_treated_as: LEGACY_CONTRACT_SOURCE_OF_DESIGN_DECISIONS_ONLY
+  legacy_config_never_loaded_as_this_protocol: true
+  legacy_config_left_untouched: true
+  v1_and_v2_predictor_and_scorer_modules_left_untouched: true
+  reused_verbatim_from_v1_module: [resolve_target_matrix, target_matrix_identity,
+    resolve_row_binding, bind_c8_matrix_identity, compute_target_feature_package_identity,
+    verify_target_feature_package_expected, verify_target_label_root_sealed, build_firewall]
+  reused_verbatim_from_v2_module: [resolve_all_row_bindings_v2, verify_target_feature_package_required]
+  reused_verbatim_legacy_m10_components: [target_prediction.PREDICTION_SCHEMA,
+    target_prediction.build_prediction_row, target_prediction.validate_predictions,
+    target_prediction.write_predictions, target_prediction.read_predictions,
+    target_prediction.build_prediction_lock (now passed code_commit, a parameter
+    it already supported but V2 never populated),
+    target_prediction.validate_prediction_lock, target_prediction.inference_config_hash,
+    target_prediction.target_batches, target_prediction.predict_target,
+    synthetic_real_probe.construct_row_trainer, scoring.score,
+    scoring.load_evaluation_labels, scoring.static_import_audit, contracts.stable_identity,
+    detector.checkpoint.git_commit]
+  not_reused_because_defective_in_v2: [post_failure_exploratory_target_v2.class_stratified_paired_bootstrap
+    (its p_value_two_sided came from the bootstrap distribution itself; V3 keeps
+    it for CI only and freezes a separate paired randomization test for p-values)]
+  intentionally_changed_semantics_vs_v2:
+    - field: per_row_target_feature_package_identity
+      v2: "binding.get('target_feature_package_identity', '') resolved to an EMPTY STRING — the field was never actually bound per row"
+      v3: "every row's binding carries the real, top-level VERIFIED computed target_feature_package_identity; inference_config_hash, the per-row lock, and the validator all require exact equality with it"
+    - field: code_commit_provenance
+      v2: "build_prediction_lock's own code_commit parameter was never populated (left at its default empty string)"
+      v3: "the current git commit is determined ONCE at E1 execution start (prediction_execution_code_commit) and passed into every per-row lock and the overall lockset; a second --predict verifies the recorded lineage without rerunning anything"
+    - field: target_access
+      v2: "a single ambiguous target_access: 0 field, blind to feature-identity vs prediction-feature vs label reads"
+      v3: "target_access_state, an explicit three-boolean-plus-counts object, frozen with exact before/after semantics per access type"
+    - field: label_reveal
+      v2: "TARGET_LABEL_REVEAL.json was declared in prose but never implemented; the scorer called load_evaluation_labels directly"
+      v3: "reveal_target_labels() writes a real, one-way TARGET_LABEL_REVEAL.json BEFORE the first label load, binding the prediction lock identity and the label artifact's own SHA-256"
+    - field: score_completeness
+      v2: "24 complete per-row score files with no final result would be rescored on the next --score call, reopening labels unnecessarily"
+      v3: "that exact state is INCOMPLETE_FINALIZATION and BLOCKS — no label reopen, no row rewrite; only a genuinely empty host may start fresh"
+    - field: exploratory_p_value
+      v2: "p_value_two_sided came from the same bootstrap distribution used for the CI"
+      v3: "the bootstrap is CI-only; p-values come from a separate, frozen paired video-level sign-flip randomization test with a distinct RNG stream"
+    - field: matched_seeds
+      v2: "matched seeds were whatever set(a) & set(b) happened to produce, unasserted"
+      v3: "every comparison's matched-seed set is asserted EXACTLY against the frozen expectation; any missing seed BLOCKS rather than silently reducing the family"
+    - field: cross_seed_summary
+      v2: "no canonical per-configuration mean/std artifact was produced"
+      v3: "build_cross_seed_summary emits, for each of the 6 configurations and each of the 8 metrics, the per-seed values plus mean/std(ddof=0) over the complete frozen seed family — never a prediction pooled across seeds"
+    - field: crash_safety
+      v2: "row prediction/score artifacts were written directly to their final scientific location; a mid-run crash left a permanently partial scientific result"
+      v3: "inference and per-row scoring write to a non-scientific staging namespace (ENGINEERING_STAGING_NOT_SCIENTIFICALLY_LOCKED) first; only after all 24 rows succeed and validate are they promoted into the final row directories, with the overall lock/result written last"
+
+# --- target feature package (unchanged expectation) -------------------------
+target_feature_package:
+  package_id: prism_target_eval_v2
+  target_feature_root: data/processed/prism_target_eval_v2
+  expected_identity: c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+  expected_composition: {videos_total: 1700, live: 785, spoof: 915, attack_families: 14, frames_per_video: 4}
+  verification_required_before_bind: true
+  verification_must_not_open: target_label_root
+  every_row_must_bind_this_exact_verified_identity: true
+
+target_label_root:
+  path: data/evaluation_only/prism_target_v2_labels
+  artifact: siw_target_labels.parquet
+  sealed: true
+  opened_by_this_protocol: false
+
+roots:
+  source_package_root: data/processed/prism_data_v1_m3b
+  target_feature_root: data/processed/prism_target_eval_v2
+  target_feature_package_id: prism_target_eval_v2
+  target_feature_package_identity: c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+  target_label_root: data/evaluation_only/prism_target_v2_labels
+  target_label_artifact: siw_target_labels.parquet
+  prediction_root: runs/exploratory_target_v3
+
+permissions:
+  TRAIN: {source_package_root: read, target_feature_root: deny, target_label_root: deny, prediction_root: deny}
+  G7:    {source_package_root: deny, target_feature_root: read, target_label_root: deny, prediction_root: write}
+  G8:    {source_package_root: deny, target_feature_root: deny, target_label_root: read, prediction_root: read}
+
+g8_forbidden_write_patterns: [".pt", ".pth", ".ckpt", ".safetensors", "optimizer", "calibration/", "checkpoints/"]
+
+# ============================================================================
+# PHASE E1 — blind target prediction
+# ============================================================================
+phase_e1_blind_prediction:
+  authoritative_execution_source: PREDICTION_PLAN_BINDING.json
+  binding_must_include_every_result_affecting_field: [row_id, experiment_id, track, arm,
+    protocol, seed, flags, config_identity, run_identity, checkpoint_relative_path,
+    checkpoint_sha256, checkpoint_kind, decision_logit_name, decision_score_name,
+    decision_graph_hash, calibration_hash, calibration_split, threshold, temperature,
+    prediction_variant_id, target_feature_package_identity]
+  code_commit_determined_once_at_execution_start: true
+  code_commit_field: prediction_execution_code_commit
+  staging:
+    root: runs/exploratory_target_v3/.staging/<execution_identity>
+    marker: ENGINEERING_STAGING_NOT_SCIENTIFICALLY_LOCKED
+    promotion: atomic per-row rename into the final scientific row directory, only
+              after ALL 24 rows succeed and individually validate; the overall
+              TARGET_PREDICTION_LOCK.json is written LAST, after every row is promoted
+    on_crash_before_promotion: staging may be discarded/restarted; no scientific
+                               prediction result was ever frozen or published
+  prediction_lockset_artifact: TARGET_PREDICTION_LOCK.json
+  prediction_lockset_primary_key: row_id
+  prediction_lockset_entry_count_required: 24
+  prediction_lockset_binds: [v3_protocol_identity, target_matrix_identity, c8_matrix_identity,
+    target_feature_package_identity, prediction_plan_binding_identity,
+    prediction_execution_code_commit, all_24_row_entries, target_labels_accessed: false,
+    status: FROZEN]
+  partial_result_cases:
+    zero_final_artifacts: first execution permitted (staging is disposable and ignored)
+    one_to_twentythree_rows_complete: BLOCK PARTIAL_SCIENTIFIC_RESULT_SET
+    twentyfour_predictions_bad_or_missing_overall_lock: BLOCK
+    overall_lock_present_rows_missing_or_invalid: BLOCK
+    extra_run_directories_not_in_the_frozen_row_set: BLOCK
+  existing_result_validation: validate_existing_exploratory_prediction_result_v3
+  second_predict_after_valid_first_execution:
+    checkpoint_weights_loaded: false
+    images_forwarded: false
+    prediction_recomputed: false
+    code_lineage_reverified_not_rerun: true
+
+# ============================================================================
+# PHASE E2 — label unlock + scoring
+# ============================================================================
+phase_e2_label_unlock_scoring:
+  precondition: valid_frozen_24_row_prediction_lockset
+  label_reveal:
+    artifact: reports/full/exploratory_target_v3/TARGET_LABEL_REVEAL.json
+    one_way: true
+    binds: [protocol_identity, prediction_plan_binding_identity,
+           target_prediction_lock_identity, target_label_artifact_relative_path,
+           target_label_artifact_sha256, first_authorized_reveal_code_commit,
+           target_labels_accessed: true, reason: POST_FAILURE_EXPLORATORY_E2_SCORING,
+           ba_sep_observed_verdict: FAIL, detector_reliability_overall: FAILED,
+           post_failure_diagnostics_v2: FAIL, c9_original_confirmatory_path: BLOCKED]
+    sequence: [validate_full_e1_prediction_lock, verify_scorer_has_no_model_capability,
+              verify_label_artifact_exists, hash_label_artifact_without_scoring,
+              atomically_create_one_way_reveal, then_load_labels, then_score_from_immutable_predictions]
+    existing_reveal: {exact_match: reuse, mismatch: BLOCK, never_overwrite: true}
+    once_created_labels_accessed_can_never_return_to_false: true
+  staging:
+    root: runs/exploratory_target_v3/.staging/<execution_identity>/scores
+    promotion: same pattern as E1 — per-row score files promoted atomically only
+              after all 24 rows score successfully; the final
+              EXPLORATORY_TARGET_SCORE_RESULT.json is written last
+  score_state_machine:
+    zero_row_files_no_final_result: first scoring execution allowed
+    one_to_twentythree_row_files: PARTIAL_SCIENTIFIC_RESULT_SET -> BLOCK
+    twentyfour_row_files_no_final_result: INCOMPLETE_FINALIZATION -> BLOCK, no label
+      reopen, no row rewrite
+    final_result_missing_or_invalid_row_file: BLOCK
+    final_result_and_24_valid_row_files: validate/re-report only, no label reopen,
+      no rescoring
+    extra_or_unexpected_row_files: BLOCK
+    duplicate_scientific_row_identity: BLOCK
+  row_metadata_source_of_authority: validated frozen prediction plan / lock
+  scorer_may_read: [target_label_artifact, locked_prediction_files]
+  scorer_may_not: [load_model_checkpoints, rerun_inference, alter_predictions,
+                   train_anything, calibrate_thresholds, select_checkpoints]
+  scorer_writes_only: [metrics, tables, statistics]
+  existing_result_validation: validate_existing_exploratory_score_result_v3
+
+# --- exact C8 P3 target matrix (unchanged) ----------------------------------
+target_matrix:
+  resolver: prism_fas.evaluation.source_matrix.build_plan
+  filter: row.target_prediction_required is True
+  expected_total_rows: 24
+  expected_track_g: {total: 15, arms: [RND, DET, LLM], seeds_per_arm: 5,
+                    seed_family: [20260806, 20260807, 20260808, 20260809, 20260810]}
+  expected_track_r:
+    C-R-DET: {seeds: 3, seed_family: [20260806, 20260807, 20260808]}
+    C-R-LLM: {seeds: 3, seed_family: [20260806, 20260807, 20260808]}
+    C-R-NOPROMPT: {seeds: 3, seed_family: [20260806, 20260807, 20260808], arm: LLM, prompt: "off"}
+  no_retraining: true
+  no_best_seed_selection: true
+  no_dropping_unfavorable_arms: true
+
+thresholds:
+  source: SOURCE_DEV_FROZEN_CALIBRATION
+  target_quantile_forbidden_for_operating_threshold: true
+  acer_threshold_source: source_dev_frozen
+  hter_at_target_eer: {retained: true, label: EVALUATION_ONLY_DESCRIPTIVE_METRIC}
+
+reject_policy:
+  unknown_threshold: null
+  reject_policy: NOT_APPLICABLE_NOT_FITTED
+  reject_dependent_metrics: NOT_APPLICABLE
+
+aggregation:
+  resolver: prism_fas.evaluation.video_aggregation.aggregate_frames
+  frames_per_video: 4
+  video_score: trimmed_mean
+  trim_fraction: 0.10
+  trim_count_at_four_frames: 0
+  video_confidence: median
+  group_by: video_id
+  frame_order: sample_id
+
+metrics:
+  levels: [frame, video]
+  core: [apcer, bpcer, acer, roc_auc, eer]
+  calibration: [ece, brier, nll]
+  hter: {retained_only_if_threshold_explicit: true, label: EVALUATION_ONLY_DESCRIPTIVE_METRIC}
+  acer_definition:
+    apcer: "count(spoof videos predicted NOT spoof) / count(spoof videos)"
+    bpcer: "count(live videos predicted spoof) / count(live videos)"
+    acer: "0.5 * (apcer + bpcer)"
+  primary_table_columns: [row_id, experiment_id, track, arm, prediction_variant_id, seed,
+                          apcer, bpcer, acer, roc_auc, eer, ece, brier, nll]
+  per_seed_values_hidden: false
+  cross_seed_summary:
+    required: true
+    configurations: [C-G-RND, C-G-DET, C-G-LLM, C-R-DET, C-R-LLM, C-R-NOPROMPT]
+    per_metric: [apcer, bpcer, acer, roc_auc, eer, ece, brier, nll]
+    statistic: [seeds, per_seed, mean, std_ddof0]
+    ddof: 0
+    all_frozen_seeds_must_be_present: true
+    never_pool_predictions_across_seeds: true
+  attack_wise:
+    enabled: true
+    computed: POST_HOC_DESCRIPTIVE_TARGET_ANALYSIS
+    used_for_model_selection: false
+    used_for_threshold_selection: false
+    available_only_after_label_unlock: true
+
+# --- exploratory comparisons: 7 atomic pairs, exact matched seeds ----------
+exploratory_comparisons:
+  naming_convention: E-H (never C-H)
+  no_unmatched_comparisons: true
+  no_retrospective_comparison_selection_from_target_results: true
+  atomic_comparisons:
+    E-H1_RND_vs_DET: {family: E-H1, track: G, arms: [RND, DET], required_matched_seeds: [20260806, 20260807, 20260808, 20260809, 20260810]}
+    E-H1_RND_vs_LLM: {family: E-H1, track: G, arms: [RND, LLM], required_matched_seeds: [20260806, 20260807, 20260808, 20260809, 20260810]}
+    E-H1_DET_vs_LLM: {family: E-H1, track: G, arms: [DET, LLM], required_matched_seeds: [20260806, 20260807, 20260808, 20260809, 20260810]}
+    E-H2: {family: E-H2, track: R, arms: [DET, LLM], required_matched_seeds: [20260806, 20260807, 20260808]}
+    E-H3: {family: E-H3, track: R, variants: [C-R-LLM, C-R-NOPROMPT], required_matched_seeds: [20260806, 20260807, 20260808]}
+    E-H4_DET: {family: E-H4, comparison: "Track-G DET vs Track-R DET", required_matched_seeds: [20260806, 20260807, 20260808]}
+    E-H4_LLM: {family: E-H4, comparison: "Track-G LLM vs Track-R LLM", required_matched_seeds: [20260806, 20260807, 20260808]}
+  total_atomic_comparisons: 7
+  exact_matched_seed_assertion_required: true
+  missing_seed_policy: BLOCK — no silent dropping of a seed
+
+# --- statistics: bootstrap CI separated from randomization p-value ---------
+statistics:
+  bootstrap_ci:
+    bootstrap_unit: video
+    bootstrap_resamples: 10000
+    bootstrap_seed: 20260810
+    confidence_level: 0.95
+    interval: percentile
+    paired: true
+    class_stratified: true
+    seeds_are_fixed_replications_never_resampled: true
+    same_sampled_video_ids_for_both_methods_and_all_matched_seeds: true
+    statistic: "mean over matched seeds of (ACER_A(seed) - ACER_B(seed))"
+    used_for: CI_ONLY
+    never_used_for: p_value
+  paired_randomization_test:
+    unit: video
+    resamples: 10000
+    seed: 20260810
+    two_sided: true
+    per_video_contribution:
+      spoof_videos: "mean over matched seeds of (APCER_error_A - APCER_error_B) * 1/(2*N_spoof)"
+      live_videos: "mean over matched seeds of (BPCER_error_A - BPCER_error_B) * 1/(2*N_live)"
+      sum_of_contributions_equals: "mean_seed(ACER_A - ACER_B)"
+    null_procedure: "independently assign +1/-1 to each video's contribution (same sign
+                    across all matched seeds for that video, since averaging is linear
+                    and the video is the paired observational unit)"
+    observed_statistic: absolute mean-seed ACER difference
+    p_value_formula: "(1 + count(|T_perm| >= |T_obs|)) / (1 + resamples)"
+    tie_handling: ">= inclusive, matching the finite-sample correction numerator/denominator"
+    used_for: p_value_ONLY
+    never_used_for: confidence_interval
+    frozen_before_target_access: true
+    never_changed_after_target_labels_observed: true
+  multiple_comparison_policy: holm_bonferroni
+  family_size: 7
+  alpha: 0.05
+  holm_input: the seven RANDOMIZATION p-values (never the bootstrap p-value)
+  seed_summary: {form: "mean+/-std", ddof: 0, minimum_seeds_for_claim: 3}
+  exploratory_disclaimer: >-
+    every p-value/CI produced under this protocol is EXPLORATORY_COMPARISON
+    evidence, never preregistered confirmatory evidence for C-H1..C-H5
+
+required_binding_in_every_output:
+  ba_sep_observed_verdict: FAIL
+  detector_reliability_overall: FAILED
+  post_failure_diagnostics_v2: FAIL
+  c9_original_confirmatory_path: BLOCKED
+  exploratory_target_status: POST_FAILURE_EXPLORATORY
+
+implementation:
+  predictor_module: src/prism_fas/evaluation/post_failure_exploratory_target_v3.py
+  predictor_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_v3 --repo . {--preflight-only|--bind-prediction-plan|--status|--predict}
+  scorer_module: src/prism_fas/evaluation/post_failure_exploratory_target_v3_scorer.py
+  scorer_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_v3_scorer --repo . {--preflight-score|--score}
+  v1_and_v2_modules_left_completely_unchanged: true
+  laptop_authorized: [audit, config, preflight, binding, firewall, prediction_runner_scaffolding,
+                      scorer_scaffolding, unit_fixture_tests, documentation, protocol_identity,
+                      commit, push]
+  laptop_forbidden: [open_target_feature_package_for_real, open_target_labels,
+                     run_siw_mv2_inference, compute_target_metrics, fabricate_target_results,
+                     claim_gpu_target_verification]
+  laptop_target_access_state_at_end_of_task:
+    target_feature_identity_accessed: false
+    target_prediction_features_accessed: false
+    target_labels_accessed: false

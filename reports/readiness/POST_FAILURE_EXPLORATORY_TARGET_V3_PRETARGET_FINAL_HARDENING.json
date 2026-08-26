@@ -1,0 +1,111 @@
+{
+  "schema_version": "post-failure-exploratory-target-v3-hardening-report-v1",
+  "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V3",
+  "document_kind": "FINAL_PRETARGET_PROVENANCE_ACCESS_STATISTICS_HARDENING_REPORT",
+  "starting_head": "08aa3e9930e1f62fbb6f0fd0a81c3bbf594a9790",
+  "v1": {"protocol_identity": "8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51",
+        "status": "SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS", "preserved_unchanged": true},
+  "v2": {"protocol_identity": "2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9",
+        "status": "SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS", "preserved_unchanged": true},
+  "v3": {"protocol_identity": "a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c",
+        "status": "FROZEN_NOT_RUN",
+        "target_access_state": {"target_feature_identity_accessed": false,
+                                "target_prediction_features_accessed": false,
+                                "target_labels_accessed": false,
+                                "target_feature_access_count": 0, "target_label_access_count": 0}},
+  "immutable_upstream_state": {
+    "ba_sep_observed_verdict": "FAIL",
+    "detector_reliability_lock_c_overall": "FAILED",
+    "post_failure_source_diagnostics_v2_overall": "FAIL",
+    "post_failure_diagnostic_interpretation_status": "REGISTERED_ON_GPU",
+    "c9_original_confirmatory_path": "BLOCKED",
+    "c9_may_close": false
+  },
+  "defect_corrections": {
+    "defect_a_empty_per_row_package_identity": {
+      "problem": "binding.get('target_feature_package_identity', '') always resolved to an empty string",
+      "correction": "resolve_all_row_bindings_v3 sets the real, verified, top-level identity on every row; empty value rejected"
+    },
+    "defect_b_no_code_commit_binding": {
+      "problem": "build_prediction_lock's existing code_commit parameter was never populated by V2",
+      "correction": "current_code_commit determined once at execution start, threaded into every row lock and the overall lockset; mismatch detection implemented"
+    },
+    "defect_c_ambiguous_target_access": {
+      "problem": "target_access: 0 conflated feature-identity/prediction-feature/label reads",
+      "correction": "target_access_state: three explicit booleans plus counts, frozen before/after semantics"
+    },
+    "defect_d_unwritten_label_reveal": {
+      "problem": "TARGET_LABEL_REVEAL.json declared but never implemented; scorer called load_evaluation_labels directly",
+      "correction": "reveal_target_labels writes a real one-way reveal before the first label load; idempotent exact-match, blocks on conflict or label tampering"
+    },
+    "defect_e_weak_score_completeness": {
+      "problem": "24 complete per-row score files with no final result would be rescored, reopening labels",
+      "correction": "that state is INCOMPLETE_FINALIZATION and BLOCKS; extra/unexpected row files also BLOCK"
+    },
+    "defect_f_score_validator_hardened": {
+      "correction": "validate_existing_exploratory_score_result_v3 checks label reveal identity, execution code commit, exact row set, exact matched seeds, and recomputes Holm from RECORDED p-values"
+    },
+    "defect_g_h_i_bootstrap_vs_randomization": {
+      "problem": "the p-value came from the same bootstrap distribution used for the CI",
+      "correction": "class_stratified_bootstrap_ci is CI-only (no p-value field); paired_randomization_test (sign-flip, finite-sample +1 correction, >= tie handling) produces the p-value"
+    },
+    "defect_j_silent_seed_intersection": {
+      "problem": "matched seeds were an unasserted set(a) & set(b)",
+      "correction": "REQUIRED_MATCHED_SEEDS asserted exactly per comparison; a missing required seed BLOCKS"
+    },
+    "cross_seed_summary_implemented": {
+      "correction": "build_cross_seed_summary: per-configuration, per-metric seeds/per_seed/mean/std_ddof0 over the complete frozen seed family, never pooled"
+    },
+    "crash_safety_staging": {
+      "correction": "predict_one_row_to_staging writes only to a disposable staging namespace; promote_staged_rows atomically promotes all 24 rows before the overall lock is written"
+    }
+  },
+  "randomization_test": {
+    "unit": "video", "resamples": 10000, "seed": 20260810, "two_sided": true,
+    "p_value_formula": "(1 + count(|T_perm| >= |T_obs|)) / (1 + resamples)",
+    "tie_handling": ">= inclusive",
+    "verified_identical_arms_p_equals_1": true,
+    "verified_zero_statistic_gives_maximal_finite_sample_p": true
+  },
+  "bootstrap_ci": {
+    "unit": "video", "resamples": 10000, "seed": 20260810, "confidence_level": 0.95,
+    "class_stratified": true, "seeds_fixed_never_resampled": true,
+    "carries_no_p_value_field": true
+  },
+  "holm_bonferroni": {"family_size": 7, "input": "randomization_p_values_only"},
+  "files_changed": {
+    "added": [
+      "configs/evaluation/post_failure_exploratory_target_v3.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v3.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v3_scorer.py",
+      "tests/pipeline/test_post_failure_exploratory_target_v3.py",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING.md",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING.json",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md"
+    ],
+    "modified": ["docs/PROJECT_STATE.md"],
+    "unchanged_verified_by_test": [
+      "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+      "configs/evaluation/post_failure_exploratory_target_v2.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2_scorer.py"
+    ]
+  },
+  "tests": {
+    "new_suite": "tests/pipeline/test_post_failure_exploratory_target_v3.py",
+    "new_suite_result": "50/50 pass",
+    "combined_c9_scoped_suite_files": 11,
+    "combined_c9_scoped_suite_result": "530/530 pass",
+    "test_environment_note": "pytest/torch/pyarrow/opencv-python-headless/pydantic installed into an isolated project-local virtualenv for this session only; no scientific artifact produced; no GPU/CUDA package installed"
+  },
+  "laptop_execution": {
+    "target_feature_identity_accessed": false,
+    "target_prediction_features_accessed": false,
+    "target_labels_accessed": false,
+    "fabricated_gpu_verification": false,
+    "each_cli_mode_run_once_against_real_repo": true,
+    "matrix_resolution_succeeded_against_real_repo": true
+  }
+}

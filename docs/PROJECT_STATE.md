@@ -28,8 +28,62 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V2_PRETARGET_CORRECTION
+current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING
 current_substage: >-
+  FINAL PRE-TARGET PROVENANCE/ACCESS/STATISTICS HARDENING of
+  POST_FAILURE_EXPLORATORY_TARGET_V2
+  (`configs/evaluation/post_failure_exploratory_target_v2.yaml`, identity
+  `2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9`). V2
+  was frozen but NEVER scientifically executed — no target feature package
+  scientifically opened, no SiW-Mv2 prediction generated, no target label
+  opened, no target metric observed. V1 and V2 are preserved byte-for-byte,
+  unchanged (`git diff --stat` empty, proven by test); V3 never writes into
+  either namespace. A final pre-target audit found provenance/access/
+  statistics defects, corrected in `POST_FAILURE_EXPLORATORY_TARGET_V3`
+  (`configs/evaluation/post_failure_exploratory_target_v3.yaml`, identity
+  `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c`) — the
+  FINAL corrected protocol before any target access: (A) the per-row
+  binding never actually carried `target_feature_package_identity` (it
+  always resolved to an empty string) — corrected, every row now binds the
+  real, verified, top-level identity, required non-empty and threaded into
+  the inference-config hash and the per-row lock; (B) no code commit was
+  ever bound to a prediction, even though `build_prediction_lock` already
+  supported the parameter — corrected, `current_code_commit` is read once
+  at execution start and threaded into every row and the overall lockset,
+  with mismatch detection; (C) `target_access: 0` conflated three different
+  accesses — corrected to explicit `target_access_state`
+  (`target_feature_identity_accessed`/`target_prediction_features_accessed`/
+  `target_labels_accessed`, plus counts), frozen before/after semantics,
+  the protocol refusing to load if any flag starts true; (D) the
+  `TARGET_LABEL_REVEAL.json` artifact was declared but never implemented —
+  corrected, `reveal_target_labels` writes a real, one-way reveal (binding
+  the prediction lock identity and the label artifact's own SHA-256,
+  hashed WITHOUT scoring) BEFORE the first label load, idempotent on exact
+  match, blocking on conflict or on the label file changing after reveal;
+  (E) 24 complete per-row score files with no final result would have been
+  silently rescored — corrected, that state is `INCOMPLETE_FINALIZATION`
+  and BLOCKS, no label reopen; (F) the score validator is now
+  comprehensive, recomputing Holm-Bonferroni from RECORDED randomization
+  p-values only; (G/H/I) the class-stratified bootstrap now produces a CI
+  ONLY (no p-value field) and a SEPARATE, frozen paired video-level
+  sign-flip randomization test (`p = (1 + count(|T_perm| >= |T_obs|)) / (1
+  + 10000)`, `>=` tie-inclusive) produces the exploratory p-value for each
+  of the seven atomic comparisons; (J) matched-seed sets are now asserted
+  EXACTLY against a frozen per-comparison requirement rather than a silent
+  set intersection, and a missing required seed BLOCKS. A canonical
+  cross-seed summary (mean/std `ddof=0`, every frozen seed present, never
+  pooled) is now actually emitted for all 6 configurations × 8 metrics. The
+  first real prediction now writes to a disposable staging namespace
+  (`ENGINEERING_STAGING_NOT_SCIENTIFICALLY_LOCKED`) and promotes to the
+  final scientific row directories only after all 24 rows succeed, with the
+  overall lock written last — a mid-run crash leaves no scientific result
+  ever frozen. NOTHING WAS RUN FOR REAL: every CLI mode was run once
+  against this real repo; the real 24-row matrix resolved correctly; every
+  step needing GPU checkpoints, the target package, or target labels
+  correctly reported an unresolved precondition, exit 2, writing nothing.
+  `target_access_state` stayed all-false throughout. See
+  `stage_table.post_failure_exploratory_target_v3` below for full detail.
+_superseded_current_substage_v2_pretarget_correction: >-
   PRE-TARGET SCIENTIFIC + EXECUTION CORRECTION of
   POST_FAILURE_EXPLORATORY_TARGET_V1. V1
   (`configs/evaluation/post_failure_exploratory_target_v1.yaml`, identity
@@ -326,7 +380,7 @@ _superseded_current_substage_v1: >-
   post-failure EXPLORATORY TARGET protocol is explicitly NOT started —
   deferred to a separate, future task, only after these diagnostics are
   observed and frozen. target_access has been 0 throughout.
-previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE
+previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V2_PRETARGET_CORRECTION
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8, ran the real BA_sep --execute
@@ -6145,7 +6199,10 @@ c7_scientific_closure_reconciliation:
     # observed). V1 preserved unchanged as historical pre-target design
     # evidence; V2 is a separately versioned, separately namespaced
     # protocol.
-    status: PRETARGET_CORRECTION
+    status: SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS
+    superseded_reason: PRETARGET_AUDIT_FOUND_PROVENANCE_ACCESS_AND_STATISTICS_DEFECTS
+    superseded_by: post_failure_exploratory_target_v3 (below)
+    v2_preserved_byte_for_byte: true   # config + both modules git-diff-clean vs HEAD
     config: configs/evaluation/post_failure_exploratory_target_v2.yaml
     protocol_identity: 2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9
     supersedes_v1_identity: 8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51
@@ -6243,63 +6300,158 @@ c7_scientific_closure_reconciliation:
       combined_c9_scoped_suite_files: 10
       combined_c9_scoped_suite_total: 480
 
+  post_failure_exploratory_target_v3:
+    # FINAL PRE-TARGET PROVENANCE/ACCESS/STATISTICS HARDENING of V2, found
+    # and applied before any GPU --predict ever ran. V1 and V2 preserved
+    # unchanged as historical pre-target designs; V3 is the final corrected
+    # protocol before any target access.
+    status: FROZEN_NOT_RUN
+    config: configs/evaluation/post_failure_exploratory_target_v3.yaml
+    protocol_identity: a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c
+    supersedes_v2_identity: 2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9
+    predictor_module: src/prism_fas/evaluation/post_failure_exploratory_target_v3.py
+    predictor_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_v3 --repo . {--preflight-only|--bind-prediction-plan|--status|--predict}
+    scorer_module: src/prism_fas/evaluation/post_failure_exploratory_target_v3_scorer.py
+    scorer_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_v3_scorer --repo . {--preflight-score|--score}
+    namespaces:
+      report_root: reports/full/exploratory_target_v3
+      run_root: runs/exploratory_target_v3
+      staging_root: runs/exploratory_target_v3/.staging
+      state_root: state/exploratory_target_v3
+      disjoint_from_v1_and_v2_confirmed_by_test: true
+    target_access_state:
+      fields: [target_feature_identity_accessed, target_prediction_features_accessed,
+              target_labels_accessed, target_feature_access_count, target_label_access_count]
+      replaces: target_access (retired as scientifically ambiguous)
+      laptop_end_of_task_values: {target_feature_identity_accessed: false,
+                                  target_prediction_features_accessed: false,
+                                  target_labels_accessed: false}
+    defect_corrections:
+      defect_a_empty_per_row_package_identity: >-
+        every row's binding now carries the real, verified, top-level
+        target_feature_package_identity, required non-empty and threaded
+        into inference_config_hash and the per-row lock.
+      defect_b_no_code_commit_binding: >-
+        current_code_commit (reusing detector.checkpoint.git_commit)
+        determined once at execution start, bound into every row and the
+        overall lockset via build_prediction_lock's own pre-existing
+        (previously unpopulated) code_commit parameter; mismatch detected.
+      defect_c_ambiguous_target_access: >-
+        target_access_state replaces target_access: 0 with three explicit
+        booleans plus counts and frozen before/after semantics.
+      defect_d_unwritten_label_reveal: >-
+        reveal_target_labels writes a real, one-way TARGET_LABEL_REVEAL.json
+        before the first label load; idempotent exact-match, blocks on
+        conflict or on label-file tampering after reveal.
+      defect_e_weak_score_completeness: >-
+        24 complete per-row score files with no final result is now
+        INCOMPLETE_FINALIZATION and BLOCKS; extra/unexpected row files
+        also BLOCK.
+      defect_f_score_validator_hardened: >-
+        validate_existing_exploratory_score_result_v3 checks label reveal
+        identity, execution code commit, exact row/seed sets, and
+        recomputes Holm-Bonferroni from RECORDED randomization p-values.
+      defect_g_h_i_bootstrap_vs_randomization: >-
+        class_stratified_bootstrap_ci is CI-only (no p-value field);
+        paired_randomization_test (sign-flip, finite-sample +1 correction,
+        >= tie handling) produces the exploratory p-value separately.
+      defect_j_silent_seed_intersection: >-
+        REQUIRED_MATCHED_SEEDS asserted exactly per comparison; a missing
+        required seed BLOCKS rather than silently narrowing the family.
+      cross_seed_summary_implemented: >-
+        build_cross_seed_summary emits seeds/per_seed/mean/std_ddof0 for
+        all 6 configurations x 8 metrics, every frozen seed present, never
+        pooled across seeds.
+      crash_safety_staging: >-
+        predict_one_row_to_staging writes only to a disposable staging
+        namespace; promote_staged_rows atomically promotes all 24 rows
+        before the overall lock is written last.
+    randomization_test: {unit: video, resamples: 10000, seed: 20260810, two_sided: true,
+                         p_value_formula: "(1 + count(|T_perm| >= |T_obs|)) / (1 + resamples)",
+                         tie_handling: ">= inclusive"}
+    bootstrap_ci: {unit: video, resamples: 10000, seed: 20260810, confidence_level: 0.95,
+                  class_stratified: true, carries_no_p_value: true}
+    holm_bonferroni: {family_size: 7, input: randomization_p_values_only}
+    reused_verbatim_from_v1_module: [resolve_target_matrix, target_matrix_identity,
+      bind_c8_matrix_identity, verify_target_feature_package_expected,
+      verify_target_label_root_sealed, build_firewall]
+    reused_verbatim_from_v2_module: [resolve_all_row_bindings_v2, verify_target_feature_package_required]
+    runner_dry_run_on_this_laptop:
+      preflight_only: {exit_code: 2, matrix_resolved: true, row_count: 24, rows_bindable: false,
+                       reason: "no GPU run manifests / target package on this host"}
+      bind_prediction_plan: {exit_code: 2, bound: false, reason: "preflight already blocked"}
+      status: {exit_code: 2, prediction_plan_bound: false}
+      predict: {exit_code: 2, executed: false, reason: "no prediction plan binding on disk"}
+      preflight_score: {exit_code: 2, prediction_lockset_valid: false}
+      score: {exit_code: 2, error: "no valid V3 prediction lockset exists"}
+    target_feature_package_opened: false
+    target_labels_opened: false
+    real_diagnostic_or_target_value_computed: false
+    record: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING.md
+    record_json: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING.json
+    gpu_handoff: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md
+    tests:
+      new_file: tests/pipeline/test_post_failure_exploratory_target_v3.py   # 50 passed
+      v1_and_v2_suites_rerun_unmodified: {v1: 57, v2: 52}
+      combined_c9_scoped_suite_files: 11
+      combined_c9_scoped_suite_total: 530
+
   next_authorized_action: >-
     `synthetic_vs_real_spoof_probe = FAILED`, `DETECTOR_RELIABILITY_LOCK_C.overall
     = FAILED`, and `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2.overall_diagnostics_verdict
     = FAIL` remain permanent, observed, user-reported scientific results —
     NOT rerun, tuned, or reselected under any circumstance.
     `POST_FAILURE_DIAGNOSTIC_INTERPRETATION` remains `REGISTERED_ON_GPU`.
-    This milestone found `POST_FAILURE_EXPLORATORY_TARGET_V1`
-    (identity `8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51`,
-    NEVER scientifically executed — no SiW-Mv2 prediction, no target label
-    opened) scientifically and structurally defective before any target
-    access, and froze a corrected `POST_FAILURE_EXPLORATORY_TARGET_V2`
-    (`configs/evaluation/post_failure_exploratory_target_v2.yaml`, identity
-    `2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9`) —
-    see `stage_table.post_failure_exploratory_target_v2.defect_corrections`
-    for the nine corrections (binding authority, package verification,
-    row_id-keyed lockset, `prediction_variant_id`, existing-result
-    validation, partial-result detection, no hard-coded paths, corrected
-    `ACER=0.5*(APCER+BPCER)`, seed-preserving class-stratified paired
-    bootstrap, and a 7-member Holm family). NOTHING WAS RUN FOR REAL: every
-    CLI mode (`--preflight-only`, `--bind-prediction-plan`, `--status`,
-    `--predict`, `--preflight-score`, `--score`) was run once against this
-    real repo; the real 24-row matrix (15 Track-G, 9 Track-R) resolved
-    correctly; every step needing GPU checkpoints, the target feature
-    package, or target labels correctly reported an unresolved
-    precondition, exit 2, writing nothing. The next authorized action, on
-    the GPU host, is the NINE-STEP sequence in
-    `reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V2_GPU_HANDOFF.md`
-    (NOT the V1 handoff, now historical): safe `git fetch` + `merge --ff-only`,
-    a protected-state checksum snapshot, V2 `--preflight-only`, package
-    identity verification (never opening labels), a label-firewall-sealed
-    proof, `--bind-prediction-plan` (twice, to prove idempotence),
-    `verify_binding_unchanged` confirming the frozen binding still matches
-    a read-only recomputation, and `--status` confirming
+    This milestone found `POST_FAILURE_EXPLORATORY_TARGET_V2` (identity
+    `2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9`,
+    NEVER scientifically executed) defective in provenance/access/
+    statistics before any target access, and froze the FINAL corrected
+    `POST_FAILURE_EXPLORATORY_TARGET_V3`
+    (`configs/evaluation/post_failure_exploratory_target_v3.yaml`, identity
+    `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c`) —
+    see `stage_table.post_failure_exploratory_target_v3.defect_corrections`
+    for the corrections (real per-row `target_feature_package_identity`,
+    bound `prediction_execution_code_commit`, explicit `target_access_state`,
+    a real one-way `TARGET_LABEL_REVEAL.json`, a hardened score-completeness
+    state machine, a CI-only bootstrap separated from a frozen paired
+    video-level randomization test for p-values, exact matched-seed
+    assertions, an actually-implemented cross-seed mean/std summary, and
+    crash-safe staged prediction/scoring). NOTHING WAS RUN FOR REAL: every
+    CLI mode was run once against this real repo; the real 24-row matrix
+    (15 Track-G, 9 Track-R) resolved correctly; every step needing GPU
+    checkpoints, the target feature package, or target labels correctly
+    reported an unresolved precondition, exit 2, writing nothing;
+    `target_access_state` stayed all-false. The next authorized action, on
+    the GPU host, is the EIGHT-STEP sequence in
+    `reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md`
+    (NOT the V1 or V2 handoffs, now both historical): safe `git fetch` +
+    `merge --ff-only`, a checksum snapshot of upstream science, V3
+    `--preflight-only`, feature-package identity verification (never
+    opening labels), a label-firewall-sealed proof, `--bind-prediction-plan`
+    (twice, to prove idempotence), and `--status` confirming
     `prediction_lock_exists: false` — THEN STOP. A genuine `--predict` (the
     first real scientific target access this branch would ever make) is
-    named in that handoff only as `NOT YET EXECUTED / REQUIRES FINAL HUMAN
-    AUDIT`, requiring its own future, separate, explicit authorization — it
-    is NOT authorized by this milestone. `--preflight-score`/`--score`
-    (Phase E2, which finally opens the target label) require a FURTHER
-    separate authorization, reachable only after a valid, `FROZEN`,
-    24-entry V2 `TARGET_PREDICTION_LOCK.json` exists, and are not addressed
-    by either handoff. `cross_route_synthetic`, `recipe_region_shift`,
-    `artifact_map_swap` remain `NEEDS_SCIENTIFIC_DECISION`;
-    `residual_scale_zero` remains `STRUCTURALLY_MODEL_BLOCKED`;
-    `crop_padding_interpolation` remains `STRUCTURALLY_DATA_BLOCKED`. UNDER
-    THE CURRENT BA_sep PROTOCOL VERSION, NOTHING IN THIS EXPLORATORY BRANCH
-    CAN REOPEN C9: `barrier_state`'s `overall=FAILED` is sticky, and every
-    exploratory artifact must carry `ba_sep_observed_verdict=FAIL`,
-    `detector_reliability_overall=FAILED`, `post_failure_diagnostics_v2=FAIL`,
-    `c9_original_confirmatory_path=BLOCKED`,
+    named in that handoff only as `NOT AUTHORIZED UNTIL FINAL AUDIT`,
+    requiring its own future, separate, explicit authorization — it is NOT
+    authorized by this milestone. `--preflight-score`/`--score` (Phase E2,
+    which writes the real label reveal and finally opens the target label)
+    require a FURTHER separate authorization, reachable only after a
+    valid, `FROZEN`, 24-entry V3 `TARGET_PREDICTION_LOCK.json` exists, and
+    are not addressed by the handoff at all. `cross_route_synthetic`,
+    `recipe_region_shift`, `artifact_map_swap` remain
+    `NEEDS_SCIENTIFIC_DECISION`; `residual_scale_zero` remains
+    `STRUCTURALLY_MODEL_BLOCKED`; `crop_padding_interpolation` remains
+    `STRUCTURALLY_DATA_BLOCKED`. UNDER THE CURRENT BA_sep PROTOCOL VERSION,
+    NOTHING IN THIS EXPLORATORY BRANCH CAN REOPEN C9: `barrier_state`'s
+    `overall=FAILED` is sticky, and every exploratory artifact must carry
+    `ba_sep_observed_verdict=FAIL`, `detector_reliability_overall=FAILED`,
+    `post_failure_diagnostics_v2=FAIL`, `c9_original_confirmatory_path=BLOCKED`,
     `exploratory_target_status=POST_FAILURE_EXPLORATORY`, and
-    `c9_may_close=false` — asserted by test that no function in either V2
-    module can ever set `c9_may_close` true. C7 and C8 remain scientifically
-    closed and valid. C9 may not close `SOURCE_MATRIX_LOCK_C`, and the
-    original C10-C13 may not run. Do not run the original C9, C10, C11, C12
-    or C13, and do not access target for real, until the user explicitly
-    authorizes the `--predict` step named in the V2 GPU handoff.
+    `c9_may_close=false`. C7 and C8 remain scientifically closed and valid.
+    C9 may not close `SOURCE_MATRIX_LOCK_C`, and the original C10-C13 may
+    not run. Do not run the original C9, C10, C11, C12 or C13, and do not
+    access target for real, until the user explicitly authorizes the
+    `--predict` step named in the V3 GPU handoff.
 
-last_updated_utc: 2026-08-26   # PRE-TARGET CORRECTION: froze POST_FAILURE_EXPLORATORY_TARGET_V2, correcting nine binding/lockset/statistics defects found in V1 before any target access (V1 preserved byte-for-byte, never scientifically executed); V2's PREDICTION_PLAN_BINDING is now the sole authoritative execution source with drift detection, a new row_id-keyed lockset replaces the incompatible legacy build_lockset (left unchanged), C-R-NOPROMPT/C-R-LLM get distinct prediction_variant_ids, ACER is now correctly 0.5*(APCER+BPCER) computed via a seed-preserving class-stratified paired video bootstrap, and all 7 atomic comparisons enter one Holm family; nothing scientifically executed on this laptop; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; target_access=0 throughout
+last_updated_utc: 2026-08-26   # FINAL PRE-TARGET HARDENING: froze POST_FAILURE_EXPLORATORY_TARGET_V3, correcting provenance/access/statistics defects found in V2 before any target access (V1+V2 preserved byte-for-byte, neither ever scientifically executed) — real per-row target_feature_package_identity (was empty), bound prediction_execution_code_commit, explicit target_access_state replacing ambiguous target_access, a real one-way TARGET_LABEL_REVEAL.json, a hardened score-completeness state machine (INCOMPLETE_FINALIZATION blocks 24-files-no-result), a CI-only class-stratified bootstrap separated from a frozen paired video-level randomization test for the seven exploratory p-values, exact per-comparison matched-seed assertions, an actually-implemented cross-seed mean/std(ddof=0) summary, and crash-safe staged prediction with atomic promotion; nothing scientifically executed on this laptop; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; target_access_state stayed all-false throughout
 ```
