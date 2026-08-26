@@ -327,6 +327,80 @@ def verify_lock(repo: Path, lock_path: Path | None = None) -> dict[str, Any]:
                      "a pass")}
 
 
+def validate_lock_record(repo: Path, lock_path: Path | None = None) -> dict[str, Any]:
+    """Structurally validate a `DETECTOR_RELIABILITY_LOCK_C` record, whatever
+    its `overall` verdict — PASSED, FAILED, UNRESOLVED or BLOCKED.
+
+    This is NOT C9's pass precondition (`verify_lock` remains that, strict,
+    PASS-only, unchanged) — it is the weaker, general-purpose question "is
+    this a genuinely well-formed, self-consistent barrier record", which a
+    negative (FAILED) scientific result needs answered too: a real FAILED
+    barrier is valid negative evidence, not an invalid record, and this
+    function is how that distinction is checked without ever making
+    `verify_lock` accept it.
+
+    Requires: the schema/stage match the frozen contract; every required
+    test's overall state, RECOMPUTED from the record's own `per_test` via
+    `barrier_state`, equals the record's own `overall`; a bound
+    `probe_protocol_identity` and `detector_checkpoint_identities`; the
+    record's own `identity_sha256` is internally consistent (recomputed via
+    `_identity` from its own `per_test`/protocol/checkpoints and compared);
+    and `target_access == 0`. Never requires `overall == PASSED` — that
+    requirement belongs to `verify_lock` alone.
+    """
+    path = Path(lock_path or (Path(repo) / LOCK_PATH))
+    problems: list[str] = []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except (OSError, ValueError):
+        payload, problems = {}, ["the lock could not be read as JSON"]
+
+    if not payload:
+        problems.append(f"{LOCK_NAME} is absent or empty")
+        return {"valid": False, "problems": problems, "payload": payload,
+               "lock_path": path.as_posix(), "overall": None}
+
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        problems.append("schema_version does not match the frozen contract")
+    if payload.get("stage") != STAGE:
+        problems.append(f"stage is not {STAGE}")
+
+    per_test = dict(payload.get("per_test") or {})
+    recomputed = barrier_state(
+        {name: state for name, state in per_test.items()
+         if name in REQUIRED_DETECTOR_RELIABILITY_TESTS})
+    if recomputed["overall"] != payload.get("overall"):
+        problems.append(
+            f"recorded overall {payload.get('overall')!r} does not match the state "
+            f"recomputed from the record's own per_test ({recomputed['overall']!r})")
+    if recomputed["per_test"] != per_test:
+        problems.append("recorded per_test does not match REQUIRED_DETECTOR_RELIABILITY_TESTS "
+                        "plus CANONICALLY_BLOCKED_TESTS exactly")
+
+    protocol_id = payload.get("probe_protocol_identity")
+    checkpoints = dict(payload.get("detector_checkpoint_identities") or {})
+    if not protocol_id:
+        problems.append("no probe protocol identity is bound")
+    if not checkpoints:
+        problems.append("no detector checkpoint identities are bound")
+
+    recomputed_identity = _identity(recomputed, str(protocol_id or ""), checkpoints)
+    if payload.get("identity_sha256") != recomputed_identity:
+        problems.append("identity_sha256 does not match the record's own bound fields")
+
+    if int(payload.get("target_access", -1)) != 0:
+        problems.append("target_access is not recorded as 0")
+
+    return {"valid": not problems, "problems": problems, "payload": payload,
+           "lock_path": path.as_posix(), "overall": payload.get("overall"),
+           "per_test": per_test, "probe_protocol_identity": protocol_id,
+           "detector_checkpoint_identities": checkpoints,
+           "ba_sep_by_arm": dict(payload.get("ba_sep_by_arm") or {}),
+           "c9_may_close": payload.get("overall") == PASSED,
+           "rule": ("structural validity only — a FAILED record can be valid; "
+                    "verify_lock, not this function, is C9's PASS precondition")}
+
+
 def lock_payload(*, results: Mapping[str, str], probe_protocol_identity: str,
                  detector_checkpoint_identities: Mapping[str, str],
                  ba_sep_by_arm: Mapping[str, float] | None = None) -> dict[str, Any]:
@@ -361,4 +435,4 @@ __all__ = ["SCHEMA_VERSION", "LOCK_NAME", "LOCK_PATH", "STAGE", "PASSED", "FAILE
            "EVIDENCE_VECTOR_UNRESOLVED", "PROBE_SEEDS_UNRESOLVED",
            "EVIDENCE_VECTOR_AUDIT", "PROBE_SEED_AUDIT",
            "DetectorReliabilityError", "load_probe_protocol", "probe_protocol_status",
-           "barrier_state", "verify_lock", "lock_payload"]
+           "barrier_state", "verify_lock", "validate_lock_record", "lock_payload"]

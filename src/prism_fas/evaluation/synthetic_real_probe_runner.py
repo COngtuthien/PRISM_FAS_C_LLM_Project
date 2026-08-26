@@ -42,7 +42,15 @@ Three modes, mutually exclusive:
     refused rather than silently overwriting a prior preregistration.
 
 `--execute`
-    Runs the real, joint, three-arm probe: for every arm, strict-loads all
+    SCIENTIFICALLY NO-RERUN: before anything else, checks whether the five
+    result artifacts already exist. If all five exist, it reads and
+    cross-validates them and RE-REPORTS the existing result — zero trainer
+    construction, zero checkpoint load, zero forward pass, zero probe fit,
+    zero BA recomputation; the exit code still reflects the real recorded
+    verdict. If some but not all five exist, it refuses
+    (`PARTIAL_SCIENTIFIC_RESULT_SET`) rather than overwrite, complete or
+    infer anything. Only on a clean host (none of the five exist) does it
+    run the real, joint, three-arm probe: for every arm, strict-loads all
     five bound checkpoints (reusing the exact C8 row construction path),
     forwards every required real and synthetic sample through each,
     averages evidence across the five checkpoints, fits the frozen linear
@@ -52,7 +60,8 @@ Three modes, mutually exclusive:
     artifacts, bound to the CURRENTLY active protocol identity; re-verifies
     every checkpoint's bytes on disk before any forward pass. A scientific
     FAILED verdict is a real result, written honestly — it is not the same
-    as a BLOCKED precondition failure.
+    as a BLOCKED precondition failure, and it is never re-run to try for a
+    different outcome.
 
 Exit codes: 0 PASS (successful preflight/bind, or a scientific PASS
 verdict), 1 FAIL (a real scientific FAILED verdict — not an error), 2
@@ -72,15 +81,12 @@ EXIT_PASS, EXIT_FAIL, EXIT_BLOCKED, EXIT_USAGE = 0, 1, 2, 3
 #: Every artifact this runner reads or writes lives here — beside the other
 #: post-C8, pre-C9 reliability evidence
 #: (`detector_reliability.LOCK_PATH` = reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json)
-#: rather than inside the frozen C8 run tree itself.
-RELIABILITY_DIR = "reports/full/c8/reliability/synthetic_vs_real_spoof_probe"
-EXECUTION_BINDING_PATH = f"{RELIABILITY_DIR}/C9_BA_SEP_EXECUTION_BINDING.json"
-POPULATION_PLAN_PATH = f"{RELIABILITY_DIR}/C9_BA_SEP_POPULATION_PLAN.json"
-RESULT_PATH = f"{RELIABILITY_DIR}/BA_SEP_RESULT.json"
-PER_SEED_PATH = f"{RELIABILITY_DIR}/BA_SEP_PER_SEED.json"
-PARAMETERS_PATH = f"{RELIABILITY_DIR}/BA_SEP_PROBE_PARAMETERS.json"
-EVIDENCE_MANIFEST_PATH = f"{RELIABILITY_DIR}/BA_SEP_EVIDENCE_MANIFEST.json"
-VERDICT_PATH = f"{RELIABILITY_DIR}/SYNTHETIC_VS_REAL_SPOOF_PROBE_VERDICT.json"
+#: rather than inside the frozen C8 run tree itself. Owned by
+#: `synthetic_real_probe.py` (the single source of truth for these paths);
+#: re-exported here so `runner.RELIABILITY_DIR` etc. keep working unchanged.
+from prism_fas.evaluation.synthetic_real_probe import (  # noqa: E402
+    EVIDENCE_MANIFEST_PATH, EXECUTION_BINDING_PATH, PARAMETERS_PATH, PER_SEED_PATH,
+    POPULATION_PLAN_PATH, RELIABILITY_DIR, RESULT_PATH, VERDICT_PATH)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -251,12 +257,73 @@ def _bind_only(repo: Path) -> tuple[int, dict[str, Any]]:
 # ==============================================================================
 
 def _execute(repo: Path) -> tuple[int, dict[str, Any]]:
+    """Scientific no-rerun guard, then (only on a clean host) the real run.
+
+    The FIRST and ONLY authorized real BA_sep execution is an OBSERVED
+    scientific result the instant its five result artifacts all exist on
+    disk — never something a second `--execute` recomputes. Three states,
+    checked before anything else (before any protocol/binding read, before
+    any trainer is ever considered):
+
+    * none of the five result artifacts exist -> the normal first-execution
+      path below runs;
+    * all five exist -> read and cross-validate them
+      (`synthetic_real_probe.validate_existing_scientific_result`) and
+      RE-REPORT the existing result — zero trainer construction, zero
+      checkpoint load, zero forward pass, zero probe fit, zero BA
+      recomputation. The exit code still reflects the real recorded
+      verdict (PASS -> 0, FAIL -> 1) so a caller cannot tell an idempotent
+      re-report apart from a exit-code perspective;
+    * some but not all five exist -> BLOCKED, `PARTIAL_SCIENTIFIC_RESULT_SET`
+      — nothing is overwritten, completed or inferred.
+    """
     from prism_fas.evaluation import detector_reliability
     from prism_fas.evaluation import synthetic_real_probe as probe
     from prism_fas.pipeline.state import atomic_write_json
 
     report: dict[str, Any] = {"executed": False, "target_access": 0}
 
+    presence = probe.result_artifact_presence(repo)
+    if presence["all_present"]:
+        validation = probe.validate_existing_scientific_result(repo)
+        if not validation["valid"]:
+            report.update({
+                "reused_existing_scientific_result": False,
+                "existing_result_set": "complete_but_invalid",
+                "problems": validation["problems"],
+                "error": ("an existing complete scientific result set failed "
+                         "cross-validation; refusing to trust or silently "
+                         "recompute it"),
+            })
+            return EXIT_BLOCKED, report
+        report.update({
+            "executed": True, "reused_existing_scientific_result": True,
+            "detector_forward_repeated": False, "checkpoint_weights_loaded": False,
+            "images_forwarded": False, "probe_fit_executed": False,
+            "ba_recomputed": False,
+            "ba_sep_by_arm": validation["ba_sep_by_arm"],
+            "verdict": validation["scientific_verdict"],
+            "protocol_identity": validation["protocol_identity"],
+            "checkpoint_binding_identity": validation["checkpoint_binding_identity"],
+            "population_plan_identity": validation["population_plan_identity"],
+            "result_path": RESULT_PATH, "per_seed_path": PER_SEED_PATH,
+            "parameters_path": PARAMETERS_PATH, "evidence_manifest_path": EVIDENCE_MANIFEST_PATH,
+            "verdict_path": VERDICT_PATH,
+        })
+        exit_code = EXIT_PASS if validation["scientific_verdict"] == "PASS" else EXIT_FAIL
+        return exit_code, report
+
+    if presence["partial"]:
+        report.update({
+            "error": "PARTIAL_SCIENTIFIC_RESULT_SET",
+            "present": {name: exists for name, exists in presence["present"].items() if exists},
+            "missing": {name: exists for name, exists in presence["present"].items()
+                       if not exists},
+        })
+        return EXIT_BLOCKED, report
+
+    # presence["none_present"]: a clean host — the normal first-execution
+    # path below is reachable exactly once, ever, per result set.
     try:
         protocol = probe.load_protocol(repo)
     except probe.SyntheticRealProbeError as error:

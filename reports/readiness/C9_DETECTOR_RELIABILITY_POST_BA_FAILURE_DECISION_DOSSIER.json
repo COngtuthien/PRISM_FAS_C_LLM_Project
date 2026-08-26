@@ -1,0 +1,95 @@
+{
+  "schema_version": "c9-detector-reliability-post-ba-failure-decision-dossier-v1",
+  "document_kind": "POST_FAILURE_DECISION_DOSSIER_NOT_A_REDESIGN",
+  "companion_markdown": "reports/readiness/C9_DETECTOR_RELIABILITY_POST_BA_FAILURE_DECISION_DOSSIER.md",
+  "target_access": 0,
+
+  "current_situation": {
+    "synthetic_vs_real_spoof_probe": "FAILED",
+    "ba_sep_by_arm": {"RND": 0.7843079833902619, "DET": 0.8514170182841069, "LLM": 0.7902658339472685},
+    "ba_ceiling": 0.75,
+    "detail_record": "reports/readiness/C9_BA_SEP_OPTION1_V2_SCIENTIFIC_FAILURE_CLOSURE.md"
+  },
+
+  "version_c_consequence": {
+    "rule": "barrier_state: if ANY required test is FAILED, overall = FAILED (unchanged, unweakened)",
+    "detector_reliability_lock_c_can_pass": false,
+    "c9_can_close": false,
+    "c10_can_proceed": false,
+    "c11_can_proceed": false,
+    "target_prediction_forbidden": true,
+    "remaining_eight_tests_cannot_reopen_c9": true,
+    "reason": "one required FAILED test is sufficient and sticky; resolving the other eight to PASSED does not change overall back to PASSED"
+  },
+
+  "remaining_eight_tests_audit": [
+    {"test_id": "residual_scale_zero", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "prose pass rule only, no frozen threshold, no implementation, likely needs regional evidence absent from primary Version-C rows"},
+    {"test_id": "recipe_region_shift", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "prose pass rule only, no frozen displacement metric, no implementation, needs regional heat-map evidence"},
+    {"test_id": "artifact_map_swap", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "needs local/regional supervision head output, no frozen protocol, no implementation"},
+    {"test_id": "cross_route_synthetic", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "pass rule names no metric or threshold, no frozen route pairing, no implementation"},
+    {"test_id": "benign_jpeg_corruption", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "score_shift measurement primitive exists and is reusable; corruption parameter and acceptance threshold not frozen"},
+    {"test_id": "benign_resize_corruption", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "score_shift measurement primitive exists and is reusable; resize factor and acceptance threshold not frozen"},
+    {"test_id": "benign_color_corruption", "classification": "NEEDS_SCIENTIFIC_DECISION",
+     "reason": "score_shift measurement primitive exists and is reusable; color-shift magnitude and acceptance threshold not frozen"},
+    {"test_id": "crop_padding_interpolation", "classification": "STRUCTURALLY_DATA_BLOCKED",
+     "reason": "frozen package stores only the 224x224 crop, no bbox column, no path back to the source frame; re-deriving from the stored crop would measure resampling instead, answering a different question"}
+  ],
+  "no_threshold_invented": true,
+  "no_test_executed": true,
+
+  "options": {
+    "option_a": {
+      "name": "CLOSE_CURRENT_VERSION_C_AS_NEGATIVE",
+      "preserves_ba_fail": true,
+      "executes_remaining_eight": "optional, reporting only, cannot reopen C9",
+      "reaches_target_evaluation": false,
+      "characterization": "scientifically clean, terminates this protocol's path to target"
+    },
+    "option_b": {
+      "name": "COMPLETE_SOURCE_ONLY_DIAGNOSTICS",
+      "preserves_ba_fail": true,
+      "reopens_c9": false,
+      "purpose": "diagnostic/mechanistic understanding of the shortcut, for paper analysis and redesign justification",
+      "requires_frozen_executable_protocols_before_running": true,
+      "target_access": 0
+    },
+    "option_c": {
+      "name": "NEW_PRETARGET_REDESIGN_PROTOCOL",
+      "preserves_current_negative_result_permanently": true,
+      "mutates_option1_v2": false,
+      "creates_v3_of_option1": false,
+      "new_protocol_gets_a_new_decision_id": true,
+      "regenerated_artifacts_get_new_identities": true,
+      "old_c8_result_remains_immutable": true,
+      "target_sealed_until_new_gates_pass": true,
+      "implemented_by_this_task": false
+    }
+  },
+
+  "recommendation": {
+    "recommended_first": "option_b",
+    "then_evaluate": "option_c",
+    "reason": "BA_sep failure establishes separability is too high but not WHY; bounded source-only diagnostics distinguish residual/recipe/artifact/route/corruption hypotheses before redesign",
+    "explicit_caveats": [
+      "option_b does NOT rescue current C9 under any diagnostic outcome",
+      "option_b's own protocols must be frozen before execution, same discipline as Option-1 V2",
+      "a diagnostic result suggesting a structural shortcut would be the evidence that justifies option_c"
+    ]
+  },
+
+  "scope_of_this_dossier": {
+    "implements_option_b": false,
+    "implements_option_c": false,
+    "invents_a_threshold": false,
+    "edits_v2_config": false,
+    "creates_v3": false,
+    "accesses_target": false,
+    "weakens_verify_lock": false
+  }
+}

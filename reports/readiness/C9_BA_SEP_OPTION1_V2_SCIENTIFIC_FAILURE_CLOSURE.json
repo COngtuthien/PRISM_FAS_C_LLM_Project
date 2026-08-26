@@ -1,0 +1,151 @@
+{
+  "schema_version": "c9-ba-sep-option1-v2-scientific-failure-closure-v1",
+  "document_kind": "SCIENTIFIC_FAILURE_CLOSURE",
+  "decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V2",
+  "v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+  "v2_protocol_identity_unchanged_since_freeze": true,
+  "no_v3_created": true,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_BA_SEP_OPTION1_V2_SCIENTIFIC_FAILURE_CLOSURE.md",
+
+  "execution_completed": true,
+  "execution_exit_code": 1,
+  "execution_meaning": "scientific execution COMPLETED; hard verdict FAIL -- not BLOCKED, not a crash, not incomplete",
+  "provenance": "OBSERVED_ON_GPU_USER_REPORTED",
+  "gpu_artifact_registration_verified": false,
+  "gpu_artifact_registration_verified_note": "verification requires running detector_reliability_runner --register-ba-sep-result on the GPU host against the real artifacts; not yet run there",
+
+  "observed_ba_sep_by_arm": {
+    "RND": 0.7843079833902619,
+    "DET": 0.8514170182841069,
+    "LLM": 0.7902658339472685
+  },
+  "ba_ceiling": 0.75,
+  "hard_verdict_rule": "PASS iff BA_sep_RND <= 0.75 AND BA_sep_DET <= 0.75 AND BA_sep_LLM <= 0.75",
+  "per_arm_verdict": {"RND": "FAIL", "DET": "FAIL", "LLM": "FAIL"},
+  "overall_verdict": "FAILED",
+
+  "observed_per_seed_ba_sep": {
+    "RND": {"20260806": 0.753968253968254, "20260807": 0.8164556962025317, "20260808": 0.7825},
+    "DET": {"20260806": 0.8333333333333333, "20260807": 0.8734177215189873, "20260808": 0.8474999999999999},
+    "LLM": {"20260806": 0.7486772486772486, "20260807": 0.819620253164557, "20260808": 0.8025}
+  },
+  "per_seed_mean_reproduces_aggregate": true,
+  "single_seed_below_ceiling_is_irrelevant_to_aggregate_rule": true,
+
+  "frozen_identities_gpu_reported": {
+    "protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+    "checkpoint_binding_identity": "fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0",
+    "population_plan_identity": "90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1",
+    "source_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+    "execution_code_commit": "7d0d3267d4e9208744b55cd6d16793780b297930",
+    "c6_bank_identities": {
+      "RND": "1a5be34ad5104b9c8fe18f90778e86b6710180e757ea066c4f931565928d50ba",
+      "DET": "32f6e0e129da277d0be76abc0758bc3d63ad16caba111efc801ac92de291f5b0",
+      "LLM": "b7edd00b7ea87e558814b96955452f3bf4bdbeda0da4374461b4ed4ddd29525b"
+    },
+    "target_access": 0
+  },
+
+  "no_rerun_guard": {
+    "implementation": "prism_fas.evaluation.synthetic_real_probe_runner._execute",
+    "states": ["none_present -> normal first execution reachable",
+              "all_present -> re-report via validate_existing_scientific_result, zero recomputation",
+              "partial -> BLOCKED, PARTIAL_SCIENTIFIC_RESULT_SET, nothing overwritten"],
+    "verifier": "prism_fas.evaluation.synthetic_real_probe.validate_existing_scientific_result",
+    "verifier_never": ["constructs a trainer", "loads checkpoint weights", "opens an image", "fits a probe"]
+  },
+
+  "forbidden_after_this_result": [
+    "rerun the probe on any arm",
+    "select, remove, or replace any probe seed",
+    "tune the 0.75 ceiling",
+    "change the evidence vector",
+    "change the population plan or balancing rule",
+    "cherry-pick or reselect any of the 15 checkpoints",
+    "reopen the C6 banks under the current (Option-1 V2) protocol",
+    "discard the negative result"
+  ],
+
+  "failed_barrier_registration": {
+    "cli": "python -m prism_fas.evaluation.detector_reliability_runner --register-ba-sep-result",
+    "status": "PENDING_GPU_VERIFICATION",
+    "run_on_this_laptop": true,
+    "result_on_this_laptop": "BLOCKED (result set absent), exit 2, nothing written",
+    "binds_only": "synthetic_vs_real_spoof_probe",
+    "other_eight_tests_remain": "UNRESOLVED",
+    "idempotent": true,
+    "refuses_to_overwrite_different_existing_content": true,
+    "never_mutates_the_seven_ba_sep_artifacts": true
+  },
+
+  "expected_barrier_state": {
+    "synthetic_vs_real_spoof_probe": "FAILED",
+    "residual_scale_zero": "UNRESOLVED",
+    "recipe_region_shift": "UNRESOLVED",
+    "artifact_map_swap": "UNRESOLVED",
+    "cross_route_synthetic": "UNRESOLVED",
+    "benign_jpeg_corruption": "UNRESOLVED",
+    "benign_resize_corruption": "UNRESOLVED",
+    "benign_color_corruption": "UNRESOLVED",
+    "crop_padding_interpolation": "UNRESOLVED",
+    "benign_glasses_makeup_lowlight": "BLOCKED",
+    "overall": "FAILED",
+    "c9_may_close": false,
+    "sticky_regardless_of_remaining_eight": true
+  },
+
+  "verify_lock_unweakened": {
+    "still_requires_overall_passed": true,
+    "failed_record_makes_verify_lock_valid_false": true,
+    "new_structural_validator": "detector_reliability.validate_lock_record",
+    "structural_validator_can_recognize_a_valid_failed_record": true,
+    "structural_validator_is_not_c9s_pass_precondition": true
+  },
+
+  "c_h4": {
+    "ba_sep_llm": 0.7902658339472685,
+    "ba_sep_det": 0.8514170182841069,
+    "ba_sep_rnd": 0.7843079833902619,
+    "llm_le_ceiling": false,
+    "llm_beats_det": true,
+    "llm_beats_rnd": false,
+    "basic_conditions_hold": false,
+    "status": "NOT_SUPPORTED_BY_CURRENT_BA_SEP_RESULT",
+    "bootstrap_ci_fabricated": false
+  },
+
+  "scientific_interpretation": {
+    "supports": "under the frozen evidence representation, a linear probe separates synthetic from real spoof above the 0.75 ceiling, for all three arms",
+    "does_not_support": ["the synthetic method is entirely useless",
+                        "target performance is bad",
+                        "LLM is universally worse than deterministic generation"],
+    "llm_vs_det": "LLM BA_sep (0.7902...) < DET BA_sep (0.8514...)",
+    "llm_vs_rnd": "LLM BA_sep (0.7902...) > RND BA_sep (0.7843...)",
+    "target_ever_accessed": false
+  },
+
+  "not_done_by_this_closure": [
+    "rerun any arm of the probe",
+    "register the barrier on this laptop (no real artifacts here)",
+    "resolve any of the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS",
+    "run C9, C10, C11, C12 or C13",
+    "access target data",
+    "create a V3 protocol",
+    "edit the V2 config"
+  ],
+
+  "final_status": {
+    "c7_scientific_closed": true,
+    "c8_scientific_closed": true,
+    "ba_sep_option1_v2": "SCIENTIFICALLY_RUN",
+    "ba_sep_scientific_verdict": "FAIL",
+    "c_h4": "NOT_SUPPORTED_BY_CURRENT_BA_SEP_RESULT",
+    "ba_sep_rerun": "FORBIDDEN",
+    "failed_barrier_registration": "PENDING_GPU_VERIFICATION",
+    "detector_reliability_overall": "FAILED",
+    "c9": "BLOCKED_BY_DETECTOR_RELIABILITY_FAILURE",
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}

@@ -83,6 +83,25 @@ FORBIDDEN_EVIDENCE_FIELDS: tuple[str, ...] = (
 TRAIN_LABEL, VALIDATION_LABEL = "train", "validation"
 REAL_SPOOF_CLASS, SYNTHETIC_SPOOF_CLASS = 0, 1
 
+#: Where every joint-probe artifact lives — the single source of truth.
+#: `synthetic_real_probe_runner.py` imports these names rather than
+#: redeclaring them, so there is exactly one place that names these paths.
+RELIABILITY_DIR = "reports/full/c8/reliability/synthetic_vs_real_spoof_probe"
+EXECUTION_BINDING_PATH = f"{RELIABILITY_DIR}/C9_BA_SEP_EXECUTION_BINDING.json"
+POPULATION_PLAN_PATH = f"{RELIABILITY_DIR}/C9_BA_SEP_POPULATION_PLAN.json"
+RESULT_PATH = f"{RELIABILITY_DIR}/BA_SEP_RESULT.json"
+PER_SEED_PATH = f"{RELIABILITY_DIR}/BA_SEP_PER_SEED.json"
+PARAMETERS_PATH = f"{RELIABILITY_DIR}/BA_SEP_PROBE_PARAMETERS.json"
+EVIDENCE_MANIFEST_PATH = f"{RELIABILITY_DIR}/BA_SEP_EVIDENCE_MANIFEST.json"
+VERDICT_PATH = f"{RELIABILITY_DIR}/SYNTHETIC_VS_REAL_SPOOF_PROBE_VERDICT.json"
+
+#: The five artifacts a real `--execute` writes, keyed by name — what
+#: `validate_existing_scientific_result` treats as "the result set".
+RESULT_ARTIFACT_PATHS: dict[str, str] = {
+    "result": RESULT_PATH, "per_seed": PER_SEED_PATH, "parameters": PARAMETERS_PATH,
+    "evidence_manifest": EVIDENCE_MANIFEST_PATH, "verdict": VERDICT_PATH,
+}
+
 
 class SyntheticRealProbeError(RuntimeError):
     """The Option-1 probe cannot proceed with the inputs given."""
@@ -1341,6 +1360,269 @@ def execute_joint_probe(repo: Path, *, checkpoint_binding: Mapping[str, Any],
     }
 
 
+# ==============================================================================
+# 13. Scientific no-rerun — validating an ALREADY-WRITTEN result set.
+# ==============================================================================
+
+def _read_json_file(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def result_artifact_presence(repo: Path) -> dict[str, Any]:
+    """Which of the five `--execute` result artifacts exist on this host.
+
+    Read-only, structural, never opens a checkpoint or an image. Used both
+    by the runner's no-rerun guard (§4 of the failure-closure task) and by
+    `validate_existing_scientific_result` below.
+    """
+    present = {name: (Path(repo) / relative).is_file()
+              for name, relative in RESULT_ARTIFACT_PATHS.items()}
+    count = sum(present.values())
+    return {
+        "present": present,
+        "present_count": count,
+        "total": len(RESULT_ARTIFACT_PATHS),
+        "none_present": count == 0,
+        "all_present": count == len(RESULT_ARTIFACT_PATHS),
+        "partial": 0 < count < len(RESULT_ARTIFACT_PATHS),
+    }
+
+
+def validate_existing_scientific_result(repo: Path) -> dict[str, Any]:
+    """Strictly cross-validate an ALREADY-WRITTEN BA_sep scientific result
+    set against itself and against the currently active protocol.
+
+    Reads all seven artifacts (`C9_BA_SEP_EXECUTION_BINDING.json`,
+    `C9_BA_SEP_POPULATION_PLAN.json`, and the five `--execute` result files)
+    and requires every one of them to agree on `protocol_identity`,
+    `checkpoint_binding_identity`, `population_plan_identity`,
+    `source_package_identity`, the three C6 arm bank identities and
+    `target_access == 0`; requires the execution binding to name exactly 5
+    checkpoints per arm (15 total) and the result's own
+    `checkpoint_sha256_by_arm` to record the identical set of hashes;
+    requires the per-seed artifact to carry EXACTLY the three frozen probe
+    seeds for every arm; recomputes each arm's `BA_sep_arm` as the
+    arithmetic mean of ITS OWN RECORDED per-seed values
+    (`aggregate_ba_sep` — the same frozen function a real run uses, applied
+    to numbers already on disk, never to a re-fit probe) and requires it to
+    equal the recorded aggregate; and recomputes the hard verdict from the
+    recorded `ba_sep_by_arm` (`hard_verdict`, same frozen rule) and requires
+    it to equal the recorded verdict.
+
+    This function NEVER constructs a trainer, loads a checkpoint's weights,
+    opens an image, or fits a probe — every check is arithmetic and
+    dictionary comparison over JSON already on disk. It never raises: any
+    absence, unreadable file or disagreement is reported in `problems` with
+    `valid: False`, so a caller (the runner's no-rerun guard, or
+    `detector_reliability_runner`) can decide what that means for its own
+    exit code.
+    """
+    problems: list[str] = []
+    presence = result_artifact_presence(repo)
+
+    binding = _read_json_file(Path(repo) / EXECUTION_BINDING_PATH)
+    plan = _read_json_file(Path(repo) / POPULATION_PLAN_PATH)
+    if binding is None:
+        problems.append(f"{EXECUTION_BINDING_PATH} is absent or unreadable")
+    if plan is None:
+        problems.append(f"{POPULATION_PLAN_PATH} is absent or unreadable")
+    results: dict[str, dict[str, Any] | None] = {
+        name: _read_json_file(Path(repo) / relative)
+        for name, relative in RESULT_ARTIFACT_PATHS.items()}
+    for name, relative in RESULT_ARTIFACT_PATHS.items():
+        if results[name] is None:
+            problems.append(f"{relative} is absent or unreadable")
+
+    empty = {
+        "valid": False, "problems": problems, "presence": presence,
+        "scientific_verdict": None, "ba_sep_by_arm": {}, "protocol_identity": None,
+        "checkpoint_binding_identity": None, "population_plan_identity": None,
+        "source_package_identity": None, "c6_bank_identities": {},
+        "checkpoints_per_arm": {}, "total_checkpoints": 0, "probe_seed_values": [],
+        "target_access": None,
+    }
+    if problems:
+        return empty
+
+    result, per_seed, parameters, evidence_manifest, verdict_doc = (
+        results["result"], results["per_seed"], results["parameters"],
+        results["evidence_manifest"], results["verdict"])
+
+    try:
+        active_protocol_id = protocol_identity(repo)
+    except SyntheticRealProbeError as error:
+        problems.append(f"active protocol does not resolve: {error}")
+        return {**empty, "problems": problems}
+
+    docs = {"execution binding": binding, "population plan": plan, "result": result,
+           "per-seed": per_seed, "parameters": parameters,
+           "evidence manifest": evidence_manifest, "verdict": verdict_doc}
+    for label, doc in docs.items():
+        if doc.get("protocol_identity") != active_protocol_id:
+            problems.append(f"{label} protocol_identity does not match the active protocol")
+
+    checkpoint_binding_id = binding.get("checkpoint_binding_identity_sha256")
+    if checkpoint_binding_id != checkpoint_binding_identity(binding):
+        problems.append("execution binding fails its own identity check")
+    population_plan_id = plan.get("population_plan_identity_sha256")
+    if population_plan_id != population_plan_identity(plan):
+        problems.append("population plan fails its own identity check")
+
+    for label, doc in (("result", result), ("per-seed", per_seed), ("parameters", parameters),
+                      ("evidence manifest", evidence_manifest), ("verdict", verdict_doc)):
+        if doc.get("checkpoint_binding_identity") != checkpoint_binding_id:
+            problems.append(f"{label} checkpoint_binding_identity does not match the execution binding")
+        if doc.get("population_plan_identity") != population_plan_id:
+            problems.append(f"{label} population_plan_identity does not match the population plan")
+
+    source_package_id = binding.get("source_package_identity")
+    bank_identities = dict(binding.get("c6_bank_identities") or {})
+    for label, doc in (("result", result), ("per-seed", per_seed), ("parameters", parameters),
+                      ("evidence manifest", evidence_manifest), ("verdict", verdict_doc)):
+        if doc.get("source_package_identity") != source_package_id:
+            problems.append(f"{label} source_package_identity does not match the execution binding")
+        if dict(doc.get("c6_bank_identities") or {}) != bank_identities:
+            problems.append(f"{label} c6_bank_identities does not match the execution binding")
+
+    for label, doc in docs.items():
+        if int(doc.get("target_access", -1)) != 0:
+            problems.append(f"{label} does not record target_access == 0")
+
+    checkpoints = list(binding.get("checkpoints") or [])
+    checkpoints_per_arm = {arm: sum(1 for item in checkpoints if item.get("arm") == arm)
+                           for arm in ARMS}
+    if any(checkpoints_per_arm[arm] != CHECKPOINTS_PER_ARM for arm in ARMS) or \
+            len(checkpoints) != TOTAL_CHECKPOINTS:
+        problems.append(
+            f"execution binding does not name exactly {CHECKPOINTS_PER_ARM} checkpoints "
+            f"per arm ({TOTAL_CHECKPOINTS} total); found {checkpoints_per_arm}")
+    bound_sha_by_arm = {arm: sorted(item["checkpoint_sha256"] for item in checkpoints
+                                    if item.get("arm") == arm) for arm in ARMS}
+    recorded_sha_by_arm = {arm: sorted(result.get("checkpoint_sha256_by_arm", {}).get(arm, []))
+                           for arm in ARMS}
+    if bound_sha_by_arm != recorded_sha_by_arm:
+        problems.append("result's checkpoint_sha256_by_arm does not match the execution binding")
+
+    try:
+        active_protocol = load_protocol(repo)
+        frozen_seed_values = [int(seed) for seed in active_protocol["probe_seed_values"]]
+    except SyntheticRealProbeError as error:
+        problems.append(f"active protocol does not resolve for seed comparison: {error}")
+        frozen_seed_values = []
+    parameter_seed_values = [int(seed) for seed in parameters.get("probe_seed_values") or []]
+    if frozen_seed_values and parameter_seed_values != frozen_seed_values:
+        problems.append(
+            f"parameters.probe_seed_values {parameter_seed_values} does not equal the "
+            f"frozen protocol seeds {frozen_seed_values}")
+
+    per_seed_by_arm_raw = dict(per_seed.get("per_seed_by_arm") or {})
+    recorded_ba_sep_by_arm = dict(result.get("ba_sep_by_arm") or {})
+    recomputed_ba_sep_by_arm: dict[str, float] = {}
+    for arm in ARMS:
+        seed_values = per_seed_by_arm_raw.get(arm) or {}
+        try:
+            by_seed = {int(seed): float(value) for seed, value in seed_values.items()}
+        except (TypeError, ValueError):
+            problems.append(f"per-seed values for arm {arm!r} are not numeric")
+            continue
+        if frozen_seed_values and sorted(by_seed) != sorted(frozen_seed_values):
+            problems.append(
+                f"arm {arm!r} per-seed values carry seeds {sorted(by_seed)}, expected "
+                f"exactly {sorted(frozen_seed_values)}")
+            continue
+        try:
+            recomputed_ba_sep_by_arm[arm] = aggregate_ba_sep(by_seed)
+        except SyntheticRealProbeError as error:
+            problems.append(f"arm {arm!r} per-seed aggregation failed: {error}")
+            continue
+        recorded = recorded_ba_sep_by_arm.get(arm)
+        if recorded is None or abs(float(recorded) - recomputed_ba_sep_by_arm[arm]) > 1e-9:
+            problems.append(
+                f"arm {arm!r} recorded BA_sep {recorded!r} does not match the value "
+                f"recomputed from its own recorded per-seed values "
+                f"({recomputed_ba_sep_by_arm[arm]!r})")
+
+    recomputed_verdict = None
+    if not problems and set(recomputed_ba_sep_by_arm) == set(ARMS):
+        recomputed_verdict = hard_verdict(recomputed_ba_sep_by_arm)
+        recorded_verdict = dict(verdict_doc.get("verdict") or {})
+        if recorded_verdict.get("verdict") != recomputed_verdict["verdict"]:
+            problems.append(
+                f"recorded verdict {recorded_verdict.get('verdict')!r} does not match "
+                f"the verdict recomputed from the recorded BA_sep values "
+                f"({recomputed_verdict['verdict']!r})")
+
+    valid = not problems
+    return {
+        "valid": valid, "problems": problems, "presence": presence,
+        "scientific_verdict": (recomputed_verdict["verdict"] if valid and recomputed_verdict
+                               else None),
+        "ba_sep_by_arm": recorded_ba_sep_by_arm if valid else {},
+        "protocol_identity": active_protocol_id if valid else None,
+        "checkpoint_binding_identity": checkpoint_binding_id if valid else None,
+        "population_plan_identity": population_plan_id if valid else None,
+        "source_package_identity": source_package_id if valid else None,
+        "c6_bank_identities": bank_identities if valid else {},
+        "checkpoints_per_arm": checkpoints_per_arm if valid else {},
+        "total_checkpoints": len(checkpoints) if valid else 0,
+        "probe_seed_values": frozen_seed_values if valid else [],
+        "target_access": 0 if valid else None,
+    }
+
+
+# ==============================================================================
+# 14. C-H4 — hard-gate preconditions only, never a fabricated bootstrap
+# ==============================================================================
+
+def c_h4_preconditions(ba_sep_by_arm: Mapping[str, float]) -> dict[str, Any]:
+    """Whether C-H4's three BASIC conditions
+    (`detector_reliability.C_H4_SUPPORT_RULE`'s `BA_sep_LLM <= ceiling AND
+    BA_sep_LLM < BA_sep_DET AND BA_sep_LLM < BA_sep_RND`) hold, computed
+    directly from already-observed `BA_sep` values.
+
+    This function NEVER computes, fits, or fabricates the bootstrap-CI,
+    validity or recipe-diversity conditions the full support rule also
+    requires — those need machinery this module does not implement, and
+    inventing numbers for them would be exactly the kind of fabricated
+    result this project's conventions refuse to produce. A `False` here
+    means C-H4 cannot be supported regardless of what a real bootstrap CI
+    would show; a `True` here means the necessary basic conditions hold but
+    is NOT itself a support claim.
+    """
+    from prism_fas.evaluation import detector_reliability
+
+    missing = [arm for arm in ARMS if arm not in ba_sep_by_arm]
+    if missing:
+        raise SyntheticRealProbeError(
+            f"c_h4_preconditions requires a BA_sep value for every arm {ARMS}; missing {missing}")
+    llm, det, rnd = (float(ba_sep_by_arm["LLM"]), float(ba_sep_by_arm["DET"]),
+                    float(ba_sep_by_arm["RND"]))
+    ceiling = detector_reliability.BA_SEP_CEILING
+    hard_gate = llm <= ceiling
+    beats_det = llm < det
+    beats_rnd = llm < rnd
+    basic_conditions_hold = hard_gate and beats_det and beats_rnd
+    return {
+        "ba_sep_llm": llm, "ba_sep_det": det, "ba_sep_rnd": rnd, "ba_ceiling": ceiling,
+        "hard_gate_llm_le_ceiling": hard_gate,
+        "llm_beats_det": beats_det, "llm_beats_rnd": beats_rnd,
+        "basic_conditions_hold": basic_conditions_hold,
+        "status": ("BASIC_CONDITIONS_HOLD_BOOTSTRAP_NOT_EVALUATED" if basic_conditions_hold
+                  else "NOT_SUPPORTED_BY_CURRENT_BA_SEP_RESULT"),
+        "bootstrap_ci_evaluated": False,
+        "validity_condition_evaluated": False,
+        "recipe_diversity_condition_evaluated": False,
+        "note": ("the bootstrap-CI, validity and recipe-diversity conditions in "
+                 "C_H4_SUPPORT_RULE are never fabricated by this function; a True "
+                 "basic_conditions_hold is necessary, not sufficient, for C-H4 support"),
+    }
+
+
 def run_scientific_probe(repo: Path, arm: str) -> dict[str, Any]:
     """Retired single-arm entry point.
 
@@ -1362,6 +1644,9 @@ def run_scientific_probe(repo: Path, arm: str) -> dict[str, Any]:
 __all__ = ["ARMS", "CHECKPOINTS_PER_ARM", "TOTAL_CHECKPOINTS", "EVIDENCE_FIELDS",
            "EVIDENCE_DIMENSION", "FORBIDDEN_EVIDENCE_FIELDS", "TRAIN_LABEL",
            "VALIDATION_LABEL", "REAL_SPOOF_CLASS", "SYNTHETIC_SPOOF_CLASS",
+           "RELIABILITY_DIR", "EXECUTION_BINDING_PATH", "POPULATION_PLAN_PATH",
+           "RESULT_PATH", "PER_SEED_PATH", "PARAMETERS_PATH",
+           "EVIDENCE_MANIFEST_PATH", "VERDICT_PATH", "RESULT_ARTIFACT_PATHS",
            "SyntheticRealProbeError", "load_protocol", "protocol_identity",
            "CheckpointBinding", "track_g_p3_rows", "resolve_checkpoint_set",
            "resolve_all_checkpoint_sets", "PopulationRecord",
@@ -1373,4 +1658,6 @@ __all__ = ["ARMS", "CHECKPOINTS_PER_ARM", "TOTAL_CHECKPOINTS", "EVIDENCE_FIELDS"
            "apply_normalization", "LBFGS_CONFIG", "L2_LAMBDA",
            "CLASSIFIER_THRESHOLD", "fit_linear_probe", "predict_probability",
            "compute_ba_sep_for_seed", "aggregate_ba_sep", "hard_verdict",
-           "preflight", "run_scientific_probe"]
+           "preflight", "result_artifact_presence",
+           "validate_existing_scientific_result", "c_h4_preconditions",
+           "run_scientific_probe"]
