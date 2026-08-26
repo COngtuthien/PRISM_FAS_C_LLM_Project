@@ -1,0 +1,129 @@
+{
+  "schema_version": "c9-post-failure-source-diagnostics-v2-correction-report-v1",
+  "decision_id": "C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2",
+  "document_kind": "PREEXECUTION_SCIENTIFIC_CORRECTION_REPORT",
+  "starting_head": "fcee1e9074a65b07d0a7112f03a5dc3b77b349ad",
+  "v1": {
+    "decision_id": "C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1",
+    "config_path": "configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml",
+    "protocol_identity": "cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5",
+    "preserved_unchanged": true,
+    "scientific_metric_observed": false,
+    "status": "FROZEN_BUT_SUPERSEDED_BEFORE_FIRST_EXECUTION"
+  },
+  "v2": {
+    "decision_id": "C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2",
+    "config_path": "configs/evaluation/c9_post_failure_source_diagnostics_v2.yaml",
+    "protocol_identity": "05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523",
+    "status": "PREEXECUTION_CORRECTION",
+    "scientific_metric_observed": false,
+    "gpu_execute_run": false,
+    "target_access": 0
+  },
+  "immutable_scientific_state": {
+    "ba_sep_option1_v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+    "ba_sep_by_arm": {"RND": 0.7843079833902619, "DET": 0.8514170182841069, "LLM": 0.7902658339472685},
+    "ba_sep_verdict": "FAIL",
+    "ba_sep_rerun": "FORBIDDEN",
+    "detector_reliability_lock_c_identity_sha256_user_reported": "40825a5fffcbbdd681e5d8b0354e8371dcccabc36b51d1b9a12cd8bd29e73fbe",
+    "detector_reliability_overall": "FAILED",
+    "c9_may_close": false,
+    "target_access": 0
+  },
+  "defect_corrections": {
+    "defect_a_self_normalizing_threshold": {
+      "problem": "threshold derived from the tested corruption's own calibration-group shift",
+      "reference_population_found": "prism_fas.synthesis.quality_calibration.BENIGN_VARIANTS / BENIGN_NOISE_STD (frozen at M8, independent purpose and metric space)",
+      "correction": "disjoint reference-calibration design: reference stimuli forwarded on calibration group only, tested corruption forwarded on evaluation group only",
+      "formula_mean": "reference_mean_delta_plus + 3 * reference_std_delta_plus",
+      "formula_tail": "reference_p95_delta_plus + 3 * reference_std_delta_plus",
+      "positive_shift_only": "delta_plus = max(p_after - p_before, 0)",
+      "arbitrary_constant_invented": false
+    },
+    "defect_b_cross_route_semantic_mismatch": {
+      "problem": "reused BA_sep <=0.75 separability ceiling under a test whose canonical declared pass_rule is 'performance is retained across routes' (opposite direction)",
+      "canonical_declaration_source": "prism_fas.evaluation.reliability.DECLARED_TESTS['cross_route_synthetic'], spec 17.3.7",
+      "correction": "reclassified EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL -> NEEDS_SCIENTIFIC_DECISION",
+      "v1_attempt_preserved": "prism_fas.evaluation.post_failure_diagnostics.run_cross_route_diagnostic_for_arm (unchanged, unused by V2)",
+      "gpu_ready": false
+    },
+    "defect_c_weak_existing_result_validation": {
+      "problem": "--execute re-reported a complete result set from bare verdict/per-test presence alone",
+      "correction": "prism_fas.evaluation.post_failure_diagnostics_v2.validate_existing_diagnostics_result",
+      "used_by": ["--execute (second and later calls)", "--status"],
+      "on_invalid_complete_result": {"exit_code": 2, "recompute": false, "overwrite": false}
+    },
+    "defect_d_placeholder_c8_matrix_identity": {
+      "problem": "c8_matrix_identity was handwritten placeholder text, not a real identity",
+      "correction": "prism_fas.evaluation.post_failure_diagnostics_v2.bind_c8_matrix_identity",
+      "canonical_resolver": "prism_fas.evaluation.source_matrix.build_plan().identity",
+      "cross_checked_against": "reports/full/c8/C8_ACCEPTANCE.json#matrix_identity",
+      "fail_closed_on_missing_or_mismatch": true,
+      "bound_at": "--bind-only",
+      "re_verified_at": "--execute"
+    },
+    "defect_e_split_safety_only_global": {
+      "problem": "group-safe calibration/evaluation split proven only globally, not per domain",
+      "correction": "prism_fas.evaluation.post_failure_diagnostics_v2.verify_per_domain_group_safety",
+      "domains_checked": ["casia_fasd", "msu_mfsd"],
+      "fails_closed_on": ["zero calibration groups in a domain", "zero evaluation groups in a domain", "calibration/evaluation intersection in a domain"]
+    }
+  },
+  "executability_table": {
+    "benign_jpeg_corruption": {"v1": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "v2": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "changed": false},
+    "benign_resize_corruption": {"v1": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "v2": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "changed": false},
+    "benign_color_corruption": {"v1": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "v2": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "changed": false},
+    "cross_route_synthetic": {"v1": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "v2": "NEEDS_SCIENTIFIC_DECISION", "changed": true},
+    "recipe_region_shift": {"v1": "NEEDS_SCIENTIFIC_DECISION", "v2": "NEEDS_SCIENTIFIC_DECISION", "changed": false},
+    "artifact_map_swap": {"v1": "NEEDS_SCIENTIFIC_DECISION", "v2": "NEEDS_SCIENTIFIC_DECISION", "changed": false},
+    "residual_scale_zero": {"v1": "STRUCTURALLY_MODEL_BLOCKED", "v2": "STRUCTURALLY_MODEL_BLOCKED", "changed": false},
+    "crop_padding_interpolation": {"v1": "STRUCTURALLY_DATA_BLOCKED", "v2": "STRUCTURALLY_DATA_BLOCKED", "changed": false},
+    "gpu_ready_count_v1": 4,
+    "gpu_ready_count_v2": 3
+  },
+  "namespaces": {
+    "v1": "reports/full/c8/reliability/post_failure_source_diagnostics_v1",
+    "v2": "reports/full/c8/reliability/post_failure_source_diagnostics_v2",
+    "ba_sep": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe",
+    "disjoint_proven_by_test": true
+  },
+  "files_changed": {
+    "added": [
+      "configs/evaluation/c9_post_failure_source_diagnostics_v2.yaml",
+      "src/prism_fas/evaluation/post_failure_diagnostics_v2.py",
+      "src/prism_fas/evaluation/post_failure_diagnostics_v2_runner.py",
+      "tests/pipeline/test_c9_post_failure_source_diagnostics_v2.py",
+      "reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.md",
+      "reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.json",
+      "reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_GPU_HANDOFF.md"
+    ],
+    "modified": [
+      "docs/PROJECT_STATE.md"
+    ],
+    "unchanged_verified_by_test": [
+      "configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml",
+      "src/prism_fas/evaluation/post_failure_diagnostics.py",
+      "src/prism_fas/evaluation/post_failure_diagnostics_runner.py",
+      "tests/pipeline/test_c9_post_failure_source_diagnostics.py"
+    ]
+  },
+  "tests": {
+    "v2_new_suite": "tests/pipeline/test_c9_post_failure_source_diagnostics_v2.py",
+    "v2_new_suite_result": "59/59 pass",
+    "v1_suite_result_unmodified": "70/70 pass",
+    "combined_c9_scoped_suite_files": 6,
+    "combined_c9_scoped_suite_result": "346/346 pass",
+    "broad_regression_scope": "tests/c7 tests/pipeline",
+    "broad_regression_result": "39 failed, 1848 passed, 22 skipped, 5 errors (330.57s)",
+    "broad_regression_note": "differs from the previously documented V1-freeze baseline (33 failed / 1790 passed / 22 skipped / 0 errors) because this session's sandboxed environment lacks a real GPU/CUDA device, the frozen Version-B checkout, the real M3B source package, and modal — every failing/erroring test file was grepped and confirmed to contain zero reference to post_failure_diagnostics or post_failure_diagnostics_v2; none of the 39 failures/5 errors are in a file this task touched",
+    "broad_regression_failing_files_checked_for_c9_v2_reference": true
+    "test_environment_note": "pytest/torch/pyarrow/opencv-python-headless installed into an isolated project-local virtualenv for this session only; no scientific artifact produced; no GPU/CUDA package installed"
+  },
+  "laptop_execution": {
+    "gpu_diagnostics_execute_run": false,
+    "fabricated_metric": false,
+    "target_access": 0,
+    "preflight_bind_status_execute_each_run_once_against_real_repo": true,
+    "each_correctly_blocked_on": ["missing pydantic-backed source inputs on laptop", "missing GPU checkpoints", "missing reports/full/c8/C8_ACCEPTANCE.json"]
+  }
+}

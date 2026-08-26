@@ -28,8 +28,64 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_PROTOCOL_FREEZE
+current_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION
 current_substage: >-
+  PRE-EXECUTION SCIENTIFIC CORRECTION of C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1.
+  V1 (`configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml`, identity
+  `cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5`) was
+  NEVER scientifically executed
+  (`no_diagnostic_metric_observed_before_freeze: true`; every mode of its
+  runner, run once against this real repo, correctly reported an unresolved
+  precondition and wrote nothing) — so this is a pre-execution audit
+  correction, not a revision of an observed result. V1 is preserved
+  byte-for-byte, unchanged, as historical pre-execution design evidence
+  (confirmed by `git diff --stat HEAD` and by protocol-identity regression);
+  it is never edited and V2 never writes into its artifact namespace. A
+  pre-execution scientific audit found five defects in V1's design, all
+  corrected in a new, separately identified protocol,
+  `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2`
+  (`configs/evaluation/c9_post_failure_source_diagnostics_v2.yaml`, identity
+  `05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523`):
+  (A) the benign-corruption threshold was self-normalizing (derived from the
+  tested corruption's own calibration-group shift) — corrected to a disjoint
+  reference-calibration design using the pre-existing, independently-frozen
+  M8 benign population (`synthesis.quality_calibration.BENIGN_VARIANTS`/
+  `BENIGN_NOISE_STD`), forwarded on the calibration group only, scored
+  against `tau_mean`/`tau_tail` derived from it, while the tested corruption
+  is forwarded only on the evaluation group; (B) `cross_route_synthetic`
+  reused the BA_sep separability ceiling (LOW is good) under a test whose
+  canonical declared pass_rule is "performance is retained across routes"
+  (HIGH is good) — reclassified `NEEDS_SCIENTIFIC_DECISION`, V1's attempt
+  preserved unused; (C) an existing complete result set was validated too
+  weakly before re-reporting — `validate_existing_diagnostics_result` is now
+  canonical and gates every second-or-later `--execute` and every `--status`
+  call, blocking (exit 2) rather than recomputing or overwriting an invalid
+  complete result; (D) the C8 matrix identity was handwritten placeholder
+  text — now the real `source_matrix.build_plan().identity`, cross-checked
+  against `C8_ACCEPTANCE.json`, fail-closed on mismatch or absence; (E) the
+  group-safe calibration/evaluation split was proven only globally — now
+  proven per domain (`casia_fasd`, `msu_mfsd` independently). Executable-test
+  count DROPS from V1's 4 to V2's 3 (`benign_jpeg_corruption`/
+  `benign_resize_corruption`/`benign_color_corruption` remain executable;
+  `cross_route_synthetic` no longer is) — the correction removes a test from
+  the executable set rather than inventing a metric to keep it executable.
+  `python -m prism_fas.evaluation.post_failure_diagnostics_v2_runner
+  {--preflight-only|--bind-only|--status|--execute}` mirrors V1's runner
+  contract on its own separate namespace
+  (`reports/full/c8/reliability/post_failure_source_diagnostics_v2/`, proven
+  by regression to never touch V1's namespace, `.../synthetic_vs_real_spoof_probe/`,
+  or `DETECTOR_RELIABILITY_LOCK_C.json`). NOTHING WAS RUN FOR REAL:
+  `--preflight-only`, `--bind-only`, `--status` and `--execute` were each run
+  once against this real repo on this laptop (no CUDA, no M3B package, no
+  `C8_ACCEPTANCE.json`) and each correctly reported an unresolved
+  precondition, exit 2, writing nothing. `synthetic_vs_real_spoof_probe`
+  remains permanently FAILED; `DETECTOR_RELIABILITY_LOCK_C` remains
+  `overall=FAILED`, `c9_may_close=false`; C9 remains
+  `BLOCKED_BY_DETECTOR_RELIABILITY_FAILURE`. `target_access` has been 0
+  throughout. See `stage_table.c9.post_failure_source_diagnostics_v2` below
+  for full detail and `stage_table.c9.post_failure_source_diagnostics_v1`
+  for the (unchanged, superseded-before-execution) prior state.
+_superseded_current_substage_v1: >-
   SUPERSEDES the substages below. On the GPU host, C4, C5, C6, C7 and C8 are
   SCIENTIFIC CLOSED. `synthetic_vs_real_spoof_probe` has scientifically FAILED
   under `C9_DETECTOR_BA_SEP_OPTION1_V2` (BA_sep_RND=0.7843079833902619,
@@ -93,7 +149,7 @@ current_substage: >-
   post-failure EXPLORATORY TARGET protocol is explicitly NOT started —
   deferred to a separate, future task, only after these diagnostics are
   observed and frozen. target_access has been 0 throughout.
-previous_milestone: C9_BA_SEP_OPTION1_V2_SCIENTIFIC_FAILURE_CLOSURE
+previous_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_PROTOCOL_FREEZE
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8, ran the real BA_sep --execute
@@ -5526,16 +5582,108 @@ c7_scientific_closure_reconciliation:
           new_file: tests/pipeline/test_c9_post_failure_source_diagnostics.py   # 60 passed
           all_c9_scoped_tests_total: 277
           broad_regression_tests_c7_and_pipeline: {failed: 33, passed: 1790, skipped: 22, baseline_unchanged: true}
+        status: FROZEN_BUT_SUPERSEDED_BEFORE_FIRST_EXECUTION
+        superseded_reason: PREEXECUTION_SCIENTIFIC_AUDIT_FOUND_SEMANTIC_ACCEPTANCE_DEFECTS
+        superseded_by: post_failure_source_diagnostics_v2 (below)
+        v1_scientific_metric_observed: false
+        v1_preserved_byte_for_byte: true   # config, module and runner all git-diff-clean vs HEAD
+      post_failure_source_diagnostics_v2:
+        # PRE-EXECUTION SCIENTIFIC CORRECTION of V1, found and applied before
+        # any GPU --execute ever ran (V1's scientific metric was never
+        # observed). V1 is preserved unchanged as historical pre-execution
+        # design evidence and is NEVER edited; V2 is a separately versioned,
+        # separately namespaced protocol.
+        status: PREEXECUTION_CORRECTION
+        config: configs/evaluation/c9_post_failure_source_diagnostics_v2.yaml
+        protocol_identity: 05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523
+        supersedes_v1_identity: cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5
+        implementation: src/prism_fas/evaluation/post_failure_diagnostics_v2.py
+        runner: src/prism_fas/evaluation/post_failure_diagnostics_v2_runner.py
+        cli: python -m prism_fas.evaluation.post_failure_diagnostics_v2_runner --repo . {--preflight-only|--bind-only|--status|--execute}
+        result_namespace: reports/full/c8/reliability/post_failure_source_diagnostics_v2/   # NEVER
+                          # the v1 namespace, synthetic_vs_real_spoof_probe/, or DETECTOR_RELIABILITY_LOCK_C.json
+        defect_corrections:
+          defect_a_self_normalizing_threshold: >-
+            corrected to a disjoint reference-calibration design: the frozen,
+            independent M8 benign population
+            (synthesis.quality_calibration.BENIGN_VARIANTS/BENIGN_NOISE_STD)
+            is forwarded on the CALIBRATION group only to derive tau_mean/
+            tau_tail; the tested corruption is forwarded on the EVALUATION
+            group only and scored against that fixed tolerance; delta_plus =
+            max(p_after - p_before, 0); no arbitrary constant invented.
+          defect_b_cross_route_semantic_mismatch: >-
+            cross_route_synthetic reclassified EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
+            -> NEEDS_SCIENTIFIC_DECISION: its canonical declared pass_rule
+            ("performance is retained across routes",
+            reliability.DECLARED_TESTS) is the opposite direction from the
+            BA_sep separability ceiling V1 reused for it; V1's attempt is
+            preserved unchanged and unused by V2.
+          defect_c_weak_existing_result_validation: >-
+            post_failure_diagnostics_v2.validate_existing_diagnostics_result
+            now gates every second-or-later --execute and every --status
+            call; a complete-but-invalid result set blocks (exit 2) rather
+            than being recomputed or overwritten.
+          defect_d_placeholder_c8_matrix_identity: >-
+            bind_c8_matrix_identity binds the real
+            source_matrix.build_plan().identity, cross-checked against
+            C8_ACCEPTANCE.json#matrix_identity, fail-closed on mismatch or
+            absence, bound at --bind-only and re-verified at --execute.
+          defect_e_split_safety_only_global: >-
+            verify_per_domain_group_safety fails closed unless BOTH
+            casia_fasd and msu_mfsd independently have non-empty, non-
+            overlapping calibration/evaluation group sets.
+        re_audited_executability:
+          benign_jpeg_corruption: {classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL, gpu_ready: true}
+          benign_resize_corruption: {classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL, gpu_ready: true}
+          benign_color_corruption: {classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL, gpu_ready: true}
+          cross_route_synthetic: {classification: NEEDS_SCIENTIFIC_DECISION, gpu_ready: false,
+            note: "Defect B: canonical declared meaning is performance retention, not separability; V1's BA_sep-ceiling reuse risked reversing it"}
+          recipe_region_shift: {classification: NEEDS_SCIENTIFIC_DECISION, gpu_ready: false,
+            note: "unchanged from V1's re-audit"}
+          artifact_map_swap: {classification: NEEDS_SCIENTIFIC_DECISION, gpu_ready: false,
+            note: "unchanged from V1's re-audit"}
+          residual_scale_zero: {classification: STRUCTURALLY_MODEL_BLOCKED, gpu_ready: false,
+            note: "unchanged from V1's re-audit"}
+          crop_padding_interpolation: {classification: STRUCTURALLY_DATA_BLOCKED, gpu_ready: false,
+            note: "unchanged from V1's re-audit"}
+        gpu_ready_count: 3   # down from V1's 4 — Defect B correction REMOVES a test
+                             # from the executable set rather than inventing a metric
+                             # to keep it executable
+        benign_corruption_threshold: "reference_mean_delta_plus + 3*reference_std_delta_plus (tau_mean) AND reference_p95_delta_plus + 3*reference_std_delta_plus (tau_tail), both required; reference = frozen M8 BENIGN_VARIANTS/BENIGN_NOISE_STD on the calibration group only, disjoint from the tested corruption"
+        cross_route_reuses_ba_sep_ceiling: false   # Defect B: no longer executed under this name
+        checkpoint_policy_identical_to_ba_sep: true   # 5/arm, 15 total, same seeds, unchanged
+        c9_may_close_hard_coded_false_in_every_artifact: true
+        runner_dry_run_on_this_laptop:
+          preflight_only: {exit_code: 2, target_access: 0, blocked_on: "missing pydantic-backed source inputs; missing GPU checkpoints; missing reports/full/c8/C8_ACCEPTANCE.json"}
+          bind_only: {exit_code: 2, artifacts_written: false, reason: not attempted — preflight already blocked}
+          status: {exit_code: 2, diagnostics_result_available: false}
+          execute: {exit_code: 2, executed: false, reason: no diagnostics binding on disk}
+        real_diagnostic_value_computed: false
+        ba_sep_artifacts_untouched_confirmed_by_regression: true
+        v1_namespace_untouched_confirmed_by_regression: true
+        record: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.md
+        record_json: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.json
+        gpu_handoff: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_GPU_HANDOFF.md
+        tests:
+          new_file: tests/pipeline/test_c9_post_failure_source_diagnostics_v2.py   # 59 passed
+          v1_suite_rerun_unmodified: 70 passed   # proof V1's observable behavior is untouched
+          all_c9_scoped_tests_total: 346
       still_unresolved:
         - the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS (residual_scale_zero,
           recipe_region_shift, artifact_map_swap, cross_route_synthetic,
           benign_jpeg_corruption, benign_resize_corruption, benign_color_corruption,
-          crop_padding_interpolation) — 4 now EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
-          under post_failure_source_diagnostics_v1 (not yet run), 2 NEEDS_SCIENTIFIC_DECISION,
-          1 STRUCTURALLY_MODEL_BLOCKED, 1 STRUCTURALLY_DATA_BLOCKED
+          crop_padding_interpolation) — under the CURRENT (V2) protocol, 3 now
+          EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL (the three benign-corruption
+          tests; not yet run), 3 NEEDS_SCIENTIFIC_DECISION (recipe_region_shift,
+          artifact_map_swap, cross_route_synthetic — the last reclassified
+          from V1's EXECUTABLE by the Defect B correction), 1
+          STRUCTURALLY_MODEL_BLOCKED, 1 STRUCTURALLY_DATA_BLOCKED
         - crop_padding_interpolation's structural data-block (not reclassified)
-        - GPU execution of post_failure_source_diagnostics_v1's 4 executable tests
-          (protocol frozen, implementation ready, never run — see GPU handoff doc)
+        - GPU execution of post_failure_source_diagnostics_v2's 3 executable tests
+          (protocol frozen, implementation ready, never run — see V2 GPU handoff doc)
+        - cross_route_synthetic, recipe_region_shift, artifact_map_swap remain
+          NEEDS_SCIENTIFIC_DECISION pending a normative audit or explicit user
+          decision that freezes a faithful metric + threshold for each
       resolved:
         - synthetic_vs_real_spoof_probe = FAILED (scientifically run, observed,
           user-reported; barrier registration also user-reported complete —
@@ -5606,8 +5754,11 @@ c7_scientific_closure_reconciliation:
     inference_parity_fix_record: reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.md   # device/CUDA/batching parity
     scientific_failure_closure_record: reports/readiness/C9_BA_SEP_OPTION1_V2_SCIENTIFIC_FAILURE_CLOSURE.md   # the observed FAIL
     post_failure_decision_dossier: reports/readiness/C9_DETECTOR_RELIABILITY_POST_BA_FAILURE_DECISION_DOSSIER.md
-    post_failure_source_diagnostics_v1_record: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_PROTOCOL_FREEZE.md
-    post_failure_source_diagnostics_v1_gpu_handoff: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_GPU_HANDOFF.md
+    post_failure_source_diagnostics_v1_record: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_PROTOCOL_FREEZE.md   # historical, superseded before execution
+    post_failure_source_diagnostics_v1_gpu_handoff: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_GPU_HANDOFF.md   # historical, superseded before execution
+    post_failure_source_diagnostics_v2_record: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.md   # current
+    post_failure_source_diagnostics_v2_record_json: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION.json
+    post_failure_source_diagnostics_v2_gpu_handoff: reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_GPU_HANDOFF.md   # current
     no_ba_sep_number_produced: false   # RESOLVED: synthetic_vs_real_spoof_probe = FAILED, observed
     no_fake_or_hardcoded_pass_lock_created: true
 
@@ -5620,27 +5771,39 @@ c7_scientific_closure_reconciliation:
     (`identity_sha256 = 40825a5fffcbbdd681e5d8b0354e8371dcccabc36b51d1b9a12cd8bd29e73fbe`,
     `overall=FAILED`, `c9_may_close=false`) — see
     `stage_table.c9.ba_sep_option1_v2_gpu_registration`; this laptop has not
-    independently verified those bytes. This milestone froze
-    `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1`
-    (`configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml`,
-    identity `cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5`)
-    — bounded, source-only, mechanistic diagnostics that CANNOT reopen C9,
+    independently verified those bytes. This milestone found V1
+    (`configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml`, identity
+    `cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5`, NEVER
+    scientifically executed) scientifically defective before any GPU run and
+    froze a corrected `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2`
+    (`configs/evaluation/c9_post_failure_source_diagnostics_v2.yaml`, identity
+    `05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523`) —
+    bounded, source-only, mechanistic diagnostics that CANNOT reopen C9,
     change BA_sep, or make the barrier PASS. The next authorized action, on
     the GPU host, is the sequence in
-    `reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_GPU_HANDOFF.md`:
-    `--preflight-only`, then `--bind-only` (twice, to prove idempotence),
-    then `--execute` EXACTLY ONCE for the 4
-    `EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL` tests
+    `reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_GPU_HANDOFF.md`
+    (NOT the V1 handoff, which is now historical): safe `git fetch` +
+    `merge --ff-only` (never `reset --hard`/`clean`/`add -A`, since the GPU
+    tree intentionally holds modified/untracked scientific artifacts), a
+    protected-state checksum snapshot, `--preflight-only`, then `--bind-only`
+    (twice, to prove idempotence — this also binds and cross-checks the real
+    `c8_matrix_identity` against `C8_ACCEPTANCE.json`), then `--execute`
+    EXACTLY ONCE for the 3 `EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL` tests
     (`benign_jpeg_corruption`, `benign_resize_corruption`,
-    `benign_color_corruption`, `cross_route_synthetic`), then re-running
-    `--execute` and `--status` to prove no-rerun, then byte-comparing the
-    BA_sep artifacts and `DETECTOR_RELIABILITY_LOCK_C.json` against their
-    pre-diagnostics checksums to prove neither moved. The remaining 4
-    required tests stay `NEEDS_SCIENTIFIC_DECISION` (`recipe_region_shift`,
-    `artifact_map_swap`) / `STRUCTURALLY_MODEL_BLOCKED`
-    (`residual_scale_zero`) / `STRUCTURALLY_DATA_BLOCKED`
-    (`crop_padding_interpolation`) — see
-    `stage_table.c9.post_failure_source_diagnostics_v1.re_audited_executability`.
+    `benign_color_corruption` — `cross_route_synthetic` is no longer among
+    them, see Defect B below), then re-running `--execute` and `--status`
+    (both now gated by `validate_existing_diagnostics_result`) to prove
+    no-rerun, then byte-comparing the BA_sep artifacts,
+    `DETECTOR_RELIABILITY_LOCK_C.json`, `C8_ACCEPTANCE.json` and V1's
+    (unused) namespace against their pre-diagnostics checksums to prove none
+    moved. The remaining 5 required tests stay `NEEDS_SCIENTIFIC_DECISION`
+    (`recipe_region_shift`, `artifact_map_swap`, `cross_route_synthetic` —
+    the last reclassified from V1's `EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL`
+    because its canonical declared meaning, "performance is retained across
+    routes", is the opposite of the BA_sep separability ceiling V1 reused
+    for it) / `STRUCTURALLY_MODEL_BLOCKED` (`residual_scale_zero`) /
+    `STRUCTURALLY_DATA_BLOCKED` (`crop_padding_interpolation`) — see
+    `stage_table.c9.post_failure_source_diagnostics_v2.re_audited_executability`.
     UNDER THE CURRENT BA_sep PROTOCOL VERSION, NO DIAGNOSTIC OUTCOME CAN
     REOPEN C9: `barrier_state`'s `overall=FAILED` is sticky once one
     required test has genuinely failed, and every diagnostics artifact
@@ -5656,5 +5819,5 @@ c7_scientific_closure_reconciliation:
     diagnostics are observed and frozen. Do not run C9, C10, C11, C12 or
     C13, and do not access target, until then.
 
-last_updated_utc: 2026-08-26   # C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1 protocol freeze + implementation + GPU handoff (bounded, source-only, cannot reopen C9); GPU BA_sep failed-barrier registration now user-reported complete (not laptop-verified)
+last_updated_utc: 2026-08-26   # C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2 pre-execution scientific correction of V1 (five defects: self-normalizing benign threshold, cross_route_synthetic semantic mismatch, weak existing-result validation, placeholder C8 matrix identity, split safety proven only globally) — V1 preserved byte-for-byte, unchanged, as historical pre-execution evidence; nothing scientifically executed on the GPU by this task; target_access=0 throughout
 ```

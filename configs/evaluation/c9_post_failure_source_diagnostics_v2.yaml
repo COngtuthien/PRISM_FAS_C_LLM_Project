@@ -1,0 +1,428 @@
+# C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2
+#
+# PRE-EXECUTION SCIENTIFIC CORRECTION of
+# C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1
+# (configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml, identity
+# cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5).
+#
+# V1 was NEVER scientifically executed (`no_diagnostic_metric_observed_before_freeze:
+# true`, and every mode of its runner, run once against this real repo, correctly
+# reported an unresolved precondition and wrote nothing). This is therefore a
+# pre-execution audit correction, not a revision of an observed result. V1 is
+# preserved byte-for-byte as historical pre-execution design evidence; it is
+# NEVER edited, and this file NEVER writes into V1's artifact namespace.
+#
+# NOT a BA_sep revision. NOT a reliability-barrier rescue protocol. NOT a C9
+# pass protocol. NOT a target protocol. `synthetic_vs_real_spoof_probe` has
+# ALREADY, PERMANENTLY, FAILED under `C9_DETECTOR_BA_SEP_OPTION1_V2` (protocol
+# identity 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8;
+# observed BA_sep_RND=0.7843079833902619, BA_sep_DET=0.8514170182841069,
+# BA_sep_LLM=0.7902658339472685, all over the 0.75 ceiling). Nothing in this
+# protocol, its implementation, or its execution may change that, rerun it, or
+# make DETECTOR_RELIABILITY_LOCK_C PASS.
+
+schema_version: c9-post-failure-source-diagnostics-v2
+decision_id: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2
+status: FROZEN_NOT_RUN
+document_kind: POST_FAILURE_SOURCE_DIAGNOSTICS_NOT_A_BA_SEP_REVISION
+frozen_on: "2026-08-26"
+approved_by: explicit user direction (pre-execution scientific correction of V1)
+no_diagnostic_metric_observed_before_freeze: true
+
+supersedes:
+  decision_id: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1
+  protocol_identity: cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5
+  reason: PREEXECUTION_SCIENTIFIC_AUDIT_FOUND_SEMANTIC_ACCEPTANCE_DEFECTS
+  v1_scientific_metric_observed: false
+  v1_config_path: configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml
+  v1_preserved_unchanged: true
+  scientific_requests_before_supersession: 0
+
+# --- the immutable scientific state this protocol may never touch --------
+preserved_scientific_state:
+  ba_sep_option1_v2_protocol_identity: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+  ba_sep_checkpoint_binding_identity: fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0
+  ba_sep_population_plan_identity: 90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1
+  ba_sep_source_package_identity: 08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9
+  ba_sep_by_arm: {RND: 0.7843079833902619, DET: 0.8514170182841069, LLM: 0.7902658339472685}
+  ba_sep_verdict: FAIL
+  ba_sep_rerun: FORBIDDEN
+  detector_reliability_lock_c_identity_sha256_user_reported: 40825a5fffcbbdd681e5d8b0354e8371dcccabc36b51d1b9a12cd8bd29e73fbe
+  detector_reliability_overall: FAILED
+  c9_may_close: false
+  can_this_protocol_change_the_above: false
+  can_this_protocol_reopen_c9: false
+  can_this_protocol_authorize_target_access: false
+target_access: 0
+target_firewall:
+  forbidden_populations: [siw_mv2, siw_mv2_v2, target_test, prism_target_eval_v2,
+                          target_feature_root, target_label_root]
+  target_access: 0
+
+# --- checkpoint policy (shared by every executable test below, unchanged from V1) ---
+checkpoint_policy:
+  family: P3-ready Track-G training-seed checkpoints, per arm, exactly as BA_sep
+          Option-1 V2 bound them
+  arms: [RND, DET, LLM]
+  seeds_per_arm: [20260806, 20260807, 20260808, 20260809, 20260810]
+  checkpoints_per_arm: 5
+  total_checkpoints: 15
+  resolver: prism_fas.evaluation.synthetic_real_probe.resolve_checkpoint_set
+  construction: prism_fas.evaluation.synthetic_real_probe.construct_row_trainer
+                (the exact C8 row-construction path; reused, never duplicated)
+  no_best_seed_selection: true
+  no_favorable_seed_averaging_only: true
+  all_checkpoint_hashes_bound_before_execution: true
+  decision_logit_name_required: global_logit_G
+
+# --- C8 matrix identity binding (Defect D correction) ----------------------
+c8_matrix_identity_binding:
+  resolver: prism_fas.evaluation.source_matrix.build_plan().identity
+  cross_check_against: reports/full/c8/C8_ACCEPTANCE.json#matrix_identity
+  fail_closed_on_missing_acceptance_file: true
+  fail_closed_on_mismatch: true
+  bound_at: bind-only
+  note: >-
+    V1 recorded a handwritten placeholder string
+    ("see reports/full/c8/C8_ACCEPTANCE.json ...") instead of a real identity.
+    V2 binds the actual canonical `SourceMatrixPlan().identity` (the same value
+    C8's own acceptance gate already writes as `matrix_identity`) and refuses to
+    bind if the two disagree or if C8_ACCEPTANCE.json is absent.
+
+# --- existing-result validation (Defect C correction) -----------------------
+existing_result_validation:
+  validator: prism_fas.evaluation.post_failure_diagnostics_v2.validate_existing_diagnostics_result
+  used_by: [--execute (second and later calls), --status]
+  never_recomputes: [forward_pass, probe_fit, corruption_perturbation, metric_from_raw_predictions]
+  recomputes_only: [overall_diagnostics_verdict_from_recorded_per_test_statuses,
+                    population_identity_bytes, checkpoint_identity_bytes]
+  on_invalid_complete_result: {exit_code: 2, recompute: false, overwrite: false}
+  invariants_checked:
+    - all_four_result_artifacts_present_and_parse
+    - all_three_bindings_present_and_parse
+    - bound_protocol_identity_equals_active_v2_protocol_identity
+    - checkpoint_hashes_cardinality_seeds_match_source_package_and_c6_bank_identities
+    - population_identities_recomputable_and_byte_equal
+    - executable_and_blocked_test_sets_match_the_frozen_v2_protocol
+    - recorded_method_parameters_match_v2_protocol_formulas
+    - per_test_verdict_consistent_with_its_own_recorded_per_arm_verdicts
+    - overall_verdict_recomputable_from_recorded_per_test_statuses_only
+    - c9_may_close_is_false_everywhere
+    - ba_sep_observed_verdict_is_fail_everywhere
+    - target_access_is_zero_everywhere
+    - detector_reliability_lock_c_overall_is_still_failed
+
+# ============================================================================
+# EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL — the three benign-corruption tests
+# ============================================================================
+#
+# Population and split design unchanged from V1 (source_dev LIVE only, both
+# domains, group-safe 50/50 split on source_record_id, namespace
+# "c9-post-failure-diagnostics-v1" — the SPLIT RULE is reused verbatim so the
+# calibration/evaluation partition of source_dev LIVE is identical to V1's;
+# only the THRESHOLD DERIVATION changes (Defect A correction below).
+#
+# Defect A correction — disjoint reference-calibration design:
+#
+#   REFERENCE BENIGN CONTROLS (frozen independently at M8/C6, NEVER the
+#   corruption under test)
+#       -> forwarded on the CALIBRATION group only
+#       -> source-only calibration tolerance (tau_mean, tau_tail)
+#       -> held-out JPEG/resize/color evaluation, forwarded on the
+#          EVALUATION group only, scored against the fixed tau
+#
+# The tested corruption NEVER contributes to its own threshold: the
+# calibration group is forwarded ONLY through the pre-existing REFERENCE
+# benign perturbations (never JPEG/resize/color), and the evaluation group is
+# forwarded ONLY through the corruption under test (never the reference
+# perturbations). Disjoint by sample-group (calibration vs evaluation) AND by
+# perturbation family (reference vs tested corruption).
+
+benign_corruption_shared:
+  population: source_dev LIVE only, both domains (casia_fasd, msu_mfsd)
+  stable_grouping_identity: source_record_id
+  split_hash_namespace: c9-post-failure-diagnostics-v1   # unchanged split rule
+  split_seed: 20260806
+  split_fraction: 0.5
+  evidence_fields: [global_logit_G, p_global]
+  metric_field: p_global
+  positive_shift_only: true   # delta_plus = max(p_after - p_before, 0)
+  degenerate_group_rule: FAIL_CLOSED
+  per_arm_required: true
+  per_domain_group_safety_required: true   # Defect E correction
+  per_domain_group_safety_domains: [casia_fasd, msu_mfsd]
+
+  reference_benign_controls:
+    frozen_at: M8 quality-gate calibration (§11.4), pre-existing and
+               independent of this diagnostics protocol
+    source_module: prism_fas.synthesis.quality_calibration
+    reused_function: prism_fas.synthesis.quality_calibration.benign_variant
+                     (verbatim reuse; never a second perturbation
+                     implementation)
+    variants: [brightness_098, brightness_102, contrast_098, contrast_102]
+    variant_definitions:
+      brightness_098: {brightness: 0.98, contrast: 1.0}
+      brightness_102: {brightness: 1.02, contrast: 1.0}
+      contrast_098: {brightness: 1.0, contrast: 0.98}
+      contrast_102: {brightness: 1.0, contrast: 1.02}
+    gaussian_noise_std: 0.002   # quality_calibration.BENIGN_NOISE_STD, frozen
+    applied_to: calibration group only (never evaluation, never the tested
+               corruption's own population)
+    measure: delta_plus per (calibration sample, reference variant), pooled
+            across the 4 variants, averaged over the arm's 5 checkpoints
+            exactly as the tested corruption's own evidence is
+    independence_rationale: >-
+      brightness/contrast/Gaussian-noise perturbations were frozen
+      independently at M8 for synthesis quality-gate calibration
+      (tau_id/tau_lm/tau_parse), computed on a disjoint metric space
+      (identity cosine, landmark NME, parsing dice) over source_train, long
+      before this diagnostics protocol existed and for an unrelated purpose.
+      Reusing their exact, already-frozen pixel-level transform as the
+      REFERENCE stimulus for this protocol's OWN detector-p_global-shift
+      measurement introduces no new invented perturbation parameter; only the
+      measurement (forwarding through the C9 diagnostic checkpoints) is new,
+      and that measurement is identical in kind to what the tested corruption
+      itself already receives.
+
+  threshold_derivation:
+    statistic_source: pooled reference delta_plus values from the
+                      CALIBRATION group only (never the evaluation group,
+                      never the tested corruption)
+    reference_mean: mean(reference_delta_plus)
+    reference_std: std(reference_delta_plus, ddof=0)   # population std
+    reference_p95: percentile(reference_delta_plus, 95)
+    tau_mean: reference_mean + 3 * reference_std
+    tau_tail: reference_p95 + 3 * reference_std   # same +3*std margin,
+                                                  # applied to the reference's
+                                                  # own tail statistic rather
+                                                  # than inventing a new
+                                                  # numerical constant
+    formula_mean: "reference_mean_delta_plus + 3 * reference_std_delta_plus"
+    formula_tail: "reference_p95_delta_plus + 3 * reference_std_delta_plus"
+  pass_rule: >-
+    evaluation_group.mean(delta_plus) <= tau_mean AND
+    evaluation_group.p95(delta_plus) <= tau_tail   (both required; ties PASS
+    on each, matching the project's existing <= convention)
+  protects_against: [systematic_mean_increase, large_upper_tail_increase]
+  ties_pass: true
+
+tests:
+  benign_jpeg_corruption:
+    classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
+    gpu_ready: true
+    spec_reference: "17.3.2"
+    scientific_question: >-
+      Does a benign, content-preserving JPEG re-encode of a genuinely live
+      frame shift the detector's spoof probability upward BEYOND the range of
+      natural shift already observed under known-benign M8 reference
+      perturbations (brightness/contrast/Gaussian noise), indicating the
+      detector reads compression artefacts rather than attack physics?
+    perturbation:
+      operation: JPEG_RE_ENCODE
+      backend: PIL.Image (Pillow)
+      encode_format: JPEG
+      quality: 50
+      subsampling: "4:2:0 (PIL default at this quality)"
+      color_order_in: RGB
+      decode_after_encode: true
+      output_dtype: float32, [0,1] range, identical post-decode normalization
+                    to the frozen M9 loader
+      deterministic: true
+      implementation: prism_fas.evaluation.post_failure_diagnostics.jpeg_corrupt
+                       (reused verbatim from V1; never reimplemented)
+    reported_fields: [samples, mean_delta_plus, p95_delta_plus, tau_mean, tau_tail]
+  benign_resize_corruption:
+    classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
+    gpu_ready: true
+    spec_reference: "17.3.2"
+    scientific_question: >-
+      Does a benign downscale/upscale resampling chain on a live frame shift
+      the detector's spoof probability upward BEYOND the reference benign
+      variability, indicating the detector reads resampling artefacts rather
+      than attack physics?
+    perturbation:
+      operation: DOWNSCALE_THEN_UPSCALE
+      backend: PIL.Image (Pillow)
+      downscale_factor: 0.5
+      interpolation_down: BILINEAR
+      interpolation_up: BILINEAR
+      output_size: [224, 224]
+      aspect_ratio_changed: false
+      deterministic: true
+      implementation: prism_fas.evaluation.post_failure_diagnostics.resize_corrupt
+                       (reused verbatim from V1; never reimplemented)
+    reported_fields: [samples, mean_delta_plus, p95_delta_plus, tau_mean, tau_tail]
+  benign_color_corruption:
+    classification: EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
+    gpu_ready: true
+    spec_reference: "17.3.2"
+    scientific_question: >-
+      Does a benign per-channel color gain shift on a live frame shift the
+      detector's spoof probability upward BEYOND the reference benign
+      variability, indicating the detector reads color statistics rather than
+      attack physics?
+    perturbation:
+      operation: RGB_CHANNEL_GAIN
+      color_space: RGB, [0,1] range (post-loader normalization)
+      gain: {R: 1.15, G: 1.00, B: 0.90}
+      clipping: "[0, 1], applied after gain"
+      deterministic: true
+      implementation: prism_fas.evaluation.post_failure_diagnostics.color_corrupt
+                       (reused verbatim from V1; never reimplemented)
+    reported_fields: [samples, mean_delta_plus, p95_delta_plus, tau_mean, tau_tail]
+
+# ============================================================================
+# NEEDS_SCIENTIFIC_DECISION — cross_route_synthetic (Defect B correction)
+# ============================================================================
+  cross_route_synthetic:
+    classification: NEEDS_SCIENTIFIC_DECISION
+    gpu_ready: false
+    spec_reference: "17.3.7"
+    blocked_reason: >-
+      V1 reused the frozen BA_sep <= 0.75 real-vs-synthetic SEPARABILITY
+      ceiling (where LOW balanced accuracy is the desired outcome) to score a
+      test it labeled "cross-route performance retention". The canonical
+      declared definition of this test
+      (prism_fas.evaluation.reliability.DECLARED_TESTS["cross_route_synthetic"],
+      spec §17.3.7) states: population "train on one synthetic route,
+      evaluate on the other"; measures "cross-route generalization of the
+      synthetic evidence"; pass_rule "performance is retained across routes".
+      That is a RETENTION question (does detection/generalization
+      PERFORMANCE stay high across routes) — the opposite scientific
+      direction from a SEPARABILITY ceiling (where staying LOW is good). No
+      already-frozen, faithful definition of "performance" (which metric:
+      spoof-detection accuracy? AUC? something else), "within-route
+      reference" (what performance level counts as "retained" relative to),
+      or a numeric acceptance threshold for retention exists anywhere in this
+      repository or spec section 17.3.7. Reusing the BA_sep ceiling under the
+      "cross_route_synthetic" name therefore risks silently reversing the
+      test's own declared scientific meaning. V1's separability-probe
+      attempt is preserved as historical evidence
+      (`prism_fas.evaluation.post_failure_diagnostics.resolve_synthetic_population_by_route`,
+      `cross_route_ba`, `run_cross_route_diagnostic_for_arm` — unchanged,
+      unused by V2) but is not executed under this name. Per §5.B of the
+      correction task, reusing a frozen threshold is legitimate only when its
+      scientific meaning is unchanged by the substitution; here it is not.
+    audit_performed: true
+    reaudited_this_task: true
+    v1_attempt_preserved_as: >-
+      prism_fas.evaluation.post_failure_diagnostics.run_cross_route_diagnostic_for_arm
+      (unchanged; not called by V2's runner)
+    would_become_executable_if: >-
+      a normative audit or explicit user decision freezes: (1) which
+      performance metric "retention" measures, (2) the within-route reference
+      value performance is retained RELATIVE TO, and (3) a numeric acceptance
+      threshold for that retention — none invented here.
+
+# ============================================================================
+# NEEDS_SCIENTIFIC_DECISION / STRUCTURALLY_MODEL_BLOCKED — unchanged from V1
+# ============================================================================
+  residual_scale_zero:
+    classification: STRUCTURALLY_MODEL_BLOCKED
+    gpu_ready: false
+    spec_reference: "17.3.3"
+    blocked_reason: >-
+      Unchanged from V1's re-audit. Two independent blockers, either alone
+      sufficient. (1) The declared population — "source_train live with the
+      GPAT residual scaled to 0" — requires re-running the GPAT synthesis
+      generator at a modified residual scale, which is a SYNTHESIS-time
+      operation over the frozen C6 banks; this task and the frozen C6/C8
+      identities forbid regenerating or altering any C6 bank, and no code
+      path in this repository exposes a "forward the GPAT generator with
+      residual_scale=0 without writing a new bank entry" primitive. (2) The
+      declared measurement includes "regional distance"
+      (output.region_distances in src/prism_fas/detector/contracts.py),
+      which is populated only when `self.manifold is not None`
+      (src/prism_fas/detector/prism_detector.py) — true only for the
+      secondary TRACK_R_K4_FLAGS variant (manifold: multi_prototype), never
+      for Track G or primary Track R (DET/LLM), which are the only variants
+      with real, trained, P3-ready Version-C checkpoints. Substituting a
+      global proxy for regional distance is explicitly forbidden by this
+      task.
+    audit_performed: true
+    reaudited_this_task: false
+    unchanged_from_v1: true
+  recipe_region_shift:
+    classification: NEEDS_SCIENTIFIC_DECISION
+    gpu_ready: false
+    spec_reference: "17.3.4"
+    blocked_reason: >-
+      Unchanged from V1's re-audit. `region_embeddings` and the fusion's own
+      `region_attention` softmax weights ARE populated for primary Track R
+      (DET/LLM; gated by `variant.has_region_path`, true whenever
+      `region: on`, independent of manifold —
+      src/prism_fas/detector/prism_detector.py forward()). What remains
+      undecided is WHICH existing signal constitutes the spec's "anomaly
+      heat-map peak" — `region_attention` (the fusion's own per-region
+      weighting) and a distance-from-mean over `region_embeddings` are both
+      plausible, non-equivalent candidates, and choosing one is a NEW
+      scientific choice this task does not make silently. Additionally
+      unverified: whether the frozen M7 recipe bank actually contains recipe
+      PAIRS differing only in attacked region.
+    audit_performed: true
+    reaudited_this_task: false
+    unchanged_from_v1: true
+    evidence_now_known_available: [region_embeddings, region_attention]
+    evidence_still_unavailable: [region_distances (needs manifold, absent from primary rows)]
+  artifact_map_swap:
+    classification: NEEDS_SCIENTIFIC_DECISION
+    gpu_ready: false
+    spec_reference: "17.3.5"
+    blocked_reason: >-
+      Unchanged from V1's re-audit. `local_logits` IS populated for primary
+      Track R (DET/LLM; gated by `variant.has_local`, true for Track R's
+      `local_branch: convnext` — src/prism_fas/detector/prism_detector.py
+      forward()), `attack_region_mask` already exists per accepted C6 bank
+      row (used to train `L_local` today —
+      src/prism_fas/detector/losses.py::weighted_local_loss,
+      compute_losses), and a "swap" (pairing one sample's local_logits with
+      ANOTHER sample's attack_region_mask) is constructible from data
+      already in the frozen bank without regenerating anything. What is NOT
+      frozen: a specific alignment/degradation METRIC (weighted_local_loss
+      is a TRAINING loss with its own weighting policy, not yet adapted into
+      a read-only diagnostic score) and its acceptance threshold.
+    audit_performed: true
+    reaudited_this_task: false
+    unchanged_from_v1: true
+    evidence_now_known_available: [local_logits, attack_region_mask, weighted_local_loss (training-only today)]
+  crop_padding_interpolation:
+    classification: STRUCTURALLY_DATA_BLOCKED
+    gpu_ready: false
+    spec_reference: "17.3.6"
+    blocked_reason: >-
+      Unchanged from V1's re-audit. The frozen prism_data_v1_m3b package's
+      manifests/samples.parquet stores only the 224x224 crop and its hash —
+      no bounding-box column, no path back to the original source frame.
+      Reproducing the intended crop-padding perturbation needs the original
+      frame and the detected bounding box, neither retained. Re-opening the
+      raw video tree is outside the frozen diagnostic contract. Re-deriving
+      a padding perturbation from the already-cropped image would measure
+      resampling — the same quantity benign_resize_corruption already
+      measures — under a different name.
+    audit_performed: true
+    reaudited_this_task: false
+    unchanged_from_v1: true
+
+summary:
+  total_tests: 8
+  executable_with_new_frozen_protocol: 3   # 3 benign corruption ONLY
+  needs_scientific_decision: 3             # recipe_region_shift, artifact_map_swap, cross_route_synthetic
+  structurally_model_blocked: 1            # residual_scale_zero
+  structurally_data_blocked: 1             # crop_padding_interpolation
+  gpu_ready_count: 3
+  no_threshold_invented_without_derivation: true
+  no_target_access: true
+  no_c6_bank_alteration: true
+  no_c8_retraining: true
+  no_checkpoint_cherry_picking: true
+  changed_vs_v1:
+    - "benign corruption threshold derivation is now a disjoint reference
+       calibration (Defect A); V1's self-normalizing threshold is superseded"
+    - "cross_route_synthetic reclassified EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL
+       -> NEEDS_SCIENTIFIC_DECISION (Defect B)"
+    - "c8_matrix_identity is now a real, cross-checked binding, not placeholder
+       text (Defect D)"
+    - "per-domain calibration/evaluation group safety is now explicitly
+       verified and recorded (Defect E)"
+    - "a canonical existing-result validator now gates every second-or-later
+       --execute and every --status call (Defect C)"
