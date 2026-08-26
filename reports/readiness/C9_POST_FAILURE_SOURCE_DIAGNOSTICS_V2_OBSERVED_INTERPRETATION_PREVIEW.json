@@ -1,0 +1,77 @@
+{
+  "schema_version": "c9-post-failure-diagnostics-v2-interpretation-preview-v1",
+  "document_kind": "REFERENCE_PREVIEW_NOT_A_REGISTERED_ARTIFACT",
+  "status": "GPU_REGISTRATION_PENDING",
+  "note": "This is NOT the registered DIAGNOSTICS_INTERPRETATION.json. It previews exactly what prism_fas.evaluation.post_failure_diagnostics_v2_closure --register-interpretation will write once run for real on the GPU host against the real, already-executed DIAGNOSTICS_RESULT.json/DIAGNOSTICS_PER_TEST.json/DIAGNOSTICS_PROVENANCE.json/DIAGNOSTICS_VERDICT.json. The per-arm numeric values below are the user-reported GPU scientific observations from this task's prompt (Phase 1B-close); this laptop has not independently read the real result files and has not computed real result_file_sha256 values, checkpoint_binding_identity, population_binding_identity, or source_package_identity for this run. Every identity field below marked null is exactly what --register-interpretation fills from the real, on-disk, already-validated artifacts.",
+  "code_commit_user_reported": "c36a0214358fa21c905f9e746796611968c03221",
+  "diagnostics_protocol_identity_user_reported": "05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523",
+  "c8_matrix_identity_user_reported": "a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8",
+  "checkpoint_binding_identity": null,
+  "population_binding_identity": null,
+  "source_package_identity": null,
+  "c6_bank_identities": null,
+  "result_file_sha256": null,
+  "overall_diagnostics_verdict_user_reported": "FAIL",
+  "ba_sep_observed_verdict": "FAIL",
+  "detector_reliability_lock_c_observed_overall": "FAILED",
+  "c9_may_close": false,
+  "target_access": 0,
+  "observed_per_arm_values": {
+    "benign_color_corruption": {
+      "test_verdict": "PASS",
+      "DET": {"mean_delta_plus": 0.056465106366764904, "p95_delta_plus": 0.2578913045674562, "tau_mean": 0.325571173346355, "tau_tail": 0.5053004979020645, "verdict": "PASS"},
+      "LLM": {"mean_delta_plus": 0.06030356387006274, "p95_delta_plus": 0.27864541038870805, "tau_mean": 0.3771376967108539, "tau_tail": 0.594541305309721, "verdict": "PASS"},
+      "RND": {"mean_delta_plus": 0.0745881237909392, "p95_delta_plus": 0.3252048272266983, "tau_mean": 0.32637083662993505, "tau_tail": 0.5056458191764535, "verdict": "PASS"}
+    },
+    "benign_jpeg_corruption": {
+      "test_verdict": "FAIL",
+      "DET": {"mean_delta_plus": 0.10791187270224327, "p95_delta_plus": 0.43382501669228046, "tau_mean": 0.325571173346355, "tau_tail": 0.5053004979020645, "verdict": "PASS"},
+      "LLM": {"mean_delta_plus": 0.11490263352946688, "p95_delta_plus": 0.500528473202139, "tau_mean": 0.3771376967108539, "tau_tail": 0.594541305309721, "verdict": "PASS"},
+      "RND": {"mean_delta_plus": 0.15106372730612444, "p95_delta_plus": 0.5480184525623917, "tau_mean": 0.32637083662993505, "tau_tail": 0.5056458191764535, "verdict": "FAIL"}
+    },
+    "benign_resize_corruption": {
+      "test_verdict": "FAIL",
+      "DET": {"mean_delta_plus": 0.18970596051804023, "p95_delta_plus": 0.5432409213483332, "tau_mean": 0.325571173346355, "tau_tail": 0.5053004979020645, "verdict": "FAIL"},
+      "LLM": {"mean_delta_plus": 0.19188802765711443, "p95_delta_plus": 0.6175760632008315, "tau_mean": 0.3771376967108539, "tau_tail": 0.594541305309721, "verdict": "FAIL"},
+      "RND": {"mean_delta_plus": 0.2091119995355257, "p95_delta_plus": 0.6064400591328736, "tau_mean": 0.32637083662993505, "tau_tail": 0.5056458191764535, "verdict": "FAIL"}
+    }
+  },
+  "blocked_tests": {
+    "cross_route_synthetic": "NEEDS_SCIENTIFIC_DECISION",
+    "recipe_region_shift": "NEEDS_SCIENTIFIC_DECISION",
+    "artifact_map_swap": "NEEDS_SCIENTIFIC_DECISION",
+    "residual_scale_zero": "STRUCTURALLY_MODEL_BLOCKED",
+    "crop_padding_interpolation": "STRUCTURALLY_DATA_BLOCKED"
+  },
+  "interpretation_preview": {
+    "benign_color_corruption": {
+      "interpretation": ["No evidence, under this protocol, of excessive sensitivity to the frozen benign color-gain perturbation for any arm (RND, DET, LLM)."],
+      "not_supported": ["generalizing this PASS to all color-gain-adjacent conditions outside this protocol's exact frozen perturbation and population"]
+    },
+    "benign_jpeg_corruption": {
+      "interpretation": [
+        "DET, LLM PASS under the frozen JPEG re-encode diagnostic; RND FAIL.",
+        "RND fail ONLY the upper-tail (p95) criterion, not the mean criterion — not a broad average score inflation, but a high-sensitivity tail effect in a subset of source_dev LIVE samples."
+      ],
+      "derived_arithmetic": {"RND_tail_exceedance": 0.04237263338593817},
+      "not_supported": []
+    },
+    "benign_resize_corruption": {
+      "interpretation": [
+        "All arms' mean criterion PASSES; the failure is not a broad average score inflation. It is primarily a tail-sensitivity / subset-of-samples effect concentrated in the upper-tail (p95) of the delta_plus distribution.",
+        "Exact frozen-threshold tail exceedances, most to least: RND (0.1007942) > DET (0.0379404) > LLM (0.0230348). This is a descriptive comparison only."
+      ],
+      "not_supported": ["a statistical ranking among arms' tail exceedance — no preregistered paired statistical comparison exists for this quantity"]
+    }
+  },
+  "global_interpretation": [
+    "The resize/JPEG diagnostic results are consistent with the possibility that some detectors use preprocessing/resampling/compression-sensitive cues, which is mechanistically compatible with shortcut sensitivity already implicated by the BA_sep FAILURE. This is a consistency statement, not a causal one."
+  ],
+  "global_not_supported": [
+    "a causal claim that any diagnostic result CAUSED the BA_sep FAILURE — causality has not been established by this protocol",
+    "treating a BLOCKED test (NEEDS_SCIENTIFIC_DECISION / STRUCTURALLY_MODEL_BLOCKED / STRUCTURALLY_DATA_BLOCKED) as an observed FAIL or as negative evidence",
+    "a claim generalizing any PASS or FAIL beyond this protocol's exact frozen perturbation, threshold and population"
+  ],
+  "how_this_preview_was_produced": "prism_fas.evaluation.post_failure_diagnostics_v2_interpretation.derive_full_interpretation() run on this laptop against a per_test dict hand-assembled from the user-reported GPU numbers in this task's prompt — the SAME pure function --register-interpretation calls on the real, on-disk, validated per_test document. Verified byte-identical in tests/pipeline/test_c9_post_failure_source_diagnostics_v2_closure.py.",
+  "real_registration_command": "python -m prism_fas.evaluation.post_failure_diagnostics_v2_closure --repo . --register-interpretation"
+}
