@@ -96,10 +96,14 @@ PROBE_SEEDS_UNRESOLVED = "DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION"
 DETECTOR_BA_SEP_PROBE_PROTOCOL: dict[str, Any] | None = None
 
 #: Where a frozen, user-approved probe protocol lives, once one exists.
-#: Currently: Option 1 (common Track-G decision evidence), approved before
-#: any BA_sep value was observed. See
-#: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md.
-PROBE_PROTOCOL_CONFIG_PATH = "configs/evaluation/c9_detector_ba_sep_option1_v1.yaml"
+#: Currently: Option 1 V2 (common Track-G decision evidence, group-safe on
+#: source_record_id), approved before any BA_sep value was observed. V2
+#: supersedes V1 with a pre-execution group-identity correction only; no
+#: BA_sep value was ever observed under either version. See
+#: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md (V1, historical)
+#: and reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md
+#: (V2, current).
+PROBE_PROTOCOL_CONFIG_PATH = "configs/evaluation/c9_detector_ba_sep_option1_v2.yaml"
 
 #: Everything the protocol must bind before the first probe execution. None of
 #: it may be chosen after observing a BA value.

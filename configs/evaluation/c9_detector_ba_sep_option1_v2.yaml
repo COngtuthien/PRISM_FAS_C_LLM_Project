@@ -1,0 +1,295 @@
+# C9_DETECTOR_BA_SEP_OPTION1_V2 — supersedes V1, BEFORE any BA_sep execution,
+# to correct a pre-execution group-splitting defect. Same evidence vector,
+# same checkpoints, same probe seeds, same solver, same thresholds as V1 —
+# ONLY the sample/group identity semantics and the split/selection algorithm
+# change, plus an explicit all-arm hard-verdict rule this freeze adds.
+#
+# See:
+#   reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md            (the audit)
+#   reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md                   (the V1 freeze)
+#   reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md        (this correction)
+#
+# NO REAL BA_sep WAS EVER OBSERVED UNDER V1. NO REAL BA_sep WAS OBSERVED
+# WHILE V2 WAS DEFINED OR IMPLEMENTED. This correction is not result-driven:
+# it restores the group-safety V1 already DECLARED (`group_safe: true`) but
+# did not correctly IMPLEMENT.
+#
+# FREEZING THIS FILE RESOLVES THE EXECUTABLE PROTOCOL. IT DOES NOT RUN IT.
+# `status: FROZEN_NOT_RUN` is load-bearing exactly as it was for V1.
+
+schema_version: c9-detector-ba-sep-option1-v2
+decision_id: C9_DETECTOR_BA_SEP_OPTION1_V2
+status: FROZEN_NOT_RUN
+resolves_test: synthetic_vs_real_spoof_probe
+approved_by: explicit user approval (Option 1, before any BA_sep value was observed)
+frozen_on: "2026-08-26"
+
+supersedes: configs/evaluation/c9_detector_ba_sep_option1_v1.yaml
+supersession_reason: PRE_EXECUTION_GROUP_IDENTITY_CORRECTION
+superseded_protocol_identity: a6da0ce75ebd92589ea61cba24a85bf8d8144bdbb99f7ec54d31066a66594908
+supersession_detail: >-
+  V1 declared matched_source_split.group_safe: true while using synthetic_id
+  (for synthetic rows) and sample_id (for real rows) as the split GROUP
+  identity. Multiple canonical crops can share one source_record_id, and
+  multiple synthetic candidates can share one live_target_sample_id (hence
+  one underlying source_record_id) while carrying different synthetic_ids —
+  so V1's declared group-safety was not actually enforced: samples derived
+  from the same original source video/record could fall into both probe
+  train and probe validation. V2 separates SAMPLE identity (what gets
+  selected and forwarded) from GROUP identity (what the split partitions
+  on) and partitions on source_record_id for both real and synthetic
+  populations, closing the leak. The evidence definition, checkpoints,
+  probe seeds, solver and thresholds are unchanged.
+no_ba_sep_observed_under_v1: true
+no_ba_sep_observed_before_v2_freeze: true
+target_access: 0
+
+# --- the evidence vector (UNCHANGED from V1) ----------------------------------
+evidence_vector_definition:
+  fields: [global_logit_G, p_global]
+  dimension: 2
+  source: >-
+    Track-G ModelOutput.global_logit and ModelOutput.p_global
+    (src/prism_fas/detector/contracts.py) — always populated for Track G,
+    never None, per the spec's §13.1/§13.4.1 NORMATIVE Track-G contract.
+  forbidden_fields: [s_region, region_distances, local_logits, region_embeddings,
+                      p_prompt_spoof, z_global, generator_identity, route_identity,
+                      quality_weight, recipe_metadata]
+  reduction_disclosure: >-
+    a REDUCED 2-D probe relative to the historical Version-B regional 11-D
+    vector [p_global, s_region, nine normalized regional distances]. Track G
+    structurally cannot emit the regional terms (no manifold, no region
+    fusion — spec §13.1 NORMATIVE), and no Version-C primary row for any arm
+    emits them either (primary Track R trains with manifold OFF). This
+    vector MUST NOT be described as reproducing the historical 11-D vector.
+
+# --- populations, now with SAMPLE identity and GROUP identity kept apart ------
+real_spoof_population:
+  source: source_train
+  label: real spoof only (label_live_spoof == "spoof")
+  resolver: prism_fas.data.loader.loose_dataset.CanonicalPackageDataset
+  sample_identity_field: sample_id
+  stable_group_identity_field: source_record_id
+  stable_group_identity_derivation: >-
+    read directly off the source package manifest row
+    (row["source_record_id"]) — the same field
+    prism_fas.detector.dataset.M9ValidationDataset.record_of already exposes.
+    Fail closed if empty.
+  domain_field: dataset
+
+synthetic_population:
+  source: >-
+    the frozen C6 matched bank for the ARM under probe (RND, DET or LLM
+    respectively) — the exact same bank that arm's C8 rows trained against,
+    resolved through prism_fas.detector.c6_bank.open_arm_bank, the identical
+    call src/prism_fas/pipeline/adapters/c8.py:1346-1351 makes before
+    training a row.
+  resolver: prism_fas.detector.c6_bank.open_arm_bank
+  sample_identity_field: synthetic_id
+  stable_group_identity_field: live_target_sample_id -> source_record_id
+  stable_group_identity_derivation: >-
+    each C6 matched-bank row names its live_target_sample_id (the real
+    source_train sample the synthetic candidate was generated from,
+    row["live_target_sample_id"] in prism_fas.detector.c6_bank rows). That
+    sample_id is looked up in the SAME real_spoof_population manifest lookup
+    (sample_id -> source_record_id) built for the real population above —
+    one lookup, shared, never a second implementation. The synthetic row's
+    stable_group_identity is the LIVE source sample's source_record_id, NOT
+    the synthetic_id and NOT the synthetic candidate's own identity. FAIL
+    CLOSED if live_target_sample_id does not map to exactly one real
+    manifest row (missing or ambiguous).
+  domain_field: live_target_dataset
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: source_domains) ---
+source_domains: [casia_fasd, msu_mfsd]
+forbidden_populations: [source_dev, siw_mv2_v2, target_test, target_taxonomy]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: matched_source_split) — GROUP-SAFE ------
+matched_source_split:
+  algorithm: deterministic_group_stratified_hash_split
+  train_fraction: 0.8
+  validation_fraction: 0.2
+  split_hash_namespace: c9-ba-sep-option1-v2   # V2 namespace; result-affecting,
+                                                # enters the protocol identity
+  partitions_on: stable_group_identity   # source_record_id — NEVER sample_identity
+  hash_rule: >-
+    sha256(split_hash_namespace + "|" + str(probe_seed) + "|" + source_domain
+    + "|" + stable_group_identity) — hex digest interpreted as an integer,
+    modulo 100 < 80 => train, else => validation
+  group_safe: true
+  group_safety_proof_required: >-
+    for every (probe_seed, source_domain), the set of stable_group_identity
+    values assigned to train and the set assigned to validation MUST
+    intersect in exactly zero elements, checked independently for the real
+    population and each arm's synthetic population
+  shared_across_arms: true
+  computed_before_probe_fit: true
+  fallback_on_missing_canonical_identity: forbidden   # never falls back to
+    # file path, array index, or the sample-level identity when the group
+    # identity (source_record_id) is resolvable
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: class_balancing_rule) — unchanged intent, sample selection separated from group split ---
+class_balancing_rule:
+  classes: {"0": real_spoof, "1": synthetic_spoof}
+  balance: "1:1 within each (probe_seed, source_domain, split) cell"
+  count_rule: >-
+    N = min(real_spoof_available, RND_synthetic_available,
+    DET_synthetic_available, LLM_synthetic_available) computed per
+    (probe_seed, source_domain, split) cell, AFTER the group-safe split above
+  same_real_subset_across_arms: true
+  selection_order: deterministic_sha256_order
+  selection_order_partitions_on: sample_identity   # NEVER stable_group_identity —
+    # split grouping and sample selection are deliberately separate axes
+  selection_order_hash_rule: >-
+    sha256(protocol_identity + "|" + str(probe_seed) + "|" + split + "|" +
+    source_domain + "|" + sample_identity), ascending
+  replacement: false
+  oversampling: false
+  class_weights: false
+  report_fields: [pre_balance_counts, N, post_balance_counts,
+                  unique_source_record_id_counts]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: sample_unit) — unchanged ---
+sample_unit: one canonical 224x224 detector input crop
+sample_unit_forbidden: [video_aggregate, subject_aggregate, recipe_aggregate,
+                        checkpoint_aggregate]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: detector_checkpoint_identity) — unchanged ---
+detector_checkpoint_identity:
+  checkpoint_set_policy: >-
+    ALL FIVE C8 P3-ready Track-G training-seed checkpoints per arm
+    (seeds 20260806, 20260807, 20260808, 20260809, 20260810), resolved from
+    real C8 run manifests via the same manifest/checkpoint verification C9
+    already uses. No checkpoint is chosen by best/median/lowest-ACER or by
+    examining evidence. No P1/P2 checkpoint participates. No Track-R
+    checkpoint participates.
+  required_decision_logit_name: global_logit_G   # every bound row must
+    # declare this exact decision logit; otherwise FAIL CLOSED
+  checkpoint_evidence_aggregation: arithmetic_mean_over_5_checkpoints
+  rows_source: prism_fas.evaluation.source_matrix.build_plan
+  row_selector: "row.track == 'G' and row.protocol == 'P3' and row.arm == arm"
+  row_id_pattern: "C-G-{arm}-P3READY-s{seed}"
+  manifest_resolver: prism_fas.evaluation.source_evidence.load_row_evidence
+  checkpoints_per_arm: 5
+  total_checkpoints: 15
+  identities: {}   # bound from real C8 manifests only at execution time on a
+                   # host that possesses runs/full/c8/; empty in this freeze,
+                   # and empty on this development laptop (no GPU artifacts)
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: preprocessing) — unchanged ---
+preprocessing:
+  reference: identical to the frozen M9/C8 Track-G detector inference preprocessing
+  note: the probe consumes detector evidence, not raw pixels; no probe-specific
+        image preprocessing pipeline is created
+  config_paths: [configs/train/m9_reference.yaml, configs/models/m9_detector.yaml]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: feature_normalization) — unchanged ---
+feature_normalization:
+  method: z_score
+  fit_on: probe_train_split_only
+  epsilon: 1.0e-8
+  applies_to: [global_logit_G, p_global]
+  joint_across_arms: false
+  pca_or_feature_selection: false
+  formula: "z_j = (x_j - mu_j) / max(std_j, epsilon)"
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: linear_probe_implementation) — unchanged ---
+linear_probe_implementation:
+  framework: torch
+  new_dependency: none   # scikit-learn is explicitly NOT added
+  classifier: "torch.nn.Linear(2, 1)"
+  initialization: {weight: 0.0, bias: 0.0}
+  loss: BCEWithLogitsLoss
+  class_weighting: none
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: regularization) — unchanged ---
+regularization:
+  type: L2
+  target: weight_only
+  lambda: 1.0e-4
+  l1: none
+  bias_regularization: none
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: optimizer_or_solver) — unchanged ---
+optimizer_or_solver:
+  algorithm: torch.optim.LBFGS
+  lr: 1.0
+  max_iter: 200
+  max_eval: 250
+  tolerance_grad: 1.0e-7
+  tolerance_change: 1.0e-9
+  history_size: 100
+  line_search_fn: strong_wolfe
+  minibatching: none
+  early_stopping_on_validation_metric: none
+  hyperparameter_search: none
+  c_search: none
+  threshold_search: none
+  termination: only via the frozen LBFGS numeric convergence tolerances above
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: training_budget) — unchanged ---
+training_budget:
+  batching: full_batch
+  device: cpu
+  dtype: float64
+  epochs: not_applicable
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: train_validation_split) ---
+train_validation_split:
+  see: matched_source_split above
+
+# --- additional: classifier decision threshold — unchanged ---
+classifier_threshold: 0.5
+classifier_threshold_frozen: true
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: probe_seed_values) — unchanged ---
+probe_seed_values: [20260806, 20260807, 20260808]
+probe_seed_provenance: >-
+  intentionally reuses the first three numeric values of the Version-C
+  training-seed family (source_matrix.SEED_FAMILY) for reproducibility. Their
+  role HERE is a newly preregistered set of BA_sep PROBE seeds — this is NOT
+  a claim that §18.3 originally fixed them as probe seeds. No seed may be
+  replaced or added after a BA result exists.
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: balanced_accuracy_implementation, per_seed_aggregation, mean_aggregation, ba_ceiling) — unchanged ---
+balanced_accuracy_implementation: prism_fas.train.metrics.balanced_accuracy
+per_seed_aggregation: >-
+  one BA_sep_arm_seed value per probe seed, computed on that seed's held-out
+  20% validation split
+mean_aggregation: arithmetic mean of the three BA_sep_arm_seed values
+ba_ceiling: 0.75
+ba_ceiling_frozen: true
+
+# --- NEW in V2: the explicit all-arm hard test verdict rule, frozen BEFORE
+# --- any metric is observed ---------------------------------------------------
+hard_verdict_rule:
+  test: synthetic_vs_real_spoof_probe
+  pass_condition: "BA_sep_RND <= 0.75 AND BA_sep_DET <= 0.75 AND BA_sep_LLM <= 0.75"
+  equivalent_form: "max(BA_sep_RND, BA_sep_DET, BA_sep_LLM) <= 0.75"
+  fail_condition: "any one of BA_sep_RND, BA_sep_DET, BA_sep_LLM > 0.75"
+  no_pass_blocked_conversion_by_preference: true
+  post_observation_prohibitions:
+    - replace probe seeds
+    - adjust the 0.75 threshold
+    - change the evidence representation
+    - remove an arm from the verdict
+    - change the checkpoint set
+    - change the balancing rule
+    - change regularization
+  c_h4_support_is_separate: >-
+    a hard reliability PASS does not imply C-H4 SUPPORTED;
+    detector_reliability.C_H4_SUPPORT_RULE is unchanged by this freeze and
+    governs C-H4 independently.
+
+# --- target firewall — unchanged ---
+target_firewall:
+  target_access: 0
+  forbidden_populations: [siw_mv2_v2, target_test, source_dev]
+  no_target_guided_selection: true
+
+# --- what this freeze is NOT ---
+not_resolved_by_this_freeze:
+  - the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS
+  - overall DETECTOR_RELIABILITY_LOCK_C status (remains unresolved/absent)
+  - the crop_padding_interpolation data-blocked gap
+  - C-H4 support (a separate rule; a reliability PASS does not imply C-H4 SUPPORTED)

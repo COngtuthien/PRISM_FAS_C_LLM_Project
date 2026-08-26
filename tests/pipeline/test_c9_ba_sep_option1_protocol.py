@@ -1,6 +1,8 @@
-"""C9_DETECTOR_BA_SEP_OPTION1_V1 — the user-approved, frozen protocol for
-`synthetic_vs_real_spoof_probe`, and its mechanics in
-`prism_fas.evaluation.synthetic_real_probe`.
+"""The shared mechanics in `prism_fas.evaluation.synthetic_real_probe` that
+serve BOTH the historical `C9_DETECTOR_BA_SEP_OPTION1_V1` protocol and its
+V2 pre-execution correction (see `test_c9_ba_sep_option1_v2_runner.py` for
+V2-specific coverage: supersession, group-identity resolution, the
+sample/group identity split, the CLI runner and the hard verdict rule).
 
 This file proves the PROTOCOL and its MECHANICS are correct and safe — it
 never computes a real BA_sep value, never loads a real detector checkpoint,
@@ -9,6 +11,9 @@ here (split, balance, normalization, the linear probe, BA_sep aggregation)
 runs against clearly-synthetic fixture arrays, not real scientific evidence.
 The one function that would touch real data, `run_scientific_probe`, is
 proven NOT to run (it raises `NotImplementedError`) rather than exercised.
+`PopulationRecord` fixtures below carry BOTH `sample_identity` and
+`stable_group_identity` since the V2 correction split what was one field
+into two (`reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`).
 """
 from __future__ import annotations
 
@@ -204,7 +209,10 @@ def test_split_is_deterministic() -> None:
 def test_split_is_group_safe() -> None:
     """The SAME stable identity always lands in the same bucket for a given
     (namespace, seed, domain) — a group can never straddle train/validation."""
-    records = [probe.PopulationRecord(f"group-{i}", "casia_fasd", 0) for i in range(200)]
+    records = [probe.PopulationRecord(sample_identity=f"sample-{i}",
+                                      stable_group_identity=f"group-{i}",
+                                      source_domain="casia_fasd", label=0)
+              for i in range(200)]
     first = probe.assign_splits(records, namespace="ns", probe_seed=20260806)
     second = probe.assign_splits(records, namespace="ns", probe_seed=20260806)
     assert {r.stable_group_identity for r in first["train"]} == \
@@ -229,7 +237,8 @@ def test_split_is_common_across_arms() -> None:
 
 
 def test_split_fraction_is_approximately_80_20() -> None:
-    records = [probe.PopulationRecord(f"s-{i}", "msu_mfsd", 0) for i in range(2000)]
+    records = [probe.PopulationRecord(sample_identity=f"s-{i}", stable_group_identity=f"s-{i}",
+                                      source_domain="msu_mfsd", label=0) for i in range(2000)]
     buckets = probe.assign_splits(records, namespace="c9-ba-sep-option1-v1", probe_seed=20260807)
     train_fraction = len(buckets["train"]) / len(records)
     assert 0.75 < train_fraction < 0.85
@@ -238,8 +247,11 @@ def test_split_fraction_is_approximately_80_20() -> None:
 # --- 13, 14. class balance ---------------------------------------------------------
 
 def test_class_balance_is_1_to_1_within_a_cell() -> None:
-    real = [probe.PopulationRecord(f"r{i}", "casia_fasd", 0) for i in range(100)]
-    synthetic = {arm: [probe.PopulationRecord(f"{arm}-{i}", "casia_fasd", 1)
+    real = [probe.PopulationRecord(sample_identity=f"r{i}", stable_group_identity=f"r{i}",
+                                   source_domain="casia_fasd", label=0) for i in range(100)]
+    synthetic = {arm: [probe.PopulationRecord(sample_identity=f"{arm}-{i}",
+                                              stable_group_identity=f"{arm}-{i}",
+                                              source_domain="casia_fasd", label=1)
                        for i in range(40 + index * 10)]
                 for index, arm in enumerate(probe.ARMS)}
     selected_real, selected_synthetic = probe.balance_classes(
@@ -251,8 +263,11 @@ def test_class_balance_is_1_to_1_within_a_cell() -> None:
 
 
 def test_the_same_real_subset_is_shared_across_arms() -> None:
-    real = [probe.PopulationRecord(f"r{i}", "casia_fasd", 0) for i in range(50)]
-    synthetic = {arm: [probe.PopulationRecord(f"{arm}-{i}", "casia_fasd", 1)
+    real = [probe.PopulationRecord(sample_identity=f"r{i}", stable_group_identity=f"r{i}",
+                                   source_domain="casia_fasd", label=0) for i in range(50)]
+    synthetic = {arm: [probe.PopulationRecord(sample_identity=f"{arm}-{i}",
+                                              stable_group_identity=f"{arm}-{i}",
+                                              source_domain="casia_fasd", label=1)
                        for i in range(50)] for arm in probe.ARMS}
     selected_real, _ = probe.balance_classes(
         protocol_id="p", probe_seed=20260806, split="train", source_domain="casia_fasd",

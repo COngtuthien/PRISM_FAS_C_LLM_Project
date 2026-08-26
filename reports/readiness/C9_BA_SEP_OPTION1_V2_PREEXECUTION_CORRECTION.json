@@ -1,0 +1,127 @@
+{
+  "schema_version": "c9-ba-sep-option1-v2-preexecution-correction-v1",
+  "document_kind": "PROTOCOL_CORRECTION_FREEZE_NOT_EXECUTION",
+  "decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V2",
+  "supersedes_decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V1",
+  "supersession_reason": "PRE_EXECUTION_GROUP_IDENTITY_CORRECTION",
+  "no_ba_sep_metric_observed_under_v1": true,
+  "no_ba_sep_metric_observed_before_v2_freeze": true,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md",
+  "frozen_config_path": "configs/evaluation/c9_detector_ba_sep_option1_v2.yaml",
+  "frozen_config_status": "FROZEN_NOT_RUN",
+  "protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+  "superseded_protocol_identity": "a6da0ce75ebd92589ea61cba24a85bf8d8144bdbb99f7ec54d31066a66594908",
+  "v1_config_path_unchanged": "configs/evaluation/c9_detector_ba_sep_option1_v1.yaml",
+  "v1_config_untouched": true,
+
+  "defect": {
+    "declared_by_v1": "matched_source_split.group_safe: true",
+    "actual_v1_split_key": "sample_id (real) / synthetic_id (synthetic)",
+    "correct_split_key": "source_record_id, for both populations",
+    "consequence": "samples derived from the same source video/record, including a real spoof sample and a synthetic candidate generated from it, could straddle probe train and probe validation under V1",
+    "found_before_any_execution": true
+  },
+
+  "correction": {
+    "population_record_fields": ["sample_identity", "stable_group_identity", "source_domain", "label"],
+    "real_population_stable_group_identity": "source_record_id, read directly off the source_train manifest row",
+    "synthetic_population_stable_group_identity": "live_target_sample_id -> source_train row -> source_record_id, via the same lookup the real population uses",
+    "fail_closed_on": ["empty source_record_id", "empty live_target_sample_id",
+                       "live_target_sample_id not mapping to exactly one source_train row",
+                       "ambiguous sample_id -> source_record_id mapping"],
+    "split_partitions_on": "stable_group_identity only",
+    "selection_orders_on": "sample_identity only",
+    "new_group_safety_assertion": "prism_fas.evaluation.synthetic_real_probe.verify_group_safe_split",
+    "new_group_count_reporting": "prism_fas.evaluation.synthetic_real_probe.balance_report"
+  },
+
+  "retained_unchanged_from_v1": {
+    "evidence_vector": ["global_logit_G", "p_global"],
+    "checkpoints_per_arm": 5,
+    "total_checkpoints": 15,
+    "checkpoint_aggregation": "arithmetic_mean",
+    "probe_seed_values": [20260806, 20260807, 20260808],
+    "classifier": "torch.nn.Linear(2, 1), zero-init, BCEWithLogitsLoss",
+    "regularization": {"type": "L2", "target": "weight_only", "lambda": 1e-4},
+    "optimizer": {
+      "algorithm": "torch.optim.LBFGS", "lr": 1.0, "max_iter": 200, "max_eval": 250,
+      "tolerance_grad": 1e-7, "tolerance_change": 1e-9, "history_size": 100,
+      "line_search_fn": "strong_wolfe"
+    },
+    "classifier_threshold": 0.5,
+    "balanced_accuracy_implementation": "prism_fas.train.metrics.balanced_accuracy",
+    "ba_ceiling": 0.75,
+    "target_firewall": {"target_access": 0}
+  },
+
+  "new_in_v2": {
+    "sample_group_identity_separation": true,
+    "split_hash_namespace": "c9-ba-sep-option1-v2",
+    "sample_selection_order_key": "sample_identity (independent of the split key)",
+    "hard_verdict_rule": {
+      "pass_condition": "BA_sep_RND <= 0.75 AND BA_sep_DET <= 0.75 AND BA_sep_LLM <= 0.75",
+      "implementation": "prism_fas.evaluation.synthetic_real_probe.hard_verdict"
+    },
+    "required_decision_logit_name": "global_logit_G",
+    "scientific_runner": {
+      "module": "prism_fas.evaluation.synthetic_real_probe_runner",
+      "invocation": "python -m prism_fas.evaluation.synthetic_real_probe_runner",
+      "modes": ["--preflight-only", "--bind-only --arm {RND,DET,LLM}",
+               "--execute --arm {RND,DET,LLM}"],
+      "bind_only_artifact_path_pattern": "reports/full/c9/ba_sep_option1_v2/BINDING_{ARM}.json",
+      "execute_wired": false,
+      "execute_reason": "run_scientific_probe deliberately raises NotImplementedError on every host today"
+    }
+  },
+
+  "latent_bug_also_fixed": {
+    "description": "resolve_real_spoof_population/resolve_synthetic_population constructed their package reader with a bare LoaderConfig(), which pydantic rejects (7 required fields missing); unreachable in the V1 test suite so never observed to fail, but would have crashed on first real GPU-host use",
+    "fix": "both resolvers now build their reader via prism_fas.data.loader.config.load_loader_config(repo / 'configs/data/loader_m4.yaml'), the exact canonical loader config C8/M9Trainer already uses"
+  },
+
+  "runner_dry_run_results_on_this_laptop": {
+    "preflight_only": {"exit_code": 0, "protocol_resolved": true,
+                       "all_checkpoints_resolved": false, "target_access": 0},
+    "bind_only_every_arm": {"exit_code": 2, "artifact_written": false,
+                            "reason": "no runs/full/c8/ on this host"},
+    "execute_every_arm": {"exit_code": 2, "executed": false,
+                          "reason": "run_scientific_probe not wired"}
+  },
+
+  "tests": {
+    "v1_shared_mechanics_file": "tests/pipeline/test_c9_ba_sep_option1_protocol.py",
+    "v1_shared_mechanics_count": 44,
+    "v2_file": "tests/pipeline/test_c9_ba_sep_option1_v2_runner.py",
+    "v2_count": 63,
+    "all_c9_scoped_tests_total": 123,
+    "all_passed": true,
+    "real_ba_sep_computed_in_tests": false,
+    "real_checkpoints_used_in_tests": false,
+    "real_images_opened_in_tests": false
+  },
+
+  "not_done_by_this_correction": [
+    "compute a real BA_sep value",
+    "resolve any of the nine REQUIRED_DETECTOR_RELIABILITY_TESTS",
+    "reclassify crop_padding_interpolation",
+    "create DETECTOR_RELIABILITY_LOCK_C.json",
+    "run C9, C10, C11, C12 or C13",
+    "access target data",
+    "retrain C7 or any C8 row",
+    "add C-R-RND",
+    "alter any C7 winner",
+    "wire run_scientific_probe"
+  ],
+
+  "final_status": {
+    "c8_scientific_closed": true,
+    "ba_sep_option1_protocol_version": "V2",
+    "ba_sep_option1_v1_superseded": true,
+    "ba_sep_scientifically_run": false,
+    "detector_reliability_lock": "NOT_PASSED",
+    "c9_scientifically_run": false,
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}

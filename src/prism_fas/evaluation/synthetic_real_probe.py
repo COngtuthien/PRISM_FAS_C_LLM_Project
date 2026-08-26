@@ -1,5 +1,5 @@
 """The `synthetic_vs_real_spoof_probe` reliability test, under the frozen,
-user-approved `C9_DETECTOR_BA_SEP_OPTION1_V1` protocol.
+user-approved `C9_DETECTOR_BA_SEP_OPTION1_V2` protocol.
 
 Option 1 (`reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md`,
 `reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md`): a common Track-G
@@ -7,8 +7,19 @@ decision-evidence representation — `[global_logit_G, p_global]` — because
 Track G is the only frozen Version-C primary detector representation that
 exists for all three RND/DET/LLM arms under the same architecture, and it is
 the only representation available from the 42 existing C8 rows without new
-training. The frozen protocol config is
-`configs/evaluation/c9_detector_ba_sep_option1_v1.yaml`
+training.
+
+V2 (`reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`)
+supersedes V1 with a PRE-EXECUTION correction only: V1 declared its matched
+source split `group_safe: true` while actually partitioning on the SAMPLE
+identity (`sample_id` / `synthetic_id`), not the underlying source record —
+so samples derived from the same source video/record could straddle probe
+train and probe validation. V2 separates SAMPLE identity (what gets
+selected, via `PopulationRecord.sample_identity`) from GROUP identity (what
+the split partitions on, via `PopulationRecord.stable_group_identity`,
+always `source_record_id`) and closes the leak. No BA_sep value was ever
+observed under V1 or before the V2 freeze. The frozen protocol config is
+`configs/evaluation/c9_detector_ba_sep_option1_v2.yaml`
 (`prism_fas.evaluation.detector_reliability.PROBE_PROTOCOL_CONFIG_PATH`).
 
 **THIS MODULE MUST NOT BE CALLED WITH REAL SCIENTIFIC DATA IN A CONTEXT THAT
@@ -75,7 +86,7 @@ def load_protocol(repo: Path) -> dict[str, Any]:
     protocol = detector_reliability.load_probe_protocol(repo)
     if protocol is None:
         raise SyntheticRealProbeError(
-            "C9_DETECTOR_BA_SEP_OPTION1_V1 is not frozen "
+            "C9_DETECTOR_BA_SEP_OPTION1_V2 is not frozen "
             f"(expected {detector_reliability.PROBE_PROTOCOL_CONFIG_PATH} to exist, "
             "declare status: FROZEN_NOT_RUN, and carry every "
             "PROBE_PROTOCOL_REQUIRED_FIELDS entry)")
@@ -180,36 +191,112 @@ def resolve_all_checkpoint_sets(repo: Path) -> dict[str, list[CheckpointBinding]
 
 @dataclass(frozen=True)
 class PopulationRecord:
-    """One candidate sample's stable identity, domain and class, before any
-    pixel is read. `label` is `REAL_SPOOF_CLASS` or `SYNTHETIC_SPOOF_CLASS`."""
+    """One candidate sample's identity, domain and class, before any pixel
+    is read. `label` is `REAL_SPOOF_CLASS` or `SYNTHETIC_SPOOF_CLASS`.
 
+    Two DISTINCT identities, deliberately kept apart (the V2 pre-execution
+    correction, `reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`):
+
+    `sample_identity` — the individual sample/candidate's own identity
+        (`sample_id` for real rows, `synthetic_id` for synthetic rows). Used
+        ONLY for deterministic selection order (`balance_classes`); never for
+        the train/validation split.
+
+    `stable_group_identity` — the underlying `source_record_id` of the real
+        source video/record this sample is derived from (directly, for real
+        rows; via `live_target_sample_id` for synthetic rows). Used ONLY for
+        the train/validation split (`split_bucket`/`assign_splits`); using
+        `sample_identity` there would let two samples sharing one source
+        record straddle the split — exactly the V1 defect V2 corrects.
+    """
+
+    sample_identity: str
     stable_group_identity: str
     source_domain: str
     label: int
 
 
-def resolve_real_spoof_population(repo: Path, *,
-                                  domains: Sequence[str] = ("casia_fasd", "msu_mfsd")
-                                  ) -> list[PopulationRecord]:
-    """Every `source_train` real-spoof row's stable identity and domain.
-
-    Reads only the package manifest (`CanonicalPackageDataset.index.rows`,
-    the same rows `M9TrainingDataset._real_pools` reads) — sample_id and
-    domain, never an image. `label_live_spoof == "spoof"` only; `source_dev`
-    and any target split are unreachable from this function by construction
-    (`assert_source_only` in `detector.dataset` refuses them upstream).
-    """
-    from prism_fas.data.loader.config import TRAINING_SPLIT, LoaderConfig
+def _source_train_rows(repo: Path) -> Sequence[Mapping[str, Any]]:
+    """The raw `source_train` manifest rows, via the exact canonical loader
+    C8/M9Trainer itself uses (`configs/data/loader_m4.yaml`,
+    `src/prism_fas/pipeline/adapters/c8.py:1361`) — never a second loader
+    configuration invented for this module."""
+    from prism_fas.data.loader.config import TRAINING_SPLIT, load_loader_config
     from prism_fas.data.loader.loose_dataset import CanonicalPackageDataset
     from prism_fas.pipeline.adapters import sources
 
     inputs = sources.verify_detector_inputs(repo)
     package_root = Path(repo) / inputs["package_root"]
-    real = CanonicalPackageDataset(package_root, TRAINING_SPLIT, LoaderConfig(), mode="training")
-    return [PopulationRecord(stable_group_identity=str(row["sample_id"]),
-                             source_domain=str(row["dataset"]), label=REAL_SPOOF_CLASS)
-            for row in real.index.rows
-            if row["dataset"] in domains and row["label_live_spoof"] == "spoof"]
+    loader_config = load_loader_config(Path(repo) / "configs/data/loader_m4.yaml")
+    dataset = CanonicalPackageDataset(package_root, TRAINING_SPLIT, loader_config, mode="training")
+    return dataset.index.rows
+
+
+def _source_record_id_by_sample_id(repo: Path, *,
+                                   domains: Sequence[str] = ("casia_fasd", "msu_mfsd")
+                                   ) -> dict[str, str]:
+    """`sample_id -> source_record_id` for every `source_train` row in
+    `domains`, real or spoof, live or not — the synthetic population's
+    `live_target_sample_id` names a LIVE real sample, not a spoof one, so
+    this lookup is built over the full unfiltered manifest, not just the
+    spoof subset `resolve_real_spoof_population` returns.
+
+    Fail-closed: a `sample_id` with an empty/missing `source_record_id`, or
+    a `sample_id` that maps to more than one DISTINCT `source_record_id`
+    (a manifest inconsistency), raises rather than being silently dropped
+    or silently resolved to either value.
+    """
+    lookup: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    for row in _source_train_rows(repo):
+        if row["dataset"] not in domains:
+            continue
+        sample_id = str(row["sample_id"])
+        source_record_id = str(row.get("source_record_id") or "").strip()
+        if not source_record_id:
+            raise SyntheticRealProbeError(
+                f"source_train sample_id={sample_id!r} has no source_record_id; "
+                "fail closed rather than treat an unresolvable group identity as safe")
+        existing = lookup.get(sample_id)
+        if existing is not None and existing != source_record_id:
+            ambiguous.add(sample_id)
+        lookup[sample_id] = source_record_id
+    if ambiguous:
+        raise SyntheticRealProbeError(
+            f"sample_id -> source_record_id is ambiguous for {sorted(ambiguous)}; "
+            "fail closed rather than pick one source_record_id arbitrarily")
+    return lookup
+
+
+def resolve_real_spoof_population(repo: Path, *,
+                                  domains: Sequence[str] = ("casia_fasd", "msu_mfsd")
+                                  ) -> list[PopulationRecord]:
+    """Every `source_train` real-spoof row's identities and domain.
+
+    Reads only the package manifest (`CanonicalPackageDataset.index.rows`,
+    the same rows `M9TrainingDataset._real_pools` reads) — never an image.
+    `label_live_spoof == "spoof"` only; `source_dev` and any target split
+    are unreachable from this function by construction (`assert_source_only`
+    in `detector.dataset` refuses them upstream). `stable_group_identity` is
+    `source_record_id`, read directly off the manifest row; fail closed if
+    empty (`_source_record_id_by_sample_id` raises before this can happen,
+    since it is built over the same rows).
+    """
+    lookup = _source_record_id_by_sample_id(repo, domains=domains)
+    records: list[PopulationRecord] = []
+    for row in _source_train_rows(repo):
+        if row["dataset"] not in domains or row["label_live_spoof"] != "spoof":
+            continue
+        sample_id = str(row["sample_id"])
+        source_record_id = lookup.get(sample_id)
+        if not source_record_id:
+            raise SyntheticRealProbeError(
+                f"real spoof sample_id={sample_id!r} has no resolvable source_record_id; "
+                "fail closed")
+        records.append(PopulationRecord(
+            sample_identity=sample_id, stable_group_identity=source_record_id,
+            source_domain=str(row["dataset"]), label=REAL_SPOOF_CLASS))
+    return records
 
 
 def resolve_synthetic_population(repo: Path, arm: str, *,
@@ -220,6 +307,13 @@ def resolve_synthetic_population(repo: Path, arm: str, *,
     call `c8.py`'s row executor makes before training
     (`src/prism_fas/pipeline/adapters/c8.py:1346-1351`) — never a second
     bank resolver.
+
+    `sample_identity` is the bank row's own `synthetic_id`. `stable_group_identity`
+    is resolved as `live_target_sample_id -> source_train sample_id ->
+    source_record_id`, through the SAME lookup `resolve_real_spoof_population`
+    uses — one implementation, never a second. Fail closed if
+    `live_target_sample_id` does not map uniquely and exactly to a
+    `source_train` row.
     """
     from prism_fas.detector.c6_bank import open_arm_bank
     from prism_fas.evaluation import c6_evidence
@@ -234,10 +328,29 @@ def resolve_synthetic_population(repo: Path, arm: str, *,
         candidates_root=Path(repo) / inputs["candidates_root"],
         package_identity=inputs["package_identity"],
         recipe_bank_identity=inputs["recipe_bank_identity"])
-    return [PopulationRecord(stable_group_identity=str(row["synthetic_id"]),
-                             source_domain=str(row["live_target_dataset"]),
-                             label=SYNTHETIC_SPOOF_CLASS)
-            for row in bank.rows if row["live_target_dataset"] in domains]
+    lookup = _source_record_id_by_sample_id(repo, domains=domains)
+
+    records: list[PopulationRecord] = []
+    unmapped: list[str] = []
+    for row in bank.rows:
+        if row["live_target_dataset"] not in domains:
+            continue
+        synthetic_id = str(row["synthetic_id"])
+        live_target_sample_id = str(row.get("live_target_sample_id") or "").strip()
+        source_record_id = lookup.get(live_target_sample_id) if live_target_sample_id else None
+        if not source_record_id:
+            unmapped.append(synthetic_id)
+            continue
+        records.append(PopulationRecord(
+            sample_identity=synthetic_id, stable_group_identity=source_record_id,
+            source_domain=str(row["live_target_dataset"]), label=SYNTHETIC_SPOOF_CLASS))
+    if unmapped:
+        raise SyntheticRealProbeError(
+            f"arm {arm!r}: {len(unmapped)} synthetic candidate(s) have a "
+            f"live_target_sample_id that does not map uniquely and exactly to a "
+            f"source_train row; fail closed rather than drop or group them "
+            f"arbitrarily. first offenders: {sorted(unmapped)[:5]}")
+    return records
 
 
 def resolve_arm_populations(repo: Path, arm: str) -> tuple[list[PopulationRecord],
@@ -280,13 +393,33 @@ def assign_splits(records: Sequence[PopulationRecord], *, namespace: str, probe_
     return out
 
 
+def verify_group_safe_split(split: Mapping[str, Sequence[PopulationRecord]]) -> None:
+    """Raise unless train and validation share zero `stable_group_identity`
+    values. The split rule (`split_bucket`) is group-safe by construction, so
+    this is a defense-in-depth assertion — the V2 correction this project
+    made once already (V1 declared `group_safe: true` without actually
+    proving it); never skip proving it again."""
+    train_groups = {record.stable_group_identity for record in split.get(TRAIN_LABEL, ())}
+    validation_groups = {record.stable_group_identity for record in split.get(VALIDATION_LABEL, ())}
+    leaked = train_groups & validation_groups
+    if leaked:
+        raise SyntheticRealProbeError(
+            f"group-safety violated: {len(leaked)} stable_group_identity value(s) "
+            f"appear in both train and validation: {sorted(leaked)[:5]}")
+
+
 # ==============================================================================
 # 5. Deterministic 1:1 class balance, shared real subset across arms (§9)
 # ==============================================================================
 
 def _selection_order_key(protocol_id: str, probe_seed: int, split: str, source_domain: str,
-                         stable_group_identity: str) -> str:
-    material = f"{protocol_id}|{probe_seed}|{split}|{source_domain}|{stable_group_identity}"
+                         sample_identity: str) -> str:
+    """The SAMPLE-selection order key — deliberately keyed on `sample_identity`,
+    never `stable_group_identity`. The split (above) partitions on the GROUP
+    identity; selecting WHICH of the already-split samples to keep is a
+    separate axis and uses the finer-grained sample identity, per the V2
+    pre-execution correction."""
+    material = f"{protocol_id}|{probe_seed}|{split}|{source_domain}|{sample_identity}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
@@ -298,20 +431,53 @@ def balance_classes(*, protocol_id: str, probe_seed: int, split: str, source_dom
     `(probe_seed, split, source_domain)` cell, `N = min(...)` over the real
     pool and all three arms' synthetic pools — so RND/DET/LLM are compared
     at the SAME real-spoof subset and the SAME sample budget. Deterministic
-    SHA-256 order, no replacement, no oversampling, no class weights.
+    SHA-256 order over `sample_identity` (never `stable_group_identity` —
+    selection order is a separate axis from the group-safe split), no
+    replacement, no oversampling, no class weights.
     """
     counts = [len(real_spoof)] + [len(synthetic_by_arm[arm]) for arm in ARMS]
     n = min(counts)
     ordered_real = sorted(
         real_spoof, key=lambda item: _selection_order_key(
-            protocol_id, probe_seed, split, source_domain, item.stable_group_identity))
+            protocol_id, probe_seed, split, source_domain, item.sample_identity))
     selected_real = ordered_real[:n]
     selected_synthetic = {
         arm: sorted(synthetic_by_arm[arm], key=lambda item: _selection_order_key(
-            protocol_id, probe_seed, split, source_domain, item.stable_group_identity)
+            protocol_id, probe_seed, split, source_domain, item.sample_identity)
         )[:n]
         for arm in ARMS}
     return selected_real, selected_synthetic
+
+
+def balance_report(*, protocol_id: str, probe_seed: int, split: str, source_domain: str,
+                   real_spoof: Sequence[PopulationRecord],
+                   synthetic_by_arm: Mapping[str, Sequence[PopulationRecord]]
+                   ) -> dict[str, Any]:
+    """`balance_classes` plus the group-count reporting the V2 correction
+    adds: unique `source_record_id` (`stable_group_identity`) counts before
+    and after balancing, per population, so a reviewer can see how much
+    group-diversity balancing preserved without recomputing it by hand."""
+    selected_real, selected_synthetic = balance_classes(
+        protocol_id=protocol_id, probe_seed=probe_seed, split=split, source_domain=source_domain,
+        real_spoof=real_spoof, synthetic_by_arm=synthetic_by_arm)
+
+    def _groups(records: Sequence[PopulationRecord]) -> int:
+        return len({record.stable_group_identity for record in records})
+
+    return {
+        "n": len(selected_real),
+        "pre_balance_counts": {"real": len(real_spoof),
+                               **{arm: len(synthetic_by_arm[arm]) for arm in ARMS}},
+        "post_balance_counts": {"real": len(selected_real),
+                                **{arm: len(selected_synthetic[arm]) for arm in ARMS}},
+        "unique_source_record_id_counts": {
+            "real_pre": _groups(real_spoof), "real_post": _groups(selected_real),
+            **{f"{arm}_pre": _groups(synthetic_by_arm[arm]) for arm in ARMS},
+            **{f"{arm}_post": _groups(selected_synthetic[arm]) for arm in ARMS},
+        },
+        "selected_real": selected_real,
+        "selected_synthetic": selected_synthetic,
+    }
 
 
 # ==============================================================================
@@ -490,6 +656,39 @@ def aggregate_ba_sep(per_seed: Mapping[int, float]) -> float:
     return float(sum(values) / len(values))
 
 
+def hard_verdict(ba_sep_by_arm: Mapping[str, float]) -> dict[str, Any]:
+    """The explicit all-arm hard verdict rule the V2 freeze adds (§10 of
+    `C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`), frozen before any
+    BA_sep value exists:
+
+        PASS iff BA_sep_RND <= 0.75 AND BA_sep_DET <= 0.75 AND BA_sep_LLM <= 0.75
+
+    A single arm above the ceiling fails the whole test — there is no
+    partial-arm pass. This is the HARD reliability gate only; it is
+    independent of `detector_reliability.C_H4_SUPPORT_RULE`, which a PASS
+    here never implies.
+    """
+    from prism_fas.evaluation import detector_reliability
+
+    missing = [arm for arm in ARMS if arm not in ba_sep_by_arm]
+    if missing:
+        raise SyntheticRealProbeError(
+            f"hard_verdict requires a BA_sep value for every arm {ARMS}; missing {missing}")
+    ceiling = detector_reliability.BA_SEP_CEILING
+    per_arm_pass = {arm: bool(ba_sep_by_arm[arm] <= ceiling) for arm in ARMS}
+    overall = all(per_arm_pass.values())
+    return {
+        "ba_sep_by_arm": {arm: float(ba_sep_by_arm[arm]) for arm in ARMS},
+        "ba_ceiling": ceiling,
+        "per_arm_pass": per_arm_pass,
+        "failing_arms": sorted(arm for arm, ok in per_arm_pass.items() if not ok),
+        "verdict": "PASS" if overall else "FAIL",
+        "rule": ("PASS iff BA_sep_RND <= 0.75 AND BA_sep_DET <= 0.75 AND "
+                 "BA_sep_LLM <= 0.75; a single arm above the ceiling fails "
+                 "the whole test"),
+    }
+
+
 # ==============================================================================
 # 10. Preflight — read-only validation, never a probe fit or a BA number
 # ==============================================================================
@@ -551,8 +750,8 @@ def run_scientific_probe(repo: Path, arm: str) -> dict[str, Any]:
     correct place for it (§16/§17 of the protocol-freeze task).
     """
     raise NotImplementedError(
-        "run_scientific_probe is intentionally unwired: this task freezes and "
-        "implements the C9_DETECTOR_BA_SEP_OPTION1_V1 protocol's mechanics, it "
+        "run_scientific_probe is intentionally unwired: this codebase freezes and "
+        "implements the C9_DETECTOR_BA_SEP_OPTION1_V2 protocol's mechanics, it "
         "does not execute them. See this function's docstring.")
 
 
@@ -564,9 +763,10 @@ __all__ = ["ARMS", "CHECKPOINTS_PER_ARM", "TOTAL_CHECKPOINTS", "EVIDENCE_FIELDS"
            "resolve_all_checkpoint_sets", "PopulationRecord",
            "resolve_real_spoof_population", "resolve_synthetic_population",
            "resolve_arm_populations", "split_bucket", "assign_splits",
-           "balance_classes", "extract_evidence", "forward_checkpoint_evidence",
+           "verify_group_safe_split", "balance_classes", "balance_report",
+           "extract_evidence", "forward_checkpoint_evidence",
            "average_checkpoint_evidence", "Normalization", "fit_normalization",
            "apply_normalization", "LBFGS_CONFIG", "L2_LAMBDA",
            "CLASSIFIER_THRESHOLD", "fit_linear_probe", "predict_probability",
-           "compute_ba_sep_for_seed", "aggregate_ba_sep", "preflight",
-           "run_scientific_probe"]
+           "compute_ba_sep_for_seed", "aggregate_ba_sep", "hard_verdict",
+           "preflight", "run_scientific_probe"]

@@ -28,7 +28,7 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C9_BA_SEP_OPTION1_PROTOCOL_FREEZE
+current_milestone: C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION
 current_substage: >-
   SUPERSEDES the substages below. On the GPU host, C4, C5, C6, C7 and C8 are
   SCIENTIFIC CLOSED (see `c7_scientific_closure_reconciliation` below,
@@ -36,25 +36,40 @@ current_substage: >-
   eight substages PASS, 42/42 scientific rows PASS). C8's own GPU artifacts
   (`runs/full/c8/`, `reports/full/c8/`, updated `state/*`) live only on the
   GPU host; this laptop has none of them and none of their contents is
-  invented here. The user explicitly approved Option 1 (common Track-G
-  decision evidence) from
-  `reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md`, before any
-  BA_sep value was observed. This milestone FREEZES and IMPLEMENTS that
-  protocol — `configs/evaluation/c9_detector_ba_sep_option1_v1.yaml`,
-  `src/prism_fas/evaluation/synthetic_real_probe.py` — WITHOUT EXECUTING IT:
-  no BA_sep value was computed, no checkpoint was loaded, no image was
-  opened. `detector_reliability.probe_protocol_status(repo)["resolved"]` is
-  now True for ONE of the nine required reliability tests
-  (`synthetic_vs_real_spoof_probe`); the other eight remain unresolved, so
-  `verify_lock()` still refuses and C9 is still correctly
-  BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION — see
-  `reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md`. C10-C13 have not
-  yet executed scientifically. target_access has been 0 throughout.
-previous_milestone: C9_DETECTOR_RELIABILITY_DECISION_AUDIT
+  invented here. The prior milestone froze `C9_DETECTOR_BA_SEP_OPTION1_V1`
+  (user-approved Option 1, before any BA_sep value was observed). Re-reading
+  V1's own group-safety claim against its actual implementation found it did
+  not hold: V1 partitioned the train/validation split on each sample's OWN
+  identity (`sample_id`/`synthetic_id`) rather than the underlying source
+  record, so samples derived from one source record — including a real spoof
+  sample and a synthetic candidate generated from it — could straddle the
+  split. This milestone corrects that BEFORE any execution, superseding V1
+  with `C9_DETECTOR_BA_SEP_OPTION1_V2`
+  (`configs/evaluation/c9_detector_ba_sep_option1_v2.yaml`, V1 config file
+  untouched) — `PopulationRecord` now separates `sample_identity` from
+  `stable_group_identity` (always `source_record_id`), the split partitions
+  only on the latter, sample selection orders only on the former, and a new
+  `verify_group_safe_split` assertion and an explicit all-arm hard verdict
+  rule (`BA_sep_RND<=0.75 AND BA_sep_DET<=0.75 AND BA_sep_LLM<=0.75`) were
+  added. A new scientific runner CLI
+  (`python -m prism_fas.evaluation.synthetic_real_probe_runner`,
+  `--preflight-only`/`--bind-only`/`--execute`) was implemented but its
+  `--execute` mode still refuses on every host today (`run_scientific_probe`
+  remains a deliberate `NotImplementedError`). No BA_sep value was computed,
+  no checkpoint was loaded, no image was opened, on this task or the one
+  before it. `detector_reliability.probe_protocol_status(repo)["resolved"]`
+  remains True for the same ONE of nine required reliability tests
+  (`synthetic_vs_real_spoof_probe`) under the corrected protocol; the other
+  eight remain unresolved, so `verify_lock()` still refuses and C9 is still
+  correctly BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION — see
+  `reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`.
+  C10-C13 have not yet executed scientifically. target_access has been 0
+  throughout.
+previous_milestone: C9_BA_SEP_OPTION1_PROTOCOL_FREEZE
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8; see execution_pipeline.full.
-pipeline_phase: scientific-execution-through-c8-c9-blocked-one-of-nine-protocols-frozen
+pipeline_phase: scientific-execution-through-c8-c9-blocked-one-of-nine-protocols-frozen-v2-corrected
 
 # SCOPE WARNING — HISTORICAL, SUPERSEDED 2026-08-25. Kept for context: this is
 # what was true through the C7_C13_PRODUCTION_PATH_READINESS milestone, when
@@ -5166,24 +5181,55 @@ c7_scientific_closure_reconciliation:
         rows (Track G is global-only by NORMATIVE contract; primary Track R
         trains with manifold OFF; no C-R-RND row exists).
       ba_sep_option1_protocol_freeze:
-        status: FROZEN_NOT_RUN
+        status: SUPERSEDED_BY_V2_PREEXECUTION_CORRECTION
         decision_id: C9_DETECTOR_BA_SEP_OPTION1_V1
         approved_by: explicit user approval, before any BA_sep value was observed
         resolves_test: synthetic_vs_real_spoof_probe   # one of nine required tests
-        config: configs/evaluation/c9_detector_ba_sep_option1_v1.yaml
+        config: configs/evaluation/c9_detector_ba_sep_option1_v1.yaml   # untouched, historical
         protocol_identity: a6da0ce75ebd92589ea61cba24a85bf8d8144bdbb99f7ec54d31066a66594908
+        defect_found_before_execution: >-
+          declared matched_source_split.group_safe: true while actually
+          partitioning on sample_id/synthetic_id (SAMPLE identity) rather
+          than source_record_id (GROUP identity); see
+          ba_sep_option1_v2_preexecution_correction below
+        real_ba_sep_computed: false
+        record: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md
+        record_json: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.json
+        tests: tests/pipeline/test_c9_ba_sep_option1_protocol.py   # 44 passed, updated for the V2 PopulationRecord shape
+      ba_sep_option1_v2_preexecution_correction:
+        status: FROZEN_NOT_RUN
+        decision_id: C9_DETECTOR_BA_SEP_OPTION1_V2
+        supersedes: C9_DETECTOR_BA_SEP_OPTION1_V1
+        supersession_reason: PRE_EXECUTION_GROUP_IDENTITY_CORRECTION
+        approved_by: explicit user approval, before any BA_sep value was observed (under V1 or V2)
+        resolves_test: synthetic_vs_real_spoof_probe   # one of nine required tests
+        config: configs/evaluation/c9_detector_ba_sep_option1_v2.yaml
+        protocol_identity: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+        superseded_protocol_identity: a6da0ce75ebd92589ea61cba24a85bf8d8144bdbb99f7ec54d31066a66594908
         implementation: src/prism_fas/evaluation/synthetic_real_probe.py
-        evidence_vector: [global_logit_G, p_global]
+        runner: src/prism_fas/evaluation/synthetic_real_probe_runner.py   # python -m ..., --preflight-only/--bind-only/--execute
+        evidence_vector: [global_logit_G, p_global]   # unchanged from V1
         checkpoints_bound: 15   # 5 seeds x {RND,DET,LLM} P3-ready Track-G rows; identities
                                 # empty here, bound only on a host with runs/full/c8/
-        probe_seed_values: [20260806, 20260807, 20260808]
-        ba_ceiling: 0.75
+        probe_seed_values: [20260806, 20260807, 20260808]   # unchanged from V1
+        ba_ceiling: 0.75   # unchanged from V1
+        hard_verdict_rule: BA_sep_RND<=0.75 AND BA_sep_DET<=0.75 AND BA_sep_LLM<=0.75
+        group_identity_correction: >-
+          PopulationRecord now carries sample_identity (selection axis) and
+          stable_group_identity (split axis, always source_record_id)
+          separately; synthetic rows resolve stable_group_identity via
+          live_target_sample_id -> source_train row -> source_record_id,
+          fail-closed if unmappable
         real_ba_sep_computed: false
         run_scientific_probe_wired: false   # deliberately NotImplementedError; deferred
                                             # to a separate GPU-host scientific runner
-        record: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md
-        record_json: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.json
-        tests: tests/pipeline/test_c9_ba_sep_option1_protocol.py   # 44 passed
+        runner_dry_run_on_this_laptop:
+          preflight_only: {exit_code: 0, protocol_resolved: true, all_checkpoints_resolved: false}
+          bind_only: {exit_code: 2, artifact_written: false, reason: no runs/full/c8/ on this host}
+          execute: {exit_code: 2, executed: false, reason: run_scientific_probe not wired}
+        record: reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md
+        record_json: reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.json
+        tests: tests/pipeline/test_c9_ba_sep_option1_v2_runner.py   # 63 passed
       still_unresolved:
         - the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS (residual_scale_zero,
           recipe_region_shift, artifact_map_swap, cross_route_synthetic,
@@ -5224,24 +5270,27 @@ c7_scientific_closure_reconciliation:
     stage_constant: C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C
     lock: reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json
     lock_exists: false
-    # synthetic_vs_real_spoof_probe's PROTOCOL is now frozen (Option 1,
-    # user-approved) — see stage_table.c9.ba_sep_option1_protocol_freeze
-    # above. The other eight required tests' protocols remain unresolved,
-    # and no test's RESULT (including this one) has been executed.
+    # synthetic_vs_real_spoof_probe's PROTOCOL is now frozen as V2 (Option 1,
+    # user-approved, pre-execution group-identity correction over V1) — see
+    # stage_table.c9.ba_sep_option1_v2_preexecution_correction above. The
+    # other eight required tests' protocols remain unresolved, and no test's
+    # RESULT (including this one) has been executed under either version.
     unresolved_decisions_remaining: [DETECTOR_BA_SEP_EVIDENCE_VECTOR_NEEDS_SCIENTIFIC_DECISION,
                                      DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION]
     resolved_decisions:
       - id: DETECTOR_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION
         resolved_for: synthetic_vs_real_spoof_probe only (one of nine required tests)
-        resolved_by: C9_DETECTOR_BA_SEP_OPTION1_V1, user-approved 2026-08-26
+        resolved_by: C9_DETECTOR_BA_SEP_OPTION1_V2, user-approved 2026-08-26 (supersedes V1, same date)
         note: >-
           the EVIDENCE_VECTOR and PROBE_SEEDS sub-questions are answered
           WITHIN this one frozen protocol (Option 1 / the reused seed
-          triple); the two decision codes above stay listed as
-          "remaining" because they are named at the barrier level and the
-          other eight tests do not share this protocol.
+          triple), unchanged by the V2 correction; the two decision codes
+          above stay listed as "remaining" because they are named at the
+          barrier level and the other eight tests do not share this
+          protocol.
     decision_dossier: reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md
-    protocol_freeze_record: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md
+    protocol_freeze_record: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md   # V1, historical
+    protocol_correction_record: reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md   # V2, current
     no_ba_sep_number_produced: true
     no_fake_or_hardcoded_pass_lock_created: true
 
@@ -5252,18 +5301,24 @@ c7_scientific_closure_reconciliation:
     benign corruption tests, and crop_padding_interpolation's structural
     data-block). C7 and C8 remain scientifically closed and valid; nothing
     further is required of either. The synthetic_vs_real_spoof_probe
-    PROTOCOL is now frozen (C9_DETECTOR_BA_SEP_OPTION1_V1) but NOT executed —
-    no BA_sep value exists. When authorized to execute it, a separate
-    scientific runner must be built on the GPU host (this laptop cannot: it
-    has no C8 checkpoints and no source package) that wires
-    prism_fas.evaluation.synthetic_real_probe.run_scientific_probe against
-    real data, reusing prism_fas.detector.trainer.M9Trainer construction
-    exactly as c8.py's row executor does. C9 may not close
-    SOURCE_MATRIX_LOCK_C, and C10-C13 may not run, until a real
-    DETECTOR_RELIABILITY_LOCK_C exists with overall=PASSED, every required
-    test PASSED, and a bound probe_protocol_identity and
-    detector_checkpoint_identities. Do not run C9, C10, C11, C12 or C13, and
-    do not access target, until then.
+    PROTOCOL is now frozen as C9_DETECTOR_BA_SEP_OPTION1_V2 (supersedes V1
+    with a pre-execution group-identity correction only) but NOT executed —
+    no BA_sep value exists under either version. `python -m
+    prism_fas.evaluation.synthetic_real_probe_runner` now provides
+    `--preflight-only` (safe anywhere), `--bind-only --arm {RND,DET,LLM}`
+    (resolves real checkpoints/populations and writes a binding-record
+    artifact; requires runs/full/c8/, so it fails closed on this laptop) and
+    `--execute --arm {RND,DET,LLM}` (still refuses on every host today:
+    run_scientific_probe remains a deliberate NotImplementedError). When
+    authorized to execute the probe for real, a future task must wire
+    run_scientific_probe on the GPU host (this laptop cannot: it has no C8
+    checkpoints and no source package), reusing
+    prism_fas.detector.trainer.M9Trainer construction exactly as c8.py's row
+    executor does. C9 may not close SOURCE_MATRIX_LOCK_C, and C10-C13 may
+    not run, until a real DETECTOR_RELIABILITY_LOCK_C exists with
+    overall=PASSED, every required test PASSED, and a bound
+    probe_protocol_identity and detector_checkpoint_identities. Do not run
+    C9, C10, C11, C12 or C13, and do not access target, until then.
 
-last_updated_utc: 2026-08-26   # C9_DETECTOR_BA_SEP_OPTION1_V1 protocol freeze (user-approved, not executed)
+last_updated_utc: 2026-08-26   # C9_DETECTOR_BA_SEP_OPTION1_V2 pre-execution group-split correction + scientific runner (not executed)
 ```
