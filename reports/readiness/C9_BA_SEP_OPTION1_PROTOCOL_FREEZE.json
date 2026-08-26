@@ -1,0 +1,158 @@
+{
+  "schema_version": "c9-ba-sep-option1-protocol-freeze-v1",
+  "document_kind": "PROTOCOL_FREEZE_NOT_EXECUTION",
+  "decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V1",
+  "user_approval_received_before_metric_observation": true,
+  "no_ba_sep_metric_observed_before_freeze": true,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md",
+  "frozen_config_path": "configs/evaluation/c9_detector_ba_sep_option1_v1.yaml",
+  "frozen_config_status": "FROZEN_NOT_RUN",
+  "protocol_identity": "a6da0ce75ebd92589ea61cba24a85bf8d8144bdbb99f7ec54d31066a66594908",
+
+  "evidence_vector": {
+    "fields": ["global_logit_G", "p_global"],
+    "dimension": 2,
+    "forbidden_fields": ["s_region", "region_distances", "local_logits",
+                         "region_embeddings", "z_global", "generator_identity",
+                         "route_identity", "quality_weight", "recipe_metadata"],
+    "reduction_disclosure": "reduced 2-D probe relative to the historical Version-B regional 11-D vector; must never be described as reproducing it"
+  },
+
+  "checkpoint_binding": {
+    "policy": "all five C8 P3-ready Track-G training-seed checkpoints per arm (20260806-20260810), resolved from real C8 manifests, no performance-based selection",
+    "checkpoints_per_arm": 5,
+    "total_checkpoints": 15,
+    "arms": ["RND", "DET", "LLM"],
+    "resolver": "prism_fas.evaluation.source_evidence.load_row_evidence",
+    "identities_bound_now": false,
+    "reason_identities_empty": "this development clone does not possess runs/full/c8/; identities are bound only on a host that does"
+  },
+
+  "checkpoint_aggregation": {
+    "formula": "e_A(x) = arithmetic_mean_k e_k(x) over the 5 checkpoints k of arm A",
+    "implementation": "prism_fas.evaluation.synthetic_real_probe.average_checkpoint_evidence"
+  },
+
+  "probe_seeds": {
+    "values": [20260806, 20260807, 20260808],
+    "provenance": "reuses the first three values of the Version-C training-seed family for reproducibility; NEWLY preregistered as BA_sep probe seeds, not an inherited §18.3 designation"
+  },
+
+  "populations": {
+    "real_spoof_population": {
+      "source": "source_train",
+      "label": "real spoof only",
+      "resolver": "prism_fas.data.loader.loose_dataset.CanonicalPackageDataset"
+    },
+    "synthetic_population": {
+      "source": "the frozen C6 matched bank for the arm under probe",
+      "resolver": "prism_fas.detector.c6_bank.open_arm_bank",
+      "traced_to": "the exact call src/prism_fas/pipeline/adapters/c8.py:1346-1351 makes"
+    },
+    "source_domains": ["casia_fasd", "msu_mfsd"],
+    "forbidden_populations": ["source_dev", "siw_mv2_v2", "target_test"]
+  },
+
+  "sample_unit": "one canonical 224x224 detector input crop",
+
+  "matched_source_split": {
+    "algorithm": "deterministic_group_stratified_hash_split",
+    "train_fraction": 0.8,
+    "validation_fraction": 0.2,
+    "split_hash_namespace": "c9-ba-sep-option1-v1",
+    "group_safe": true,
+    "shared_across_arms": true,
+    "implementation": "prism_fas.evaluation.synthetic_real_probe.split_bucket / assign_splits"
+  },
+
+  "class_balancing": {
+    "balance": "1:1 within each (probe_seed, source_domain, split) cell",
+    "count_rule": "N = min(real_spoof_available, RND/DET/LLM_synthetic_available)",
+    "same_real_subset_across_arms": true,
+    "selection_order": "deterministic_sha256_order",
+    "replacement": false,
+    "oversampling": false,
+    "class_weights": false,
+    "implementation": "prism_fas.evaluation.synthetic_real_probe.balance_classes"
+  },
+
+  "preprocessing": "identical to the frozen M9/C8 Track-G detector inference preprocessing",
+
+  "feature_normalization": {
+    "method": "z_score",
+    "fit_on": "probe_train_split_only",
+    "epsilon": 1e-8,
+    "implementation": "prism_fas.evaluation.synthetic_real_probe.fit_normalization / apply_normalization"
+  },
+
+  "linear_probe": {
+    "framework": "torch",
+    "new_dependency": "none (scikit-learn NOT added)",
+    "classifier": "torch.nn.Linear(2, 1)",
+    "initialization": {"weight": 0.0, "bias": 0.0},
+    "loss": "BCEWithLogitsLoss",
+    "regularization": {"type": "L2", "target": "weight_only", "lambda": 1e-4},
+    "optimizer": {
+      "algorithm": "torch.optim.LBFGS",
+      "lr": 1.0, "max_iter": 200, "max_eval": 250,
+      "tolerance_grad": 1e-7, "tolerance_change": 1e-9,
+      "history_size": 100, "line_search_fn": "strong_wolfe"
+    },
+    "device": "cpu",
+    "dtype": "float64",
+    "minibatching": false,
+    "hyperparameter_search": false,
+    "implementation": "prism_fas.evaluation.synthetic_real_probe.fit_linear_probe"
+  },
+
+  "classifier_threshold": 0.5,
+
+  "metric": {
+    "balanced_accuracy_implementation": "prism_fas.train.metrics.balanced_accuracy",
+    "per_seed_aggregation": "one BA_sep_arm_seed per probe seed on its held-out validation split",
+    "mean_aggregation": "arithmetic mean of the 3 BA_sep_arm_seed values",
+    "ba_ceiling": 0.75
+  },
+
+  "c_h4_separate_from_hard_gate": true,
+
+  "implementation_files": [
+    "configs/evaluation/c9_detector_ba_sep_option1_v1.yaml",
+    "src/prism_fas/evaluation/synthetic_real_probe.py",
+    "src/prism_fas/evaluation/detector_reliability.py (load_probe_protocol, PROBE_PROTOCOL_CONFIG_PATH, public protocol_identity, probe_protocol_status(repo=...))"
+  ],
+
+  "run_scientific_probe_wired": false,
+  "run_scientific_probe_reason": "loading real checkpoint weights and forwarding real images is deliberately deferred to a separate scientific runner on the GPU host; every resolver and numeric mechanism it would call is implemented and tested",
+
+  "tests": {
+    "file": "tests/pipeline/test_c9_ba_sep_option1_protocol.py",
+    "count": 44,
+    "all_passed": true,
+    "real_ba_sep_computed_in_tests": false,
+    "real_checkpoints_used_in_tests": false
+  },
+
+  "not_done_by_this_freeze": [
+    "compute a real BA_sep value",
+    "resolve the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS",
+    "reclassify crop_padding_interpolation",
+    "create DETECTOR_RELIABILITY_LOCK_C.json",
+    "run C9, C10, C11, C12 or C13",
+    "access target data",
+    "retrain C7 or any C8 row",
+    "add C-R-RND",
+    "alter any C7 winner"
+  ],
+
+  "final_status": {
+    "c8_scientific_closed": true,
+    "ba_sep_option1_protocol": "FROZEN",
+    "ba_sep_scientifically_run": false,
+    "detector_reliability_lock": "NOT_PASSED",
+    "c9_scientifically_run": false,
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}

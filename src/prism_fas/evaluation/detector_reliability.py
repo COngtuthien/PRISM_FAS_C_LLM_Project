@@ -85,7 +85,21 @@ PROBE_SEEDS_UNRESOLVED = "DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION"
 
 #: The executable protocol. `None` until every result-affecting field below is
 #: frozen. No BA number may be produced while this is None.
+#:
+#: Deliberately never assigned a hard-coded dict in this module — a Python
+#: literal is not how any other frozen Version-C scientific decision in this
+#: project is bound (compare `search.c7_decision.load_decision`,
+#: `search.lr_decision.load_decision`: a config file, resolved by a function
+#: that takes `repo`). `probe_protocol_status(repo=...)` below reads the
+#: frozen protocol from its own config file via `load_probe_protocol`; this
+#: constant stays the honest "no repo context" answer.
 DETECTOR_BA_SEP_PROBE_PROTOCOL: dict[str, Any] | None = None
+
+#: Where a frozen, user-approved probe protocol lives, once one exists.
+#: Currently: Option 1 (common Track-G decision evidence), approved before
+#: any BA_sep value was observed. See
+#: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md.
+PROBE_PROTOCOL_CONFIG_PATH = "configs/evaluation/c9_detector_ba_sep_option1_v1.yaml"
 
 #: Everything the protocol must bind before the first probe execution. None of
 #: it may be chosen after observing a BA value.
@@ -132,13 +146,54 @@ class DetectorReliabilityError(RuntimeError):
     """The pre-target reliability barrier cannot be resolved as declared."""
 
 
-def probe_protocol_status() -> dict[str, Any]:
-    """Whether a BA_sep number may be produced at all. Today: no."""
-    resolved = DETECTOR_BA_SEP_PROBE_PROTOCOL is not None
+def load_probe_protocol(repo: Path) -> dict[str, Any] | None:
+    """The frozen probe protocol, read from `PROBE_PROTOCOL_CONFIG_PATH`, or
+    `None`.
+
+    Never invents a value: a missing file, a file that fails to parse, a file
+    not declaring `status: FROZEN_NOT_RUN`, or a file missing any
+    `PROBE_PROTOCOL_REQUIRED_FIELDS` entry all return `None` — the same
+    "not yet resolved" answer this module always gave while
+    `DETECTOR_BA_SEP_PROBE_PROTOCOL` was a hard-coded `None`. Loading a real
+    protocol never marks any TEST result `PASSED`; that is a separate,
+    later, executed measurement.
+    """
+    import yaml
+
+    path = Path(repo) / PROBE_PROTOCOL_CONFIG_PATH
+    if not path.is_file():
+        return None
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("status") != "FROZEN_NOT_RUN":
+        return None
+    missing = [field for field in PROBE_PROTOCOL_REQUIRED_FIELDS if field not in payload]
+    if missing:
+        return None
+    return payload
+
+
+def probe_protocol_status(repo: Path | None = None) -> dict[str, Any]:
+    """Whether a BA_sep number may be produced at all.
+
+    With no `repo`, this is the module-constant answer
+    (`DETECTOR_BA_SEP_PROBE_PROTOCOL`, always `None`). With a `repo`, the
+    frozen protocol is read from its own config file (`load_probe_protocol`)
+    — resolved becomes `True` only because every required protocol field is
+    now explicitly frozen there, never because a Python literal changed.
+    """
+    protocol = load_probe_protocol(repo) if repo is not None else DETECTOR_BA_SEP_PROBE_PROTOCOL
+    resolved = protocol is not None
     missing = ([] if resolved
                else [field for field in PROBE_PROTOCOL_REQUIRED_FIELDS])
     return {
         "resolved": resolved,
+        "protocol": protocol,
+        "protocol_identity": protocol_identity(protocol) if protocol else None,
         "reason_code": None if resolved else PROBE_PROTOCOL_UNRESOLVED,
         "unresolved_fields": missing,
         "open_decisions": [] if resolved else [
@@ -154,6 +209,25 @@ def probe_protocol_status() -> dict[str, Any]:
                  "protocol field is frozen; nothing may be chosen after "
                  "observing a BA value"),
     }
+
+
+#: Metadata keys excluded from the protocol identity: they describe WHEN and
+#: BY WHOM the protocol was frozen, never WHAT was frozen. Including them
+#: would make the identity move on a re-save that changed nothing scientific.
+_PROTOCOL_IDENTITY_EXCLUDED_KEYS = frozenset({
+    "frozen_on", "approved_by", "status", "no_ba_sep_observed_before_freeze",
+    "not_resolved_by_this_freeze", "schema_version", "decision_id", "resolves_test",
+})
+
+
+def protocol_identity(protocol: Mapping[str, Any]) -> str:
+    """sha256 over every result-affecting protocol field, sorted keys, no
+    timestamps/hostnames/results. Changes if and only if a result-affecting
+    field changes."""
+    material = {key: value for key, value in protocol.items()
+               if key not in _PROTOCOL_IDENTITY_EXCLUDED_KEYS}
+    return hashlib.sha256(json.dumps(
+        material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def barrier_state(results: Mapping[str, str] | None = None) -> dict[str, Any]:
@@ -278,8 +352,9 @@ __all__ = ["SCHEMA_VERSION", "LOCK_NAME", "LOCK_PATH", "STAGE", "PASSED", "FAILE
            "REQUIRED_DETECTOR_RELIABILITY_TESTS", "CANONICALLY_BLOCKED_TESTS",
            "BA_SEP_CEILING", "BA_SEP_SEEDS_REQUIRED", "BA_SEP_DEFINITION",
            "C_H4_SUPPORT_RULE", "DETECTOR_BA_SEP_PROBE_PROTOCOL",
+           "PROBE_PROTOCOL_CONFIG_PATH",
            "PROBE_PROTOCOL_REQUIRED_FIELDS", "PROBE_PROTOCOL_UNRESOLVED",
            "EVIDENCE_VECTOR_UNRESOLVED", "PROBE_SEEDS_UNRESOLVED",
            "EVIDENCE_VECTOR_AUDIT", "PROBE_SEED_AUDIT",
-           "DetectorReliabilityError", "probe_protocol_status", "barrier_state",
-           "verify_lock", "lock_payload"]
+           "DetectorReliabilityError", "load_probe_protocol", "probe_protocol_status",
+           "barrier_state", "verify_lock", "lock_payload"]

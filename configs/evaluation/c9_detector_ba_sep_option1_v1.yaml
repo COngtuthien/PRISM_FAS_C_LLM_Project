@@ -1,0 +1,236 @@
+# C9_DETECTOR_BA_SEP_OPTION1_V1 — the frozen, user-approved synthetic-vs-real
+# BA_sep probe protocol for `synthetic_vs_real_spoof_probe`
+# (one of the nine REQUIRED_DETECTOR_RELIABILITY_TESTS).
+#
+# Approved by the user, explicitly, BEFORE any BA_sep value or any other
+# reliability metric was observed. See:
+#   reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md   (the audit)
+#   reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md          (this freeze)
+#
+# FREEZING THIS FILE RESOLVES THE EXECUTABLE PROTOCOL. IT DOES NOT RUN IT.
+# `status: FROZEN_NOT_RUN` below is load-bearing: no BA_sep number has been
+# produced under this protocol, `checkpoint_identities` is empty (bound from
+# real C8 manifests only at execution time, on a host that has them), and no
+# DETECTOR_RELIABILITY_LOCK_C exists. Loading this file makes
+# `detector_reliability.probe_protocol_status(repo)["resolved"]` become True —
+# the PROTOCOL is resolved. It does not and cannot mark the TEST result
+# PASSED; that still requires a real, executed probe.
+#
+# Every field below is a result-affecting field of
+# `detector_reliability.PROBE_PROTOCOL_REQUIRED_FIELDS`, plus the additional
+# result-affecting fields this freeze introduces (checkpoint_set_policy,
+# checkpoint_evidence_aggregation, split_hash_namespace, validation_fraction,
+# classifier_threshold, normalization_epsilon, the optimizer settings, dtype).
+# Nothing here is a free-form default: each is either FROZEN_BY_SPEC,
+# RECOVERED_FROM_CURRENT_FROZEN_CODE, or an explicit new preregistration this
+# freeze makes (never chosen after observing a result).
+
+schema_version: c9-detector-ba-sep-option1-v1
+decision_id: C9_DETECTOR_BA_SEP_OPTION1_V1
+status: FROZEN_NOT_RUN
+resolves_test: synthetic_vs_real_spoof_probe
+approved_by: explicit user approval, recorded before any BA_sep value was observed
+frozen_on: "2026-08-26"
+no_ba_sep_observed_before_freeze: true
+
+# --- the evidence vector (PROBE_PROTOCOL_REQUIRED_FIELDS: evidence_vector_definition) ---
+evidence_vector_definition:
+  fields: [global_logit_G, p_global]
+  dimension: 2
+  source: >-
+    Track-G ModelOutput.global_logit and ModelOutput.p_global
+    (src/prism_fas/detector/contracts.py) — always populated for Track G,
+    never None, per the spec's §13.1/§13.4.1 NORMATIVE Track-G contract.
+  forbidden_fields: [s_region, region_distances, local_logits, region_embeddings,
+                      p_prompt_spoof, z_global, generator_identity, route_identity,
+                      quality_weight, recipe_metadata]
+  reduction_disclosure: >-
+    a REDUCED 2-D probe relative to the historical Version-B regional 11-D
+    vector [p_global, s_region, nine normalized regional distances]. Track G
+    structurally cannot emit the regional terms (no manifold, no region
+    fusion — spec §13.1 NORMATIVE), and no Version-C primary row for any arm
+    emits them either (primary Track R trains with manifold OFF). This
+    vector MUST NOT be described as reproducing the historical 11-D vector.
+
+# --- populations (PROBE_PROTOCOL_REQUIRED_FIELDS: real_spoof_population, synthetic_population) ---
+real_spoof_population:
+  source: source_train
+  label: real spoof only (label_live_spoof == "spoof")
+  resolver: prism_fas.detector.dataset.M9TrainingDataset (real pool) /
+            prism_fas.data.loader.loose_dataset.CanonicalPackageDataset
+  stable_group_identity_field: sample_id
+  domain_field: dataset
+
+synthetic_population:
+  source: >-
+    the frozen C6 matched bank for the ARM under probe (RND, DET or LLM
+    respectively) — the exact same bank that arm's C8 rows trained against.
+    Traced, not guessed: C7/C8 both resolve this bank through
+    prism_fas.detector.c6_bank.open_arm_bank(repo, arm=arm,
+    evidence=c6_evidence.verify_c6_evidence(repo).bank(arm),
+    candidates_root=sources.C5_CANDIDATES_ROOT,
+    package_identity=..., recipe_bank_identity=...) — the exact call
+    src/prism_fas/pipeline/adapters/c8.py:1346-1351 makes before training a
+    row. This freeze binds the same resolver, not a second implementation.
+  resolver: prism_fas.detector.c6_bank.open_arm_bank
+  stable_group_identity_field: synthetic_id
+  domain_field: live_target_dataset
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: source_domains) ---
+source_domains: [casia_fasd, msu_mfsd]
+forbidden_populations: [source_dev, siw_mv2_v2, target_test, target_taxonomy]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: matched_source_split) ---
+matched_source_split:
+  algorithm: deterministic_group_stratified_hash_split
+  train_fraction: 0.8
+  validation_fraction: 0.2
+  split_hash_namespace: c9-ba-sep-option1-v1
+  hash_rule: >-
+    sha256(split_hash_namespace + "|" + str(probe_seed) + "|" + source_domain
+    + "|" + stable_group_identity) — hex digest interpreted as an integer,
+    modulo 100 < 80 => train, else => validation
+  group_safe: true
+  shared_across_arms: true
+  computed_before_probe_fit: true
+  fallback_on_missing_canonical_identity: forbidden   # never falls back to
+    # file path or array index when a canonical stable identity exists
+    # (sample_id for real, synthetic_id for synthetic)
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: class_balancing_rule) ---
+class_balancing_rule:
+  classes: {"0": real_spoof, "1": synthetic_spoof}
+  balance: "1:1 within each (probe_seed, source_domain, split) cell"
+  count_rule: >-
+    N = min(real_spoof_available, RND_synthetic_available,
+    DET_synthetic_available, LLM_synthetic_available) computed per
+    (probe_seed, source_domain, split) cell
+  same_real_subset_across_arms: true
+  selection_order: deterministic_sha256_order
+  selection_order_hash_rule: >-
+    sha256(protocol_identity + "|" + str(probe_seed) + "|" + split + "|" +
+    source_domain + "|" + stable_group_identity), ascending
+  replacement: false
+  oversampling: false
+  class_weights: false
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: sample_unit) ---
+sample_unit: one canonical 224x224 detector input crop
+sample_unit_forbidden: [video_aggregate, subject_aggregate, recipe_aggregate,
+                        checkpoint_aggregate]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: detector_checkpoint_identity) ---
+detector_checkpoint_identity:
+  checkpoint_set_policy: >-
+    ALL FIVE C8 P3-ready Track-G training-seed checkpoints per arm
+    (seeds 20260806, 20260807, 20260808, 20260809, 20260810), resolved from
+    real C8 run manifests via the same manifest/checkpoint verification C9
+    already uses. No checkpoint is chosen by best/median/lowest-ACER or by
+    examining evidence. No P1/P2 checkpoint participates.
+  checkpoint_evidence_aggregation: arithmetic_mean_over_5_checkpoints
+  rows_source: prism_fas.evaluation.source_matrix.build_plan
+  row_selector: "row.track == 'G' and row.protocol == 'P3' and row.arm == arm"
+  row_id_pattern: "C-G-{arm}-P3READY-s{seed}"
+  manifest_resolver: prism_fas.evaluation.source_evidence.load_row_evidence
+  checkpoints_per_arm: 5
+  total_checkpoints: 15
+  identities: {}   # bound from real C8 manifests only at execution time on a
+                   # host that possesses runs/full/c8/; empty in this freeze
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: preprocessing) ---
+preprocessing:
+  reference: identical to the frozen M9/C8 Track-G detector inference preprocessing
+  note: the probe consumes detector evidence, not raw pixels; no probe-specific
+        image preprocessing pipeline is created
+  config_paths: [configs/train/m9_reference.yaml, configs/models/m9_detector.yaml]
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: feature_normalization) ---
+feature_normalization:
+  method: z_score
+  fit_on: probe_train_split_only
+  epsilon: 1.0e-8
+  applies_to: [global_logit_G, p_global]
+  joint_across_arms: false
+  pca_or_feature_selection: false
+  formula: "z_j = (x_j - mu_j) / max(std_j, epsilon)"
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: linear_probe_implementation) ---
+linear_probe_implementation:
+  framework: torch
+  new_dependency: none   # scikit-learn is explicitly NOT added
+  classifier: "torch.nn.Linear(2, 1)"
+  initialization: {weight: 0.0, bias: 0.0}
+  loss: BCEWithLogitsLoss
+  class_weighting: none
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: regularization) ---
+regularization:
+  type: L2
+  target: weight_only
+  lambda: 1.0e-4
+  l1: none
+  bias_regularization: none
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: optimizer_or_solver) ---
+optimizer_or_solver:
+  algorithm: torch.optim.LBFGS
+  lr: 1.0
+  max_iter: 200
+  max_eval: 250
+  tolerance_grad: 1.0e-7
+  tolerance_change: 1.0e-9
+  history_size: 100
+  line_search_fn: strong_wolfe
+  minibatching: none
+  early_stopping_on_validation_metric: none
+  hyperparameter_search: none
+  c_search: none
+  threshold_search: none
+  termination: only via the frozen LBFGS numeric convergence tolerances above
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: training_budget) ---
+training_budget:
+  batching: full_batch
+  device: cpu
+  dtype: float64
+  epochs: not_applicable   # a single LBFGS optimization to convergence
+                           # tolerance, not an epoch loop
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: train_validation_split) ---
+train_validation_split:
+  see: matched_source_split above
+
+# --- additional: classifier decision threshold ---
+classifier_threshold: 0.5
+classifier_threshold_frozen: true
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: probe_seed_values) ---
+probe_seed_values: [20260806, 20260807, 20260808]
+probe_seed_provenance: >-
+  intentionally reuses the first three numeric values of the Version-C
+  training-seed family (source_matrix.SEED_FAMILY) for reproducibility. Their
+  role HERE is a newly preregistered set of BA_sep PROBE seeds — this is NOT
+  a claim that §18.3 originally fixed them as probe seeds. No seed may be
+  replaced or added after a BA result exists.
+
+# --- (PROBE_PROTOCOL_REQUIRED_FIELDS: balanced_accuracy_implementation, per_seed_aggregation, mean_aggregation, ba_ceiling) ---
+balanced_accuracy_implementation: prism_fas.train.metrics.balanced_accuracy
+per_seed_aggregation: >-
+  one BA_sep_arm_seed value per probe seed, computed on that seed's held-out
+  20% validation split
+mean_aggregation: arithmetic mean of the three BA_sep_arm_seed values
+ba_ceiling: 0.75
+ba_ceiling_frozen: true
+
+# --- target firewall ---
+target_firewall:
+  target_access: 0
+  forbidden_populations: [siw_mv2_v2, target_test, source_dev]
+  no_target_guided_selection: true
+
+# --- what this freeze is NOT ---
+not_resolved_by_this_freeze:
+  - the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS
+  - overall DETECTOR_RELIABILITY_LOCK_C status (remains unresolved/absent)
+  - the crop_padding_interpolation data-blocked gap
+  - C-H4 support (a separate rule; a reliability PASS does not imply C-H4 SUPPORTED)
