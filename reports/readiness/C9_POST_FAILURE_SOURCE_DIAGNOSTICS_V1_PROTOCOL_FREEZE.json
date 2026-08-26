@@ -1,0 +1,147 @@
+{
+  "schema_version": "c9-post-failure-source-diagnostics-v1-protocol-freeze-v1",
+  "document_kind": "POST_FAILURE_SOURCE_DIAGNOSTICS_PROTOCOL_FREEZE_NOT_EXECUTION",
+  "decision_id": "C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1",
+  "not_a_ba_sep_revision": true,
+  "not_a_reliability_barrier_rescue": true,
+  "not_a_c9_pass_protocol": true,
+  "not_a_target_protocol": true,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V1_PROTOCOL_FREEZE.md",
+
+  "diagnostics_protocol_identity": "cb05271e26d9a421f2f9277599523e185026e1eab644febc07c75432d26f3fc5",
+  "diagnostics_config_path": "configs/evaluation/c9_post_failure_source_diagnostics_v1.yaml",
+
+  "preserved_scientific_state": {
+    "ba_sep_option1_v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+    "ba_sep_by_arm": {"RND": 0.7843079833902619, "DET": 0.8514170182841069, "LLM": 0.7902658339472685},
+    "ba_sep_verdict": "FAIL",
+    "detector_reliability_lock_c_identity_sha256_user_reported": "40825a5fffcbbdd681e5d8b0354e8371dcccabc36b51d1b9a12cd8bd29e73fbe",
+    "detector_reliability_overall": "FAILED",
+    "c9_may_close": false,
+    "can_this_protocol_change_any_of_the_above": false
+  },
+
+  "executability_table": [
+    {"test_id": "benign_jpeg_corruption", "classification": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "gpu_ready": true},
+    {"test_id": "benign_resize_corruption", "classification": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "gpu_ready": true},
+    {"test_id": "benign_color_corruption", "classification": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "gpu_ready": true},
+    {"test_id": "cross_route_synthetic", "classification": "EXECUTABLE_WITH_NEW_FROZEN_PROTOCOL", "gpu_ready": true},
+    {"test_id": "recipe_region_shift", "classification": "NEEDS_SCIENTIFIC_DECISION", "gpu_ready": false},
+    {"test_id": "artifact_map_swap", "classification": "NEEDS_SCIENTIFIC_DECISION", "gpu_ready": false},
+    {"test_id": "residual_scale_zero", "classification": "STRUCTURALLY_MODEL_BLOCKED", "gpu_ready": false},
+    {"test_id": "crop_padding_interpolation", "classification": "STRUCTURALLY_DATA_BLOCKED", "gpu_ready": false}
+  ],
+
+  "re_audit_findings_beyond_prior_pass": {
+    "region_embeddings_and_region_attention_available_for_primary_track_r": true,
+    "local_logits_available_for_primary_track_r": true,
+    "attack_region_mask_already_exists_per_bank_row": true,
+    "weighted_local_loss_already_implemented_as_training_loss": true,
+    "region_distances_still_unavailable_for_any_primary_row": true,
+    "reason": "gated by self.manifold is not None; true only for the secondary TRACK_R_K4_FLAGS variant"
+  },
+
+  "benign_corruption_protocol": {
+    "population": "source_dev LIVE only, both domains",
+    "stable_grouping_identity": "source_record_id",
+    "split_hash_namespace": "c9-post-failure-diagnostics-v1",
+    "split_seed": 20260806,
+    "split_fraction": 0.5,
+    "evidence_fields": ["global_logit_G", "p_global"],
+    "metric_implementation": "prism_fas.evaluation.reliability.score_shift",
+    "threshold_formula": "calibration_mean_shift + 3 * calibration_std_shift (population std, ddof=0)",
+    "pass_rule": "evaluation_group.mean_shift <= threshold",
+    "existing_declared_threshold_found": false,
+    "perturbations": {
+      "benign_jpeg_corruption": {"backend": "PIL", "format": "JPEG", "quality": 50},
+      "benign_resize_corruption": {"backend": "PIL", "downscale_factor": 0.5, "interpolation": "BILINEAR"},
+      "benign_color_corruption": {"gain": {"R": 1.15, "G": 1.0, "B": 0.9}, "clip": [0, 1]}
+    }
+  },
+
+  "cross_route_protocol": {
+    "routes": ["physics", "gpat"],
+    "route_source": "prism_fas.synthesis.candidate_plan.ROUTES",
+    "design": "symmetric",
+    "directions": ["physics_to_gpat", "gpat_to_physics"],
+    "reused_mechanics": ["synthetic_real_probe.fit_linear_probe", "synthetic_real_probe.compute_ba_sep_for_seed",
+                         "synthetic_real_probe.resolve_real_spoof_population"],
+    "probe_seed_values": [20260806, 20260807, 20260808],
+    "threshold_reused_from_ba_sep": true,
+    "threshold_value": 0.75,
+    "threshold_invented": false
+  },
+
+  "checkpoint_policy": {
+    "checkpoints_per_arm": 5, "total_checkpoints": 15,
+    "seeds": [20260806, 20260807, 20260808, 20260809, 20260810],
+    "resolver": "prism_fas.evaluation.synthetic_real_probe.resolve_checkpoint_set",
+    "no_best_seed_selection": true
+  },
+
+  "result_namespace": {
+    "directory": "reports/full/c8/reliability/post_failure_source_diagnostics_v1",
+    "never_writes_to": ["reports/full/c8/reliability/synthetic_vs_real_spoof_probe/",
+                        "reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json"],
+    "binding_artifacts": ["DIAGNOSTICS_PROTOCOL_BINDING.json", "DIAGNOSTICS_POPULATION_BINDING.json",
+                          "DIAGNOSTICS_CHECKPOINT_BINDING.json"],
+    "result_artifacts": ["DIAGNOSTICS_RESULT.json", "DIAGNOSTICS_PER_TEST.json",
+                         "DIAGNOSTICS_PROVENANCE.json", "DIAGNOSTICS_VERDICT.json"]
+  },
+
+  "runner": {
+    "module": "prism_fas.evaluation.post_failure_diagnostics_runner",
+    "invocation": "python -m prism_fas.evaluation.post_failure_diagnostics_runner",
+    "modes": ["--preflight-only", "--bind-only", "--status", "--execute"],
+    "no_rerun_guard": true,
+    "partial_result_blocks": true,
+    "c9_may_close_hard_coded_false_everywhere": true,
+    "exit_codes": {"pass": 0, "fail": 1, "blocked": 2, "usage": 3}
+  },
+
+  "dry_run_results_on_this_laptop": {
+    "preflight_only": {"exit_code": 2, "target_access": 0},
+    "bind_only": {"exit_code": 2, "artifacts_written": false, "reason": "no M3B package on this host"},
+    "status": {"exit_code": 2, "diagnostics_result_available": false},
+    "execute": {"exit_code": 2, "executed": false, "reason": "no diagnostics binding on disk"}
+  },
+
+  "tests": {
+    "file": "tests/pipeline/test_c9_post_failure_source_diagnostics.py",
+    "count": 60,
+    "all_passed": true,
+    "all_c9_scoped_tests_total": 277,
+    "broad_regression_tests_c7_and_pipeline": {"failed": 33, "passed": 1790, "skipped": 22,
+      "note": "identical to the pre-existing baseline"},
+    "real_diagnostic_value_computed_in_tests": false,
+    "real_checkpoints_used_in_tests": false,
+    "real_images_opened_in_tests": false
+  },
+
+  "not_done_by_this_freeze": [
+    "compute a real diagnostic value",
+    "change BA_sep or overwrite its result files",
+    "make DETECTOR_RELIABILITY_LOCK_C pass",
+    "reopen C9",
+    "access target data",
+    "alter the C8 matrix or retrain C8",
+    "alter the C6 banks or cherry-pick checkpoints",
+    "invent a numeric threshold without a calibration derivation",
+    "implement the exploratory target protocol"
+  ],
+
+  "final_status": {
+    "c7_scientific_closed": true,
+    "c8_scientific_closed": true,
+    "ba_sep_option1_v2": "SCIENTIFICALLY_RUN",
+    "ba_sep_scientific_verdict": "FAIL",
+    "ba_sep_rerun": "FORBIDDEN",
+    "detector_reliability_overall": "FAILED",
+    "c9_original_confirmatory_path": "BLOCKED",
+    "post_failure_source_diagnostics_v1": "PROTOCOL_FROZEN_GPU_EXECUTION_PENDING",
+    "post_failure_exploratory_target": "NOT_YET_STARTED",
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}
