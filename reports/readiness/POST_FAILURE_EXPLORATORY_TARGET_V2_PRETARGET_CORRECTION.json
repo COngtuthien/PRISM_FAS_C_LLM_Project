@@ -1,0 +1,136 @@
+{
+  "schema_version": "post-failure-exploratory-target-v2-correction-report-v1",
+  "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V2",
+  "document_kind": "PRETARGET_SCIENTIFIC_AND_EXECUTION_CORRECTION_REPORT",
+  "starting_head": "61b87e8ac5a996f1f683fa7f8c8bc174800bb54c",
+  "v1": {
+    "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V1",
+    "config_path": "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+    "protocol_identity": "8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51",
+    "preserved_unchanged": true,
+    "target_predictions_observed": false,
+    "target_metrics_observed": false,
+    "target_labels_opened": false,
+    "status": "SUPERSEDED_BEFORE_FIRST_TARGET_ACCESS"
+  },
+  "v2": {
+    "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V2",
+    "config_path": "configs/evaluation/post_failure_exploratory_target_v2.yaml",
+    "protocol_identity": "2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9",
+    "status": "FROZEN_NOT_RUN",
+    "target_predictions_observed": false,
+    "target_metrics_observed": false,
+    "target_labels_opened": false,
+    "target_access": 0
+  },
+  "immutable_upstream_state": {
+    "ba_sep_observed_verdict": "FAIL",
+    "detector_reliability_lock_c_overall": "FAILED",
+    "post_failure_source_diagnostics_v2_overall": "FAIL",
+    "post_failure_diagnostic_interpretation_status": "REGISTERED_ON_GPU",
+    "c9_original_confirmatory_path": "BLOCKED",
+    "c9_may_close": false
+  },
+  "defect_corrections": {
+    "defect_a_binding_not_authoritative": {
+      "problem": "--predict re-resolved source_matrix/manifests/checkpoint+calibration live, allowing drift after binding",
+      "correction": "PREDICTION_PLAN_BINDING.json is the sole authoritative execution source; verify_binding_unchanged requires exact equality with a read-only recomputation before --predict proceeds"
+    },
+    "defect_b_package_unverified_at_bind": {
+      "problem": "--bind-prediction-plan could succeed with target_feature_package.verified=false",
+      "correction": "verify_target_feature_package_required raises unless present_on_this_host AND verified AND identity match; target_feature_package_identity_verified and target_label_access=0 recorded separately"
+    },
+    "defect_c_lockset_cannot_represent_seeded_rows": {
+      "problem": "target_prediction.build_lockset rejects duplicate experiment_id, incompatible with 3-5 seeded rows per arm",
+      "correction": "new row_id-keyed build_v2_prediction_lockset; legacy build_lockset left completely unchanged and never called by V2",
+      "legacy_function_verified_unchanged": true
+    },
+    "defect_d_noprompt_identity_collapse": {
+      "problem": "variant = row.arm made C-R-LLM and C-R-NOPROMPT indistinguishable (both arm=LLM)",
+      "correction": "prediction_variant_id = row.experiment_id, used for prediction row variant, inference_config_hash, and per-row lock variant; arm kept separate"
+    },
+    "defect_e_weak_existing_result_validation": {
+      "problem": "an existing TARGET_PREDICTION_LOCK.json was re-reported without validation",
+      "correction": "validate_existing_exploratory_prediction_result: identity/binding/hash/schema/lockset cross-check; BLOCKS on any mismatch, never recomputes or overwrites"
+    },
+    "defect_f_weak_partial_detection": {
+      "problem": "partial-result detection only counted prediction files",
+      "correction": "_detect_partial_state checks both prediction files and per-row locks, plus the two asymmetric completion cases"
+    },
+    "defect_g_hardcoded_package_path": {
+      "problem": "predict_one_row hard-coded data/processed/prism_target_eval_v2",
+      "correction": "package_root passed from the caller's verified protocol/binding path"
+    },
+    "defect_h_wrong_acer_definition": {
+      "problem": "mean(binary_error_A) - mean(binary_error_B) is a class-blind error rate, not ACER, wrong under unequal live/spoof counts",
+      "correction": "apcer_bpcer_acer: APCER=spoof-predicted-not-spoof/spoof_count, BPCER=live-predicted-spoof/live_count, ACER=0.5*(APCER+BPCER)",
+      "verified_diverges_from_raw_error_under_unequal_counts": true
+    },
+    "defect_i_seeds_overwritten": {
+      "problem": "video_id->error dict repeatedly .update()d across seeds sharing an arm, discarding replication evidence",
+      "correction": "class_stratified_paired_bootstrap keeps every matched seed's decisions in a separate mapping, averaged only at the final delta_seed step",
+      "verified_all_seeds_survive": true
+    },
+    "defect_j_holm_family_mis_specified": {
+      "problem": "family_size=4, undercounting E-H1's 3 pairs and E-H4's 2 pairs",
+      "correction": "family_size=7, all seven atomic comparisons enter one Holm-Bonferroni family"
+    }
+  },
+  "class_stratified_paired_bootstrap": {
+    "bootstrap_unit": "video",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260810,
+    "confidence_level": 0.95,
+    "interval": "percentile",
+    "paired": true,
+    "seeds_are_fixed_replications_never_resampled": true,
+    "same_resampled_video_ids_used_for_both_arms_and_all_matched_seeds": true,
+    "tie_handling": "a replicate statistic exactly zero counts toward both tail probabilities (inclusive <=/>=)",
+    "atomic_comparisons": ["E-H1_RND_vs_DET", "E-H1_RND_vs_LLM", "E-H1_DET_vs_LLM",
+                          "E-H2", "E-H3", "E-H4_DET", "E-H4_LLM"],
+    "atomic_comparison_count": 7,
+    "matched_seeds_per_family": {"E-H1": 5, "E-H2": 3, "E-H3": 3, "E-H4": 3}
+  },
+  "namespaces": {
+    "v1": {"report_root": "reports/full/exploratory_target_v1", "run_root": "runs/exploratory_target_v1"},
+    "v2": {"report_root": "reports/full/exploratory_target_v2", "run_root": "runs/exploratory_target_v2",
+          "state_root": "state/exploratory_target_v2"},
+    "disjoint_proven_by_test": true
+  },
+  "files_changed": {
+    "added": [
+      "configs/evaluation/post_failure_exploratory_target_v2.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2_scorer.py",
+      "tests/pipeline/test_post_failure_exploratory_target_v2.py",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V2_PRETARGET_CORRECTION.md",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V2_PRETARGET_CORRECTION.json",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V2_GPU_HANDOFF.md"
+    ],
+    "modified": ["docs/PROJECT_STATE.md"],
+    "unchanged_verified_by_test": [
+      "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py",
+      "src/prism_fas/evaluation/target_prediction.py"
+    ]
+  },
+  "tests": {
+    "new_suite": "tests/pipeline/test_post_failure_exploratory_target_v2.py",
+    "new_suite_result": "52/52 pass",
+    "combined_c9_scoped_suite_files": 10,
+    "combined_c9_scoped_suite_result": "480/480 pass",
+    "broad_regression_scope": "tests/c7 tests/pipeline",
+    "test_environment_note": "pytest/torch/pyarrow/opencv-python-headless/pydantic installed into an isolated project-local virtualenv for this session only; no scientific artifact produced; no GPU/CUDA package installed"
+  },
+  "laptop_execution": {
+    "target_feature_package_opened": false,
+    "target_labels_opened": false,
+    "siw_mv2_inference_run": false,
+    "target_metrics_computed": false,
+    "fabricated_gpu_verification": false,
+    "target_access": 0,
+    "each_cli_mode_run_once_against_real_repo": true,
+    "matrix_resolution_succeeded_against_real_repo": true
+  }
+}
