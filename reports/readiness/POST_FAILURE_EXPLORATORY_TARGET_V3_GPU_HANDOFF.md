@@ -8,7 +8,18 @@ authorize `--predict`; the future command is provided at the end, marked
 This supersedes both `POST_FAILURE_EXPLORATORY_TARGET_V1_GPU_HANDOFF.md`
 and `..._V2_GPU_HANDOFF.md`. Neither V1 nor V2 was ever scientifically
 executed and both remain unchanged, historical. V3's frozen protocol
-identity is `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c`.
+identity is `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c`
+— **UNCHANGED** by the subsequent IMPLEMENTATION RECONCILIATION (see
+`reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION.md`):
+eight pre-target implementation defects (crash-recoverable E1 promotion via
+a transaction manifest; E2 row metadata sourced solely from the frozen
+lockset, never `resolve_target_matrix`; two distinct E1/E2 code commits in
+the label reveal; correct `target_access_state` on every real artifact;
+label-tamper detection in the score validator; self-hashing per-row score
+artifacts; complete final-result provenance; crash-recoverable E2 scoring)
+were corrected IN PLACE in the predictor and scorer modules. The eight
+steps below, and the `--predict`/`--preflight-score`/`--score` authorization
+boundaries, are otherwise UNCHANGED by that reconciliation.
 
 BA_sep remains permanently FAILED; `DETECTOR_RELIABILITY_LOCK_C` remains
 `overall=FAILED`; `POST_FAILURE_SOURCE_DIAGNOSTICS_V2` remains
@@ -140,7 +151,11 @@ python -m prism_fas.evaluation.post_failure_exploratory_target_v3 --repo . --pre
 This is the FIRST genuine scientific target access this branch would ever
 make. It writes to a disposable staging namespace first and promotes to
 the final scientific row directories only after all 24 rows succeed and
-validate, with the overall `TARGET_PREDICTION_LOCK.json` written last — but
+validate, with the overall `TARGET_PREDICTION_LOCK.json` written last —
+this promotion is now a crash-recoverable transaction
+(`PREDICTION_PROMOTION_TRANSACTION_<execution_id>.json`, written before any
+row is renamed): if this command is interrupted mid-promotion, simply
+re-running the identical `--predict` recovers with zero re-inference — but
 it is still real GPU compute requiring its own separate, explicit, future
 authorization. Immediately before running it, re-verify: `verify_binding_unchanged`
 against the frozen `PREDICTION_PLAN_BINDING.json` returns

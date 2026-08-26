@@ -28,8 +28,67 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING
+current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION
 current_substage: >-
+  IMPLEMENTATION RECONCILIATION of the ALREADY-FROZEN
+  `POST_FAILURE_EXPLORATORY_TARGET_V3` protocol
+  (`configs/evaluation/post_failure_exploratory_target_v3.yaml`, identity
+  `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c` —
+  UNCHANGED, byte-identical to the starting HEAD
+  `c02113bb7a4296fc61860acd2ca41df06f347d31`). NO NEW PROTOCOL VERSION: this
+  is not V4 and no scientific decision (metrics, thresholds, hypotheses,
+  the 24-row matrix, seeds, bootstrap/randomization design, Holm family,
+  access semantics, target package identity, or the label firewall)
+  changed. A pre-target implementation audit found eight defects in the
+  ALREADY-FROZEN V3 code (never a scientific-content defect), corrected
+  in place in `post_failure_exploratory_target_v3.py` and
+  `post_failure_exploratory_target_v3_scorer.py`: (A) E1's
+  `promote_staged_rows` renamed each staged row one-by-one with no crash
+  recovery — corrected with a `PREDICTION_PROMOTION_TRANSACTION_<id>.json`
+  manifest (`READY_TO_PROMOTE` -> `COMPLETE`) written BEFORE any row is
+  moved, binding the exact 24 row IDs and their staged artifact hashes;
+  recovery validates already-promoted and still-staged rows against those
+  hashes and resumes file-renames only, with the overall lock built and
+  written LAST — proven by test to recover with ZERO model inference after
+  a simulated crash mid-promotion; (B) the E2 scorer's `_score` still
+  called the V1 `resolve_target_matrix` to build row metadata, violating
+  the frozen rule that the validated lockset is the sole authority after
+  E1 closes — corrected, row metadata now comes solely from the frozen
+  `TARGET_PREDICTION_LOCK.json` entries, proven immune to a poisoned
+  source-matrix resolver by test; (C) the label reveal conflated the E1
+  inference commit with the E2 reveal commit
+  (`first_authorized_reveal_code_commit = lockset.prediction_execution_code_commit`)
+  — corrected, the reveal now binds BOTH the unchanged E1
+  `prediction_execution_code_commit` AND a genuinely fresh
+  `first_authorized_reveal_code_commit` read via a small local subprocess
+  helper that does NOT import `detector.checkpoint` (kept out of the
+  scorer's capability surface); (D) `target_access_state` is now correct
+  and explicit on every real artifact (binding/lockset/reveal/score
+  result), with access counts that never increment on idempotent reuse;
+  (E) the score-result validator now re-hashes the CURRENT label artifact
+  against the frozen reveal's SHA-256 and recomputes the reveal's own
+  identity, detecting post-reveal tampering, while no code path touches
+  label bytes before a reveal exists; (F) every per-row score artifact is
+  now wrapped in a self-hashing identity envelope
+  (`score_artifact_identity`), and the validator checks exactly 24 files,
+  no extras, current per-file SHA-256, and cross-references against the
+  frozen lockset entry and the final result; (G) the final
+  `EXPLORATORY_TARGET_SCORE_RESULT.json` now additionally binds
+  `scoring_execution_code_commit`, `target_label_artifact_sha256`,
+  `target_feature_package_identity`, and all 24 per-row score-artifact
+  identities/hashes, with `score_result_identity` hashing all of it; (H)
+  E2 scoring is now crash-recoverable via a disposable
+  `.score_staging/<execution_id>/` namespace and a
+  `SCORE_PROMOTION_TRANSACTION_<id>.json` manifest, recovering with ZERO
+  rescoring and WITHOUT reopening an already-revealed label a second time
+  (the existing `TARGET_LABEL_REVEAL.json` is read back directly rather
+  than re-derived). `configs/evaluation/post_failure_exploratory_target_v1.yaml`,
+  `..._v2.yaml`, `..._v3.yaml` and the V1/V2 modules remain byte-identical
+  (`git diff --stat` against the starting HEAD empty, proven by test); NO
+  target feature, prediction, or label was accessed on this laptop by this
+  task. See `stage_table.post_failure_exploratory_target_v3.implementation_reconciliation`
+  below for full detail.
+_superseded_current_substage_v3_pretarget_final_hardening: >-
   FINAL PRE-TARGET PROVENANCE/ACCESS/STATISTICS HARDENING of
   POST_FAILURE_EXPLORATORY_TARGET_V2
   (`configs/evaluation/post_failure_exploratory_target_v2.yaml`, identity
@@ -380,7 +439,7 @@ _superseded_current_substage_v1: >-
   post-failure EXPLORATORY TARGET protocol is explicitly NOT started —
   deferred to a separate, future task, only after these diagnostics are
   observed and frozen. target_access has been 0 throughout.
-previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V2_PRETARGET_CORRECTION
+previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8, ran the real BA_sep --execute
@@ -6396,7 +6455,98 @@ c7_scientific_closure_reconciliation:
       combined_c9_scoped_suite_files: 11
       combined_c9_scoped_suite_total: 530
 
+    implementation_reconciliation:
+      # IMPLEMENTATION-ONLY reconciliation of the already-frozen V3 protocol,
+      # found by a pre-target audit BEFORE any target access. NO NEW
+      # PROTOCOL VERSION: the YAML config and its protocol_identity are
+      # byte-identical/unchanged; only post_failure_exploratory_target_v3.py
+      # and its scorer were edited in place.
+      starting_head: c02113bb7a4296fc61860acd2ca41df06f347d31
+      protocol_identity_unchanged: a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c
+      config_byte_identical_to_starting_head: true
+      defect_corrections:
+        defect_a_promotion_not_transactional: >-
+          promote_staged_rows now writes a PREDICTION_PROMOTION_TRANSACTION_<id>.json
+          manifest (READY_TO_PROMOTE -> COMPLETE) before any row is renamed,
+          binding the exact row set and staged artifact hashes; recovery
+          validates already-promoted/still-staged rows against those hashes
+          and resumes file-renames only; the overall lock is built and
+          written LAST. Proven by test: crash after 1 and after 2 of 3 fake
+          rows promoted recovers to the identical final lock with zero
+          model inference.
+        defect_b_metadata_authority_violation: >-
+          _score no longer calls resolve_target_matrix; row_meta is built
+          solely from the frozen TARGET_PREDICTION_LOCK.json entries
+          (_row_meta_from_lockset). Proven immune by test to a poisoned
+          resolve_target_matrix.
+        defect_c_wrong_reveal_code_commit: >-
+          the label reveal now binds prediction_execution_code_commit (from
+          the frozen E1 lockset, unchanged) AND a separately-computed
+          first_authorized_reveal_code_commit (fresh git HEAD at reveal
+          time, via a local subprocess helper that does not import
+          detector.checkpoint).
+        defect_d_target_access_state_in_real_artifacts: >-
+          the label reveal and the final score result each carry an
+          explicit access_state (feature/prediction/label accessed = true,
+          counts = 1); counts never increment on idempotent reuse.
+        defect_e_label_tamper_not_validated: >-
+          validate_existing_exploratory_score_result_v3 re-hashes the
+          CURRENT label artifact against the frozen reveal's SHA-256 and
+          recomputes the reveal's own identity; a tampered label file
+          BLOCKS. No code path hashes label bytes before a reveal exists.
+        defect_f_per_row_score_identity: >-
+          score_one_row wraps the raw scoring.score() payload in a
+          self-hashing envelope (score_artifact_identity) binding row_id,
+          prediction_lock_identity, prediction_logical_identity,
+          checkpoint/calibration hashes, seed/track/arm/variant; the
+          validator checks exactly 24 files, no extras, current per-file
+          SHA-256, and cross-references the frozen lockset entry.
+        defect_g_final_result_provenance: >-
+          EXPLORATORY_TARGET_SCORE_RESULT.json additionally binds
+          scoring_execution_code_commit, target_label_artifact_sha256,
+          target_feature_package_identity, and all 24 per-row score
+          artifact identities/hashes (per_row_score_artifacts);
+          score_result_identity hashes all of it.
+        defect_h_scoring_not_crash_recoverable: >-
+          E2 scoring now stages into .score_staging/<execution_id>/ and
+          promotes via a SCORE_PROMOTION_TRANSACTION_<id>.json manifest,
+          analogous to defect A; recovery resumes from already-scored
+          staged/promoted rows and the already-authorized label reveal with
+          zero rescoring and without a second label reopen.
+      statistics_unchanged: >-
+        ACER definition, class-stratified bootstrap (video, 10000,
+        seed=20260810, CI-only), paired video-level sign-flip randomization
+        (video, 10000, seed=20260810, two-sided, +1 correction, >= ties),
+        the seven atomic comparisons, REQUIRED_MATCHED_SEEDS, Holm family
+        size 7, and cross-seed mean/std(ddof=0) are byte-for-byte unchanged
+        — verified by rerunning the frozen V3 test suite unmodified.
+      record: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION.md
+      record_json: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION.json
+      gpu_handoff: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md   # updated in place, same 8-step scope
+      tests:
+        new_file: tests/pipeline/test_post_failure_exploratory_target_v3_reconciliation.py   # 25 passed
+        original_v3_suite_rerun_unmodified: 50 passed
+        v1_and_v2_suites_rerun_unmodified: {v1: 57, v2: 52}
+      target_feature_package_opened: false
+      target_labels_opened: false
+      real_diagnostic_or_target_value_computed: false
+
   next_authorized_action: >-
+    This milestone RECONCILED THE IMPLEMENTATION of the already-frozen
+    `POST_FAILURE_EXPLORATORY_TARGET_V3` protocol (identity
+    `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c` —
+    UNCHANGED, byte-identical config) — see
+    `stage_table.post_failure_exploratory_target_v3.implementation_reconciliation`
+    for the eight defect corrections (crash-recoverable E1 promotion via a
+    transaction manifest; E2 row metadata sourced solely from the frozen
+    lockset; two distinct E1/E2 code commits in the label reveal; correct
+    `target_access_state` on every real artifact; label-tamper detection in
+    the score validator; self-hashing per-row score artifacts; complete
+    final-result provenance; crash-recoverable E2 scoring). NO scientific
+    decision changed. The next authorized action on the GPU host remains
+    EXACTLY the same eight-step sequence in
+    `reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md`,
+    still stopping before `--predict`.
     `synthetic_vs_real_spoof_probe = FAILED`, `DETECTOR_RELIABILITY_LOCK_C.overall
     = FAILED`, and `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2.overall_diagnostics_verdict
     = FAIL` remain permanent, observed, user-reported scientific results —
@@ -6453,5 +6603,5 @@ c7_scientific_closure_reconciliation:
     access target for real, until the user explicitly authorizes the
     `--predict` step named in the V3 GPU handoff.
 
-last_updated_utc: 2026-08-26   # FINAL PRE-TARGET HARDENING: froze POST_FAILURE_EXPLORATORY_TARGET_V3, correcting provenance/access/statistics defects found in V2 before any target access (V1+V2 preserved byte-for-byte, neither ever scientifically executed) — real per-row target_feature_package_identity (was empty), bound prediction_execution_code_commit, explicit target_access_state replacing ambiguous target_access, a real one-way TARGET_LABEL_REVEAL.json, a hardened score-completeness state machine (INCOMPLETE_FINALIZATION blocks 24-files-no-result), a CI-only class-stratified bootstrap separated from a frozen paired video-level randomization test for the seven exploratory p-values, exact per-comparison matched-seed assertions, an actually-implemented cross-seed mean/std(ddof=0) summary, and crash-safe staged prediction with atomic promotion; nothing scientifically executed on this laptop; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; target_access_state stayed all-false throughout
+last_updated_utc: 2026-08-26   # IMPLEMENTATION RECONCILIATION of the already-frozen POST_FAILURE_EXPLORATORY_TARGET_V3 protocol (config byte-identical, protocol_identity unchanged: a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c) — NO NEW PROTOCOL VERSION, NO scientific decision changed. Eight implementation defects found by pre-target audit and corrected in place: (A) E1 promotion is now a crash-recoverable transaction (PREDICTION_PROMOTION_TRANSACTION_<id>.json, zero-inference recovery proven by test); (B) E2 row metadata comes solely from the frozen lockset, never resolve_target_matrix; (C) the label reveal binds two distinct commits (E1 prediction_execution_code_commit unchanged, fresh E2 first_authorized_reveal_code_commit via a local subprocess helper, no detector.checkpoint import); (D) target_access_state is correct and non-incrementing-on-reuse on every real artifact; (E) the score validator now detects post-reveal label tampering via re-hash, never touching label bytes before a reveal exists; (F) per-row score artifacts are self-hashing identity envelopes, validated exactly-24/no-extras/per-file; (G) the final score result binds complete provenance (scoring_execution_code_commit, target_label_artifact_sha256, target_feature_package_identity, all 24 per-row identities); (H) E2 scoring is now crash-recoverable via a disposable staging namespace and a promotion transaction, with zero rescoring and no second label reopen on recovery. V1, V2, and the V3 YAML remain byte-for-byte unchanged; nothing scientifically executed on this laptop; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; no target feature, prediction, or label was accessed
 ```

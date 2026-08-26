@@ -1,0 +1,115 @@
+{
+  "schema_version": "post-failure-exploratory-target-v3-implementation-reconciliation-report-v1",
+  "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION",
+  "document_kind": "IMPLEMENTATION_RECONCILIATION_REPORT",
+  "no_new_protocol_version": true,
+  "starting_head": "c02113bb7a4296fc61860acd2ca41df06f347d31",
+  "v3_protocol_identity_unchanged": "a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c",
+  "v3_config_byte_identical_to_starting_head": true,
+  "v1_protocol_identity_unchanged": "8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51",
+  "v2_protocol_identity_unchanged": "2f1beb0b95f01051e06c0ef8a82d06a759d0fe8f81f693c5d3a4d777845196a9",
+  "immutable_upstream_state": {
+    "ba_sep_observed_verdict": "FAIL",
+    "detector_reliability_lock_c_overall": "FAILED",
+    "post_failure_source_diagnostics_v2_overall": "FAIL",
+    "c9_original_confirmatory_path": "BLOCKED",
+    "c9_may_close": false
+  },
+  "defect_corrections": {
+    "defect_a_promotion_not_transactional": {
+      "problem": "promote_staged_rows renamed rows one-by-one with no crash-recovery manifest",
+      "correction": "PREDICTION_PROMOTION_TRANSACTION_<execution_id>.json (READY_TO_PROMOTE -> COMPLETE) written before any row is moved, binding row IDs and staged artifact hashes; recovery validates and resumes file-renames only, zero model inference",
+      "test_proof": "crash simulated after 1 and after 2 of a 3-row fake matrix's promotions recovers to the identical final lock with zero inference calls"
+    },
+    "defect_b_metadata_authority_violation": {
+      "problem": "_score called resolve_target_matrix (V1) to build row_meta, violating the post-E1-closure sole-authority rule",
+      "correction": "_row_meta_from_lockset builds row_meta solely from the frozen TARGET_PREDICTION_LOCK.json entries; resolve_target_matrix no longer imported or called from _score",
+      "test_proof": "poisoning resolve_target_matrix to raise does not affect _score's outcome"
+    },
+    "defect_c_wrong_reveal_code_commit": {
+      "problem": "first_authorized_reveal_code_commit was set to the E1 prediction_execution_code_commit",
+      "correction": "build_label_reveal binds prediction_execution_code_commit (unchanged, from lockset) and first_authorized_reveal_code_commit (fresh git HEAD via a new local subprocess helper, no detector.checkpoint import) separately",
+      "test_proof": "the two commit fields differ when the underlying commits differ; assert_no_training_capability still passes"
+    },
+    "defect_d_target_access_state_in_real_artifacts": {
+      "problem": "no explicit access_state field on the label reveal or the final score result",
+      "correction": "both now carry access_state with all-true booleans and counts=1; counts never increment on idempotent reuse",
+      "test_proof": "reveal_target_labels called twice leaves target_label_access_count == 1 both times"
+    },
+    "defect_e_label_tamper_not_validated": {
+      "problem": "validate_existing_exploratory_score_result_v3 never re-hashed the label artifact",
+      "correction": "the validator re-hashes the CURRENT label file against the frozen reveal's SHA-256 and recomputes reveal_identity, only when a reveal already exists on disk",
+      "test_proof": "tampering with label bytes after reveal is detected; no code path hashes label bytes before a reveal exists"
+    },
+    "defect_f_per_row_score_identity": {
+      "problem": "score_one_row returned the raw scoring.score() payload with no identity binding",
+      "correction": "every per-row score file wraps metrics in a self-hashing envelope (score_artifact_identity); validator checks exactly-24/no-extras/per-file-hash/cross-reference",
+      "test_proof": "a one-byte tamper to any per-row file is detected; missing/extra files are detected"
+    },
+    "defect_g_final_result_provenance": {
+      "problem": "EXPLORATORY_TARGET_SCORE_RESULT.json lacked scoring_execution_code_commit, target_label_artifact_sha256, target_feature_package_identity, per-row identities",
+      "correction": "all four added; score_result_identity hashes the complete extended result"
+    },
+    "defect_h_scoring_not_crash_recoverable": {
+      "problem": "E2 scoring had no staging/transaction layer; a crash risked rescoring or a second label reopen",
+      "correction": ".score_staging/<execution_id>/ + SCORE_PROMOTION_TRANSACTION_<execution_id>.json, mirroring defect A; recovery reads the existing TARGET_LABEL_REVEAL.json directly and reconstructs scored_rows from disk",
+      "test_proof": "crash simulated after 1 of 24 rows promoted recovers to the identical final result with zero rescoring, zero reveal re-derivation, zero label re-load"
+    }
+  },
+  "statistics_unchanged": {
+    "acer_definition": "0.5*(APCER+BPCER)",
+    "bootstrap_ci": {"unit": "video", "resamples": 10000, "seed": 20260810, "class_stratified": true, "ci_only": true},
+    "randomization_test": {"unit": "video", "resamples": 10000, "seed": 20260810, "two_sided": true,
+                           "p_value_formula": "(1 + count(|T_perm| >= |T_obs|)) / (1 + resamples)",
+                           "tie_handling": ">= inclusive"},
+    "atomic_comparisons": 7,
+    "holm_bonferroni": {"family_size": 7, "input": "randomization_p_values_only"},
+    "cross_seed_summary": "mean/std(ddof=0) per configuration per metric, every frozen seed present, never pooled"
+  },
+  "files_changed": {
+    "modified_in_place": [
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v3.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v3_scorer.py"
+    ],
+    "added": [
+      "tests/pipeline/test_post_failure_exploratory_target_v3_reconciliation.py",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION.md",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION.json"
+    ],
+    "updated": [
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V3_GPU_HANDOFF.md",
+      "docs/PROJECT_STATE.md"
+    ],
+    "byte_identical_verified_by_test": [
+      "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+      "configs/evaluation/post_failure_exploratory_target_v2.yaml",
+      "configs/evaluation/post_failure_exploratory_target_v3.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_v2_scorer.py"
+    ]
+  },
+  "tests": {
+    "new_suite": "tests/pipeline/test_post_failure_exploratory_target_v3_reconciliation.py",
+    "new_suite_result": "25/25 pass",
+    "original_v3_suite_rerun_unmodified_result": "50/50 pass",
+    "v1_and_v2_suites_rerun_unmodified": {"v1": "57/57 pass", "v2": "52/52 pass"},
+    "broad_regression_baseline": {
+      "scope": "tests/c7 tests/pipeline",
+      "before_this_task": {"failed": 39, "passed": 2032, "skipped": 22, "errors": 5},
+      "after_this_task": {"failed": 39, "passed": 2057, "skipped": 22, "errors": 5},
+      "delta_passed": 25,
+      "failed_test_names_identical": true,
+      "conclusion": "zero regressions; all 39 failures/5 errors are pre-existing, environment-dependent (missing GPU/CUDA, frozen Version-B checkout, real M3B package, modal), none referencing any exploratory-target file"
+    },
+    "test_environment_note": "pytest/torch/pyarrow/opencv-python-headless/pydantic installed into an isolated project-local virtualenv for this session only; no scientific artifact produced; no GPU/CUDA package installed"
+  },
+  "laptop_execution": {
+    "target_feature_identity_accessed": false,
+    "target_prediction_features_accessed": false,
+    "target_labels_accessed": false,
+    "target_predictions_made": false,
+    "target_metrics_computed": false
+  }
+}

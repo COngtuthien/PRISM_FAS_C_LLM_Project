@@ -29,6 +29,16 @@ Reuses V1's and V2's own resolution functions verbatim (imported, never
 duplicated) and the entire legacy M10 prediction machinery unchanged except
 for finally populating `build_prediction_lock`'s existing `code_commit`
 parameter. Nothing here can resolve a target label.
+
+IMPLEMENTATION RECONCILIATION (no protocol-identity change; the frozen
+`post_failure_exploratory_target_v3.yaml` is untouched): `promote_staged_rows`
+is now crash-recoverable. A `PREDICTION_PROMOTION_TRANSACTION_<execution_id>.json`
+manifest is written (state `READY_TO_PROMOTE`) BEFORE any row is renamed,
+binding the exact 24 row IDs and their staged artifact hashes. A crash
+mid-promotion is recovered by validating already-promoted and still-staged
+rows against those recorded hashes and resuming file-renames only — zero
+model inference — then writing the overall lock and marking the
+transaction `COMPLETE`.
 """
 from __future__ import annotations
 
@@ -269,20 +279,135 @@ def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, packag
            "prediction_file_sha256": prediction_file_sha256, "row_count": len(rows), "lock": lock}
 
 
-def promote_staged_rows(repo: Path, staging_root: Path, row_ids: Sequence[str]) -> None:
-    """Atomically (per row) rename every staged row directory into its final
-    scientific location. Never called until ALL rows have succeeded and been
-    validated in staging."""
-    run_root = Path(repo) / RUN_DIR
+PROMOTION_TRANSACTION_SCHEMA_VERSION = "post-failure-exploratory-target-v3-promotion-transaction-v1"
+
+
+def _promotion_transaction_path(repo: Path, execution_id: str) -> Path:
+    """Lives one level INSIDE `.staging/` (a sibling of the per-execution
+    row-staging subdirectory, never inside it) so it is invisible to every
+    RUN_DIR-level scan that already excludes the whole `.staging` entry, and
+    survives even after the per-execution staging subdirectory is emptied
+    and removed."""
+    return Path(repo) / RUN_DIR / ".staging" / f"PREDICTION_PROMOTION_TRANSACTION_{execution_id}.json"
+
+
+def build_promotion_transaction(*, protocol_identity: str, plan_binding_identity: str,
+                                execution_id: str, code_commit: str,
+                                row_results: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Defect A: the manifest binding exactly what promotion is allowed to
+    move, computed from the ALREADY-STAGED artifacts (all 24 rows already
+    predicted; no inference happens after this point). `transaction_identity`
+    hashes everything except the mutable `state` field, which is appended
+    only after the identity is computed."""
+    from prism_fas.evaluation.target_prediction import PREDICTION_LOCK_FILE
+
+    row_ids = sorted(row_results)
+    staged_artifacts: dict[str, Any] = {}
     for row_id in row_ids:
-        source = Path(staging_root) / row_id
-        destination = run_root / row_id
-        if destination.exists():
-            raise ExploratoryTargetV3Error(
-                f"{row_id}: a final row directory already exists; refusing to promote over it")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        source.rename(destination)
-        (destination / "STAGING_MARKER.json").unlink(missing_ok=True)
+        result = row_results[row_id]
+        lock_path = Path(result["staging_dir"]) / PREDICTION_LOCK_FILE
+        staged_artifacts[row_id] = {
+            "prediction_file_sha256": result["prediction_file_sha256"],
+            "prediction_lock_identity": result["lock"]["prediction_lock_identity"],
+            "lock_file_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(),
+        }
+    body = {
+        "schema_version": PROMOTION_TRANSACTION_SCHEMA_VERSION,
+        "protocol_identity": protocol_identity,
+        "plan_binding_identity": plan_binding_identity,
+        "execution_identity": execution_id,
+        "code_commit": code_commit,
+        "row_ids": row_ids,
+        "staged_artifacts": staged_artifacts,
+    }
+    body["transaction_identity"] = stable_identity(body)
+    body["state"] = "READY_TO_PROMOTE"
+    return body
+
+
+def _validate_row_artifacts_against_transaction(directory: Path, staged_record: Mapping[str, Any],
+                                                 row_id: str) -> None:
+    """Pure file hashing — zero model inference, zero re-derivation."""
+    from prism_fas.evaluation.target_prediction import PREDICTION_LOCK_FILE
+
+    prediction_path = directory / "target_predictions.parquet"
+    if not prediction_path.is_file():
+        raise ExploratoryTargetV3Error(f"{row_id}: prediction file missing at {directory}")
+    if hashlib.sha256(prediction_path.read_bytes()).hexdigest() != staged_record["prediction_file_sha256"]:
+        raise ExploratoryTargetV3Error(f"{row_id}: prediction file hash disagrees with the promotion transaction")
+    lock_path = directory / PREDICTION_LOCK_FILE
+    if not lock_path.is_file():
+        raise ExploratoryTargetV3Error(f"{row_id}: lock file missing at {directory}")
+    if hashlib.sha256(lock_path.read_bytes()).hexdigest() != staged_record["lock_file_sha256"]:
+        raise ExploratoryTargetV3Error(f"{row_id}: lock file hash disagrees with the promotion transaction")
+
+
+def promote_staged_rows(repo: Path, staging_root: Path, row_ids: Sequence[str], *,
+                        protocol_identity: str, plan_binding_identity: str, execution_identity: str,
+                        code_commit: str, row_results: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Defect A: crash-recoverable promotion. Writes the transaction manifest
+    (state=READY_TO_PROMOTE) BEFORE moving anything. Each row is then
+    file-renamed exactly once; a row already sitting in its final directory
+    (because a prior invocation crashed after promoting it) is validated
+    in place against the transaction's recorded hashes and left untouched —
+    never re-inferred, never re-promoted, never silently trusted without a
+    hash check. The overall lock is built and written by the CALLER after
+    this function returns, and the transaction is marked COMPLETE only
+    after every row has been confirmed promoted."""
+    from prism_fas.pipeline.state import atomic_write_json
+
+    transaction_path = _promotion_transaction_path(repo, execution_identity)
+    transaction = _read_json(transaction_path)
+    if transaction is None:
+        transaction = build_promotion_transaction(
+            protocol_identity=protocol_identity, plan_binding_identity=plan_binding_identity,
+            execution_id=execution_identity, code_commit=code_commit, row_results=row_results)
+        if sorted(transaction["row_ids"]) != sorted(row_ids):
+            raise ExploratoryTargetV3Error("promotion transaction row_ids do not match the requested row set")
+        atomic_write_json(transaction_path, transaction)
+    elif transaction.get("state") not in ("READY_TO_PROMOTE", "COMPLETE"):
+        raise ExploratoryTargetV3Error(f"unrecognized promotion transaction state {transaction.get('state')!r}")
+    elif sorted(transaction["row_ids"]) != sorted(row_ids):
+        raise ExploratoryTargetV3Error(
+            "an existing promotion transaction does not match the requested row set; refusing to proceed")
+
+    run_root = Path(repo) / RUN_DIR
+    for row_id in transaction["row_ids"]:
+        staged_record = transaction["staged_artifacts"][row_id]
+        final_dir = run_root / row_id
+        staging_dir = Path(staging_root) / row_id
+        if final_dir.is_dir():
+            _validate_row_artifacts_against_transaction(final_dir, staged_record, row_id)
+            continue
+        if not staging_dir.is_dir():
+            raise ExploratoryTargetV3Error(f"{row_id}: neither staged nor promoted; transaction cannot recover")
+        _validate_row_artifacts_against_transaction(staging_dir, staged_record, row_id)
+        final_dir.parent.mkdir(parents=True, exist_ok=True)
+        staging_dir.rename(final_dir)
+        (final_dir / "STAGING_MARKER.json").unlink(missing_ok=True)
+
+    transaction["state"] = "COMPLETE"
+    atomic_write_json(transaction_path, transaction)
+    return transaction
+
+
+def _row_result_from_recovered_artifacts(repo: Path, staging_root: Path, row_id: str,
+                                         staged_record: Mapping[str, Any]) -> dict[str, Any]:
+    """Recovery-only reconstruction of a `predict_one_row_to_staging` result
+    from artifacts already on disk (either still staged, or already
+    promoted by a prior, interrupted invocation). Reads JSON only — zero
+    model inference, zero checkpoint load."""
+    from prism_fas.evaluation.target_prediction import PREDICTION_LOCK_FILE
+
+    final_dir = Path(repo) / RUN_DIR / row_id
+    staging_dir = Path(staging_root) / row_id
+    directory = final_dir if final_dir.is_dir() else staging_dir
+    lock = _read_json(directory / PREDICTION_LOCK_FILE)
+    if lock is None:
+        raise ExploratoryTargetV3Error(f"{row_id}: cannot recover — no lock file at {directory}")
+    return {"row_id": row_id, "staging_dir": str(staging_dir),
+           "prediction_file_sha256": staged_record["prediction_file_sha256"],
+           "row_count": lock["row_count"], "lock": lock}
 
 
 # ==============================================================================
@@ -661,8 +786,18 @@ def _predict(repo: Path) -> tuple[int, dict[str, Any]]:
                       "prediction_execution_code_commit": validation["lockset"]["prediction_execution_code_commit"]})
         return EXIT_PASS, report
 
+    code_commit = current_code_commit(repo)
+    execution_id = execution_identity(
+        plan_binding_identity=frozen_binding["prediction_plan_binding_identity"], code_commit=code_commit)
+    staging_root = Path(repo) / STAGING_ROOT / execution_id
+    transaction = _read_json(_promotion_transaction_path(repo, execution_id))
+    if transaction is not None and transaction.get("code_commit") != code_commit:
+        report["error"] = ("a promotion transaction exists at this execution identity but its recorded "
+                           "code_commit disagrees with the current one; refusing to recover")
+        return EXIT_BLOCKED, report
+
     partial_problem = _detect_partial_state(repo, int(frozen_binding["row_count"]))
-    if partial_problem is not None:
+    if partial_problem is not None and transaction is None:
         report["error"] = partial_problem
         return EXIT_BLOCKED, report
 
@@ -671,26 +806,36 @@ def _predict(repo: Path) -> tuple[int, dict[str, Any]]:
         report.update({"error": "PREDICTION_PLAN_BINDING_DRIFTED", **unchanged})
         return EXIT_BLOCKED, report
 
+    recovered_from_promotion_transaction = transaction is not None
     try:
         protocol = load_protocol(repo)
         firewall = v1.build_firewall(repo, protocol)
         package_root = Path(repo) / protocol["roots"]["target_feature_root"]
-        code_commit = current_code_commit(repo)
         row_bindings = frozen_binding["rows"]
-        staging_root = Path(repo) / STAGING_ROOT / execution_identity(
-            plan_binding_identity=frozen_binding["prediction_plan_binding_identity"], code_commit=code_commit)
-        row_results: dict[str, Any] = {}
-        for row_id in sorted(row_bindings):
-            row_results[row_id] = predict_one_row_to_staging(
-                repo, row_bindings[row_id], package_root=package_root, firewall=firewall,
-                staging_root=staging_root, code_commit=code_commit)
+
+        if recovered_from_promotion_transaction:
+            row_results: dict[str, Any] = {
+                row_id: _row_result_from_recovered_artifacts(
+                    repo, staging_root, row_id, transaction["staged_artifacts"][row_id])
+                for row_id in sorted(row_bindings)}
+        else:
+            row_results = {}
+            for row_id in sorted(row_bindings):
+                row_results[row_id] = predict_one_row_to_staging(
+                    repo, row_bindings[row_id], package_root=package_root, firewall=firewall,
+                    staging_root=staging_root, code_commit=code_commit)
+
         lockset = build_v3_prediction_lockset(
             protocol_id=frozen_binding["protocol_identity"], matrix_id=frozen_binding["target_matrix_identity"],
             c8_matrix_id=frozen_binding["c8_matrix_identity"],
             package_identity=frozen_binding["target_feature_package_identity"], code_commit=code_commit,
             plan_binding_identity=frozen_binding["prediction_plan_binding_identity"],
             row_bindings=row_bindings, row_results=row_results)
-        promote_staged_rows(repo, staging_root, sorted(row_results))
+        promote_staged_rows(
+            repo, staging_root, sorted(row_results),
+            protocol_identity=frozen_binding["protocol_identity"],
+            plan_binding_identity=frozen_binding["prediction_plan_binding_identity"],
+            execution_identity=execution_id, code_commit=code_commit, row_results=row_results)
         if staging_root.is_dir() and not any(staging_root.iterdir()):
             staging_root.rmdir()
     except Exception as error:                            # noqa: BLE001
@@ -700,7 +845,9 @@ def _predict(repo: Path) -> tuple[int, dict[str, Any]]:
     atomic_write_json(lock_path, lockset)
     report.update({"executed": True, "reused_existing_lock": False, "row_count": len(row_results),
                   "lock_path": PREDICTION_LOCK_PATH, "prediction_execution_code_commit": code_commit,
-                  "access_state": lockset["access_state"]})
+                  "access_state": lockset["access_state"],
+                  "recovered_from_promotion_transaction": recovered_from_promotion_transaction,
+                  "model_inference_performed": not recovered_from_promotion_transaction})
     return EXIT_PASS, report
 
 
@@ -746,7 +893,8 @@ __all__ = [
     "ExploratoryTargetV3Error", "load_protocol", "protocol_identity", "active_protocol_identity",
     "current_code_commit", "resolve_all_row_bindings_v3", "build_prediction_plan_binding",
     "verify_binding_unchanged", "execution_identity", "predict_one_row_to_staging",
-    "promote_staged_rows", "build_v3_prediction_lockset",
+    "promote_staged_rows", "build_promotion_transaction", "PROMOTION_TRANSACTION_SCHEMA_VERSION",
+    "build_v3_prediction_lockset",
     "validate_existing_exploratory_prediction_result_v3",
     "EXIT_PASS", "EXIT_BLOCKED", "EXIT_USAGE",
 ]

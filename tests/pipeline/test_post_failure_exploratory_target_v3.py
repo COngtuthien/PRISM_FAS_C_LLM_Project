@@ -307,10 +307,26 @@ def test_lockset_access_state_includes_prediction_features(monkeypatch) -> None:
 # L/M/N/O. label reveal mandatory, idempotent, blocks on conflict/tamper
 # ==============================================================================
 
-def _write_frozen_lockset(tmp_path: Path, *, entry_count: int = 1, code_commit: str = "c" * 40) -> dict[str, Any]:
+def _write_frozen_lockset(tmp_path: Path, *, entry_count: int = 1, code_commit: str = "c" * 40,
+                          package_identity: str = "e" * 64) -> dict[str, Any]:
+    """Defect B: the lockset entries are now the sole authority for row
+    metadata, so the fixture must carry every field `_row_meta_from_lockset`
+    reads (this is exactly what the real `build_v3_prediction_lockset`
+    entries already carry)."""
+    entries = {}
+    for i in range(entry_count):
+        row_id = f"ROW-{i}"
+        entries[row_id] = {
+            "row_id": row_id, "experiment_id": f"EXP-{i}", "track": "G", "arm": "RND",
+            "seed": 20260806 + i, "prediction_variant_id": f"EXP-{i}",
+            "threshold": 0.5, "checkpoint_sha256": "k" * 64, "calibration_hash": "h" * 64,
+            "target_feature_package_identity": package_identity, "code_commit": code_commit,
+            "prediction_lock_identity": f"pl-{row_id}", "prediction_logical_identity": f"pli-{row_id}",
+            "prediction_file_sha256": f"pf-{row_id}", "row_count": 1, "video_count": 1,
+        }
     lockset = {"status": "FROZEN", "entry_count": entry_count, "target_labels_opened": False,
               "lockset_identity": "l" * 64, "prediction_execution_code_commit": code_commit,
-              "entries": {f"ROW-{i}": {"row_id": f"ROW-{i}"} for i in range(entry_count)}}
+              "target_feature_package_identity": package_identity, "entries": entries}
     path = tmp_path / v3s.PREDICTION_LOCK_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(path, lockset)
@@ -548,17 +564,21 @@ def _scored_rows_and_meta_for_comparisons(complete: bool = True):
             row_id = f"C-G-{arm}-s{seed}"
             row_meta[row_id] = {"track": "G", "arm": arm, "experiment_id": f"C-G-{arm}", "seed": seed}
             decisions = {v: "live" for v in live} | {v: "spoof" for v in spoof}
-            scored_rows[row_id] = {"video_scores": _video_scores(decisions),
-                                   "video": {"apcer": 0.0, "bpcer": 0.0, "acer": 0.0, "roc_auc": 1.0,
-                                            "eer": 0.0, "calibration": {"ece": 0.0, "brier": 0.0, "nll": 0.0}}}
+            scored_rows[row_id] = {"row_id": row_id,
+                                   "metrics": {"video_scores": _video_scores(decisions),
+                                              "video": {"apcer": 0.0, "bpcer": 0.0, "acer": 0.0, "roc_auc": 1.0,
+                                                       "eer": 0.0,
+                                                       "calibration": {"ece": 0.0, "brier": 0.0, "nll": 0.0}}}}
     for experiment_id, arm in (("C-R-DET", "DET"), ("C-R-LLM", "LLM"), ("C-R-NOPROMPT", "LLM")):
         for seed in (20260806, 20260807, 20260808):
             row_id = f"{experiment_id}-s{seed}"
             row_meta[row_id] = {"track": "R", "arm": arm, "experiment_id": experiment_id, "seed": seed}
             decisions = {v: "live" for v in live} | {v: "spoof" for v in spoof}
-            scored_rows[row_id] = {"video_scores": _video_scores(decisions),
-                                   "video": {"apcer": 0.0, "bpcer": 0.0, "acer": 0.0, "roc_auc": 1.0,
-                                            "eer": 0.0, "calibration": {"ece": 0.0, "brier": 0.0, "nll": 0.0}}}
+            scored_rows[row_id] = {"row_id": row_id,
+                                   "metrics": {"video_scores": _video_scores(decisions),
+                                              "video": {"apcer": 0.0, "bpcer": 0.0, "acer": 0.0, "roc_auc": 1.0,
+                                                       "eer": 0.0,
+                                                       "calibration": {"ece": 0.0, "brier": 0.0, "nll": 0.0}}}}
     return scored_rows, row_meta
 
 
@@ -683,13 +703,22 @@ def test_predict_one_row_writes_staging_marker() -> None:
     assert "STAGING_MARKER" in source
 
 
-def test_promote_refuses_to_overwrite_an_existing_final_row_directory(tmp_path) -> None:
+def test_promote_refuses_to_overwrite_a_conflicting_final_row_directory(tmp_path) -> None:
     staging_root = tmp_path / "staging"
     (staging_root / "ROW-0").mkdir(parents=True)
+    (staging_root / "ROW-0" / "target_predictions.parquet").write_bytes(b"staged")
+    (staging_root / "ROW-0" / "PREDICTION_LOCK.json").write_text("{}", encoding="utf-8")
     final_dir = tmp_path / v3.RUN_DIR / "ROW-0"
     final_dir.mkdir(parents=True)
-    with pytest.raises(v3.ExploratoryTargetV3Error, match="already exists"):
-        v3.promote_staged_rows(tmp_path, staging_root, ["ROW-0"])
+    (final_dir / "target_predictions.parquet").write_bytes(b"unrelated content already there")
+    (final_dir / "PREDICTION_LOCK.json").write_text("{}", encoding="utf-8")
+    row_results = {"ROW-0": {"staging_dir": str(staging_root / "ROW-0"),
+                             "prediction_file_sha256": "deadbeef", "row_count": 1,
+                             "lock": {"prediction_lock_identity": "pl-0"}}}
+    with pytest.raises(v3.ExploratoryTargetV3Error, match="disagrees with the promotion transaction"):
+        v3.promote_staged_rows(
+            tmp_path, staging_root, ["ROW-0"], protocol_identity="p" * 64, plan_binding_identity="b" * 64,
+            execution_identity="deadbeefcafebabe", code_commit="c" * 40, row_results=row_results)
 
 
 # ==============================================================================
