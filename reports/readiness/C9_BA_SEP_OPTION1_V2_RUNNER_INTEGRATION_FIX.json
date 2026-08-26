@@ -1,0 +1,149 @@
+{
+  "schema_version": "c9-ba-sep-option1-v2-runner-integration-fix-v1",
+  "document_kind": "IMPLEMENTATION_FIX_NOT_EXECUTION",
+  "decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V2",
+  "supersedes_a_protocol_version": false,
+  "v2_protocol_identity_unchanged": true,
+  "v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+  "v3_protocol_created": false,
+  "no_ba_sep_metric_observed_before_this_fix": true,
+  "no_ba_sep_metric_observed_after_this_fix": true,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX.md",
+
+  "defects_found": [
+    {
+      "id": "PER_ARM_BIND_CONTRADICTS_JOINT_BALANCE",
+      "description": "the previous --bind-only --arm {RND,DET,LLM} bound one arm at a time, supplying [] for the other two arms' synthetic pools; the frozen balancing rule N = min(real, RND, DET, LLM) therefore always evaluated to 0",
+      "is_a_scientific_decision": false,
+      "ever_produced_an_invalid_real_binding": false,
+      "reason_none_produced": "no bind has ever succeeded against real data on any host; this laptop has never possessed the GPU artifacts required"
+    },
+    {
+      "id": "EXECUTE_NOT_REAL_CODE",
+      "description": "--execute routed to run_scientific_probe(repo, arm), which deliberately raised NotImplementedError",
+      "is_a_scientific_decision": false
+    }
+  ],
+
+  "fix": {
+    "cli_arm_flag_removed": true,
+    "modes": ["--preflight-only", "--bind-only", "--execute"],
+    "joint_checkpoint_binding": "prism_fas.evaluation.synthetic_real_probe.build_checkpoint_binding",
+    "joint_population_plan": "prism_fas.evaluation.synthetic_real_probe.build_population_plan",
+    "zero_sample_cell_fails_closed": true,
+    "leakage_audit_added": "prism_fas.evaluation.synthetic_real_probe._population_plan_leakage_audit",
+    "atomic_two_artifact_bind": true,
+    "artifacts": {
+      "execution_binding_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/C9_BA_SEP_EXECUTION_BINDING.json",
+      "population_plan_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/C9_BA_SEP_POPULATION_PLAN.json",
+      "result_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/BA_SEP_RESULT.json",
+      "per_seed_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/BA_SEP_PER_SEED.json",
+      "parameters_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/BA_SEP_PROBE_PARAMETERS.json",
+      "evidence_manifest_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/BA_SEP_EVIDENCE_MANIFEST.json",
+      "verdict_path": "reports/full/c8/reliability/synthetic_vs_real_spoof_probe/SYNTHETIC_VS_REAL_SPOOF_PROBE_VERDICT.json"
+    },
+    "reuse_refuses_on_mismatched_existing_binding": true,
+    "checkpoints_per_arm": 5,
+    "total_checkpoints": 15,
+    "required_decision_logit_name": "global_logit_G",
+
+    "preflight_strengthened": {
+      "checks": ["protocol_resolved", "source_inputs_resolved (package + all 3 C6 banks)",
+                "checkpoints_resolved (all 15, hash-verified)",
+                "group_identity_mapping_resolved (source_record_id, real and synthetic)",
+                "target_firewall_clean"],
+      "pass_requires_all": true,
+      "strictly_read_only": true
+    },
+
+    "execute_real_code": {
+      "function": "prism_fas.evaluation.synthetic_real_probe.execute_joint_probe",
+      "no_longer_notimplementederror": true,
+      "reuses_exact_c8_construction_path": [
+        "prism_fas.evaluation.source_matrix.build_plan",
+        "prism_fas.pipeline.adapters.c7.verify_detector_config_lock",
+        "prism_fas.detector.c6_bank.open_arm_bank",
+        "prism_fas.pipeline.adapters.c8._detector_config_for_row",
+        "prism_fas.detector.trainer.M9Trainer",
+        "prism_fas.detector.checkpoint.load_checkpoint",
+        "prism_fas.detector.checkpoint.apply_checkpoint"
+      ],
+      "strict_load": true,
+      "identity_checked": true,
+      "model_eval_mode": true,
+      "never_calls": ["run_source_only_flow", ".backward(", ".optimizer.step(", "trainer.save("],
+      "evidence_reuses": ["forward_checkpoint_evidence", "extract_evidence"],
+      "checkpoint_aggregation": "average_checkpoint_evidence (unchanged, arithmetic mean over 5)",
+      "probe_fit": "compute_ba_sep_for_seed (unchanged)",
+      "aggregation": "aggregate_ba_sep (unchanged)",
+      "verdict_rule": "hard_verdict (unchanged)",
+      "fail_closed_on": ["checkpoint SHA mismatch on disk", "missing evidence from any one of 5 checkpoints",
+                         "artifact bound to a stale protocol identity",
+                         "checkpoint binding or population plan failing its own identity check"],
+      "scientific_failed_verdict_is_a_real_result": true,
+      "scientific_failed_verdict_is_written_not_hidden": true,
+      "exit_codes": {"pass": 0, "fail": 1, "blocked": 2, "usage": 3}
+    }
+  },
+
+  "latent_bugs_also_fixed": [
+    {
+      "description": "resolve_checkpoint_set hand-built the checkpoint's relative path as row_directory/checkpoint.pt instead of the real run_root/checkpoints/{kind}.pt a C8 row manifest actually records",
+      "fix": "reads checkpoint.path and checkpoint.kind directly off the same already-hash-verified manifest source_evidence.load_row_evidence opened; also now refuses any row whose manifest names a decision logit other than global_logit_G",
+      "ever_affected_a_real_binding": false
+    },
+    {
+      "description": "checkpoint_binding_identity and population_plan_identity did not exclude their own *_identity_sha256 field from the material they hash, so re-verifying an artifact already written to disk (which now contains that field) computed a different hash than the one originally stored",
+      "fix": "both functions now exclude their own field, matching detector_reliability.protocol_identity's existing pattern for frozen_on/approved_by/etc.",
+      "ever_affected_a_real_artifact": false
+    }
+  ],
+
+  "runner_dry_run_results_on_this_laptop": {
+    "preflight_only": {"exit_code": 2, "ready_for_bind": false, "target_access": 0},
+    "bind_only": {"exit_code": 2, "artifacts_written": false, "reason": "no M3B package, no runs/full/c8/ on this host"},
+    "execute": {"exit_code": 2, "executed": false, "reason": "no execution binding on disk; run --bind-only first"}
+  },
+
+  "tests": {
+    "v1_shared_mechanics_file": "tests/pipeline/test_c9_ba_sep_option1_protocol.py",
+    "v1_shared_mechanics_count": 44,
+    "v2_file": "tests/pipeline/test_c9_ba_sep_option1_v2_runner.py",
+    "v2_count": 90,
+    "all_c9_scoped_tests_total": 150,
+    "all_passed": true,
+    "broad_regression_tests_c7_and_pipeline": {"failed": 33, "passed": 1663, "skipped": 22,
+      "note": "identical to the pre-existing baseline recorded before this task"},
+    "real_ba_sep_computed_in_tests": false,
+    "real_checkpoints_used_in_tests": false,
+    "real_images_opened_in_tests": false,
+    "execute_joint_probe_exercised_with_fixtures": true
+  },
+
+  "not_done_by_this_fix": [
+    "compute a real BA_sep value",
+    "resolve any of the nine REQUIRED_DETECTOR_RELIABILITY_TESTS",
+    "reclassify crop_padding_interpolation",
+    "create DETECTOR_RELIABILITY_LOCK_C.json",
+    "run C9, C10, C11, C12 or C13",
+    "access target data",
+    "retrain C7 or any C8 row",
+    "add C-R-RND",
+    "alter any C7 winner",
+    "change the V2 scientific protocol",
+    "create a V3 protocol"
+  ],
+
+  "final_status": {
+    "c8_scientific_closed": true,
+    "ba_sep_option1_v2_protocol": "FROZEN_NOT_RUN",
+    "ba_sep_runner": "IMPLEMENTED_NOT_RUN",
+    "gpu_checkpoint_binding": "PENDING",
+    "ba_sep_scientifically_run": false,
+    "detector_reliability_lock": "NOT_PASSED",
+    "c9_scientifically_run": false,
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}

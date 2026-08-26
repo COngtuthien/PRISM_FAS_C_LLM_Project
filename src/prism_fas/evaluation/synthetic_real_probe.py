@@ -41,6 +41,7 @@ anything reachable from `--preflight-only`.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -105,6 +106,11 @@ def protocol_identity(repo: Path) -> str:
 # 2. Checkpoint binding — resolved from real C8 manifests, never chosen
 # ==============================================================================
 
+#: The single decision logit every bound checkpoint must declare. Refused,
+#: not silently accepted, if a row's manifest names a different one.
+REQUIRED_DECISION_LOGIT_NAME = "global_logit_G"
+
+
 @dataclass(frozen=True)
 class CheckpointBinding:
     """One resolved, hash-verified P3-ready Track-G checkpoint."""
@@ -113,8 +119,12 @@ class CheckpointBinding:
     seed: int
     row_id: str
     run_identity: str
+    config_identity: str
     checkpoint_sha256: str
     checkpoint_path: str
+    checkpoint_kind: str
+    decision_logit_name: str
+    decision_graph_hash: str
 
 
 def track_g_p3_rows(arm: str) -> list[Any]:
@@ -140,9 +150,19 @@ def resolve_checkpoint_set(repo: Path, arm: str) -> list[CheckpointBinding]:
     Track-G rows. Reuses `source_evidence.load_row_evidence` — the same
     manifest-reading, byte-verifying reader C9 itself uses — rather than a
     second implementation. Refuses (raises) unless all five are present,
-    PASS, and byte-verified; never falls back to a partial set and never
-    selects among available checkpoints by any criterion.
+    PASS, byte-verified, AND declare the required decision logit; never
+    falls back to a partial set and never selects among available
+    checkpoints by any criterion.
+
+    `RowEvidence` (the shared C9 evidence contract) does not carry the
+    checkpoint's own relative path or its `kind` (which checkpoint.pt the row
+    actually saved — never chosen here by any metric) — reading
+    those, plus `decision_graph_hash`, off the SAME already-hash-verified
+    manifest `load_row_evidence` opened is completing what that shared
+    contract deliberately leaves out, not a second implementation of it.
     """
+    import json
+
     from prism_fas.evaluation import source_evidence
     from prism_fas.evaluation.source_matrix import build_plan
 
@@ -159,12 +179,25 @@ def resolve_checkpoint_set(repo: Path, arm: str) -> list[CheckpointBinding]:
         if item is None or item.status != "PASS" or not item.checkpoint_sha256:
             missing.append(row_id)
             continue
+        if item.decision_logit_name != REQUIRED_DECISION_LOGIT_NAME:
+            missing.append(row_id)
+            continue
+        manifest_path = source_evidence.row_directory(
+            Path(repo) / source_evidence.C8_RUNS, row) / source_evidence.RUN_MANIFEST
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        checkpoint_meta = dict(manifest.get("checkpoint") or {})
+        checkpoint_path = str(checkpoint_meta.get("path") or "")
+        checkpoint_kind = str(checkpoint_meta.get("kind") or "")
+        if not checkpoint_path or not checkpoint_kind:
+            missing.append(row_id)
+            continue
         bindings.append(CheckpointBinding(
             arm=arm, seed=row.seed, row_id=row_id, run_identity=item.run_identity,
+            config_identity=item.config_identity,
             checkpoint_sha256=str(item.checkpoint_sha256),
-            checkpoint_path=source_evidence.row_directory(
-                Path(repo) / source_evidence.C8_RUNS, row
-            ).relative_to(Path(repo)).as_posix() + "/checkpoint.pt"))
+            checkpoint_path=checkpoint_path, checkpoint_kind=checkpoint_kind,
+            decision_logit_name=item.decision_logit_name,
+            decision_graph_hash=str(manifest.get("decision_graph_hash") or "")))
     if missing or len(bindings) != CHECKPOINTS_PER_ARM:
         raise SyntheticRealProbeError(
             f"arm {arm!r}: {len(bindings)}/{CHECKPOINTS_PER_ARM} P3-ready Track-G "
@@ -183,6 +216,224 @@ def resolve_all_checkpoint_sets(repo: Path) -> dict[str, list[CheckpointBinding]
         raise SyntheticRealProbeError(
             f"resolved {total}/{TOTAL_CHECKPOINTS} checkpoints across all arms")
     return resolved
+
+
+#: Excludes its OWN field too: once written to disk and read back, the
+#: binding dict contains `checkpoint_binding_identity_sha256` itself: without
+#: excluding it here, re-verifying an already-bound artifact would compute a
+#: DIFFERENT hash than the one originally stored (self-referential material),
+#: and every legitimate re-verification (`execute_joint_probe`, a repeated
+#: `--bind-only`) would wrongly report a mismatch.
+_BINDING_IDENTITY_EXCLUDED_KEYS = frozenset({
+    "bound_at_utc", "checkpoint_binding_identity_sha256"})
+
+
+def checkpoint_binding_identity(binding: Mapping[str, Any]) -> str:
+    """sha256 over the checkpoint binding, sorted keys, no timestamp."""
+    material = {key: value for key, value in binding.items()
+               if key not in _BINDING_IDENTITY_EXCLUDED_KEYS}
+    return hashlib.sha256(json.dumps(
+        material, sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")).hexdigest()
+
+
+def build_checkpoint_binding(repo: Path) -> dict[str, Any]:
+    """The one joint, atomic, all-three-arm checkpoint binding (§3, §6A of
+    the runner-integration-fix task): all 15 real, hash-verified P3-ready
+    Track-G checkpoints, bound together with the source package identity and
+    all three C6 arm bank identities. Raises (fails closed) unless every one
+    of the 15 resolves. No performance metric enters this binding — it is
+    pure identity, resolved before any evidence is ever forwarded.
+    """
+    from prism_fas.pipeline.adapters import sources
+
+    inputs = sources.verify_detector_inputs(repo, arms=ARMS)
+    by_arm = resolve_all_checkpoint_sets(repo)
+    bank_identities = {arm: str(inputs["c6"]["banks"][arm]["selected_set_sha256"])
+                       for arm in ARMS}
+
+    checkpoints = [
+        {"arm": binding.arm, "seed": binding.seed, "row_id": binding.row_id,
+         "run_identity": binding.run_identity, "config_identity": binding.config_identity,
+         "checkpoint_relative_path": binding.checkpoint_path,
+         "checkpoint_sha256": binding.checkpoint_sha256,
+         "decision_graph_hash": binding.decision_graph_hash,
+         "decision_logit_name": binding.decision_logit_name}
+        for arm in ARMS for binding in by_arm[arm]]
+
+    counts = {arm: sum(1 for item in checkpoints if item["arm"] == arm) for arm in ARMS}
+    if any(counts[arm] != CHECKPOINTS_PER_ARM for arm in ARMS) or len(checkpoints) != TOTAL_CHECKPOINTS:
+        raise SyntheticRealProbeError(
+            f"joint checkpoint binding requires exactly {CHECKPOINTS_PER_ARM} per arm "
+            f"and {TOTAL_CHECKPOINTS} total; resolved {counts}")
+
+    binding = {
+        "schema_version": "c9-ba-sep-execution-binding-v1",
+        "protocol_identity": protocol_identity(repo),
+        "source_package_identity": inputs["package_identity"],
+        "c6_bank_identities": bank_identities,
+        "checkpoints": checkpoints,
+        "checkpoints_per_arm": {arm: counts[arm] for arm in ARMS},
+        "total_checkpoints": len(checkpoints),
+        "target_access": 0,
+    }
+    binding["checkpoint_binding_identity_sha256"] = checkpoint_binding_identity(binding)
+    return binding
+
+
+# ==============================================================================
+# 3b. Joint (all-three-arm) population resolution and the pre-selected plan
+#     (§4, §5, §6B of the runner-integration-fix task)
+# ==============================================================================
+
+def resolve_joint_populations(repo: Path) -> tuple[list[PopulationRecord],
+                                                     dict[str, list[PopulationRecord]]]:
+    """`(real_spoof, {arm: synthetic_spoof})` — the real population resolved
+    ONCE and shared, the synthetic population resolved once per arm. Never a
+    per-arm real resolution: there is exactly one real_spoof_population."""
+    real_spoof = resolve_real_spoof_population(repo)
+    synthetic_by_arm = {arm: resolve_synthetic_population(repo, arm) for arm in ARMS}
+    return real_spoof, synthetic_by_arm
+
+
+_PLAN_IDENTITY_EXCLUDED_KEYS = frozenset({"bound_at_utc", "population_plan_identity_sha256"})
+
+
+def population_plan_identity(plan: Mapping[str, Any]) -> str:
+    """sha256 over the population plan, sorted keys, no timestamp — and
+    excluding its own field, for the same self-reference reason
+    `checkpoint_binding_identity` does (see `_BINDING_IDENTITY_EXCLUDED_KEYS`).
+    """
+    material = {key: value for key, value in plan.items()
+               if key not in _PLAN_IDENTITY_EXCLUDED_KEYS}
+    return hashlib.sha256(json.dumps(
+        material, sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")).hexdigest()
+
+
+def build_population_plan(repo: Path, *, protocol: Mapping[str, Any] | None = None
+                          ) -> dict[str, Any]:
+    """The one joint, atomic, all-three-arm pre-selected population plan.
+
+    For every `(probe_seed, source_domain, split)` cell: an independent
+    group-safe split of the real population and each arm's synthetic
+    population, followed by ONE joint balancing call across all three arms
+    (`balance_report`, `synthetic_by_arm={"RND": ..., "DET": ..., "LLM": ...}`)
+    — never a per-arm balance with the other two arms filled with `[]`, which
+    is exactly the defect this task fixes (an empty arm forces `N=0`).
+
+    Fails closed (raises) if any required cell resolves `N == 0`, if a
+    group-safety check fails, or if the real subset selected for one arm
+    differs from the real subset selected for another arm in the same cell
+    (they MUST be identical: `balance_classes` orders and truncates the SAME
+    real list once per cell, shared across arms by construction, but this is
+    asserted again explicitly rather than trusted silently).
+    """
+    resolved_protocol = protocol if protocol is not None else load_protocol(repo)
+    protocol_id = protocol_identity(repo)
+    namespace = resolved_protocol["matched_source_split"]["split_hash_namespace"]
+    probe_seeds = list(resolved_protocol["probe_seed_values"])
+    domains = list(resolved_protocol["source_domains"])
+
+    real_spoof, synthetic_by_arm = resolve_joint_populations(repo)
+
+    cells: list[dict[str, Any]] = []
+    for seed in probe_seeds:
+        real_split = assign_splits(real_spoof, namespace=namespace, probe_seed=seed)
+        verify_group_safe_split(real_split)
+        synth_split_by_arm: dict[str, dict[str, list[PopulationRecord]]] = {}
+        for arm in ARMS:
+            split = assign_splits(synthetic_by_arm[arm], namespace=namespace, probe_seed=seed)
+            verify_group_safe_split(split)
+            synth_split_by_arm[arm] = split
+
+        for domain in domains:
+            for split_label in (TRAIN_LABEL, VALIDATION_LABEL):
+                real_cell = [r for r in real_split[split_label] if r.source_domain == domain]
+                synthetic_cell = {
+                    arm: [r for r in synth_split_by_arm[arm][split_label]
+                          if r.source_domain == domain]
+                    for arm in ARMS}
+                report = balance_report(
+                    protocol_id=protocol_id, probe_seed=seed, split=split_label,
+                    source_domain=domain, real_spoof=real_cell,
+                    synthetic_by_arm=synthetic_cell)
+
+                if report["n"] == 0:
+                    raise SyntheticRealProbeError(
+                        f"population plan cell (seed={seed}, domain={domain!r}, "
+                        f"split={split_label!r}) resolves N=0; refusing to freeze an "
+                        "empty scientific probe population. pre-balance counts: "
+                        f"{report['pre_balance_counts']}")
+
+                real_ids = sorted(r.sample_identity for r in report["selected_real"])
+                selected_by_arm = {arm: sorted(r.sample_identity for r in
+                                               report["selected_synthetic"][arm])
+                                   for arm in ARMS}
+                if any(len(selected_by_arm[arm]) != len(real_ids) for arm in ARMS):
+                    raise SyntheticRealProbeError(
+                        f"cell (seed={seed}, domain={domain!r}, split={split_label!r}): "
+                        "a synthetic arm's selected count does not match the real "
+                        "count; the balancing rule is 1:1 real:synthetic per arm")
+
+                cells.append({
+                    "probe_seed": seed, "source_domain": domain, "split": split_label,
+                    "n": report["n"],
+                    "pre_balance_counts": report["pre_balance_counts"],
+                    "post_balance_counts": report["post_balance_counts"],
+                    "unique_source_record_id_counts": report["unique_source_record_id_counts"],
+                    "real_selected": [
+                        {"sample_identity": r.sample_identity,
+                         "stable_group_identity": r.stable_group_identity}
+                        for r in sorted(report["selected_real"], key=lambda r: r.sample_identity)],
+                    "synthetic_selected": {
+                        arm: [{"sample_identity": r.sample_identity,
+                              "stable_group_identity": r.stable_group_identity}
+                             for r in sorted(report["selected_synthetic"][arm],
+                                             key=lambda r: r.sample_identity)]
+                        for arm in ARMS},
+                })
+
+    leakage_audit = _population_plan_leakage_audit(cells)
+    if leakage_audit["leaked"]:
+        raise SyntheticRealProbeError(
+            f"population plan leakage audit failed: {leakage_audit['leaked']}")
+
+    plan = {
+        "schema_version": "c9-ba-sep-population-plan-v1",
+        "protocol_identity": protocol_id,
+        "split_hash_namespace": namespace,
+        "probe_seed_values": probe_seeds,
+        "source_domains": domains,
+        "cells": cells,
+        "leakage_audit": leakage_audit,
+        "target_access": 0,
+    }
+    plan["population_plan_identity_sha256"] = population_plan_identity(plan)
+    return plan
+
+
+def _population_plan_leakage_audit(cells: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """For every probe seed, the union of every TRAIN-split stable group
+    identity (real and synthetic, every arm) must share nothing with the
+    union of every VALIDATION-split stable group identity. Computed once
+    more here, over the assembled plan, on top of the per-population
+    `verify_group_safe_split` checks already performed while building it."""
+    by_seed: dict[int, dict[str, set[str]]] = {}
+    for cell in cells:
+        seed = cell["probe_seed"]
+        bucket = by_seed.setdefault(seed, {TRAIN_LABEL: set(), VALIDATION_LABEL: set()})
+        groups = {entry["stable_group_identity"] for entry in cell["real_selected"]}
+        for arm in ARMS:
+            groups |= {entry["stable_group_identity"] for entry in cell["synthetic_selected"][arm]}
+        bucket[cell["split"]] |= groups
+
+    leaked: dict[str, list[str]] = {}
+    for seed, bucket in by_seed.items():
+        overlap = bucket[TRAIN_LABEL] & bucket[VALIDATION_LABEL]
+        if overlap:
+            leaked[str(seed)] = sorted(overlap)[:10]
+    return {"checked_seeds": sorted(by_seed), "leaked": leaked}
 
 
 # ==============================================================================
@@ -725,34 +976,289 @@ def preflight(repo: Path) -> dict[str, Any]:
 
 
 # ==============================================================================
-# 11. The scientific runner — NOT WIRED. Deliberately.
+# 11. Real checkpoint construction and evidence forwarding.
+#
+# THIS SECTION IS REAL, PRODUCTION CODE — it is never exercised against real
+# data on this development laptop (no runs/full/c8/, no source package), and
+# every test of it in this repository uses a monkeypatched trainer or a
+# fixture ModelOutput. It reuses, never reimplements, the exact canonical
+# C8 construction path: `source_matrix.build_plan` (the row),
+# `pipeline.adapters.c7.verify_detector_config_lock` (the frozen Track-G
+# config lock), `detector.c6_bank.open_arm_bank` (the arm's frozen C6 bank —
+# the SAME call `c8.py::_run_scientific_row` makes),
+# `pipeline.adapters.c8._detector_config_for_row` (the row's frozen
+# hyperparameters), `detector.trainer.M9Trainer` (the exact class and
+# constructor arguments C8's row executor uses, pointed at the row's own
+# ALREADY-EXISTING run directory) and `detector.checkpoint.load_checkpoint`
+# / `apply_checkpoint` (strict, identity-checked load). Nothing here calls
+# `.step()`, `.backward()`, `run_source_only_flow`, or `.save()`.
 # ==============================================================================
 
-def run_scientific_probe(repo: Path, arm: str) -> dict[str, Any]:
-    """Would compute a real `BA_sep_arm` for one arm, end to end.
+def _row_for_checkpoint(binding: CheckpointBinding) -> Any:
+    """The exact `SourceRow` a checkpoint binding names, from the one
+    canonical plan — never reconstructed by hand from the binding's fields."""
+    from prism_fas.evaluation.source_matrix import build_plan
 
-    NOT IMPLEMENTED, ON PURPOSE, IN THIS PROTOCOL-FREEZE TASK. Everything up
-    to this function is real and reusable: `resolve_checkpoint_set` and
-    `resolve_arm_populations` above already resolve the true checkpoints and
-    populations through the canonical readers, and
-    `forward_checkpoint_evidence` / `compute_ba_sep_for_seed` /
-    `aggregate_ba_sep` already implement the frozen probe exactly. What is
-    missing is the glue that loads each checkpoint's weights into a real
-    `PRISMDetector` and forwards real image batches through it — the same
-    construction `M9Trainer` and `M9TrainingDataset`/`M9ValidationDataset`
-    already do for C8's own rows and cross-source diagnostics
-    (`src/prism_fas/pipeline/adapters/c8.py::_run_scientific_row`,
-    `_cross_source_evaluation`). Wiring it here, untested against real data,
-    on a machine that has none, is exactly the kind of unverifiable
-    integration code this project's own conventions refuse to ship. A
-    separate scientific runner, built and tested on the GPU host that
-    possesses the real C8 checkpoints and the real source package, is the
-    correct place for it (§16/§17 of the protocol-freeze task).
+    for row in build_plan().rows:
+        if row.row_id == binding.row_id:
+            return row
+    raise SyntheticRealProbeError(
+        f"{binding.row_id!r} is not a row of the current source matrix plan; "
+        "the plan may have drifted since the binding was built")
+
+
+def construct_row_trainer(repo: Path, binding: CheckpointBinding) -> Any:
+    """Construct one checkpoint's trainer through the exact C8 row-execution
+    path, then strict-load that checkpoint's weights. Never trains.
+
+    Raises (fails closed) if the C7 lock does not verify, if the checkpoint
+    bytes on disk no longer hash to the bound SHA-256, or if
+    `checkpoint.load_checkpoint`'s own identity check disagrees on any
+    field — `expected_identity=trainer.identity` is the SAME `RunIdentity`
+    this exact reconstruction deterministically re-derives from the row's
+    real config/package/bank inputs, so any drift since the checkpoint was
+    written surfaces as a refusal, not a silently-wrong load.
     """
-    raise NotImplementedError(
-        "run_scientific_probe is intentionally unwired: this codebase freezes and "
-        "implements the C9_DETECTOR_BA_SEP_OPTION1_V2 protocol's mechanics, it "
-        "does not execute them. See this function's docstring.")
+    from prism_fas.detector import checkpoint as checkpoint_module
+    from prism_fas.detector.c6_bank import open_arm_bank
+    from prism_fas.detector.trainer import M9Trainer
+    from prism_fas.evaluation import c6_evidence, source_evidence
+    from prism_fas.pipeline.adapters import AdapterRequest, sources
+    from prism_fas.pipeline.adapters.c7 import (SCIENTIFIC_CONFIG_LOCK_PATH,
+                                                verify_detector_config_lock)
+    from prism_fas.pipeline.adapters.c8 import _detector_config_for_row
+    from prism_fas.pipeline.profiles import load_profile
+
+    repo = Path(repo)
+    row = _row_for_checkpoint(binding)
+
+    verification = verify_detector_config_lock(repo, repo / SCIENTIFIC_CONFIG_LOCK_PATH)
+    if not verification["valid"]:
+        raise SyntheticRealProbeError(
+            f"the C7 detector config lock does not verify: {verification.get('problems')}")
+    lock = verification["payload"]
+
+    inputs = sources.verify_detector_inputs(repo, arms=(binding.arm,))
+    evidence = c6_evidence.verify_c6_evidence(repo).bank(binding.arm)
+    bank = open_arm_bank(
+        repo, arm=binding.arm, evidence=evidence,
+        candidates_root=repo / inputs["candidates_root"],
+        package_identity=inputs["package_identity"],
+        recipe_bank_identity=inputs["recipe_bank_identity"])
+
+    request = AdapterRequest(repo=repo, profile=load_profile("full", repo=repo))
+    config, configs = _detector_config_for_row(
+        request, row=row, lock=lock, bank=bank, run_id=row.row_id)
+
+    run_root = source_evidence.row_directory(repo / source_evidence.C8_RUNS, row)
+    trainer = M9Trainer(
+        config=config, detector_config=configs["detector_config"],
+        package_root=repo / inputs["package_root"], bank_root=repo / inputs["candidates_root"],
+        recipe_bank_root=repo / inputs["recipe_bank_root"], run_root=run_root,
+        cache_root=run_root / "cache", weight_root=repo / inputs["weight_root"],
+        loader_config_path=repo / "configs/data/loader_m4.yaml",
+        device="cpu", synthetic_bank=bank)
+
+    checkpoint_path = trainer.checkpoint_path(binding.checkpoint_kind)
+    on_disk_sha256 = checkpoint_module.sha256_file(checkpoint_path)
+    if on_disk_sha256 != binding.checkpoint_sha256:
+        raise SyntheticRealProbeError(
+            f"{binding.row_id!r}: checkpoint bytes on disk no longer match the bound "
+            f"SHA-256 ({on_disk_sha256} != {binding.checkpoint_sha256}); refusing to "
+            "forward evidence through a checkpoint that moved")
+
+    payload = checkpoint_module.load_checkpoint(checkpoint_path, expected_identity=trainer.identity)
+    checkpoint_module.apply_checkpoint(payload, model=trainer.model)
+    trainer.model.eval()
+    return trainer
+
+
+def forward_evidence_for_records(trainer: Any, records: Sequence[PopulationRecord]
+                                 ) -> dict[str, np.ndarray]:
+    """One `forward_checkpoint_evidence` call per record, through an
+    ALREADY-loaded, eval-mode trainer's model — never a second evidence
+    extraction rule.
+
+    Real records resolve through `trainer.dataset._real_position`
+    (`sample_id -> position` into the exact `CanonicalPackageDataset` every
+    other resolver in this module reads); synthetic records resolve through
+    the trainer's own bound arm bank's row order
+    (`sample_identity == synthetic_id`). Fails closed if any requested
+    `sample_identity` is not resolvable in this trainer's dataset.
+    """
+    from prism_fas.detector.dataset import collate_items
+
+    synthetic_position = {str(row["synthetic_id"]): position
+                          for position, row in enumerate(trainer.dataset.bank.rows)}
+    real_position = trainer.dataset._real_position
+
+    evidence: dict[str, np.ndarray] = {}
+    for record in records:
+        if record.label == REAL_SPOOF_CLASS:
+            position = real_position.get(record.sample_identity)
+            if position is None:
+                raise SyntheticRealProbeError(
+                    f"real sample_identity {record.sample_identity!r} is not resolvable "
+                    "in this trainer's source_train dataset; fail closed")
+            item = trainer.dataset.real_item(position)
+        else:
+            position = synthetic_position.get(record.sample_identity)
+            if position is None:
+                raise SyntheticRealProbeError(
+                    f"synthetic sample_identity {record.sample_identity!r} is not "
+                    "resolvable in this trainer's arm bank; fail closed")
+            item = trainer.dataset.synthetic_item(position)
+        batch = collate_items([item]).to(trainer.device)
+        evidence[record.sample_identity] = forward_checkpoint_evidence(trainer.model, batch)
+    return evidence
+
+
+# ==============================================================================
+# 12. The joint scientific execution — one invocation, all three arms.
+# ==============================================================================
+
+def execute_joint_probe(repo: Path, *, checkpoint_binding: Mapping[str, Any],
+                        population_plan: Mapping[str, Any]) -> dict[str, Any]:
+    """The real, joint, three-arm `synthetic_vs_real_spoof_probe` execution.
+
+    Requires an ALREADY-BUILT checkpoint binding and population plan (from
+    `--bind-only`, or freshly rebuilt by the caller) and re-verifies, before
+    any forward pass: both are bound to the CURRENTLY active protocol
+    identity, both verify their own recorded identity hash, and every
+    checkpoint's bytes on disk still match the bound SHA-256 (re-checked a
+    second time, per-checkpoint, inside `construct_row_trainer`). Fails
+    closed (raises) on any disagreement — no scientific metric is ever
+    computed over a stale or mismatched binding.
+
+    Uses ONLY the frozen mechanics already implemented and tested above
+    (`construct_row_trainer`, `forward_evidence_for_records`,
+    `average_checkpoint_evidence`, `compute_ba_sep_for_seed`,
+    `aggregate_ba_sep`, `hard_verdict`) — no new numeric rule is introduced
+    here; this function is glue, not science.
+    """
+    protocol_id = protocol_identity(repo)
+    if checkpoint_binding.get("protocol_identity") != protocol_id:
+        raise SyntheticRealProbeError(
+            "checkpoint binding is not bound to the active protocol identity")
+    if population_plan.get("protocol_identity") != protocol_id:
+        raise SyntheticRealProbeError(
+            "population plan is not bound to the active protocol identity")
+    if checkpoint_binding.get("checkpoint_binding_identity_sha256") != \
+            checkpoint_binding_identity(checkpoint_binding):
+        raise SyntheticRealProbeError("checkpoint binding fails its own identity check")
+    if population_plan.get("population_plan_identity_sha256") != \
+            population_plan_identity(population_plan):
+        raise SyntheticRealProbeError("population plan fails its own identity check")
+
+    checkpoints_by_arm: dict[str, list[dict[str, Any]]] = {arm: [] for arm in ARMS}
+    for item in checkpoint_binding["checkpoints"]:
+        checkpoints_by_arm[str(item["arm"])].append(item)
+    for arm in ARMS:
+        if len(checkpoints_by_arm[arm]) != CHECKPOINTS_PER_ARM:
+            raise SyntheticRealProbeError(
+                f"checkpoint binding names {len(checkpoints_by_arm[arm])} checkpoints "
+                f"for arm {arm!r}, expected {CHECKPOINTS_PER_ARM}")
+
+    cells = list(population_plan["cells"])
+
+    evidence_by_arm: dict[str, dict[str, np.ndarray]] = {}
+    for arm in ARMS:
+        needed: dict[str, PopulationRecord] = {}
+        for cell in cells:
+            for entry in cell["real_selected"]:
+                needed[entry["sample_identity"]] = PopulationRecord(
+                    sample_identity=entry["sample_identity"],
+                    stable_group_identity=entry["stable_group_identity"],
+                    source_domain=cell["source_domain"], label=REAL_SPOOF_CLASS)
+            for entry in cell["synthetic_selected"][arm]:
+                needed[entry["sample_identity"]] = PopulationRecord(
+                    sample_identity=entry["sample_identity"],
+                    stable_group_identity=entry["stable_group_identity"],
+                    source_domain=cell["source_domain"], label=SYNTHETIC_SPOOF_CLASS)
+
+        per_checkpoint: list[dict[str, np.ndarray]] = []
+        for item in checkpoints_by_arm[arm]:
+            binding = CheckpointBinding(
+                arm=str(item["arm"]), seed=int(item["seed"]), row_id=str(item["row_id"]),
+                run_identity=str(item["run_identity"]), config_identity=str(item["config_identity"]),
+                checkpoint_sha256=str(item["checkpoint_sha256"]),
+                checkpoint_path=str(item["checkpoint_relative_path"]),
+                checkpoint_kind=Path(str(item["checkpoint_relative_path"])).stem,
+                decision_logit_name=str(item["decision_logit_name"]),
+                decision_graph_hash=str(item["decision_graph_hash"]))
+            trainer = construct_row_trainer(repo, binding)
+            per_checkpoint.append(forward_evidence_for_records(trainer, list(needed.values())))
+        if len(per_checkpoint) != CHECKPOINTS_PER_ARM:
+            raise SyntheticRealProbeError(
+                f"arm {arm!r}: only {len(per_checkpoint)} checkpoints contributed "
+                f"evidence, need exactly {CHECKPOINTS_PER_ARM}")
+
+        merged: dict[str, np.ndarray] = {}
+        for sample_identity in needed:
+            vectors = []
+            for one_checkpoint_evidence in per_checkpoint:
+                if sample_identity not in one_checkpoint_evidence:
+                    raise SyntheticRealProbeError(
+                        f"arm {arm!r}: sample {sample_identity!r} is missing evidence "
+                        "from one checkpoint; refusing to average an incomplete set")
+                vectors.append(one_checkpoint_evidence[sample_identity])
+            merged[sample_identity] = average_checkpoint_evidence(vectors)
+        evidence_by_arm[arm] = merged
+
+    per_seed_by_arm: dict[str, dict[int, float]] = {arm: {} for arm in ARMS}
+    seed_details: dict[str, dict[int, dict[str, Any]]] = {arm: {} for arm in ARMS}
+    for arm in ARMS:
+        by_seed: dict[int, dict[str, list[tuple[str, int]]]] = {}
+        for cell in cells:
+            seed = int(cell["probe_seed"])
+            bucket = by_seed.setdefault(seed, {TRAIN_LABEL: [], VALIDATION_LABEL: []})
+            bucket[cell["split"]].extend(
+                (entry["sample_identity"], REAL_SPOOF_CLASS) for entry in cell["real_selected"])
+            bucket[cell["split"]].extend(
+                (entry["sample_identity"], SYNTHETIC_SPOOF_CLASS)
+                for entry in cell["synthetic_selected"][arm])
+        for seed, bucket in by_seed.items():
+            train_features = np.array([evidence_by_arm[arm][sid] for sid, _ in bucket[TRAIN_LABEL]])
+            train_labels = np.array([label for _, label in bucket[TRAIN_LABEL]])
+            validation_features = np.array(
+                [evidence_by_arm[arm][sid] for sid, _ in bucket[VALIDATION_LABEL]])
+            validation_labels = np.array([label for _, label in bucket[VALIDATION_LABEL]])
+            result = compute_ba_sep_for_seed(
+                train_features, train_labels, validation_features, validation_labels)
+            per_seed_by_arm[arm][seed] = result["balanced_accuracy"]
+            seed_details[arm][seed] = result
+
+    ba_sep_by_arm = {arm: aggregate_ba_sep(per_seed_by_arm[arm]) for arm in ARMS}
+    verdict = hard_verdict(ba_sep_by_arm)
+
+    return {
+        "protocol_identity": protocol_id,
+        "checkpoint_binding_identity": checkpoint_binding["checkpoint_binding_identity_sha256"],
+        "population_plan_identity": population_plan["population_plan_identity_sha256"],
+        "ba_sep_by_arm": ba_sep_by_arm,
+        "per_seed_by_arm": {arm: dict(per_seed_by_arm[arm]) for arm in ARMS},
+        "seed_details": seed_details,
+        "verdict": verdict,
+        "target_access": 0,
+    }
+
+
+def run_scientific_probe(repo: Path, arm: str) -> dict[str, Any]:
+    """Retired single-arm entry point.
+
+    The frozen balancing rule is JOINT across RND/DET/LLM (`balance_classes`
+    requires all three arms' pools simultaneously): a per-arm call here
+    would force `N = min(real, this_arm, 0, 0) = 0` for the other two arms,
+    which is exactly the runner-integration defect
+    `reports/readiness/C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX.md`
+    corrects. Use `execute_joint_probe(repo, checkpoint_binding=...,
+    population_plan=...)` instead, via
+    `prism_fas.evaluation.synthetic_real_probe_runner --execute`.
+    """
+    raise SyntheticRealProbeError(
+        "run_scientific_probe(repo, arm) is retired: the frozen protocol balances "
+        "jointly across RND/DET/LLM, so no single arm can be probed in isolation. "
+        "Use execute_joint_probe(repo, checkpoint_binding=..., population_plan=...).")
 
 
 __all__ = ["ARMS", "CHECKPOINTS_PER_ARM", "TOTAL_CHECKPOINTS", "EVIDENCE_FIELDS",

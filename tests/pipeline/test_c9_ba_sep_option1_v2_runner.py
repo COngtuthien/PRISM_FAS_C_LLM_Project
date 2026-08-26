@@ -30,7 +30,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Sequence
 
+import numpy as np
 import pytest
 import yaml
 
@@ -474,12 +476,209 @@ def test_hard_verdict_is_frozen_in_the_v2_protocol_before_any_metric() -> None:
 
 
 # ==============================================================================
-# H. the CLI runner — contracts per mode
+# H0. shared fixtures for the joint (all-arm) runner
 # ==============================================================================
 
-def test_preflight_only_exits_pass_when_protocol_resolves() -> None:
+def _fixture_checkpoint(arm: str, seed: int) -> "probe.CheckpointBinding":
+    import hashlib as _hashlib
+
+    return probe.CheckpointBinding(
+        arm=arm, seed=seed, row_id=f"C-G-{arm}-P3READY-s{seed}",
+        run_identity=f"run-{arm}-{seed}", config_identity="cfg" + "0" * 61,
+        checkpoint_sha256=_hashlib.sha256(f"{arm}-{seed}".encode()).hexdigest(),
+        checkpoint_path=f"runs/full/c8/P3/C-G-{arm}/cfg/{seed}/checkpoints/best.pt",
+        checkpoint_kind="best", decision_logit_name="global_logit_G",
+        decision_graph_hash="graph" + "0" * 59)
+
+
+def _fixture_checkpoints_by_arm(*, seeds: Sequence[int] = (1, 2, 3, 4, 5)
+                                ) -> dict[str, list["probe.CheckpointBinding"]]:
+    return {arm: [_fixture_checkpoint(arm, seed) for seed in seeds] for arm in probe.ARMS}
+
+
+def _fixture_population(prefix: str, group_prefix: str, *, count: int, label: int,
+                        domain: str = "casia_fasd") -> list["probe.PopulationRecord"]:
+    return [probe.PopulationRecord(sample_identity=f"{prefix}{i}",
+                                   stable_group_identity=f"{group_prefix}{i}",
+                                   source_domain=domain, label=label)
+           for i in range(count)]
+
+
+def _install_joint_bind_fixtures(monkeypatch, *, probe_seed_values=(1, 2, 3),
+                                 real_count: int = 60, synthetic_count: int = 60
+                                 ) -> dict[str, Any]:
+    """Everything `build_checkpoint_binding` and `build_population_plan` need,
+    monkeypatched at the exact seams those functions call through — never
+    touches a real repo, a real image or a real checkpoint's bytes."""
+    from prism_fas.evaluation import c6_evidence
+    from prism_fas.pipeline.adapters import sources
+
+    fake_protocol = {
+        "detector_checkpoint_identity": {"required_decision_logit_name": "global_logit_G"},
+        "matched_source_split": {"split_hash_namespace": "test-joint-ns"},
+        "probe_seed_values": list(probe_seed_values),
+        "source_domains": ["casia_fasd", "msu_mfsd"],
+        "ba_ceiling": 0.75,
+        "target_access": 0,
+        "target_firewall": {"target_access": 0},
+    }
+    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
+    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "a" * 64)
+
+    checkpoints_by_arm = _fixture_checkpoints_by_arm()
+    monkeypatch.setattr(probe, "resolve_checkpoint_set",
+                        lambda repo, arm: checkpoints_by_arm[arm])
+
+    real = (_fixture_population("r-c", "greal-c", count=real_count // 2, label=0,
+                                domain="casia_fasd")
+           + _fixture_population("r-m", "greal-m", count=real_count // 2, label=0,
+                                 domain="msu_mfsd"))
+    synthetic_by_arm = {
+        arm: (_fixture_population(f"{arm.lower()}-c", f"g{arm.lower()}-c",
+                                  count=synthetic_count // 2, label=1, domain="casia_fasd")
+             + _fixture_population(f"{arm.lower()}-m", f"g{arm.lower()}-m",
+                                   count=synthetic_count // 2, label=1, domain="msu_mfsd"))
+        for arm in probe.ARMS}
+    monkeypatch.setattr(probe, "resolve_real_spoof_population", lambda repo, **_: real)
+    monkeypatch.setattr(probe, "resolve_synthetic_population",
+                        lambda repo, arm, **_: synthetic_by_arm[arm])
+
+    monkeypatch.setattr(sources, "verify_detector_inputs",
+                        lambda repo, arms=None: {
+                            "package_identity": "pkg" + "0" * 61,
+                            "c6": {"banks": {arm: {"selected_set_sha256": f"bank-{arm}" + "0" * 55}
+                                            for arm in probe.ARMS}}})
+
+    class _FakeEvidence:
+        def bank(self, arm: str) -> None:
+            return None
+
+    monkeypatch.setattr(c6_evidence, "verify_c6_evidence", lambda repo: _FakeEvidence())
+
+    return {"protocol": fake_protocol, "checkpoints_by_arm": checkpoints_by_arm,
+           "real": real, "synthetic_by_arm": synthetic_by_arm}
+
+
+# ==============================================================================
+# H1. build_checkpoint_binding / build_population_plan — joint mechanics
+# ==============================================================================
+
+def test_build_checkpoint_binding_includes_all_three_arms_atomically(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    binding = probe.build_checkpoint_binding(tmp_path)
+    assert set(binding["checkpoints_per_arm"]) == set(probe.ARMS)
+    assert all(binding["checkpoints_per_arm"][arm] == 5 for arm in probe.ARMS)
+    assert binding["total_checkpoints"] == 15
+
+
+def test_build_checkpoint_binding_fails_closed_when_one_arm_is_short(monkeypatch, tmp_path) -> None:
+    fixtures = _install_joint_bind_fixtures(monkeypatch)
+    short = dict(fixtures["checkpoints_by_arm"])
+    short["LLM"] = short["LLM"][:4]                    # only 4/5
+
+    def _resolve(repo, arm):
+        if arm == "LLM":
+            raise probe.SyntheticRealProbeError("LLM: 4/5 P3-ready Track-G checkpoints resolved")
+        return fixtures["checkpoints_by_arm"][arm]
+
+    monkeypatch.setattr(probe, "resolve_checkpoint_set", _resolve)
+    with pytest.raises(probe.SyntheticRealProbeError):
+        probe.build_checkpoint_binding(tmp_path)
+
+
+def test_checkpoint_binding_identity_is_deterministic_and_covers_all_checkpoints(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    first = probe.build_checkpoint_binding(tmp_path)
+    second = probe.build_checkpoint_binding(tmp_path)
+    assert first["checkpoint_binding_identity_sha256"] == second["checkpoint_binding_identity_sha256"]
+    assert len(first["checkpoint_binding_identity_sha256"]) == 64
+
+
+def test_build_population_plan_gives_every_arm_a_non_empty_synthetic_selection(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    plan = probe.build_population_plan(tmp_path)
+    assert plan["cells"], "expected at least one cell"
+    for cell in plan["cells"]:
+        assert cell["n"] > 0
+        for arm in probe.ARMS:
+            assert len(cell["synthetic_selected"][arm]) == cell["n"] > 0
+
+
+def test_build_population_plan_n_is_min_across_real_and_all_three_arms(monkeypatch, tmp_path) -> None:
+    """The exact joint-balancing bug this task fixes: N must reflect all
+    three arms' pools simultaneously, never a single arm against an empty
+    pair. Here DET is deliberately starved to 15 candidates per domain,
+    well below the other arms' 30, so DET must set the ceiling for N."""
+    fixtures = _install_joint_bind_fixtures(monkeypatch)
+    starved_det = (_fixture_population("det-c", "gdet-c", count=15, label=1, domain="casia_fasd")
+                  + _fixture_population("det-m", "gdet-m", count=15, label=1, domain="msu_mfsd"))
+
+    def _resolve_synthetic(repo, arm, **_):
+        if arm == "DET":
+            return starved_det
+        return fixtures["synthetic_by_arm"][arm]
+
+    monkeypatch.setattr(probe, "resolve_synthetic_population", _resolve_synthetic)
+    plan = probe.build_population_plan(tmp_path)
+    casia_train_cells = [c for c in plan["cells"]
+                         if c["source_domain"] == "casia_fasd" and c["split"] == "train"]
+    for cell in casia_train_cells:
+        assert cell["n"] <= 15
+        assert len(cell["synthetic_selected"]["RND"]) == cell["n"]
+        assert len(cell["synthetic_selected"]["LLM"]) == cell["n"]
+
+
+def test_build_population_plan_fails_closed_on_a_zero_sample_cell(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    monkeypatch.setattr(probe, "resolve_synthetic_population", lambda repo, arm, **_: [])
+    with pytest.raises(probe.SyntheticRealProbeError, match="N=0"):
+        probe.build_population_plan(tmp_path)
+
+
+def test_build_population_plan_reuses_the_identical_real_subset_across_arms(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    plan = probe.build_population_plan(tmp_path)
+    for cell in plan["cells"]:
+        real_ids = {entry["sample_identity"] for entry in cell["real_selected"]}
+        assert len(real_ids) == cell["n"]
+        # every arm's synthetic selection has exactly n members too (1:1 balance)
+        for arm in probe.ARMS:
+            assert len(cell["synthetic_selected"][arm]) == cell["n"]
+
+
+def test_build_population_plan_leakage_audit_reports_no_leak_on_a_safe_plan(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    plan = probe.build_population_plan(tmp_path)
+    assert plan["leakage_audit"]["leaked"] == {}
+    assert set(plan["leakage_audit"]["checked_seeds"]) == {"1", "2", "3"} or \
+        set(str(s) for s in plan["leakage_audit"]["checked_seeds"]) == {"1", "2", "3"}
+
+
+def test_population_plan_identity_is_deterministic(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    first = probe.build_population_plan(tmp_path)
+    second = probe.build_population_plan(tmp_path)
+    assert first["population_plan_identity_sha256"] == second["population_plan_identity_sha256"]
+
+
+# ==============================================================================
+# H2. the CLI runner — --preflight-only (no --arm anywhere)
+# ==============================================================================
+
+def test_preflight_only_takes_no_arm_flag() -> None:
+    with pytest.raises(SystemExit):
+        runner.main(["--repo", str(REPO), "--preflight-only", "--arm", "RND"])
+
+
+def test_preflight_only_blocked_on_this_laptop_with_no_gpu_artifacts() -> None:
+    """This laptop has neither the M3B source package nor runs/full/c8/;
+    the strengthened production preflight must report BLOCKED, honestly."""
     exit_code = runner.main(["--repo", str(REPO), "--preflight-only"])
-    assert exit_code == runner.EXIT_PASS
+    assert exit_code == runner.EXIT_BLOCKED
 
 
 def test_preflight_only_reports_zero_target_access(capsys) -> None:
@@ -488,7 +687,7 @@ def test_preflight_only_reports_zero_target_access(capsys) -> None:
     assert payload["target_access"] == 0
 
 
-def test_preflight_only_never_fits_a_probe_or_writes_state(capsys) -> None:
+def test_preflight_only_never_writes_state(capsys) -> None:
     runner.main(["--repo", str(REPO), "--preflight-only"])
     payload = json.loads(capsys.readouterr().out)
     assert payload["probe_fit_executed"] is False
@@ -497,180 +696,391 @@ def test_preflight_only_never_fits_a_probe_or_writes_state(capsys) -> None:
     assert payload["scientific_artifacts_written"] is False
 
 
-def test_preflight_only_reports_per_arm_checkpoint_resolution(capsys) -> None:
-    runner.main(["--repo", str(REPO), "--preflight-only"])
-    payload = json.loads(capsys.readouterr().out)
-    assert set(payload["checkpoints_by_arm"]) == set(probe.ARMS)
+def test_preflight_only_passes_when_every_input_resolves(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    exit_code, payload = runner._preflight(tmp_path)
+    assert exit_code == runner.EXIT_PASS
+    assert payload["ready_for_bind"] is True
+    assert payload["checkpoints_per_arm"] == {arm: 5 for arm in probe.ARMS}
 
 
-def test_preflight_only_with_arm_is_a_usage_error() -> None:
-    exit_code = runner.main(["--repo", str(REPO), "--preflight-only", "--arm", "RND"])
-    assert exit_code == runner.EXIT_USAGE
+def test_preflight_only_blocked_when_one_arm_is_short_a_checkpoint(monkeypatch, tmp_path) -> None:
+    fixtures = _install_joint_bind_fixtures(monkeypatch)
 
+    def _resolve(repo, arm):
+        if arm == "LLM":
+            raise probe.SyntheticRealProbeError("LLM: 4/5 resolved")
+        return fixtures["checkpoints_by_arm"][arm]
 
-def test_bind_only_without_arm_is_a_usage_error() -> None:
-    exit_code = runner.main(["--repo", str(REPO), "--bind-only"])
-    assert exit_code == runner.EXIT_USAGE
-
-
-def test_execute_without_arm_is_a_usage_error() -> None:
-    exit_code = runner.main(["--repo", str(REPO), "--execute"])
-    assert exit_code == runner.EXIT_USAGE
-
-
-def test_no_mode_flag_is_an_argparse_usage_error() -> None:
-    with pytest.raises(SystemExit):
-        runner.main(["--repo", str(REPO)])
-
-
-def test_bind_only_fails_closed_on_this_laptop_with_no_c8_artifacts(tmp_path) -> None:
-    """This development clone has no runs/full/c8/; bind-only must refuse,
-    write nothing, and never fabricate a partial binding."""
-    exit_code = runner.main(["--repo", str(REPO), "--bind-only", "--arm", "DET"])
+    monkeypatch.setattr(probe, "resolve_checkpoint_set", _resolve)
+    exit_code, payload = runner._preflight(tmp_path)
     assert exit_code == runner.EXIT_BLOCKED
-    assert not (REPO / runner.BINDING_ARTIFACT_DIR).exists() or \
-        not (REPO / runner.BINDING_ARTIFACT_DIR / "BINDING_DET.json").exists()
+    assert payload["ready_for_bind"] is False
+    assert payload["checkpoints_resolved"] is False
 
 
-def test_execute_refuses_on_every_arm() -> None:
-    for arm in probe.ARMS:
-        exit_code = runner.main(["--repo", str(REPO), "--execute", "--arm", arm])
-        assert exit_code == runner.EXIT_BLOCKED
+def test_preflight_only_writes_nothing_even_when_ready(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._preflight(tmp_path)
+    assert not (tmp_path / "reports").exists()
 
 
-def test_execute_reports_zero_target_access_and_no_execution(capsys) -> None:
-    runner.main(["--repo", str(REPO), "--execute", "--arm", "RND"])
+def test_preflight_source_opens_no_image_and_computes_no_ba() -> None:
+    source = inspect.getsource(runner._preflight)
+    for forbidden in ("Image.open", "cv2.imread", "compute_ba_sep_for_seed(",
+                      "fit_linear_probe(", "load_state_dict", "torch.load"):
+        assert forbidden not in source, forbidden
+
+
+# ==============================================================================
+# H3. the CLI runner — --bind-only (joint, atomic, two artifacts)
+# ==============================================================================
+
+def test_bind_only_takes_no_arm_flag() -> None:
+    with pytest.raises(SystemExit):
+        runner.main(["--repo", str(REPO), "--bind-only", "--arm", "DET"])
+
+
+def test_bind_only_fails_closed_on_this_laptop_with_no_gpu_artifacts() -> None:
+    exit_code = runner.main(["--repo", str(REPO), "--bind-only"])
+    assert exit_code == runner.EXIT_BLOCKED
+    assert not (REPO / runner.EXECUTION_BINDING_PATH).exists()
+    assert not (REPO / runner.POPULATION_PLAN_PATH).exists()
+
+
+def test_bind_only_writes_exactly_two_global_artifacts_on_success(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    exit_code, payload = runner._bind_only(tmp_path)
+    assert exit_code == runner.EXIT_PASS
+    assert payload["bound"] is True
+    binding_path = tmp_path / runner.EXECUTION_BINDING_PATH
+    plan_path = tmp_path / runner.POPULATION_PLAN_PATH
+    assert binding_path.is_file()
+    assert plan_path.is_file()
+    written = {p.name for p in (tmp_path / runner.RELIABILITY_DIR).glob("*.json")}
+    assert written == {runner.EXECUTION_BINDING_PATH.rsplit("/", 1)[-1],
+                       runner.POPULATION_PLAN_PATH.rsplit("/", 1)[-1]}
+
+
+def test_bind_only_execution_binding_has_all_15_checkpoints_with_required_fields(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._bind_only(tmp_path)
+    binding = json.loads((tmp_path / runner.EXECUTION_BINDING_PATH).read_text())
+    assert len(binding["checkpoints"]) == 15
+    for entry in binding["checkpoints"]:
+        for field in ("arm", "seed", "row_id", "run_identity", "config_identity",
+                      "checkpoint_relative_path", "checkpoint_sha256",
+                      "decision_graph_hash", "decision_logit_name"):
+            assert field in entry
+        assert entry["decision_logit_name"] == "global_logit_G"
+    assert binding["checkpoints_per_arm"] == {arm: 5 for arm in probe.ARMS}
+    assert "checkpoint_binding_identity_sha256" in binding
+    assert "source_package_identity" in binding
+    assert set(binding["c6_bank_identities"]) == set(probe.ARMS)
+
+
+def test_bind_only_population_plan_has_no_performance_metric(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._bind_only(tmp_path)
+    plan_text = (tmp_path / runner.POPULATION_PLAN_PATH).read_text()
+    for forbidden in ("balanced_accuracy", "BA_sep", "ba_sep"):
+        assert forbidden not in plan_text
+    binding_text = (tmp_path / runner.EXECUTION_BINDING_PATH).read_text()
+    for forbidden in ("balanced_accuracy", "BA_sep", "ba_sep"):
+        assert forbidden not in binding_text
+
+
+def test_bind_only_never_loads_checkpoint_weights_or_opens_an_image(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    exit_code, payload = runner._bind_only(tmp_path)
+    assert exit_code == runner.EXIT_PASS
+    assert payload["checkpoint_weights_loaded"] is False
+    assert payload["images_forwarded"] is False
+    assert payload["ba_metric_computed"] is False
+
+
+def test_bind_only_fails_closed_on_a_zero_sample_cell_and_writes_nothing(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    monkeypatch.setattr(probe, "resolve_synthetic_population", lambda repo, arm, **_: [])
+    exit_code, payload = runner._bind_only(tmp_path)
+    assert exit_code == runner.EXIT_BLOCKED
+    assert not (tmp_path / runner.RELIABILITY_DIR).exists()
+
+
+def test_bind_only_is_deterministic_across_repeated_calls(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._bind_only(tmp_path)
+    first = (tmp_path / runner.EXECUTION_BINDING_PATH).read_text()
+    exit_code, payload = runner._bind_only(tmp_path)
+    second = (tmp_path / runner.EXECUTION_BINDING_PATH).read_text()
+    assert first == second
+    assert exit_code == runner.EXIT_PASS
+    assert payload["reused"] is True
+    assert payload["artifacts_written"] is False
+
+
+def test_bind_only_refuses_to_overwrite_a_mismatched_existing_binding(
+        monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._bind_only(tmp_path)
+    original = (tmp_path / runner.EXECUTION_BINDING_PATH).read_text()
+
+    # A different protocol identity changes the checkpoint binding identity
+    # too (it is bound into the material) — simulating a genuinely different
+    # preregistration trying to bind over the first one.
+    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "b" * 64)
+    exit_code, payload = runner._bind_only(tmp_path)
+    assert exit_code == runner.EXIT_BLOCKED
+    assert "DIFFERENT identity" in payload["error"]
+    assert (tmp_path / runner.EXECUTION_BINDING_PATH).read_text() == original
+
+
+# ==============================================================================
+# H4. the CLI runner — --execute (joint, real code, not NotImplementedError)
+# ==============================================================================
+
+def test_execute_takes_no_arm_flag() -> None:
+    with pytest.raises(SystemExit):
+        runner.main(["--repo", str(REPO), "--execute", "--arm", "RND"])
+
+
+def test_execute_requires_bind_only_to_have_run_first(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)   # protocol resolves; --bind-only never ran
+    exit_code, payload = runner._execute(tmp_path)
+    assert exit_code == runner.EXIT_BLOCKED
+    assert payload["executed"] is False
+    assert "bind-only" in payload["error"]
+
+
+def test_execute_requires_both_artifacts_not_just_one(monkeypatch, tmp_path) -> None:
+    _install_joint_bind_fixtures(monkeypatch)
+    runner._bind_only(tmp_path)
+    (tmp_path / runner.POPULATION_PLAN_PATH).unlink()
+    exit_code, payload = runner._execute(tmp_path)
+    assert exit_code == runner.EXIT_BLOCKED
+    assert payload["executed"] is False
+
+
+def test_execute_refuses_on_this_laptop_with_no_gpu_artifacts() -> None:
+    exit_code = runner.main(["--repo", str(REPO), "--execute"])
+    assert exit_code == runner.EXIT_BLOCKED
+
+
+def test_execute_reports_zero_target_access_when_blocked(capsys) -> None:
+    runner.main(["--repo", str(REPO), "--execute"])
     payload = json.loads(capsys.readouterr().out)
     assert payload["executed"] is False
     assert payload["target_access"] == 0
 
 
-def test_bind_only_writes_one_artifact_on_full_success(tmp_path, monkeypatch) -> None:
-    fake_protocol = {
-        "detector_checkpoint_identity": {"required_decision_logit_name": "global_logit_G"},
-        "matched_source_split": {"split_hash_namespace": "test-ns"},
-        "probe_seed_values": [1, 2, 3],
-        "source_domains": ["casia_fasd"],
-    }
-    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
-    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "f" * 64)
-    checkpoints = [probe.CheckpointBinding(arm="DET", seed=s, row_id=f"row-{s}",
-                                           run_identity="run", checkpoint_sha256="a" * 64,
-                                           checkpoint_path="p") for s in range(5)]
-    monkeypatch.setattr(probe, "resolve_checkpoint_set", lambda repo, arm: checkpoints)
-    real = [probe.PopulationRecord(f"r{i}", f"g{i}", "casia_fasd", 0) for i in range(20)]
-    synthetic = [probe.PopulationRecord(f"s{i}", f"g{i}", "casia_fasd", 1) for i in range(20)]
-    monkeypatch.setattr(probe, "resolve_arm_populations", lambda repo, arm: (real, synthetic))
+def _install_execute_fixtures(monkeypatch, tmp_path, *, real_value, synthetic_value_by_arm):
+    """Bind fixtures, run a real --bind-only, then monkeypatch the ONE
+    genuinely-unverifiable-on-this-laptop boundary
+    (`construct_row_trainer`/`forward_evidence_for_records`) so
+    `execute_joint_probe` can be exercised end to end with known evidence.
 
-    exit_code = runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "DET"])
+    `real_value` / each `synthetic_value_by_arm[arm]` is either a fixed
+    `[x, y]` pair or a `callable(sample_identity) -> [x, y]` — the caller
+    never needs to know the exact `sample_identity` strings the joint
+    population plan assigned (those are an implementation detail of
+    `_install_joint_bind_fixtures`, not of what a test is proving).
+    """
+    _install_joint_bind_fixtures(monkeypatch)
+    exit_code, _ = runner._bind_only(tmp_path)
     assert exit_code == runner.EXIT_PASS
-    artifact = tmp_path / runner.BINDING_ARTIFACT_DIR / "BINDING_DET.json"
-    assert artifact.is_file()
-    payload = json.loads(artifact.read_text(encoding="utf-8"))
-    assert payload["bound"] is True
-    assert payload["checkpoint_weights_loaded"] is False
-    assert payload["images_forwarded"] is False
-    assert payload["ba_metric_computed"] is False
-    assert len(payload["checkpoint_bindings"]) == 5
-    assert all(entry["decision_logit_name"] == "global_logit_G"
-              for entry in payload["checkpoint_bindings"])
+
+    monkeypatch.setattr(probe, "construct_row_trainer", lambda repo, binding: binding)
+
+    def _resolve(value_or_fn, sample_identity: str):
+        return value_or_fn(sample_identity) if callable(value_or_fn) else value_or_fn
+
+    def _forward(trainer_binding: "probe.CheckpointBinding", records):
+        out = {}
+        for record in records:
+            if record.label == probe.REAL_SPOOF_CLASS:
+                vector = _resolve(real_value, record.sample_identity)
+            else:
+                vector = _resolve(synthetic_value_by_arm[trainer_binding.arm], record.sample_identity)
+            out[record.sample_identity] = np.asarray(vector, dtype=np.float64)
+        return out
+
+    monkeypatch.setattr(probe, "forward_evidence_for_records", _forward)
 
 
-def test_bind_only_refuses_a_protocol_with_the_wrong_decision_logit(tmp_path, monkeypatch) -> None:
-    fake_protocol = {
-        "detector_checkpoint_identity": {"required_decision_logit_name": "some_other_logit"},
-        "matched_source_split": {"split_hash_namespace": "test-ns"},
-        "probe_seed_values": [1], "source_domains": ["casia_fasd"],
-    }
-    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
-    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "e" * 64)
-    exit_code = runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "DET"])
+def test_execute_is_no_longer_notimplementederror(monkeypatch, tmp_path) -> None:
+    """The exact defect this task fixes: --execute used to route to
+    run_scientific_probe, which always raised NotImplementedError. It must
+    not do that any more."""
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=[0.0, 0.1],
+        synthetic_value_by_arm={arm: [5.0, 0.9] for arm in probe.ARMS})
+    exit_code, payload = runner._execute(tmp_path)
+    assert payload["executed"] is True
+    assert exit_code in (runner.EXIT_PASS, runner.EXIT_FAIL)   # a real verdict, not a crash
+
+
+def test_execute_writes_all_five_result_artifacts_on_success(monkeypatch, tmp_path) -> None:
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=[0.0, 0.1],
+        synthetic_value_by_arm={arm: [0.0, 0.1] for arm in probe.ARMS})
+    runner._execute(tmp_path)
+    for relative in (runner.RESULT_PATH, runner.PER_SEED_PATH, runner.PARAMETERS_PATH,
+                    runner.EVIDENCE_MANIFEST_PATH, runner.VERDICT_PATH):
+        assert (tmp_path / relative).is_file(), relative
+
+
+def test_execute_pass_verdict_when_evidence_is_indistinguishable(monkeypatch, tmp_path) -> None:
+    """Real and synthetic evidence drawn from the SAME distribution: the
+    probe cannot separate them, BA_sep should sit near chance, well under
+    the 0.75 ceiling for every arm."""
+    rng = np.random.RandomState(20260806)
+
+    def _random_vector(_sample_identity: str) -> list[float]:
+        return rng.normal(size=2).tolist()
+
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=_random_vector,
+        synthetic_value_by_arm={arm: _random_vector for arm in probe.ARMS})
+    exit_code, payload = runner._execute(tmp_path)
+    assert payload["executed"] is True
+    assert payload["verdict"] == "PASS"
+    assert exit_code == runner.EXIT_PASS
+    assert all(value <= 0.75 for value in payload["ba_sep_by_arm"].values())
+
+
+def test_execute_fail_verdict_when_evidence_is_cleanly_separable(monkeypatch, tmp_path) -> None:
+    """Real and synthetic evidence drawn from well-separated clusters: the
+    probe should separate them near-perfectly, BA_sep well over 0.75 for
+    every arm — a real, honestly-reported scientific FAILED verdict."""
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=[-5.0, -5.0],
+        synthetic_value_by_arm={arm: [5.0, 5.0] for arm in probe.ARMS})
+    exit_code, payload = runner._execute(tmp_path)
+    assert payload["executed"] is True
+    assert payload["verdict"] == "FAIL"
+    assert exit_code == runner.EXIT_FAIL
+    assert all(value > 0.75 for value in payload["ba_sep_by_arm"].values())
+    # a scientific FAILED result is still WRITTEN, never hidden
+    assert (tmp_path / runner.VERDICT_PATH).is_file()
+
+
+def test_execute_fails_closed_when_a_checkpoint_is_missing_evidence_for_a_sample(
+        monkeypatch, tmp_path) -> None:
+    """4/5 checkpoints contributing evidence for a sample must never be
+    silently averaged as if it were 5/5."""
+    _install_joint_bind_fixtures(monkeypatch)
+    exit_code, _ = runner._bind_only(tmp_path)
+    assert exit_code == runner.EXIT_PASS
+
+    monkeypatch.setattr(probe, "construct_row_trainer", lambda repo, binding: binding)
+    call_count = {"n": 0}
+
+    def _forward(trainer_binding, records):
+        call_count["n"] += 1
+        out = {}
+        for index, record in enumerate(records):
+            if call_count["n"] == 1 and index == 0:
+                continue                               # one sample missing from one checkpoint
+            out[record.sample_identity] = np.array([0.0, 0.1])
+        return out
+
+    monkeypatch.setattr(probe, "forward_evidence_for_records", _forward)
+    exit_code, payload = runner._execute(tmp_path)
     assert exit_code == runner.EXIT_BLOCKED
-    assert not (tmp_path / runner.BINDING_ARTIFACT_DIR).exists()
+    assert payload["executed"] is False
 
 
-def test_bind_only_writes_nothing_when_checkpoint_resolution_fails(tmp_path, monkeypatch) -> None:
-    fake_protocol = {
-        "detector_checkpoint_identity": {"required_decision_logit_name": "global_logit_G"},
-        "matched_source_split": {"split_hash_namespace": "test-ns"},
-        "probe_seed_values": [1], "source_domains": ["casia_fasd"],
-    }
-    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
-    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "d" * 64)
-
-    def _raise(repo, arm):
-        raise probe.SyntheticRealProbeError("no checkpoints on this host")
-
-    monkeypatch.setattr(probe, "resolve_checkpoint_set", _raise)
-    exit_code = runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "DET"])
-    assert exit_code == runner.EXIT_BLOCKED
-    assert not (tmp_path / runner.BINDING_ARTIFACT_DIR).exists()
+def test_execute_reuses_the_bound_protocol_and_checkpoint_identities_in_results(
+        monkeypatch, tmp_path) -> None:
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=[0.0, 0.1],
+        synthetic_value_by_arm={arm: [0.0, 0.1] for arm in probe.ARMS})
+    runner._execute(tmp_path)
+    verdict_doc = json.loads((tmp_path / runner.VERDICT_PATH).read_text())
+    binding_doc = json.loads((tmp_path / runner.EXECUTION_BINDING_PATH).read_text())
+    assert verdict_doc["protocol_identity"] == binding_doc["protocol_identity"]
+    assert verdict_doc["checkpoint_binding_identity"] == \
+        binding_doc["checkpoint_binding_identity_sha256"]
+    assert verdict_doc["target_access"] == 0
+    assert "c_h4_support_rule_is_separate" in verdict_doc
 
 
-def test_bind_only_is_deterministic_across_repeated_calls(tmp_path, monkeypatch) -> None:
-    fake_protocol = {
-        "detector_checkpoint_identity": {"required_decision_logit_name": "global_logit_G"},
-        "matched_source_split": {"split_hash_namespace": "test-ns"},
-        "probe_seed_values": [1, 2], "source_domains": ["casia_fasd"],
-    }
-    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
-    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "c" * 64)
-    checkpoints = [probe.CheckpointBinding(arm="RND", seed=s, row_id=f"row-{s}",
-                                           run_identity="run", checkpoint_sha256="b" * 64,
-                                           checkpoint_path="p") for s in range(5)]
-    monkeypatch.setattr(probe, "resolve_checkpoint_set", lambda repo, arm: checkpoints)
-    real = [probe.PopulationRecord(f"r{i}", f"g{i}", "casia_fasd", 0) for i in range(12)]
-    synthetic = [probe.PopulationRecord(f"s{i}", f"g{i}", "casia_fasd", 1) for i in range(12)]
-    monkeypatch.setattr(probe, "resolve_arm_populations", lambda repo, arm: (real, synthetic))
-
-    runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "RND"])
-    first = (tmp_path / runner.BINDING_ARTIFACT_DIR / "BINDING_RND.json").read_text()
-    runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "RND"])
-    second = (tmp_path / runner.BINDING_ARTIFACT_DIR / "BINDING_RND.json").read_text()
-    assert first == second
+def test_execute_never_reports_c_h4_as_supported_by_a_hard_pass(monkeypatch, tmp_path) -> None:
+    _install_execute_fixtures(
+        monkeypatch, tmp_path, real_value=[0.0, 0.1],
+        synthetic_value_by_arm={arm: [0.0, 0.1] for arm in probe.ARMS})
+    runner._execute(tmp_path)
+    verdict_doc = json.loads((tmp_path / runner.VERDICT_PATH).read_text())
+    assert "C-H4" in verdict_doc["c_h4_support_rule_is_separate"]
+    assert "supported" not in json.dumps(verdict_doc["verdict"]).lower()
 
 
-def test_bind_only_verifies_group_safety_before_writing(tmp_path, monkeypatch) -> None:
-    """A split that leaks (train/validation share a group) must block the
-    write, not silently ship a leaking binding."""
-    fake_protocol = {
-        "detector_checkpoint_identity": {"required_decision_logit_name": "global_logit_G"},
-        "matched_source_split": {"split_hash_namespace": "test-ns"},
-        "probe_seed_values": [1], "source_domains": ["casia_fasd"],
-    }
-    monkeypatch.setattr(probe, "load_protocol", lambda repo: fake_protocol)
-    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "9" * 64)
-    checkpoints = [probe.CheckpointBinding(arm="LLM", seed=s, row_id=f"row-{s}",
-                                           run_identity="run", checkpoint_sha256="7" * 64,
-                                           checkpoint_path="p") for s in range(5)]
-    monkeypatch.setattr(probe, "resolve_checkpoint_set", lambda repo, arm: checkpoints)
-    monkeypatch.setattr(probe, "resolve_arm_populations", lambda repo, arm: ([], []))
+# ==============================================================================
+# H5. real construction/forwarding mechanics — source-level safety checks
+# ==============================================================================
 
-    def _raise_leak(split):
-        raise probe.SyntheticRealProbeError("group-safety violated: forced test failure")
+def test_construct_row_trainer_never_calls_training_methods() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    for forbidden in ("run_source_only_flow", ".backward(", ".optimizer.step(",
+                      "trainer.save(", ".step(closure"):
+        assert forbidden not in source, forbidden
 
-    monkeypatch.setattr(probe, "verify_group_safe_split", _raise_leak)
-    exit_code = runner.main(["--repo", str(tmp_path), "--bind-only", "--arm", "LLM"])
-    assert exit_code == runner.EXIT_BLOCKED
-    assert not (tmp_path / runner.BINDING_ARTIFACT_DIR).exists()
+
+def test_construct_row_trainer_sets_eval_mode() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert "trainer.model.eval()" in source
+
+
+def test_construct_row_trainer_strict_loads_with_identity_check() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert "expected_identity=trainer.identity" in source
+    assert "apply_checkpoint(" in source
+
+
+def test_forward_evidence_for_records_reuses_forward_checkpoint_evidence() -> None:
+    source = inspect.getsource(probe.forward_evidence_for_records)
+    assert "forward_checkpoint_evidence(" in source
+    for forbidden in ("Image.open", "cv2.imread", "PIL."):
+        assert forbidden not in source, forbidden
+
+
+def test_forward_evidence_for_records_fails_closed_on_unresolvable_identity() -> None:
+    class _FakeDataset:
+        _real_position: dict[str, int] = {}
+        bank = type("Bank", (), {"rows": []})()
+
+    class _FakeTrainer:
+        dataset = _FakeDataset()
+        device = "cpu"
+
+    record = probe.PopulationRecord("missing", "group", "casia_fasd", probe.REAL_SPOOF_CLASS)
+    with pytest.raises(probe.SyntheticRealProbeError):
+        probe.forward_evidence_for_records(_FakeTrainer(), [record])
+
+
+def test_execute_joint_probe_rejects_a_binding_bound_to_a_different_protocol(
+        monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "current" + "0" * 57)
+    mismatched_binding = {"protocol_identity": "stale" + "0" * 59,
+                          "checkpoint_binding_identity_sha256": "x" * 64, "checkpoints": []}
+    with pytest.raises(probe.SyntheticRealProbeError, match="protocol identity"):
+        probe.execute_joint_probe(tmp_path, checkpoint_binding=mismatched_binding,
+                                  population_plan={"protocol_identity": "current" + "0" * 57,
+                                                   "population_plan_identity_sha256": "y" * 64,
+                                                   "cells": []})
 
 
 # ==============================================================================
 # I. runner safety / import purity
 # ==============================================================================
 
-def test_execute_source_never_loads_checkpoint_weights_or_images() -> None:
-    source = inspect.getsource(runner._execute)
-    for forbidden in ("torch.load", "load_state_dict", "Image.open", "cv2.imread",
-                      "fit_linear_probe(", "compute_ba_sep_for_seed("):
-        assert forbidden not in source, forbidden
-
-
 def test_bind_only_source_never_loads_checkpoint_weights_or_images() -> None:
     source = inspect.getsource(runner._bind_only)
     for forbidden in ("torch.load", "load_state_dict", "Image.open", "cv2.imread",
                       "fit_linear_probe(", "compute_ba_sep_for_seed(",
-                      "forward_checkpoint_evidence("):
+                      "forward_checkpoint_evidence(", "construct_row_trainer("):
         assert forbidden not in source, forbidden
 
 
@@ -690,17 +1100,24 @@ def test_importing_the_runner_touches_no_filesystem_state() -> None:
 
 
 def test_runner_invocable_as_python_dash_m_module() -> None:
+    """`--preflight-only` on THIS laptop's real repo, unmocked: the
+    strengthened production preflight is honestly BLOCKED here (no GPU
+    artifacts), which is itself the contract being proven — the CLI must
+    not crash, must not write anything, and must report why."""
     result = subprocess.run(
         [sys.executable, "-m", "prism_fas.evaluation.synthetic_real_probe_runner",
          "--repo", str(REPO), "--preflight-only"],
         capture_output=True, text=True, cwd=str(REPO / "src"))
-    assert result.returncode == runner.EXIT_PASS, result.stderr
+    assert result.returncode == runner.EXIT_BLOCKED, result.stderr
     payload = json.loads(result.stdout)
     assert payload["target_access"] == 0
+    assert payload["ready_for_bind"] is False
 
 
-def test_run_scientific_probe_remains_unwired_after_the_v2_correction() -> None:
-    with pytest.raises(NotImplementedError):
+def test_run_scientific_probe_single_arm_entry_point_is_retired() -> None:
+    """Replaced by the joint `execute_joint_probe`; the old single-arm
+    signature must refuse rather than silently compute a partial result."""
+    with pytest.raises(probe.SyntheticRealProbeError, match="joint"):
         probe.run_scientific_probe(REPO, "DET")
 
 

@@ -9,8 +9,10 @@ never computes a real BA_sep value, never loads a real detector checkpoint,
 never opens a real image, and never touches target data. Every numeric test
 here (split, balance, normalization, the linear probe, BA_sep aggregation)
 runs against clearly-synthetic fixture arrays, not real scientific evidence.
-The one function that would touch real data, `run_scientific_probe`, is
-proven NOT to run (it raises `NotImplementedError`) rather than exercised.
+The old single-arm `run_scientific_probe(repo, arm)` entry point is retired
+(it now refuses rather than computing a partial result); real execution
+lives in the joint `execute_joint_probe`, covered with fixtures in
+`test_c9_ba_sep_option1_v2_runner.py`.
 `PopulationRecord` fixtures below carry BOTH `sample_identity` and
 `stable_group_identity` since the V2 correction split what was one field
 into two (`reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md`).
@@ -428,8 +430,12 @@ def test_importing_the_module_touches_no_filesystem_state(tmp_path: Path) -> Non
     importlib.import_module(probe_module)  # importable from this test process too
 
 
-def test_run_scientific_probe_is_not_wired() -> None:
-    with pytest.raises(NotImplementedError):
+def test_run_scientific_probe_single_arm_entry_point_is_retired() -> None:
+    """Retired in favor of the joint `execute_joint_probe`: the frozen
+    balancing rule is joint across RND/DET/LLM, so no single arm can be
+    probed in isolation any more (`test_c9_ba_sep_option1_v2_runner.py`
+    covers the real joint execution path with fixtures)."""
+    with pytest.raises(probe.SyntheticRealProbeError):
         probe.run_scientific_probe(REPO, "DET")
 
 
