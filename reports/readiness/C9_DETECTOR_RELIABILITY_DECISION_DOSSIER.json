@@ -1,0 +1,296 @@
+{
+  "schema_version": "c9-detector-reliability-decision-dossier-v1",
+  "document_kind": "SCIENTIFIC_DECISION_AUDIT",
+  "not_scientific_evidence": true,
+  "no_reliability_metric_observed": true,
+  "target_access": 0,
+  "audited_at_source_head": "721b917417a7fe319618e9871b4f13ced987c309",
+  "companion_markdown": "reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md",
+  "spec_authority": {
+    "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+    "sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5",
+    "sections_read": ["3.1", "3.1.1", "13", "13.1", "13.2", "13.3", "13.4", "13.4.1",
+                      "13.4.2", "13.4.4", "13.5", "16", "16.1", "16.2", "17", "18",
+                      "18.1", "18.2", "18.3", "24", "Appendix J", "Appendix K", "Appendix L"]
+  },
+
+  "a_current_blocker": {
+    "required_input": "reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json",
+    "gate_module": "prism_fas.pipeline.adapters.c9.C9Adapter.semantic_preconditions",
+    "verifier": "prism_fas.evaluation.detector_reliability.verify_lock",
+    "lock_exists_anywhere": false,
+    "gate_result": "BLOCKED",
+    "unresolved_decision_codes": [
+      "DETECTOR_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION",
+      "DETECTOR_BA_SEP_EVIDENCE_VECTOR_NEEDS_SCIENTIFIC_DECISION",
+      "DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION"
+    ],
+    "any_code_hardcoded_to_pass_by_this_audit": false,
+    "classification": "CORRECTLY_ENFORCED_FAIL_CLOSED_BARRIER"
+  },
+
+  "b_spec_incompatibility": {
+    "statements": [
+      "§3.1.1: BA_sep evaluated after the C6 synthetic gate is frozen",
+      "§24 C6 milestone row: 'reliability audit ... shortcut gates pass or STOP'",
+      "the only recorded probe evidence vector is DETECTOR evidence (p_global, s_region, nine regional distances)",
+      "C6 has no detector; C7 implements one, C8 trains it"
+    ],
+    "already_resolved": {
+      "decision": "SYNTHETIC_VS_REAL_RELIABILITY_STAGE",
+      "value": "C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C",
+      "frozen_on": "2026-08-23",
+      "resolves": "placement only",
+      "reopened_by_this_audit": false
+    },
+    "not_resolved": "the executable protocol (evidence vector, seeds, checkpoint binding, every PROBE_PROTOCOL_REQUIRED_FIELDS entry)"
+  },
+
+  "c_evidence_vector_audit": {
+    "track_g_emits": {
+      "flags": {"local_branch": "off", "region": "off", "manifold": "off",
+                "prototype_k": 0, "prompt": "off"},
+      "tensors_always_populated": ["global_logit", "p_global", "s_final"],
+      "tensors_always_none": ["region_distances", "region_valid", "s_region",
+                              "local_logits", "region_embeddings", "prompt_logits",
+                              "p_prompt_spoof"],
+      "spec_basis": "§13.1 / §13.4.1 NORMATIVE: Track G MUST NOT instantiate ConvNeXt, region fusion, PromptHead or manifold modules",
+      "can_ever_legitimately_emit_s_region": false
+    },
+    "primary_track_r_emits": {
+      "flags": {"local_branch": "convnext", "region": "on", "manifold": "off",
+                "fusion": "glr_concat", "prompt": "frozen_prompt"},
+      "matches_c8_frozen_rows": true,
+      "tensors_populated": ["local_logits", "region_embeddings", "fused_logit_R", "p_R", "s_final"],
+      "tensors_none": ["region_distances", "region_valid", "s_region"],
+      "spec_basis": "§13.2 NORMATIVE: primary Track R uses regions+PromptHead with manifold OFF; §13.4.4: manifold d_r/s_region is 'NO for v1.3 primary Track R'"
+    },
+    "historical_vector_obtainable_from_42_rows": {
+      "answer": false,
+      "reasons": [
+        "no row in the 42-row matrix has manifold ON (TRACK_R_K4_FLAGS exists in code but is untrained; grepped source_matrix.py::plan_source_matrix, zero K4/GCENTER/manifold rows)",
+        "Track R has no primary RND row at all (§18.1 lists C-R-DET/C-R-LLM only; matrix has zero C-R-RND rows)"
+      ]
+    },
+    "c_r_rnd_solves_it_alone": {
+      "answer": false,
+      "reason": "a hypothetical C-R-RND row would train at Track R's ONE frozen (manifold-OFF) config per C7's fairness invariant, so s_region would still be None; it would close the arm-coverage gap only, not the manifold gap"
+    },
+    "options": [
+      {"id": 1, "name": "common_track_g_evidence", "fields": ["global_logit_G", "p_global"],
+       "requires_new_training": false, "changes_42_row_matrix": false, "alters_c7_winners": false,
+       "preregistered": false, "source_only": true, "feature_space_identical_rnd_det_llm": true,
+       "preserves_intended_meaning": "reduced (1-2D vs 11D) but same quantity type: detector's own decision evidence",
+       "compute_cost": "zero GPU; CPU-scale probe fit",
+       "scientific_risk": "low; reduction in probe power must be disclosed",
+       "user_approval_required": true, "recommended": true},
+      {"id": 2, "name": "existing_track_r_representation", "fields": ["fused_logit_R", "p_R", "local_logits", "region_embeddings"],
+       "requires_new_training": "only for RND (C-R-RND)", "changes_42_row_matrix": false,
+       "alters_c7_winners": false, "preregistered": false, "source_only": true,
+       "feature_space_identical_rnd_det_llm": false,
+       "preserves_intended_meaning": "weaker; does not by itself fix RND arm coverage",
+       "compute_cost": "low-moderate if RND added", "scientific_risk": "low-moderate",
+       "user_approval_required": true, "recommended": false},
+      {"id": 3, "name": "c_r_rnd_diagnostic_alone", "fields": null,
+       "requires_new_training": true, "new_rows": 3, "changes_42_row_matrix": false,
+       "alters_c7_winners": false, "preregistered": "named by §18.2, not preregistered as a BA_sep input",
+       "source_only": true, "feature_space_identical_rnd_det_llm": "n/a (manifold gap unsolved)",
+       "preserves_intended_meaning": "no, by itself", "compute_cost": "moderate (3 Track-R rows)",
+       "scientific_risk": "low but incomplete", "user_approval_required": true, "recommended": false},
+      {"id": 4, "name": "manifold_enabled_track_r_secondary", "fields": ["region_distances (9 or 1 slot)", "s_region"],
+       "requires_new_training": true, "new_rows": "up to 9 (3 arms x 3 seeds)",
+       "changes_42_row_matrix": false, "alters_c7_winners": false,
+       "preregistered": "K=4 is a typed secondary variant (§13.2), GCENTER named at §18.2; neither trained nor preregistered as a BA_sep input",
+       "source_only": true, "feature_space_identical_rnd_det_llm": "yes, within Track R once trained",
+       "preserves_intended_meaning": "closest match to historical 9-region vector (K=4 only)",
+       "compute_cost": "highest of all options", "scientific_risk": "highest — §13.2 requires a new preregistered protocol version",
+       "user_approval_required": true, "recommended": false},
+      {"id": 5, "name": "shared_frozen_representation_z_global", "fields": ["z_global (SigLIP2 embedding, 768-D)"],
+       "requires_new_training": false, "changes_42_row_matrix": false, "alters_c7_winners": false,
+       "preregistered": false, "source_only": true, "feature_space_identical_rnd_det_llm": true,
+       "preserves_intended_meaning": "measures backbone representation, not detector's own decision evidence — different question",
+       "compute_cost": "zero GPU", "scientific_risk": "low-moderate", "user_approval_required": true,
+       "recommended": false},
+      {"id": 6, "name": "declare_c_h4_blocked", "fields": null, "requires_new_training": false,
+       "changes_42_row_matrix": false, "alters_c7_winners": false, "preregistered": "n/a",
+       "source_only": true, "feature_space_identical_rnd_det_llm": "n/a",
+       "preserves_intended_meaning": "n/a — no BA_sep produced", "compute_cost": "zero",
+       "scientific_risk": "none (fallback of last resort)", "user_approval_required": false,
+       "recommended": false, "note": "not needed — Option 1 recovers a protocol without new science"}
+    ],
+    "any_option_chosen_from_a_ba_sep_result": false
+  },
+
+  "d_probe_seed_audit": {
+    "c8_training_seed_family": [20260806, 20260807, 20260808, 20260809, 20260810],
+    "c8_training_seeds_3": [20260806, 20260807, 20260808],
+    "spec_basis_for_training_seeds": "§18.3, scoped to hypothesis TRAINING rows",
+    "ba_sep_probe_seeds_authoritatively_named": false,
+    "proposed_reuse": [20260806, 20260807, 20260808],
+    "proposed_reuse_is_inherited_authority": false,
+    "classification": "USER_APPROVAL_REQUIRED",
+    "any_seed_chosen_after_observing_ba": false
+  },
+
+  "e_required_reliability_tests": [
+    {"test_id": "synthetic_vs_real_spoof_probe", "population": "source_train real spoof vs accepted M8 v3 synthetic spoof; no target",
+     "checkpoint_population": "UNRESOLVED", "perturbation": "none (probe classifier)",
+     "metric": "balanced accuracy of a synthetic-vs-real linear probe",
+     "threshold": "BA_sep <= 0.75 (FROZEN_BY_SPEC)", "aggregation": "mean over probe seeds (FROZEN_BY_SPEC)",
+     "seed_policy": "UNRESOLVED", "existing_implementation": "declared only", "fully_frozen": false,
+     "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "residual_scale_zero", "population": "source_train live, GPAT residual scaled to 0; no target",
+     "checkpoint_population": "UNRESOLVED (Track-R for regional distance, else score-only)",
+     "perturbation": "scale GPAT residual to zero",
+     "metric": "spoof score and regional distance shift at zero residual",
+     "threshold": ">= 0.10 movement (FROZEN_BY_SPEC, §17)", "aggregation": "not specified",
+     "seed_policy": "not seed-sensitive as declared", "existing_implementation": "score_shift() implemented",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "recipe_region_shift", "population": "source_train live, two recipes differing only in region; no target",
+     "checkpoint_population": "Track R", "perturbation": "swap attacked region between matched recipes",
+     "metric": "displacement of anomaly heat-map peak", "threshold": "NOT_NUMERICALLY_FROZEN (qualitative only)",
+     "aggregation": "not specified", "seed_policy": "not seed-sensitive", "existing_implementation": "declared only",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "artifact_map_swap", "population": "accepted M8 v3 synthetic samples, artefact maps swapped; no target",
+     "checkpoint_population": "Track R", "perturbation": "swap artefact map fed to local supervision",
+     "metric": "local-supervision performance under mismatched map", "threshold": "NOT_NUMERICALLY_FROZEN (qualitative only)",
+     "aggregation": "not specified", "seed_policy": "not seed-sensitive", "existing_implementation": "declared only",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "cross_route_synthetic", "population": "train on one synthetic route, evaluate on the other; source only",
+     "checkpoint_population": "either track, per-route", "perturbation": "train/eval route swap (Physics vs GPAT)",
+     "metric": "cross-route generalization", "threshold": "'above preregistered source baseline' — baseline NOT found",
+     "aggregation": "not specified", "seed_policy": "not seed-sensitive", "existing_implementation": "declared only",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "benign_jpeg_corruption", "population": "source_dev LIVE only, benign JPEG re-encode; no target",
+     "checkpoint_population": "either track", "perturbation": "benign JPEG re-encode",
+     "metric": "spoof-score shift on unchanged bona-fide content", "threshold": "'bounded by preregistered source-only limits' — limit NOT found",
+     "aggregation": "score_shift() implemented", "seed_policy": "not seed-sensitive", "existing_implementation": "declared + implemented",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "benign_resize_corruption", "population": "source_dev LIVE only, benign resize; no target",
+     "checkpoint_population": "either track", "perturbation": "benign resize",
+     "metric": "spoof-score shift", "threshold": "limit NOT found", "aggregation": "score_shift() implemented",
+     "seed_policy": "not seed-sensitive", "existing_implementation": "declared + implemented",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "benign_color_corruption", "population": "source_dev LIVE only, benign colour shift; no target",
+     "checkpoint_population": "either track", "perturbation": "benign colour shift",
+     "metric": "spoof-score shift", "threshold": "limit NOT found", "aggregation": "score_shift() implemented",
+     "seed_policy": "not seed-sensitive", "existing_implementation": "declared + implemented",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false},
+    {"test_id": "crop_padding_interpolation", "population": "source_dev under different crop padding/interpolation; no target",
+     "checkpoint_population": "either track", "perturbation": "re-crop with different padding/interpolation",
+     "metric": "score sensitivity to preprocessing-only change", "threshold": "'below frozen threshold' — NOT found",
+     "aggregation": "not specified", "seed_policy": "not seed-sensitive", "existing_implementation": "declared, but STRUCTURALLY_DATA_BLOCKED",
+     "fully_frozen": false, "new_decision_required": true, "executable_now": false, "target_access_required": false,
+     "additional_finding": "reliability.py::DATA_BLOCKED already records this test as infeasible: the frozen prism_data_v1_m3b package stores only the 224x224 crop, no bbox, no path back to the source frame. Package-level limitation, independent of C6->C8 staging. As currently REQUIRED, this test can never resolve to PASSED, permanently blocking the barrier unless reclassified the way benign_glasses_makeup_lowlight already was (a decision this audit does not make)."}
+  ],
+  "canonically_blocked_test_not_required": {
+    "test_id": "benign_glasses_makeup_lowlight",
+    "reason": "no legitimate benign glasses/makeup/low-light population exists in this project"
+  },
+
+  "f_protocol_field_classification": {
+    "vocabulary": ["FROZEN_BY_SPEC", "RECOVERED_FROM_VERSION_B", "RECOVERED_FROM_CURRENT_FROZEN_CODE", "USER_APPROVAL_REQUIRED"],
+    "fields": {
+      "real_spoof_population": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE", "value": "source_train real spoof"},
+      "synthetic_population": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE", "value": "accepted M8 v3 synthetic spoof"},
+      "source_domains": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE", "value": ["casia_fasd", "msu_mfsd"]},
+      "matched_source_split": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "class_balancing_rule": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "sample_unit": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "detector_checkpoint_identity": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "evidence_vector_definition": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "preprocessing": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE", "value": "identical to M9 training preprocessing"},
+      "feature_normalization": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "linear_probe_implementation": {"classification": "USER_APPROVAL_REQUIRED", "value": null,
+                                      "note": "sklearn is not a project dependency; no in-project logistic-regression code exists"},
+      "regularization": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "optimizer_or_solver": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "training_budget": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "train_validation_split": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "probe_seed_values": {"classification": "USER_APPROVAL_REQUIRED", "value": null},
+      "balanced_accuracy_implementation": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE",
+                                           "value": "prism_fas.train.metrics.balanced_accuracy"},
+      "per_seed_aggregation": {"classification": "RECOVERED_FROM_CURRENT_FROZEN_CODE",
+                               "value": "one BA value per probe seed"},
+      "mean_aggregation": {"classification": "FROZEN_BY_SPEC", "value": "arithmetic mean over the three probe seeds"},
+      "ba_ceiling": {"classification": "FROZEN_BY_SPEC", "value": 0.75}
+    },
+    "user_approval_required_count": 11,
+    "total_fields": 20
+  },
+
+  "h_recommendation": {
+    "option_id": 1,
+    "name": "common_track_g_evidence",
+    "evidence_vector": ["global_logit_G", "p_global"],
+    "probe_seeds_proposed": [20260806, 20260807, 20260808],
+    "effective": false,
+    "rationale_summary": "only option needing zero new training, touching none of the 42 rows, altering no C7 winner; available today for all three arms because Track G alone has a primary row for RND/DET/LLM; architecturally guaranteed by §13.1's NORMATIVE contract; closest to Version-B's original intent (detector's own decision evidence, not raw backbone features) while honestly disclosed as a reduced (1-2D vs 11D), weaker separability test"
+  },
+
+  "i_protocol_payload_if_approved": {
+    "note": "illustrative only; not written to any config or lock by this audit",
+    "DETECTOR_BA_SEP_PROBE_PROTOCOL": {
+      "real_spoof_population": "source_train real spoof",
+      "synthetic_population": "accepted M8 v3 synthetic spoof",
+      "source_domains": ["casia_fasd", "msu_mfsd"],
+      "matched_source_split": "TO_BE_DEFINED",
+      "class_balancing_rule": "TO_BE_DEFINED",
+      "sample_unit": "TO_BE_DEFINED",
+      "detector_checkpoint_identity": "TO_BE_DEFINED — proposed: every C8 Track-G checkpoint per arm per training seed, no single representative checkpoint chosen",
+      "evidence_vector_definition": {"fields": ["global_logit_G", "p_global"]},
+      "preprocessing": "identical to M9 training preprocessing",
+      "feature_normalization": "TO_BE_DEFINED",
+      "linear_probe_implementation": "TO_BE_DEFINED",
+      "regularization": "TO_BE_DEFINED",
+      "optimizer_or_solver": "TO_BE_DEFINED",
+      "training_budget": "TO_BE_DEFINED",
+      "train_validation_split": "TO_BE_DEFINED",
+      "probe_seed_values": [20260806, 20260807, 20260808],
+      "balanced_accuracy_implementation": "prism_fas.train.metrics.balanced_accuracy",
+      "per_seed_aggregation": "one BA value per probe seed",
+      "mean_aggregation": "arithmetic mean across the 3 probe seeds",
+      "ba_ceiling": 0.75
+    }
+  },
+
+  "j_additional_compute": {
+    "option_1_recommended": "zero additional GPU training; CPU-scale probe fit",
+    "if_track_r_options_approved": {
+      "c_r_rnd_alone": "3 new source-only Track-R rows",
+      "manifold_enabled_all_arms": "up to 9 new source-only rows plus new search/finalize wiring if absent"
+    }
+  },
+
+  "k_implementation_files_if_approved": [
+    "src/prism_fas/evaluation/detector_reliability.py",
+    "a new module/function implementing the linear probe fit and BA_sep computation (not yet named)",
+    "a writer for reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json using the existing lock_payload()",
+    "possibly a new C8-adjacent adapter substage or standalone script (sequencing not decided)"
+  ],
+  "files_changed_by_this_audit": [],
+
+  "l_tests_required_before_execution": [
+    "probe_protocol_status()['resolved'] becomes True only once every required field is bound",
+    "the probe never reads s_region/region_distances for Track G",
+    "the probe never opens sources.target_roots or any SiW-Mv2 path",
+    "verify_lock() still requires overall == PASSED and every required test PASSED",
+    "the lock's probe_protocol_identity changes iff a result-affecting field changes",
+    "C9 semantic_preconditions transitions from BLOCKED to non-blocking once a real valid lock exists"
+  ],
+  "tests_written_by_this_audit": [],
+
+  "m_no_metric_observed_statement": "NO RELIABILITY METRIC WAS OBSERVED WHILE MAKING THIS RECOMMENDATION.",
+
+  "n_target_access": 0,
+
+  "final_status": {
+    "c7_scientific_closed": true,
+    "c8_scientific_closed": true,
+    "c8_scientific_rows": "42/42 PASS",
+    "detector_reliability_decision": "USER_APPROVAL_REQUIRED",
+    "c9_scientifically_run": false,
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}

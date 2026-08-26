@@ -28,33 +28,30 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C7_SCIENTIFIC_CLOSURE_AND_REPORTING_RECONCILIATION
+current_milestone: C9_DETECTOR_RELIABILITY_DECISION_AUDIT
 current_substage: >-
-  SUPERSEDES the C7_C13_PRODUCTION_PATH_READINESS substage below (which
-  correctly said, AT THE TIME, that nothing had run scientifically past C3).
-  It has since run. On the GPU host, C4, C5 and C6 are SCIENTIFIC CLOSED, and
-  C7 has now COMPLETED its real scientific search and CLOSED:
-  C7_SOURCE_SEARCH_SYNTHETIC_ARM = DET, one bounded pass per TRACK, both
-  anchored on the DET bank. Track G ran 15/15 PASS trials and Track R ran
-  24/24 PASS trials; both froze a winner config, a winner checkpoint and a
-  source_dev calibration into one DETECTOR_CONFIG_LOCK with a sub-config per
-  track. Full identities, the reporting-semantics audit of that lock's
-  `inherited_anchor_report` field (a pre-decision diagnostic, not the final
-  LR state) and the closure verdict are in
-  `c7_scientific_closure_reconciliation` below and in
-  `reports/readiness/C7_SCIENTIFIC_CLOSURE_AUDIT.md`. C8 is READY_NOT_RUN,
-  pending explicit user authorization — see
-  `reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md` for the exact C8-only
-  command. C9 remains BLOCKED on DETECTOR_RELIABILITY_LOCK_C
-  (`DETECTOR_BA_SEP_PROBE_PROTOCOL`, `DETECTOR_BA_SEP_EVIDENCE_VECTOR`,
-  `DETECTOR_BA_SEP_PROBE_SEEDS` are still NEEDS_SCIENTIFIC_DECISION). C10-C13
-  have not yet executed scientifically. target_access has been 0 throughout;
+  SUPERSEDES the substages below. On the GPU host, C4, C5, C6 and C7 are
+  SCIENTIFIC CLOSED (see `c7_scientific_closure_reconciliation` below and
+  `reports/readiness/C7_SCIENTIFIC_CLOSURE_AUDIT.md`), and C8 has now
+  COMPLETED its full source-only matrix and CLOSED: outcome PASS, all eight
+  substages PASS (VERIFY_INPUTS 29/29, PLAN_MATRIX 5/5, SCHEDULE 4/4,
+  EXECUTE_ROWS 6/6, CROSS_SOURCE_DIAGNOSTICS 2/2, CALIBRATION_STABILITY 2/2,
+  TARGET_ISOLATION 3/3, ACCEPTANCE 8/8), 42/42 scientific rows PASS
+  (P1=9, P2=9, P3=24 across C-G-RND/DET/LLM and C-R-DET/LLM/NOPROMPT). C8's
+  own GPU artifacts (`runs/full/c8/`, `reports/full/c8/`, updated
+  `state/*`) live only on the GPU host; this laptop has none of them and
+  none of their contents is invented here. C9 is now correctly
+  BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION — audited in
+  full in `reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md`,
+  which recommends (does not freeze) a protocol: a common Track-G evidence
+  representation, zero new training, USER_APPROVAL_REQUIRED. C10-C13 have
+  not yet executed scientifically. target_access has been 0 throughout;
   this laptop still holds none of the GPU-host scientific evidence bytes.
-previous_milestone: C7_C13_PRODUCTION_PATH_READINESS
+previous_milestone: C7_SCIENTIFIC_CLOSURE_AND_REPORTING_RECONCILIATION
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
-  # separately ran --profile full through C7; see execution_pipeline.full.
-pipeline_phase: scientific-execution-through-c7-c8-pending-authorization
+  # separately ran --profile full through C8; see execution_pipeline.full.
+pipeline_phase: scientific-execution-through-c8-c9-pending-reliability-decision
 
 # SCOPE WARNING — HISTORICAL, SUPERSEDED 2026-08-25. Kept for context: this is
 # what was true through the C7_C13_PRODUCTION_PATH_READINESS milestone, when
@@ -73,9 +70,11 @@ pipeline_phase: scientific-execution-through-c7-c8-pending-authorization
 # `historical_milestones` before quoting either field.
 engineering_status_scope: C0_TO_C13_FULL_PIPELINE_ENGINEERING
 engineering_status: SMOKE_PASS      # C0-C13, validate PASS + smoke PASS, 2026-08-17
-# CURRENT, 2026-08-25: C3, C4, C5, C6 and C7 are scientifically closed on the
-# GPU host (frozen identities in c7_scientific_closure_reconciliation below).
-# C8 is READY_NOT_RUN. C9 is BLOCKED_ON_DETECTOR_RELIABILITY. C10-C13 are
+# CURRENT, 2026-08-26: C3, C4, C5, C6, C7 and C8 are scientifically closed on
+# the GPU host (frozen identities in c7_scientific_closure_reconciliation
+# below; C8's 42/42-row closure recorded here and in
+# reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md). C9 is
+# BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION. C10-C13 are
 # NOT_YET_SCIENTIFICALLY_EXECUTED. A single PASS/FAIL scalar cannot represent
 # that split truthfully, so scientific_status is now a per-stage map.
 scientific_status:
@@ -84,46 +83,50 @@ scientific_status:
   c5: PASS
   c6: PASS
   c7: PASS
-  c8: READY_NOT_RUN
-  c9: BLOCKED_ON_DETECTOR_RELIABILITY
+  c8: PASS
+  c9: BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION
   c10_c13: NOT_YET_SCIENTIFICALLY_EXECUTED
-scientific_status_scope: c3_through_c7_closed_c8_ready_c9_blocked_c10_c13_pending
+scientific_status_scope: c3_through_c8_closed_c9_blocked_pending_reliability_decision_c10_c13_pending
 
 # Machine-readable so no parser can infer these exist. Previously this fact lived
 # only in YAML comments beside real-looking paths, which a parser strips.
 execution_pipeline:
   validate: IMPLEMENTED_C0_TO_C13   # 14 stages, 21 checks, 0 failed
   smoke: IMPLEMENTED_C0_TO_C13      # 14 stages, 62 substage modes, 242 checks, 0 failed
-  # CURRENT, 2026-08-25: live C3 generation ran 2026-08-16; the GPU host has
-  # since run --profile full scientifically through C4, C5, C6 and C7 too
-  # (see c7_scientific_closure_reconciliation below). C8-C13 remain BLOCKED —
-  # C8 on user authorization only (READY), C9 on DETECTOR_RELIABILITY_LOCK_C.
-  full: EXECUTED_C3_THROUGH_C7
+  # CURRENT, 2026-08-26: live C3 generation ran 2026-08-16; the GPU host has
+  # since run --profile full scientifically through C4, C5, C6, C7 and C8 too
+  # (see c7_scientific_closure_reconciliation below). C9-C13 remain BLOCKED —
+  # C9 on the detector-reliability protocol decision (USER_APPROVAL_REQUIRED,
+  # reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md).
+  full: EXECUTED_C3_THROUGH_C8
   # Separate axis, deliberately not folded into `full` above. The scientific CODE
-  # PATH for C4-C13 now exists and C4-C7 of it has actually executed and closed;
-  # C8-C13 have not yet executed scientifically. The refusing `run_full` is GONE —
+  # PATH for C4-C13 now exists and C4-C8 of it has actually executed and closed;
+  # C9-C13 have not yet executed scientifically. The refusing `run_full` is GONE —
   # one `workflow()` per stage, driven by an ExecutionContext, with no placeholder
   # to fall back to. On THIS LAPTOP every stage still BLOCKS on a named missing
   # input (no GPU, no source package) — that is a laptop-local fact, not a
   # statement about whether the GPU host has run them.
   full_path_implemented_c4_to_c13: true
   full_path_placeholders_remaining: 0
-  full_path_ever_executed_c4_to_c13: PARTIAL_C4_THROUGH_C7_CLOSED_C8_C13_NOT_RUN
+  full_path_ever_executed_c4_to_c13: PARTIAL_C4_THROUGH_C8_CLOSED_C9_C13_NOT_RUN
   orchestrator_exists: true     # train.py + src/prism_fas/pipeline/
   pipeline_state_exists: true   # state/PIPELINE_STATE.json
   master_run_index_exists: true # state/MASTER_RUN_INDEX.json
   stage_adapters_exist: C0_TO_C13_ALL
   c0_to_c13_pipeline_ever_run: ENGINEERING_AND_PARTIAL_SCIENTIFIC
-  c0_to_c13_pipeline_ever_run_scientifically: PARTIAL_C3_THROUGH_C7
+  c0_to_c13_pipeline_ever_run_scientifically: PARTIAL_C3_THROUGH_C8
   note: >-
     Every C0-C13 stage has an adapter and every stage's control path executes and
-    passes under validate and smoke. CURRENT, 2026-08-25: on the GPU host, C3
-    through C7 have each executed LIVE under --profile full and are scientifically
+    passes under validate and smoke. CURRENT, 2026-08-26: on the GPU host, C3
+    through C8 have each executed LIVE under --profile full and are scientifically
     closed (see c7_scientific_closure_reconciliation below for identities and the
-    C7 closure verdict). C8 through C13 have executed ONLY on fixtures on any host
-    so far: under --profile full each of them still BLOCKS on an absent input or
-    an unresolved decision and names it — C8 on user authorization (READY_NOT_RUN),
-    C9 on DETECTOR_RELIABILITY_LOCK_C, C10-C13 on their own preconditions — and no
+    C7/C8 closure verdicts). C9 through C13 have executed ONLY on fixtures on any
+    host so far: under --profile full each of them still BLOCKS on an absent input
+    or an unresolved decision and names it — C9 on
+    DETECTOR_RELIABILITY_LOCK_C, whose executable protocol is
+    USER_APPROVAL_REQUIRED (see
+    reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md),
+    C10-C13 on their own preconditions — and no
     scientific target inference or scoring has ever run. SMOKE_PASS over C0-C13
     means ENGINEERING_READY for the whole pipeline; scientific completion is now
     per-stage (see `scientific_status` above), not a single C0-C13 scalar.
@@ -5058,11 +5061,30 @@ c7_scientific_closure_reconciliation:
         quarantined_under: reports/evidence/quarantine/
         distinct_from_the_completed_run_above: true
     c8:
-      status: READY_NOT_RUN
-      scientifically_run: false
-      user_authorization_required: true
-      exact_command: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
+      status: SCIENTIFIC_CLOSED_VALID
+      scientifically_run: true
+      outcome: PASS
+      substages:
+        VERIFY_INPUTS: {status: PASS, checks: "29/29"}
+        PLAN_MATRIX: {status: PASS, checks: "5/5"}
+        SCHEDULE: {status: PASS, checks: "4/4"}
+        EXECUTE_ROWS: {status: PASS, checks: "6/6"}
+        CROSS_SOURCE_DIAGNOSTICS: {status: PASS, checks: "2/2"}
+        CALIBRATION_STABILITY: {status: PASS, checks: "2/2"}
+        TARGET_ISOLATION: {status: PASS, checks: "3/3"}
+        ACCEPTANCE: {status: PASS, checks: "8/8"}
+      rows: {total: 42, pass: 42, fail: 0}
+      protocol_distribution: {P1: 9, P2: 9, P3: 24}
+      matrix:
+        P1: {C-G-RND: 3, C-G-DET: 3, C-G-LLM: 3}
+        P2: {C-G-RND: 3, C-G-DET: 3, C-G-LLM: 3}
+        P3: {C-G-RND: 5, C-G-DET: 5, C-G-LLM: 5, C-R-DET: 3, C-R-LLM: 3, C-R-NOPROMPT: 3}
       target_access: 0
+      gpu_artifacts_live_only_on_gpu_host: [runs/full/c8/, reports/full/c8/,
+                                            reports/full/c8/C8_FULL.json,
+                                            reports/full/c8/C8_ACCEPTANCE.json]
+      not_invented_on_this_laptop: true
+      closure_audited_in: reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md
       pre_launch_engineering_defects_found_and_fixed:
         - id: EXPLICIT_PREFLIGHT_ONLY_NOT_HONORED
           found_on: 2026-08-25
@@ -5128,28 +5150,47 @@ c7_scientific_closure_reconciliation:
           target_access: 0
           closure_record: reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
     c9:
-      status: BLOCKED_ON_DETECTOR_RELIABILITY
+      status: BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION
       blocker: DETECTOR_RELIABILITY_LOCK_C
-      unresolved_decisions: [DETECTOR_BA_SEP_PROBE_PROTOCOL,
-                             DETECTOR_BA_SEP_EVIDENCE_VECTOR,
-                             DETECTOR_BA_SEP_PROBE_SEEDS]
-      may_not_be_resolved_from: C8 outcomes
+      lock_exists: false
+      unresolved_decisions: [DETECTOR_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION,
+                             DETECTOR_BA_SEP_EVIDENCE_VECTOR_NEEDS_SCIENTIFIC_DECISION,
+                             DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION]
+      may_not_be_resolved_from: C8 outcomes or any reliability metric
+      decision_audit: reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md
+      decision_audit_json: reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.json
+      audit_verdict: >-
+        the barrier is a correctly-designed, correctly-enforced fail-closed
+        gate, not a defect. Confirmed spec-vs-implementation incompatibility:
+        the historical Version-B evidence vector [p_global, s_region, nine
+        regional distances] is not obtainable from any of the 42 existing C8
+        rows (Track G is global-only by NORMATIVE contract; primary Track R
+        trains with manifold OFF; no C-R-RND row exists). Recommended,
+        NOT frozen: a common Track-G evidence representation
+        (global_logit_G/p_global), zero new training, reusing the existing
+        15 Track-G checkpoints — USER_APPROVAL_REQUIRED. No BA_sep or any
+        other reliability metric was computed to reach this recommendation.
+      c9_may_not_close_until: a user-approved DETECTOR_BA_SEP_PROBE_PROTOCOL
+        is bound and every required reliability test resolves PASSED
+      no_fake_or_hardcoded_pass_lock_created: true
     c10_c13:
       status: NOT_YET_SCIENTIFICALLY_EXECUTED
       fixture_leak_guards: IMPLEMENTED
 
   # --- target firewall --------------------------------------------------------
   target_firewall:
-    target_access_through_c7: 0
+    target_access_through_c8: 0
     c8_scope: SOURCE_ONLY
-    target_must_remain_inaccessible_during_c8: true
+    c9_scope: SOURCE_ONLY   # SOURCE_MATRIX_LOCK_C freezes source-side evidence; no target
+    target_must_remain_inaccessible_during_c8_and_c9: true
     target_guided_tuning_authorized: false
     target_evaluation_occurred: false
     note: >-
-      C8 trains and selects on source_dev only; cross-source is diagnostic.
+      C8 trained and selected on source_dev only; cross-source is diagnostic.
       A P3-ready row's held-out evaluation is deferred to C11, entirely
-      outside C8. No target root, path or label has been resolved anywhere
-      in this reconciliation.
+      outside C8. The C9 detector-reliability decision audit (this milestone)
+      opened no target root, path or label either. No target root, path or
+      label has been resolved anywhere in this reconciliation.
 
   # --- detector reliability / BA_sep sequencing --------------------------------
   detector_reliability_sequencing:
@@ -5157,19 +5198,26 @@ c7_scientific_closure_reconciliation:
     moved_before_c8: false
     stage_constant: C8_CLOSURE_BEFORE_C9_SOURCE_MATRIX_LOCK_C
     lock: reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json
-    unresolved_decisions: [DETECTOR_BA_SEP_PROBE_PROTOCOL,
-                           DETECTOR_BA_SEP_EVIDENCE_VECTOR,
-                           DETECTOR_BA_SEP_PROBE_SEEDS]
+    lock_exists: false
+    unresolved_decisions: [DETECTOR_BA_SEP_PROBE_PROTOCOL_NEEDS_SCIENTIFIC_DECISION,
+                           DETECTOR_BA_SEP_EVIDENCE_VECTOR_NEEDS_SCIENTIFIC_DECISION,
+                           DETECTOR_BA_SEP_PROBE_SEEDS_NEEDS_SCIENTIFIC_DECISION]
+    decision_dossier: reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md
+    no_ba_sep_number_produced: true
+    no_fake_or_hardcoded_pass_lock_created: true
 
   next_authorized_action: >-
-    Await explicit user authorization to run C8. C7 is scientifically closed
-    and valid; nothing further is required of C7. When authorized, run C8
-    ONLY, using the exact command and preflight steps in
-    reports/readiness/C8_GPU_SCIENTIFIC_HANDOFF.md
-    (`python train.py --profile full --from C8 --to C8 --resume`). Do not
-    append `--to C9` or otherwise run C9 in the same invocation — C9 remains
-    BLOCKED_ON_DETECTOR_RELIABILITY regardless of C8's outcome, and detector
-    reliability / BA_sep sequencing stays POST-C8 / PRE-C9.
+    Await explicit user decision on the detector-reliability protocol
+    recommended in reports/readiness/C9_DETECTOR_RELIABILITY_DECISION_DOSSIER.md
+    (a common Track-G evidence representation, zero new training,
+    USER_APPROVAL_REQUIRED per Appendix J). C7 and C8 are both scientifically
+    closed and valid; nothing further is required of either. C9 may not
+    close SOURCE_MATRIX_LOCK_C, and C10-C13 may not run, until a real
+    DETECTOR_RELIABILITY_LOCK_C exists with overall=PASSED, every required
+    test PASSED, and a bound probe_protocol_identity and
+    detector_checkpoint_identities. Do not run C9, C10, C11, C12 or C13, and
+    do not access target, until that decision is made and implemented,
+    separately from any C8 result.
 
-last_updated_utc: 2026-08-25   # C8 precondition root-drift fix (found by the first real GPU preflight)
+last_updated_utc: 2026-08-26   # C8 scientific closure (42/42 PASS) + C9 detector-reliability decision audit
 ```
