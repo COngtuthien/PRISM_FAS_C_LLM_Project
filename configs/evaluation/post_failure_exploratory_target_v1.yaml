@@ -1,0 +1,406 @@
+# POST_FAILURE_EXPLORATORY_TARGET_V1
+#
+# NOT the original C9-C13 confirmatory path. NOT a C9 PASS. NOT a reliability
+# waiver. NOT evidence that BA_sep passed. NOT a replacement for the observed
+# negative reliability evidence. This is a SEPARATE, EXPLORATORY, POST-FAILURE
+# scientific branch, frozen BEFORE any new target access, that asks a
+# secondary, hypothesis-generating/descriptive question: given the already-
+# frozen C8 detectors, how do the different recipe-generator arms and
+# detector variants generalize to the external SiW-Mv2 target domain, despite
+# the observed source-only reliability failures?
+#
+# scientific_purpose: exploratory generalization audit of the frozen C8 P3
+#   matrix on SiW-Mv2, explicitly conditioned on a FAILED reliability gate.
+# reason_original_path_cannot_continue: synthetic_vs_real_spoof_probe
+#   genuinely FAILED under C9_DETECTOR_BA_SEP_OPTION1_V2 (protocol identity
+#   720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8);
+#   DETECTOR_RELIABILITY_LOCK_C.overall=FAILED makes barrier_state sticky
+#   (overall=FAILED can never become PASSED under the current protocol
+#   version); the original C9 SOURCE_MATRIX_LOCK_C therefore cannot close and
+#   C10-C13 cannot scientifically run. This branch does not reopen that gate.
+
+schema_version: post-failure-exploratory-target-v1
+decision_id: POST_FAILURE_EXPLORATORY_TARGET_V1
+status: FROZEN_NOT_RUN
+document_kind: EXPLORATORY_POST_FAILURE_NOT_A_CONFIRMATORY_PATH
+frozen_on: "2026-08-26"
+approved_by: explicit user direction (Phase 1C — exploratory post-failure target protocol)
+
+# --- the immutable upstream scientific state this protocol may never touch --
+immutable_upstream_state:
+  c7_scientific_closed: true
+  c8_scientific_closed: true
+  ba_sep_option1_v2_protocol_identity: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+  ba_sep_by_arm: {RND: 0.7843079833902619, DET: 0.8514170182841069, LLM: 0.7902658339472685}
+  ba_sep_observed_verdict: FAIL
+  ba_sep_rerun: FORBIDDEN
+  detector_reliability_lock_c_overall: FAILED
+  c9_may_close: false
+  c9_original_confirmatory_path: BLOCKED
+  post_failure_source_diagnostics_v2_protocol_identity: 05ffa20ee71ff7168732436be6b8a98b613351d434f993226ff4308ed32a5523
+  post_failure_source_diagnostics_v2_overall: FAIL
+  post_failure_source_diagnostics_v2_per_test:
+    benign_color_corruption: PASS
+    benign_jpeg_corruption: FAIL   # RND upper-tail only
+    benign_resize_corruption: FAIL   # all three arms, upper-tail only
+    cross_route_synthetic: NEEDS_SCIENTIFIC_DECISION
+    recipe_region_shift: NEEDS_SCIENTIFIC_DECISION
+    artifact_map_swap: NEEDS_SCIENTIFIC_DECISION
+    residual_scale_zero: STRUCTURALLY_MODEL_BLOCKED
+    crop_padding_interpolation: STRUCTURALLY_DATA_BLOCKED
+  post_failure_diagnostic_interpretation_status: REGISTERED_ON_GPU
+  can_this_protocol_change_the_above: false
+  can_this_protocol_reopen_c9_or_original_path: false
+  can_this_protocol_set_c9_may_close_true: false
+  exploratory_target_status: POST_FAILURE_EXPLORATORY
+
+# --- this protocol's own, freshly-initialized reveal state -----------------
+# Legacy configs/evaluation/m10_target.yaml declares `target_labels_revealed:
+# true` (an engineering-fixture artifact of the ORIGINAL confirmatory M10
+# code path, never a genuine scientific reveal under this branch or any
+# branch reachable from the current, FAILED reliability gate — see
+# reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE.md
+# section on legacy M10 reuse). This protocol's OWN reveal state starts
+# clean and is never derived from that file.
+target_labels_opened: false
+target_labels_revealed: false
+target_predictions_observed: false
+target_metrics_observed: false
+target_access: 0
+
+# --- namespaces --------------------------------------------------------------
+namespaces:
+  config: configs/evaluation/post_failure_exploratory_target_v1.yaml
+  report_root: reports/full/exploratory_target_v1
+  run_root: runs/exploratory_target_v1
+  state_root: state/exploratory_target_v1
+  never_writes_into: [reports/full/c9, reports/full/c10, reports/full/c11,
+                      reports/full/c12, reports/full/c13, runs/full/c8,
+                      reports/full/c8/reliability/synthetic_vs_real_spoof_probe,
+                      reports/full/c8/reliability/post_failure_source_diagnostics_v1,
+                      reports/full/c8/reliability/post_failure_source_diagnostics_v2,
+                      reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json,
+                      reports/full/c8/C8_ACCEPTANCE.json]
+
+# --- legacy M10 reuse policy (section 20) -----------------------------------
+legacy_m10_reuse:
+  legacy_config_path: configs/evaluation/m10_target.yaml
+  legacy_config_treated_as: LEGACY_CONTRACT_SOURCE_OF_DESIGN_DECISIONS_ONLY
+  legacy_config_never_loaded_as_this_protocol: true
+  legacy_config_left_untouched: true
+  reused_verbatim_python_components:
+    - prism_fas.evaluation.target_prediction.PREDICTION_SCHEMA
+    - prism_fas.evaluation.target_prediction.FORBIDDEN_PREDICTION_COLUMNS
+    - prism_fas.evaluation.target_prediction.TargetInferenceBatch
+    - prism_fas.evaluation.target_prediction.VariantCapabilities
+    - prism_fas.evaluation.target_prediction.build_prediction_row
+    - prism_fas.evaluation.target_prediction.validate_predictions
+    - prism_fas.evaluation.target_prediction.prediction_logical_identity
+    - prism_fas.evaluation.target_prediction.write_predictions
+    - prism_fas.evaluation.target_prediction.read_predictions
+    - prism_fas.evaluation.target_prediction.build_prediction_lock
+    - prism_fas.evaluation.target_prediction.validate_prediction_lock
+    - prism_fas.evaluation.target_prediction.build_lockset
+    - prism_fas.evaluation.target_prediction.inference_config_hash
+    - prism_fas.evaluation.target_prediction.load_checkpoint_for_inference
+    - prism_fas.evaluation.target_prediction.target_batches
+    - prism_fas.evaluation.target_prediction.predict_target
+    - prism_fas.evaluation.firewall.FirewallConfig
+    - prism_fas.evaluation.firewall.TargetLabelFirewall
+    - prism_fas.evaluation.video_aggregation.aggregate_frames
+    - prism_fas.evaluation.video_aggregation.aggregation_config
+    - prism_fas.evaluation.video_aggregation.threshold_and_reject
+    - prism_fas.evaluation.scoring.score
+    - prism_fas.evaluation.scoring.load_evaluation_labels
+    - prism_fas.evaluation.scoring.assert_no_training_capability
+    - prism_fas.evaluation.scoring.static_import_audit
+    - prism_fas.evaluation.scoring.target_label_reveal
+    - prism_fas.evaluation.synthetic_real_probe.construct_row_trainer   # track-agnostic; verified against BOTH Track G and Track R rows
+    - prism_fas.evaluation.source_matrix.build_plan   # SourceRow.target_prediction_required is the exact 24-row filter
+    - prism_fas.evaluation.source_evidence.load_row_evidence
+    - prism_fas.evaluation.post_failure_diagnostics_v2.bind_c8_matrix_identity
+  intentionally_changed_semantics:
+    - field: target_labels_revealed
+      legacy: "true (engineering-fixture artifact of the original M10 CLI reveal flow)"
+      this_protocol: "false, from a clean initial state; one-way, set only by a real, authorized reveal after a FROZEN lockset — never derived from the legacy file"
+    - field: prediction_root
+      legacy: "runs (broad, shared with every M10 experiment)"
+      this_protocol: "runs/exploratory_target_v1 (its own namespace, structurally disjoint from C9-C13 and from legacy M10 runs)"
+    - field: hypothesis_naming
+      legacy: "H1..H5 (the original confirmatory hypotheses)"
+      this_protocol: "E-H1..E-H4 (new, explicitly EXPLORATORY comparisons; never presented as confirmatory evidence for C-H1..C-H5)"
+    - field: comparison_scope
+      legacy: "all preregistered rows without an explicit generator/track comparison list"
+      this_protocol: "exactly four frozen exploratory comparisons (A-D, section below); no comparison may be invented after seeing target results"
+
+# --- target feature package (frozen, NEVER opens labels) --------------------
+target_feature_package:
+  package_id: prism_target_eval_v2
+  target_feature_root: data/processed/prism_target_eval_v2
+  expected_identity: c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+  expected_identity_source: LEGACY_M10_FROZEN_CONTRACT (configs/evaluation/m10_target.yaml)
+  expected_identity_verification_status: TO_BE_VERIFIED_ON_GPU_BEFORE_FIRST_TARGET_ACCESS
+  expected_composition:
+    videos_total: 1700
+    live: 785
+    spoof: 915
+    attack_families: 14
+    frames_per_video: 4
+  identity_algorithm: sorted (relative_path, sha256) pairs over every file under the
+    package root, hashed — the same algorithm
+    prism_fas.pipeline.adapters.c10._package_identity uses (independently
+    implemented here since that function is private, never imported)
+  laptop_claim: >-
+    this laptop has NOT opened the package; if the package root is absent (as
+    it is here), the preflight reports NOT_PRESENT_ON_THIS_HOST and does not
+    fabricate a verified identity. Verification is a GPU preflight action,
+    performed WITHOUT ever opening target_label_root.
+
+# --- target label root (declared so the firewall can forbid it; sealed) ----
+target_label_root:
+  path: data/evaluation_only/prism_target_v2_labels
+  artifact: siw_target_labels.parquet
+  sealed: true
+  opened_by_this_protocol: false
+  note: >-
+    declaring this path is not target access — it is how the firewall's
+    permission table can structurally forbid it to every stage but the E2
+    scorer, and only after a FROZEN prediction lock exists.
+
+# --- firewall roots/permissions (reuses firewall.FirewallConfig verbatim) ---
+# Stage names TRAIN/G7/G8 are the firewall module's own fixed vocabulary
+# (`prism_fas.evaluation.firewall.STAGES`), reused unmodified rather than
+# reimplementing the firewall for new stage names. G7 = blind target
+# prediction (this branch's Phase E1); G8 = label-unlock scoring (Phase E2).
+roots:
+  source_package_root: data/processed/prism_data_v1_m3b
+  target_feature_root: data/processed/prism_target_eval_v2
+  target_feature_package_id: prism_target_eval_v2
+  target_feature_package_identity: c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+  target_label_root: data/evaluation_only/prism_target_v2_labels
+  target_label_artifact: siw_target_labels.parquet
+  prediction_root: runs/exploratory_target_v1
+
+permissions:
+  TRAIN: {source_package_root: read, target_feature_root: deny, target_label_root: deny, prediction_root: deny}
+  G7:    {source_package_root: deny, target_feature_root: read, target_label_root: deny, prediction_root: write}
+  G8:    {source_package_root: deny, target_feature_root: deny, target_label_root: read, prediction_root: read}
+
+g8_forbidden_write_patterns: [".pt", ".pth", ".ckpt", ".safetensors", "optimizer", "calibration/", "checkpoints/"]
+
+# ============================================================================
+# PHASE E1 — blind target prediction (section 9)
+# ============================================================================
+phase_e1_blind_prediction:
+  allowed: [target_feature_package, frozen_c8_checkpoints, frozen_source_dev_calibration_artifacts]
+  forbidden: [target_labels, attack_family, subject_id, session_id,
+             any_field_that_reveals_true_target_class]
+  prediction_schema_reused_from: prism_fas.evaluation.target_prediction.PREDICTION_SCHEMA
+  forbidden_columns_reused_from: prism_fas.evaluation.target_prediction.FORBIDDEN_PREDICTION_COLUMNS
+  prediction_plan_binding_artifact: PREDICTION_PLAN_BINDING.json
+  prediction_lock_artifact: TARGET_PREDICTION_LOCK.json
+  prediction_lock_binds:
+    - exploratory_protocol_identity
+    - target_feature_package_identity
+    - target_matrix_identity (the 24-row subset identity)
+    - checkpoint_sha256_per_row
+    - calibration_hash_per_row
+    - inference_config_hash_per_row
+    - prediction_file_sha256_per_row
+    - prediction_schema_identity
+    - row_counts
+    - target_labels_opened: false
+  once_locked: predictions are immutable; no-rerun enforced structurally (section 17)
+
+# ============================================================================
+# PHASE E2 — label unlock + scoring (section 9)
+# ============================================================================
+phase_e2_label_unlock_scoring:
+  precondition: a valid, FROZEN TARGET_PREDICTION_LOCK must exist
+  scorer_may_read: [target_label_artifact, locked_prediction_files]
+  scorer_may_not: [load_model_checkpoints, rerun_inference, alter_predictions,
+                   train_anything, calibrate_thresholds, select_checkpoints]
+  scorer_writes_only: [metrics, tables, statistics]
+  dependency_boundary_reused_from: prism_fas.evaluation.scoring.static_import_audit / .assert_no_training_capability
+  reveal_reused_from: prism_fas.evaluation.scoring.target_label_reveal
+  reveal_precondition: the exploratory TARGET_PREDICTION_LOCK's status must be FROZEN
+
+# --- exact C8 P3 model matrix to evaluate (section 5) -----------------------
+target_matrix:
+  resolver: prism_fas.evaluation.source_matrix.build_plan
+  filter: row.target_prediction_required is True
+  row_identity_source: the actual repository SourceRow objects; row IDs in this
+    file are DOCUMENTATION of the expected pattern, never assumed authoritative
+    over what build_plan() actually returns
+  expected_total_rows: 24
+  expected_track_g:
+    total: 15
+    pattern: "C-G-{arm}-P3READY-s{seed}"
+    arms: [RND, DET, LLM]
+    seeds_per_arm: 5
+    seed_family: [20260806, 20260807, 20260808, 20260809, 20260810]
+  expected_track_r:
+    total: 9
+    families:
+      C-R-DET: {pattern: "C-R-DET-P3READY-s{seed}", seeds: 3}
+      C-R-LLM: {pattern: "C-R-LLM-P3READY-s{seed}", seeds: 3}
+      C-R-NOPROMPT: {pattern: "C-R-NOPROMPT-P3READY-s{seed}", seeds: 3, arm: LLM, prompt: "off"}
+  no_retraining: true
+  no_best_seed_selection: true
+  no_dropping_unfavorable_arms: true
+  checkpoint_calibration_resolver: prism_fas.evaluation.source_evidence.load_row_evidence
+  per_row_bound_fields: [row_id, track, arm, protocol, seed, config_identity,
+                         run_identity, checkpoint_relative_path, checkpoint_sha256,
+                         calibration_hash, calibration_source_dev_verified,
+                         threshold, temperature, decision_logit_name, decision_score_name]
+
+# --- thresholds — absolutely no target tuning (section 7) -------------------
+thresholds:
+  source: SOURCE_DEV_FROZEN_CALIBRATION
+  per_row: bound from each row's own runs/full/c8/.../calibration.json (threshold,
+          temperature); calibration.split MUST equal source_dev or the row is
+          refused (reuses source_evidence's own CALIBRATION_NOT_SOURCE_DEV check)
+  target_quantile_forbidden_for_operating_threshold: true
+  acer_threshold_source: source_dev_frozen
+  eer_may_be_computed_as_descriptive_metric: true
+  eer_threshold_never_feeds_back_into: [model_selection, acer_operating_threshold,
+                                        checkpoint_selection, future_target_inference]
+  hter_at_target_eer:
+    retained: true
+    label: EVALUATION_ONLY_DESCRIPTIVE_METRIC
+    not_the_deployed_operating_point: true
+
+# --- reject / unknown policy (section 8) ------------------------------------
+reject_policy:
+  unknown_threshold: null
+  reject_policy: NOT_APPLICABLE_NOT_FITTED
+  reason: >-
+    the source-side unknown/reject exposure fit (G6b) has not been performed
+    in this repository; no genuinely frozen valid source-only reject
+    threshold exists. A target quantile is never used to derive one, and no
+    low-confidence target row is silently turned into a reject.
+  reject_dependent_metrics: NOT_APPLICABLE
+
+# --- prediction unit + video aggregation (section 10, reused verbatim) -----
+aggregation:
+  resolver: prism_fas.evaluation.video_aggregation.aggregate_frames
+  frames_per_video: 4
+  video_score: trimmed_mean
+  trim_fraction: 0.10
+  trim_count_at_four_frames: 0   # floor(4*0.10)=0; the trimmed mean IS the plain mean here
+  video_confidence: median
+  group_by: video_id
+  frame_order: sample_id
+  attack_family_aware_aggregation: false
+
+# --- metrics (section 11) ---------------------------------------------------
+metrics:
+  levels: [frame, video]
+  core: [apcer, bpcer, acer, roc_auc, eer]
+  calibration: [ece, brier, nll]
+  hter:
+    retained_only_if_threshold_explicit: true
+    label: EVALUATION_ONLY_DESCRIPTIVE_METRIC
+  primary_table_columns: [row_id, track, arm, seed, apcer, bpcer, acer, roc_auc, eer]
+  per_seed_values_hidden: false
+  cross_seed_aggregation: {statistic: [mean, std], ddof: 0}
+  attack_wise:
+    enabled: true
+    computed: POST_HOC_DESCRIPTIVE_TARGET_ANALYSIS
+    used_for_model_selection: false
+    used_for_threshold_selection: false
+    available_only_after_label_unlock: true
+
+# --- exploratory comparisons (section 6) ------------------------------------
+exploratory_comparisons:
+  naming_convention: E-H (never C-H; never presented as confirmatory evidence
+    for the original C-H1..C-H5 unless that exact hypothesis was genuinely
+    frozen before target access and remains scientifically valid despite the
+    failed reliability gate — which none of E-H1..E-H4 claims to be)
+  no_unmatched_comparisons: true
+  no_retrospective_comparison_selection_from_target_results: true
+  comparisons:
+    E-H1:
+      family: Track-G generator comparison
+      arms: [RND, DET, LLM]
+      question: does recipe-generation strategy correspond to different
+        external target-domain generalization?
+      statistic: paired video-level ACER difference, per arm pair, at each
+        arm's own frozen source-dev threshold
+    E-H2:
+      family: Track-R DET vs LLM
+      arms: [DET, LLM]
+      question: under the regional/semantic architecture, does the LLM
+        recipe prior correspond to different target performance from the
+        deterministic prior?
+    E-H3:
+      family: Track-R LLM vs R-NOPROMPT
+      arms: [LLM, NOPROMPT]
+      question: does PromptHead-enabled LLM Track-R differ from its
+        no-prompt ablation?
+    E-H4:
+      family: Track-G vs Track-R (matched arm only)
+      arms: [DET, LLM]   # only arms present in BOTH tracks; RND has no Track-R row
+      question: does the architecture change (Track G -> Track R) correspond
+        to a target-performance difference, holding the arm fixed?
+      matched_only: true
+
+# --- statistics (section 13, reused from legacy M10 contract values) -------
+statistics:
+  bootstrap_unit: video
+  bootstrap_resamples: 10000
+  bootstrap_seed: 20260810
+  confidence_level: 0.95
+  interval: percentile
+  paired: true
+  comparison_statistic: video_acer_difference
+  p_value: two_sided
+  multiple_comparison_policy: holm_bonferroni
+  family: [E-H1, E-H2, E-H3, E-H4]
+  family_size: 4
+  alpha: 0.05
+  seed_summary: {form: "mean+/-std", ddof: 0, minimum_seeds_for_claim: 3}
+  exploratory_disclaimer: >-
+    every p-value/CI produced under this protocol is EXPLORATORY_COMPARISON
+    evidence, never preregistered confirmatory evidence for C-H1..C-H5,
+    unless a specific hypothesis is later shown to have been genuinely
+    frozen before target access and to remain scientifically valid despite
+    the failed reliability gate.
+
+# --- BA_sep / diagnostic failure binding (section 14) ------------------------
+required_binding_in_every_output:
+  ba_sep_observed_verdict: FAIL
+  detector_reliability_overall: FAILED
+  post_failure_diagnostics_v2: FAIL
+  c9_original_confirmatory_path: BLOCKED
+  exploratory_target_status: POST_FAILURE_EXPLORATORY
+
+# --- no-rerun / immutability (section 17) -----------------------------------
+no_rerun_policy:
+  prediction:
+    no_artifacts: run once
+    complete_valid_lock: validate/re-report only, zero model inference
+    partial: BLOCK
+  scoring:
+    no_artifacts: score once from the immutable prediction lock
+    complete_valid_result: validate/re-report only
+    partial: BLOCK
+  never_overwrite_a_valid_scientific_result: true
+
+# --- implementation ----------------------------------------------------------
+implementation:
+  predictor_module: src/prism_fas/evaluation/post_failure_exploratory_target.py
+  predictor_cli: python -m prism_fas.evaluation.post_failure_exploratory_target --repo . {--preflight-only|--bind-prediction-plan|--status|--predict}
+  predictor_forbidden_imports: [the label reader (scoring.load_evaluation_labels,
+                                scoring.EvaluationLabels), any target label path resolution]
+  scorer_module: src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py
+  scorer_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_scorer --repo . {--preflight-score|--score}
+  scorer_forbidden_imports: [torch, prism_fas.detector.trainer, prism_fas.detector.checkpoint,
+                             prism_fas.evaluation.synthetic_real_probe.construct_row_trainer]
+  laptop_authorized: [audit, config, preflight, binding, firewall, prediction_runner_scaffolding,
+                      scorer_scaffolding, unit_fixture_tests, documentation, protocol_identity,
+                      commit, push]
+  laptop_forbidden: [open_target_feature_package_for_real, open_target_labels,
+                     run_siw_mv2_inference, compute_target_metrics, fabricate_target_results,
+                     claim_gpu_target_verification]
+  laptop_target_access_at_end_of_task: 0

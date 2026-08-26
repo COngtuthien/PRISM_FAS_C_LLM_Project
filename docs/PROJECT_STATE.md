@@ -28,8 +28,70 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_INTERPRETATION_CLOSURE
+current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE
 current_substage: >-
+  PHASE 1C — POST_FAILURE_EXPLORATORY_TARGET_V1 protocol + firewall +
+  prediction/scoring handoff design. PHASE 1B IS NOW CLOSED:
+  `POST_FAILURE_DIAGNOSTIC_INTERPRETATION` is `REGISTERED_ON_GPU`
+  (user-reported: `diagnostics_result_valid=true`,
+  `diagnostics_result_problems=[]`, `interpretation_registered=true`,
+  `checkpoint_weights_loaded=false`, `images_forwarded=false`,
+  `diagnostic_metric_recomputed=false`, `target_access=0`). This milestone
+  freezes a SEPARATE, EXPLORATORY, POST-FAILURE branch —
+  `POST_FAILURE_EXPLORATORY_TARGET_V1`
+  (`configs/evaluation/post_failure_exploratory_target_v1.yaml`, identity
+  `8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51`) — that
+  asks a secondary, hypothesis-generating question: given the frozen C8
+  detectors, how do the recipe-generator arms and detector variants
+  generalize to SiW-Mv2 despite the failed reliability gate? NOT the
+  original C9-C13 confirmatory path, NOT a C9 PASS, NOT a reliability
+  waiver. Audited `configs/evaluation/m10_target.yaml` (the legacy M10
+  confirmatory contract): it declares `target_labels_revealed: true`, an
+  engineering-fixture artifact of the ORIGINAL M10 CLI reveal flow
+  (`ee80048 "chore: finalize M10 blind evaluation"`), never a genuine
+  scientific reveal reachable under the current FAILED reliability gate —
+  treated strictly as legacy design-decision prose, never loaded as this
+  protocol's own state, never modified (`git diff --stat` empty, proven by
+  test). The new protocol starts `target_labels_opened/revealed: false`
+  from a clean state. Resolves the REAL, frozen 24-row P3-ready C8 matrix
+  (`SourceRow.target_prediction_required`: Track G 15 rows —
+  RND/DET/LLM × 5 seeds; Track R 9 rows — `C-R-DET`/`C-R-LLM`/
+  `C-R-NOPROMPT` × 3 seeds — verified against the REAL repository plan by
+  test), each row's real checkpoint + `source_dev`-only calibration
+  (`source_evidence.load_row_evidence` plus each row's own
+  `calibration.json`, reused verbatim), and reuses the ENTIRE legacy M10
+  evaluation library verbatim — `target_prediction.py` (schema, prediction
+  row/lock construction, the real label-free inference driver,
+  `synthetic_real_probe.construct_row_trainer` verified track-agnostic
+  across both Track G and Track R), `firewall.py` (the two-phase
+  E1-blind-prediction/E2-label-unlock structural firewall),
+  `video_aggregation.py` (trimmed-mean, `trim_count=0` at 4 frames/video),
+  and `scoring.py` (frame/video metrics, the no-training-capability AST
+  audit, the one-way label reveal) — none reimplemented. Two new modules:
+  `post_failure_exploratory_target.py` (Phase E1: `--preflight-only`,
+  `--bind-prediction-plan`, `--status`, and a REAL but never-invoked-on-
+  laptop `--predict`) and `post_failure_exploratory_target_scorer.py`
+  (Phase E2: `--preflight-score`, `--score`; holds zero checkpoint-loading
+  capability, proven by AST audit and by a source-text regression test).
+  Four frozen exploratory comparisons only (`E-H1` Track-G RND/DET/LLM,
+  `E-H2` Track-R DET vs LLM, `E-H3` Track-R LLM vs R-NOPROMPT, `E-H4`
+  Track-G vs Track-R matched arms), reused legacy statistics values
+  (bootstrap_unit=video, resamples=10000, seed=20260810, Holm-Bonferroni),
+  implemented as pure, tested `paired_bootstrap_acer_difference`/
+  `holm_bonferroni` functions — never presented as confirmatory evidence
+  for C-H1..C-H5. Threshold source is `SOURCE_DEV_FROZEN_CALIBRATION` only,
+  target-quantile-forbidden; reject policy `NOT_APPLICABLE_NOT_FITTED`.
+  NOTHING WAS RUN FOR REAL: every CLI mode was run once against this real
+  repo; matrix resolution succeeded against the real 24-row plan (proof the
+  audit is correct); every step needing GPU checkpoints, the target
+  package, or target labels correctly reported an unresolved precondition,
+  exit 2, writing nothing — the target feature package is absent on this
+  host and its identity was never fabricated. BA_sep remains permanently
+  FAILED; `DETECTOR_RELIABILITY_LOCK_C` remains `overall=FAILED`,
+  `c9_may_close=false`; the original C9 confirmatory path remains BLOCKED;
+  C10-C13 have not scientifically run. `target_access=0` throughout. See
+  `stage_table.post_failure_exploratory_target_v1` below for full detail.
+_superseded_current_substage_v2_interpretation_closure: >-
   PHASE 1B-CLOSE — POST-FAILURE DIAGNOSTIC INTERPRETATION. V2 has now been
   scientifically EXECUTED exactly once on the real GPU host (user-reported,
   not laptop-independently verified): code commit
@@ -196,7 +258,7 @@ _superseded_current_substage_v1: >-
   post-failure EXPLORATORY TARGET protocol is explicitly NOT started —
   deferred to a separate, future task, only after these diagnostics are
   observed and frozen. target_access has been 0 throughout.
-previous_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_PREEXECUTION_CORRECTION
+previous_milestone: C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_INTERPRETATION_CLOSURE
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8, ran the real BA_sep --execute
@@ -5892,59 +5954,172 @@ c7_scientific_closure_reconciliation:
     no_ba_sep_number_produced: false   # RESOLVED: synthetic_vs_real_spoof_probe = FAILED, observed
     no_fake_or_hardcoded_pass_lock_created: true
 
-  next_authorized_action: >-
-    `synthetic_vs_real_spoof_probe = FAILED` (RND=0.7843079833902619,
-    DET=0.8514170182841069, LLM=0.7902658339472685, all over 0.75) and
-    `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2`'s
-    `overall_diagnostics_verdict = FAIL` (color PASS all arms; JPEG FAIL via
-    RND's upper-tail only; resize FAIL via all three arms' upper-tail only)
-    are both permanent, observed, user-reported scientific results — NOT
-    rerun, tuned, or reselected under any circumstance; this laptop has not
-    independently verified either. `DETECTOR_RELIABILITY_LOCK_C` remains
-    `overall=FAILED`, `c9_may_close=false`. This milestone implemented ONLY
-    a read-only validation/interpretation-registration closure over the
-    already-executed V2 result:
-    `post_failure_diagnostics_v2_interpretation.py` (pure, arithmetic-only
-    derivation of which criterion — mean or tail — each arm satisfied or
-    missed, its exact margin/exceedance, and a descending tail-exceedance
-    ordering) and `post_failure_diagnostics_v2_closure.py` (the
-    `--status`/`--register-interpretation` CLI, gated by
-    `validate_existing_diagnostics_result`, idempotent, fail-closed on
-    tampering or conflict). NOTHING WAS REGISTERED FOR REAL — this laptop
-    has no genuine result files to validate. The next authorized action, on
-    the GPU host, is the sequence in
-    `reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_INTERPRETATION_GPU_HANDOFF.md`:
-    safe `git fetch` + `merge --ff-only` (never `reset --hard`/`clean`/
-    `add -A`), a protected-state checksum snapshot, closure `--status`
-    (expect `interpretation_registered: false`, exit 2 — correct, not an
-    error), then `--register-interpretation` EXACTLY ONCE (writes
-    `DIAGNOSTICS_INTERPRETATION.json`/`.md` under
-    `reports/full/c8/reliability/post_failure_source_diagnostics_v2/`), then
-    re-running `--register-interpretation` and `--status` to prove
-    idempotence/no-recomputation, then byte-comparing the four original
-    result artifacts, the BA_sep artifacts, `DETECTOR_RELIABILITY_LOCK_C.json`,
-    `C8_ACCEPTANCE.json` and V1's (unused) namespace against their
-    pre-registration checksums to prove none moved, then committing and
-    pushing ONLY the two new interpretation files by explicit path. Compare
-    the written interpretation's text against
-    `reports/readiness/C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2_OBSERVED_INTERPRETATION_PREVIEW.json`
-    — it must match exactly (same pure function, same recorded numbers).
-    `cross_route_synthetic`, `recipe_region_shift`, `artifact_map_swap`
-    remain `NEEDS_SCIENTIFIC_DECISION`; `residual_scale_zero` remains
-    `STRUCTURALLY_MODEL_BLOCKED`; `crop_padding_interpolation` remains
-    `STRUCTURALLY_DATA_BLOCKED` — none may be converted to PASS/FAIL or
-    treated as negative evidence by this or any future closure step. UNDER
-    THE CURRENT BA_sep PROTOCOL VERSION, NO DIAGNOSTIC OUTCOME CAN REOPEN
-    C9: `barrier_state`'s `overall=FAILED` is sticky, and every diagnostics/
-    interpretation artifact hard-codes `c9_may_close: false` regardless of
-    its own verdict. C7 and C8 remain scientifically closed and valid.
-    `detector_reliability.verify_lock` remains strict and unweakened. C9 may
-    not close `SOURCE_MATRIX_LOCK_C`, and C10-C13 may not run. Only AFTER
-    the interpretation is registered and closed does a SEPARATE, FUTURE task
-    freeze `POST_FAILURE_EXPLORATORY_TARGET_V1` — it will reuse the frozen
-    C8 checkpoints but must not pretend the original reliability gate
-    passed. Do not run C9, C10, C11, C12 or C13, and do not access target,
-    until then.
+  post_failure_exploratory_target_v1:
+    # PHASE 1C. A SEPARATE, EXPLORATORY, POST-FAILURE branch — NOT the
+    # original C9-C13 confirmatory path, NOT a C9 PASS, NOT a reliability
+    # waiver, NOT evidence BA_sep passed. Frozen before any new target
+    # access. Nothing here can reopen the original path or set
+    # c9_may_close true.
+    status: PROTOCOL_FREEZE_IMPLEMENTATION
+    config: configs/evaluation/post_failure_exploratory_target_v1.yaml
+    protocol_identity: 8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51
+    scientific_purpose: exploratory generalization audit of the frozen C8 P3 matrix
+      on SiW-Mv2, explicitly conditioned on a FAILED reliability gate
+    predictor_module: src/prism_fas/evaluation/post_failure_exploratory_target.py
+    predictor_cli: python -m prism_fas.evaluation.post_failure_exploratory_target --repo . {--preflight-only|--bind-prediction-plan|--status|--predict}
+    scorer_module: src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py
+    scorer_cli: python -m prism_fas.evaluation.post_failure_exploratory_target_scorer --repo . {--preflight-score|--score}
+    namespaces:
+      report_root: reports/full/exploratory_target_v1
+      run_root: runs/exploratory_target_v1
+      never_writes_into: [reports/full/c9, reports/full/c10, reports/full/c11,
+                          reports/full/c12, reports/full/c13, runs/full/c8,
+                          reports/full/c8/DETECTOR_RELIABILITY_LOCK_C.json,
+                          reports/full/c8/C8_ACCEPTANCE.json]
+    legacy_m10_audit:
+      legacy_config: configs/evaluation/m10_target.yaml
+      legacy_target_labels_revealed: true
+      classification: ENGINEERING_FIXTURE_ARTIFACT_OF_ORIGINAL_M10_CLI_REVEAL_FLOW
+      legacy_reveal_commit: "ee80048 (chore: finalize M10 blind evaluation)"
+      reused_as_new_preregistration: false
+      legacy_config_left_untouched: true   # confirmed by git-diff regression test
+      new_protocol_starts: {target_labels_opened: false, target_labels_revealed: false,
+                            target_predictions_observed: false, target_metrics_observed: false}
+    reused_verbatim_legacy_components: [target_prediction.PREDICTION_SCHEMA,
+      target_prediction.FORBIDDEN_PREDICTION_COLUMNS, target_prediction.TargetInferenceBatch,
+      target_prediction.VariantCapabilities, target_prediction.build_prediction_row,
+      target_prediction.validate_predictions, target_prediction.write_predictions,
+      target_prediction.read_predictions, target_prediction.build_prediction_lock,
+      target_prediction.validate_prediction_lock, target_prediction.build_lockset,
+      target_prediction.inference_config_hash, target_prediction.target_batches,
+      target_prediction.predict_target, firewall.FirewallConfig, firewall.TargetLabelFirewall,
+      video_aggregation.aggregate_frames, video_aggregation.aggregation_config,
+      scoring.score, scoring.load_evaluation_labels, scoring.static_import_audit,
+      scoring.target_label_reveal, synthetic_real_probe.construct_row_trainer (verified
+      track-agnostic across Track G AND Track R), source_matrix.build_plan,
+      source_evidence.load_row_evidence, post_failure_diagnostics_v2.bind_c8_matrix_identity]
+    target_matrix:
+      resolver: source_matrix.build_plan filtered on row.target_prediction_required
+      total_rows: 24
+      track_g: {total: 15, breakdown: {RND: 5, DET: 5, LLM: 5}}
+      track_r: {total: 9, breakdown: {C-R-DET: 3, C-R-LLM: 3, C-R-NOPROMPT: 3}}
+      verified_against_real_repository_plan_by_test: true
+      no_retraining: true
+      no_best_seed_selection: true
+      no_dropping_unfavorable_arms: true
+    checkpoint_calibration_binding:
+      threshold_source: SOURCE_DEV_FROZEN_CALIBRATION
+      calibration_split_required: source_dev
+      target_labels_resolved_required: 0
+      target_quantile_forbidden_for_operating_threshold: true
+    target_feature_package:
+      package_id: prism_target_eval_v2
+      expected_identity: c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8
+      expected_composition: {videos_total: 1700, live: 785, spoof: 915,
+                             attack_families: 14, frames_per_video: 4}
+      present_on_this_laptop: false
+      verification_status: TO_BE_VERIFIED_ON_GPU_BEFORE_FIRST_TARGET_ACCESS
+    target_label_root:
+      path: data/evaluation_only/prism_target_v2_labels
+      artifact: siw_target_labels.parquet
+      sealed: true
+      opened_by_this_task: false
+    firewall:
+      phase_e1: {stage: G7, may_read: [target_feature_root], may_not_read: [target_label_root]}
+      phase_e2: {stage: G8, precondition: "TARGET_PREDICTION_LOCK.status == FROZEN",
+                may_not: [load_model_checkpoints, rerun_inference, alter_predictions,
+                         train_anything, calibrate_thresholds, select_checkpoints]}
+      dependency_boundary_verified_by: AST import audit (scoring.static_import_audit,
+        reused) plus a source-text regression test
+    exploratory_comparisons:
+      naming: E-H1..E-H4, never C-H*
+      E-H1: Track-G generator, RND vs DET vs LLM
+      E-H2: Track-R, DET vs LLM
+      E-H3: Track-R, LLM vs R-NOPROMPT
+      E-H4: Track-G vs Track-R, matched arms only (DET, LLM)
+    statistics: {bootstrap_unit: video, bootstrap_resamples: 10000, bootstrap_seed: 20260810,
+                confidence_level: 0.95, interval: percentile, paired: true,
+                multiple_comparison_policy: holm_bonferroni, family_size: 4}
+    reject_policy: {unknown_threshold: null, reject_policy: NOT_APPLICABLE_NOT_FITTED,
+                    reject_dependent_metrics: NOT_APPLICABLE}
+    no_rerun_policy:
+      prediction: {no_artifacts: run once, complete_valid_lock: re-report only zero inference,
+                  partial: BLOCK}
+      scoring: {no_artifacts: score once, complete_valid_result: re-report only, partial: BLOCK}
+    runner_dry_run_on_this_laptop:
+      preflight_only: {exit_code: 2, matrix_resolved: true, row_count: 24, rows_bindable: false,
+                       reason: "no GPU run manifests on this host"}
+      bind_prediction_plan: {exit_code: 2, bound: false, reason: "preflight already blocked"}
+      status: {exit_code: 2, prediction_plan_bound: false}
+      predict: {exit_code: 2, executed: false, reason: "no prediction plan binding on disk"}
+      preflight_score: {exit_code: 2, prediction_lock_valid: false}
+      score: {exit_code: 2, error: "no TARGET_PREDICTION_LOCK exists"}
+    target_feature_package_opened: false
+    target_labels_opened: false
+    real_diagnostic_or_target_value_computed: false
+    record: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE.md
+    record_json: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE.json
+    gpu_handoff: reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_GPU_HANDOFF.md
+    tests:
+      new_file: tests/pipeline/test_post_failure_exploratory_target_v1.py   # 57 passed
+      combined_c9_scoped_suite_files: 8
+      combined_c9_scoped_suite_total: 428
 
-last_updated_utc: 2026-08-26   # C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2 scientifically executed on GPU (user-reported): overall_diagnostics_verdict=FAIL (color PASS all arms; JPEG FAIL via RND tail only; resize FAIL via all-arm tail only); this milestone implements the bounded, arithmetic-only interpretation module and a read-only closure CLI (validate-then-register, idempotent, fail-closed on tampering/conflict) — nothing registered for real on this laptop (no genuine result files exist here); BA_sep/DETECTOR_RELIABILITY_LOCK_C remain FAILED immutable; target_access=0 throughout
+  next_authorized_action: >-
+    `synthetic_vs_real_spoof_probe = FAILED`, `DETECTOR_RELIABILITY_LOCK_C.overall
+    = FAILED`, and `C9_POST_FAILURE_SOURCE_DIAGNOSTICS_V2.overall_diagnostics_verdict
+    = FAIL` are all permanent, observed, user-reported scientific results —
+    NOT rerun, tuned, or reselected under any circumstance.
+    `POST_FAILURE_DIAGNOSTIC_INTERPRETATION` is now `REGISTERED_ON_GPU`
+    (user-reported: `diagnostics_result_valid=true`, `problems=[]`,
+    `interpretation_registered=true`, zero recomputation, `target_access=0`)
+    — PHASE 1B IS CLOSED. This milestone froze a SEPARATE, EXPLORATORY,
+    POST-FAILURE branch, `POST_FAILURE_EXPLORATORY_TARGET_V1`
+    (`configs/evaluation/post_failure_exploratory_target_v1.yaml`, identity
+    `8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51`),
+    reusing the entire legacy M10 evaluation library verbatim (see
+    `stage_table.post_failure_exploratory_target_v1.reused_verbatim_legacy_components`)
+    and resolving the REAL, frozen 24-row P3-ready C8 target matrix (Track G
+    15 rows + Track R 9 rows) against the actual repository plan. NOTHING
+    WAS RUN FOR REAL: every CLI mode (`--preflight-only`,
+    `--bind-prediction-plan`, `--status`, `--predict`, `--preflight-score`,
+    `--score`) was run once against this real repo; matrix resolution
+    succeeded (proof of a correct audit), while every step needing GPU
+    checkpoints, the target feature package, or target labels correctly
+    reported an unresolved precondition, exit 2, writing nothing — the
+    target feature package is absent on this host and its identity was
+    never fabricated; no target label was ever opened. The next authorized
+    action, on the GPU host, is the sequence in
+    `reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_GPU_HANDOFF.md`:
+    safe `git fetch` + `merge --ff-only`, a protected-state checksum
+    snapshot, exploratory `--preflight-only` (expect all 24 rows to bind for
+    real and the target feature package identity to verify against
+    `c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8`
+    WITHOUT opening `data/evaluation_only/prism_target_v2_labels`), then
+    `--bind-prediction-plan` (twice, to prove idempotence), then confirming
+    the target label root remains unopened. A genuine `--predict` (the
+    first real scientific target access this branch would ever make) is
+    named in that handoff only as a clearly-separated NEXT step requiring
+    its own future, explicit authorization — it is NOT authorized by this
+    milestone. `--preflight-score`/`--score` (Phase E2, which finally opens
+    the target label) require a FURTHER separate authorization, reachable
+    only after a `FROZEN` `TARGET_PREDICTION_LOCK.json` exists, and are not
+    addressed by this handoff at all. `cross_route_synthetic`,
+    `recipe_region_shift`, `artifact_map_swap` remain
+    `NEEDS_SCIENTIFIC_DECISION`; `residual_scale_zero` remains
+    `STRUCTURALLY_MODEL_BLOCKED`; `crop_padding_interpolation` remains
+    `STRUCTURALLY_DATA_BLOCKED`. UNDER THE CURRENT BA_sep PROTOCOL VERSION,
+    NOTHING IN THIS EXPLORATORY BRANCH CAN REOPEN C9: `barrier_state`'s
+    `overall=FAILED` is sticky, and every exploratory artifact must carry
+    `ba_sep_observed_verdict=FAIL`, `detector_reliability_overall=FAILED`,
+    `post_failure_diagnostics_v2=FAIL`, `c9_original_confirmatory_path=BLOCKED`,
+    `exploratory_target_status=POST_FAILURE_EXPLORATORY`, and
+    `c9_may_close=false` — asserted by test that no function in either new
+    module can ever set `c9_may_close` true. C7 and C8 remain scientifically
+    closed and valid. C9 may not close `SOURCE_MATRIX_LOCK_C`, and the
+    original C10-C13 may not run. Do not run the original C9, C10, C11, C12
+    or C13, and do not access target for real, until the user explicitly
+    authorizes the `--predict` step named above.
+
+last_updated_utc: 2026-08-26   # PHASE 1C: froze POST_FAILURE_EXPLORATORY_TARGET_V1 — a separate, exploratory, post-failure target branch (not the original C9-C13 path, not a C9 pass, not a reliability waiver) reusing the legacy M10 evaluation library verbatim over the real, frozen 24-row P3-ready C8 matrix; legacy m10_target.yaml audited and left untouched; nothing scientifically executed on this laptop (target feature package absent, no target label ever opened); PHASE 1B (post-failure diagnostic interpretation) is now REGISTERED_ON_GPU per user report; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; target_access=0 throughout
 ```

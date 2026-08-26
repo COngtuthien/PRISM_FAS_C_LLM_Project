@@ -1,0 +1,172 @@
+{
+  "schema_version": "post-failure-exploratory-target-v1-freeze-report-v1",
+  "decision_id": "POST_FAILURE_EXPLORATORY_TARGET_V1",
+  "document_kind": "EXPLORATORY_POST_FAILURE_PROTOCOL_FREEZE",
+  "starting_head": "535288437a5431cbd340143ea53372b042d8fe2d",
+  "protocol": {
+    "config_path": "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+    "protocol_identity": "8fb806d25a80ecd3c7d44cfeba8c893a5f115b8b51797220a51132ba16708b51",
+    "status": "FROZEN_NOT_RUN",
+    "target_labels_opened": false,
+    "target_labels_revealed": false,
+    "target_predictions_observed": false,
+    "target_metrics_observed": false,
+    "target_access": 0
+  },
+  "immutable_upstream_state": {
+    "c7_scientific_closed": true,
+    "c8_scientific_closed": true,
+    "ba_sep_option1_v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+    "ba_sep_by_arm": {"RND": 0.7843079833902619, "DET": 0.8514170182841069, "LLM": 0.7902658339472685},
+    "ba_sep_observed_verdict": "FAIL",
+    "detector_reliability_lock_c_overall": "FAILED",
+    "c9_may_close": false,
+    "c9_original_confirmatory_path": "BLOCKED",
+    "post_failure_source_diagnostics_v2_overall": "FAIL",
+    "post_failure_diagnostic_interpretation_status": "REGISTERED_ON_GPU"
+  },
+  "legacy_m10_audit": {
+    "legacy_config_path": "configs/evaluation/m10_target.yaml",
+    "legacy_target_labels_revealed": true,
+    "legacy_reveal_commit": "ee80048",
+    "legacy_reveal_commit_message": "chore: finalize M10 blind evaluation",
+    "classification": "ENGINEERING_FIXTURE_ARTIFACT_OF_ORIGINAL_M10_CLI_REVEAL_FLOW",
+    "reused_as_new_preregistration": false,
+    "treated_as": "LEGACY_CONTRACT_SOURCE_OF_DESIGN_DECISIONS_ONLY",
+    "left_untouched": true
+  },
+  "target_matrix": {
+    "resolver": "prism_fas.evaluation.source_matrix.build_plan",
+    "filter": "row.target_prediction_required is True",
+    "total_rows": 24,
+    "track_g_rows": 15,
+    "track_g_arms": {"RND": 5, "DET": 5, "LLM": 5},
+    "track_r_rows": 9,
+    "track_r_experiments": {"C-R-DET": 3, "C-R-LLM": 3, "C-R-NOPROMPT": 3},
+    "verified_against_real_repository_plan": true,
+    "no_retraining": true,
+    "no_best_seed_selection": true,
+    "no_dropping_unfavorable_arms": true
+  },
+  "checkpoint_calibration_binding": {
+    "resolver": "prism_fas.evaluation.source_evidence.load_row_evidence (identity/hashes) + per-row calibration.json (threshold/temperature)",
+    "threshold_source": "SOURCE_DEV_FROZEN_CALIBRATION",
+    "calibration_split_required": "source_dev",
+    "target_labels_resolved_required": 0,
+    "target_quantile_forbidden_for_operating_threshold": true
+  },
+  "target_feature_package": {
+    "package_id": "prism_target_eval_v2",
+    "expected_identity": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+    "expected_composition": {"videos_total": 1700, "live": 785, "spoof": 915,
+                            "attack_families": 14, "frames_per_video": 4},
+    "present_on_this_laptop": false,
+    "verification_status": "TO_BE_VERIFIED_ON_GPU_BEFORE_FIRST_TARGET_ACCESS",
+    "identity_algorithm": "sorted (relative_path, sha256) pairs, hashed (same formula as pipeline.adapters.c10._package_identity, independently implemented)"
+  },
+  "target_label_root": {
+    "path": "data/evaluation_only/prism_target_v2_labels",
+    "artifact": "siw_target_labels.parquet",
+    "sealed": true,
+    "opened_by_this_task": false
+  },
+  "prediction_schema": {
+    "reused_from": "prism_fas.evaluation.target_prediction.PREDICTION_SCHEMA",
+    "forbidden_columns_reused_from": "prism_fas.evaluation.target_prediction.FORBIDDEN_PREDICTION_COLUMNS",
+    "forbidden_columns_sample": ["label", "true_label", "label_live_spoof", "attack_type",
+                                 "attack_family", "subject_id", "session_id"]
+  },
+  "firewall": {
+    "phase_e1_stage": "G7",
+    "phase_e1_may_read": ["target_feature_root"],
+    "phase_e1_may_not_read": ["target_label_root"],
+    "phase_e2_stage": "G8",
+    "phase_e2_precondition": "TARGET_PREDICTION_LOCK.status == FROZEN",
+    "phase_e2_may_not": ["load_model_checkpoints", "rerun_inference", "alter_predictions",
+                        "train_anything", "calibrate_thresholds", "select_checkpoints"],
+    "dependency_boundary_verified_by": "static AST import audit (scoring.static_import_audit, reused) + source-text regression test"
+  },
+  "aggregation": {
+    "resolver": "prism_fas.evaluation.video_aggregation.aggregate_frames",
+    "frames_per_video": 4,
+    "video_score": "trimmed_mean",
+    "trim_fraction": 0.10,
+    "trim_count_at_four_frames": 0
+  },
+  "metrics": {
+    "levels": ["frame", "video"],
+    "core": ["apcer", "bpcer", "acer", "roc_auc", "eer"],
+    "calibration": ["ece", "brier", "nll"],
+    "hter": "EVALUATION_ONLY_DESCRIPTIVE_METRIC",
+    "per_seed_values_hidden": false
+  },
+  "exploratory_comparisons": {
+    "naming": "E-H1..E-H4 (never C-H*)",
+    "E-H1": "Track-G generator: RND vs DET vs LLM",
+    "E-H2": "Track-R: DET vs LLM",
+    "E-H3": "Track-R: LLM vs R-NOPROMPT",
+    "E-H4": "Track-G vs Track-R, matched arms only (DET, LLM)",
+    "no_unmatched_comparisons": true,
+    "no_retrospective_comparison_selection": true
+  },
+  "statistics": {
+    "bootstrap_unit": "video",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260810,
+    "confidence_level": 0.95,
+    "interval": "percentile",
+    "paired": true,
+    "multiple_comparison_policy": "holm_bonferroni",
+    "family_size": 4
+  },
+  "reject_policy": {
+    "unknown_threshold": null,
+    "reject_policy": "NOT_APPLICABLE_NOT_FITTED",
+    "reject_dependent_metrics": "NOT_APPLICABLE"
+  },
+  "no_rerun_policy": {
+    "prediction": {"no_artifacts": "run once", "complete_valid_lock": "re-report only, zero inference",
+                  "partial": "BLOCK"},
+    "scoring": {"no_artifacts": "score once", "complete_valid_result": "re-report only",
+               "partial": "BLOCK"}
+  },
+  "implementation": {
+    "predictor_module": "src/prism_fas/evaluation/post_failure_exploratory_target.py",
+    "predictor_cli": "python -m prism_fas.evaluation.post_failure_exploratory_target --repo . {--preflight-only|--bind-prediction-plan|--status|--predict}",
+    "scorer_module": "src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py",
+    "scorer_cli": "python -m prism_fas.evaluation.post_failure_exploratory_target_scorer --repo . {--preflight-score|--score}"
+  },
+  "files_changed": {
+    "added": [
+      "configs/evaluation/post_failure_exploratory_target_v1.yaml",
+      "src/prism_fas/evaluation/post_failure_exploratory_target.py",
+      "src/prism_fas/evaluation/post_failure_exploratory_target_scorer.py",
+      "tests/pipeline/test_post_failure_exploratory_target_v1.py",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE.md",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_PROTOCOL_FREEZE.json",
+      "reports/readiness/POST_FAILURE_EXPLORATORY_TARGET_V1_GPU_HANDOFF.md"
+    ],
+    "modified": ["docs/PROJECT_STATE.md"],
+    "unchanged_verified_by_test": ["configs/evaluation/m10_target.yaml"]
+  },
+  "tests": {
+    "new_suite": "tests/pipeline/test_post_failure_exploratory_target_v1.py",
+    "new_suite_result": "57/57 pass",
+    "combined_c9_scoped_suite_files": 8,
+    "combined_c9_scoped_suite_result": "428/428 pass",
+    "broad_regression_scope": "tests/c7 tests/pipeline",
+    "test_environment_note": "pytest/torch/pyarrow/opencv-python-headless/pydantic installed into an isolated project-local virtualenv for this session only; no scientific artifact produced; no GPU/CUDA package installed"
+  },
+  "laptop_execution": {
+    "target_feature_package_opened": false,
+    "target_labels_opened": false,
+    "siw_mv2_inference_run": false,
+    "target_metrics_computed": false,
+    "fabricated_gpu_verification": false,
+    "target_access": 0,
+    "each_cli_mode_run_once_against_real_repo": true,
+    "matrix_resolution_succeeded_against_real_repo": true,
+    "each_blocked_on": ["missing GPU checkpoints / run manifests", "missing reports/full/c8/C8_ACCEPTANCE.json",
+                        "target feature package not present on this host", "no TARGET_PREDICTION_LOCK exists"]
+  }
+}
