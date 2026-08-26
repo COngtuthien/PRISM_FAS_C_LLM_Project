@@ -30,13 +30,25 @@ metadata resolution — it reuses the exact canonical readers C7/C8 already use
 `c6_evidence.verify_c6_evidence`, `sources.verify_detector_inputs`,
 `c6_bank.open_arm_bank`) and never opens an image or a checkpoint's weights.
 `forward_checkpoint_evidence` is a pure function over an ALREADY-BUILT model
-and batch and is safe to unit-test with a fake model. `run_scientific_probe`
-is the one function that would load real checkpoint weights and forward real
-images — it deliberately raises `NotImplementedError` here (see its
-docstring): wiring and running it is future work for a separate scientific
-runner (§16 of the protocol-freeze task), on a host that has the GPU C8
-artifacts. No test in this repository calls it, and it is never called by
-anything reachable from `--preflight-only`.
+and batch and is safe to unit-test with a fake model.
+
+`execute_joint_probe` (see `reports/readiness/C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX.md`)
+is the SANCTIONED, REAL, joint (all-three-arm) execution path — it strict-loads
+real checkpoints through `construct_row_trainer` (the exact C8 row-construction
+path, including C8's own scientific device resolver,
+`pipeline.adapters.c7._scientific_device` — never CPU-hard-coded, never a
+duplicated CUDA policy) and forwards real evidence through
+`forward_evidence_for_records` (batched exactly like C8's own cross-source
+evaluation). It is reached only through
+`prism_fas.evaluation.synthetic_real_probe_runner --execute`, which requires
+a prior successful `--bind-only` bound to the currently active protocol
+identity. The old single-arm `run_scientific_probe(repo, arm)` entry point is
+RETIRED: the frozen protocol balances jointly across RND/DET/LLM, so no
+single arm may ever be probed in isolation — it raises
+`SyntheticRealProbeError` rather than computing a partial result. Nothing in
+this repository's test suite calls `execute_joint_probe` against real data;
+every test exercises it with a monkeypatched `construct_row_trainer`/
+`forward_evidence_for_records` boundary and fixture evidence.
 """
 from __future__ import annotations
 
@@ -735,14 +747,32 @@ def balance_report(*, protocol_id: str, probe_seed: int, split: str, source_doma
 # 6. Evidence extraction — exactly [global_logit_G, p_global], nothing else
 # ==============================================================================
 
+def _evidence_scalar(value: Any) -> float:
+    """One evidence field as a plain Python float — safe whether `value` is
+    a CUDA tensor, a CPU tensor, a numpy array, or a plain Python number.
+
+    `np.asarray` alone raises on a CUDA tensor (`TypeError: can't convert
+    cuda:0 device type tensor to numpy. Use Tensor.cpu()...`) — the C8
+    canonical evaluation path (`M9Trainer` cross-source evaluation) always
+    converts with `.detach().float().cpu().numpy()` first; this does the
+    same, so evidence extraction matches C8's device semantics exactly
+    regardless of which device the scientific detector ran on.
+    """
+    import torch
+
+    if isinstance(value, torch.Tensor):
+        value = value.detach().float().cpu().numpy()
+    return float(np.asarray(value).reshape(-1)[0])
+
+
 def extract_evidence(model_output: Any) -> np.ndarray:
     """`[global_logit_G, p_global]` from one `ModelOutput`-shaped forward
     result. Reads `.global_logit` and `.p_global` ONLY — this function's own
     source is asserted, by a static regression test, to never reference any
     `FORBIDDEN_EVIDENCE_FIELDS` name.
     """
-    global_logit = float(np.asarray(model_output.global_logit).reshape(-1)[0])
-    p_global = float(np.asarray(model_output.p_global).reshape(-1)[0])
+    global_logit = _evidence_scalar(model_output.global_logit)
+    p_global = _evidence_scalar(model_output.p_global)
     return np.array([global_logit, p_global], dtype=np.float64)
 
 
@@ -1011,8 +1041,11 @@ def construct_row_trainer(repo: Path, binding: CheckpointBinding) -> Any:
     """Construct one checkpoint's trainer through the exact C8 row-execution
     path, then strict-load that checkpoint's weights. Never trains.
 
-    Raises (fails closed) if the C7 lock does not verify, if the checkpoint
-    bytes on disk no longer hash to the bound SHA-256, or if
+    Raises (fails closed) if the C7 lock does not verify, if the scientific
+    device cannot be resolved (`c7._scientific_device` — never CUDA-or-CPU
+    guessed here; a scientific probe on this laptop, which has no CUDA,
+    refuses before any model is even built), if the checkpoint bytes on disk
+    no longer hash to the bound SHA-256, or if
     `checkpoint.load_checkpoint`'s own identity check disagrees on any
     field — `expected_identity=trainer.identity` is the SAME `RunIdentity`
     this exact reconstruction deterministically re-derives from the row's
@@ -1025,12 +1058,18 @@ def construct_row_trainer(repo: Path, binding: CheckpointBinding) -> Any:
     from prism_fas.evaluation import c6_evidence, source_evidence
     from prism_fas.pipeline.adapters import AdapterRequest, sources
     from prism_fas.pipeline.adapters.c7 import (SCIENTIFIC_CONFIG_LOCK_PATH,
+                                                _scientific_device,
                                                 verify_detector_config_lock)
     from prism_fas.pipeline.adapters.c8 import _detector_config_for_row
     from prism_fas.pipeline.profiles import load_profile
 
     repo = Path(repo)
     row = _row_for_checkpoint(binding)
+
+    # The SAME resolver C8's own scientific row executor uses
+    # (`c8.py::_run_scientific_row`) — never a duplicated CUDA-selection
+    # policy, and never a silent CPU fallback for scientific inference.
+    device = _scientific_device()
 
     verification = verify_detector_config_lock(repo, repo / SCIENTIFIC_CONFIG_LOCK_PATH)
     if not verification["valid"]:
@@ -1057,7 +1096,7 @@ def construct_row_trainer(repo: Path, binding: CheckpointBinding) -> Any:
         recipe_bank_root=repo / inputs["recipe_bank_root"], run_root=run_root,
         cache_root=run_root / "cache", weight_root=repo / inputs["weight_root"],
         loader_config_path=repo / "configs/data/loader_m4.yaml",
-        device="cpu", synthetic_bank=bank)
+        device=device, synthetic_bank=bank)
 
     checkpoint_path = trainer.checkpoint_path(binding.checkpoint_kind)
     on_disk_sha256 = checkpoint_module.sha256_file(checkpoint_path)
@@ -1073,26 +1112,48 @@ def construct_row_trainer(repo: Path, binding: CheckpointBinding) -> Any:
     return trainer
 
 
+class _OneSampleEvidenceView:
+    """A single row sliced out of a batched `ModelOutput` — lets
+    `extract_evidence` (the one frozen, tested 2-field extraction rule) run
+    unmodified over one sample of a batch, rather than this function
+    duplicating what fields it reads."""
+    __slots__ = ("global_logit", "p_global")
+
+    def __init__(self, global_logit: Any, p_global: Any) -> None:
+        self.global_logit = global_logit
+        self.p_global = p_global
+
+
 def forward_evidence_for_records(trainer: Any, records: Sequence[PopulationRecord]
                                  ) -> dict[str, np.ndarray]:
-    """One `forward_checkpoint_evidence` call per record, through an
-    ALREADY-loaded, eval-mode trainer's model — never a second evidence
-    extraction rule.
+    """Canonical batched evaluation, matching C8's own cross-source
+    evaluation semantics exactly
+    (`pipeline.adapters.c8._cross_source_evaluation`): `model.eval()`
+    (set once, by `construct_row_trainer`), `torch.no_grad()`, each batch
+    moved with `.to(trainer.device)`, and `trainer.config.validation_batch_size`
+    as the batch size — never one sample per forward call, and never a
+    hard-coded batch size independent of the row's own frozen config.
 
     Real records resolve through `trainer.dataset._real_position`
     (`sample_id -> position` into the exact `CanonicalPackageDataset` every
     other resolver in this module reads); synthetic records resolve through
     the trainer's own bound arm bank's row order
     (`sample_identity == synthetic_id`). Fails closed if any requested
-    `sample_identity` is not resolvable in this trainer's dataset.
+    `sample_identity` is not resolvable in this trainer's dataset. Batching
+    is execution only: every sample gets exactly one evidence vector, keyed
+    by its own `sample_identity`, regardless of chunk boundaries — no
+    sample is reordered, dropped or merged with another.
     """
+    import torch
+
     from prism_fas.detector.dataset import collate_items
 
     synthetic_position = {str(row["synthetic_id"]): position
                           for position, row in enumerate(trainer.dataset.bank.rows)}
     real_position = trainer.dataset._real_position
 
-    evidence: dict[str, np.ndarray] = {}
+    items: list[Any] = []
+    sample_identities: list[str] = []
     for record in records:
         if record.label == REAL_SPOOF_CLASS:
             position = real_position.get(record.sample_identity)
@@ -1100,16 +1161,28 @@ def forward_evidence_for_records(trainer: Any, records: Sequence[PopulationRecor
                 raise SyntheticRealProbeError(
                     f"real sample_identity {record.sample_identity!r} is not resolvable "
                     "in this trainer's source_train dataset; fail closed")
-            item = trainer.dataset.real_item(position)
+            items.append(trainer.dataset.real_item(position))
         else:
             position = synthetic_position.get(record.sample_identity)
             if position is None:
                 raise SyntheticRealProbeError(
                     f"synthetic sample_identity {record.sample_identity!r} is not "
                     "resolvable in this trainer's arm bank; fail closed")
-            item = trainer.dataset.synthetic_item(position)
-        batch = collate_items([item]).to(trainer.device)
-        evidence[record.sample_identity] = forward_checkpoint_evidence(trainer.model, batch)
+            items.append(trainer.dataset.synthetic_item(position))
+        sample_identities.append(record.sample_identity)
+
+    batch_size = int(trainer.config.validation_batch_size)
+    evidence: dict[str, np.ndarray] = {}
+    with torch.no_grad():
+        for start in range(0, len(items), batch_size):
+            chunk_items = items[start:start + batch_size]
+            chunk_ids = sample_identities[start:start + batch_size]
+            batch = collate_items(chunk_items).to(trainer.device)
+            output = trainer.model(batch)
+            for offset, sample_identity in enumerate(chunk_ids):
+                view = _OneSampleEvidenceView(
+                    output.global_logit[offset], output.p_global[offset])
+                evidence[sample_identity] = extract_evidence(view)
     return evidence
 
 
@@ -1124,11 +1197,15 @@ def execute_joint_probe(repo: Path, *, checkpoint_binding: Mapping[str, Any],
     Requires an ALREADY-BUILT checkpoint binding and population plan (from
     `--bind-only`, or freshly rebuilt by the caller) and re-verifies, before
     any forward pass: both are bound to the CURRENTLY active protocol
-    identity, both verify their own recorded identity hash, and every
-    checkpoint's bytes on disk still match the bound SHA-256 (re-checked a
-    second time, per-checkpoint, inside `construct_row_trainer`). Fails
-    closed (raises) on any disagreement — no scientific metric is ever
-    computed over a stale or mismatched binding.
+    identity, both verify their own recorded identity hash, the CURRENT
+    source package identity and all three CURRENT C6 arm bank identities
+    (`sources.verify_detector_inputs`) agree with what the execution binding
+    recorded, and every checkpoint's bytes on disk still match the bound
+    SHA-256 (re-checked a second time, per-checkpoint, inside
+    `construct_row_trainer`). Fails closed (raises) on any disagreement — no
+    scientific metric is ever computed over a stale or mismatched binding,
+    and the package/bank check happens before ANY checkpoint is loaded, not
+    only as an eventual `RunIdentity` mismatch deep inside the first one.
 
     Uses ONLY the frozen mechanics already implemented and tested above
     (`construct_row_trainer`, `forward_evidence_for_records`,
@@ -1149,6 +1226,27 @@ def execute_joint_probe(repo: Path, *, checkpoint_binding: Mapping[str, Any],
     if population_plan.get("population_plan_identity_sha256") != \
             population_plan_identity(population_plan):
         raise SyntheticRealProbeError("population plan fails its own identity check")
+
+    # Explicit preregistered-input reverification, BEFORE the first model
+    # construction or forward pass — never left to eventual per-checkpoint
+    # RunIdentity rejection inside construct_row_trainer. A source package
+    # or C6 bank that has moved since --bind-only ran must block here, with
+    # zero model forwards and zero BA_sep, not surface as a confusing
+    # failure partway through the checkpoint loop.
+    from prism_fas.pipeline.adapters import sources
+
+    current_inputs = sources.verify_detector_inputs(repo, arms=ARMS)
+    if current_inputs["package_identity"] != checkpoint_binding.get("source_package_identity"):
+        raise SyntheticRealProbeError(
+            "current source package identity does not match the bound execution "
+            "binding's source_package_identity; refusing to forward any evidence")
+    bound_bank_identities = dict(checkpoint_binding.get("c6_bank_identities") or {})
+    for arm in ARMS:
+        current_bank_identity = str(current_inputs["c6"]["banks"][arm]["selected_set_sha256"])
+        if current_bank_identity != bound_bank_identities.get(arm):
+            raise SyntheticRealProbeError(
+                f"current C6 {arm!r} bank identity does not match the bound execution "
+                f"binding's c6_bank_identities[{arm!r}]; refusing to forward any evidence")
 
     checkpoints_by_arm: dict[str, list[dict[str, Any]]] = {arm: [] for arm in ARMS}
     for item in checkpoint_binding["checkpoints"]:

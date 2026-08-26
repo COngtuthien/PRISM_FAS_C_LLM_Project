@@ -1039,9 +1039,13 @@ def test_construct_row_trainer_strict_loads_with_identity_check() -> None:
     assert "apply_checkpoint(" in source
 
 
-def test_forward_evidence_for_records_reuses_forward_checkpoint_evidence() -> None:
+def test_forward_evidence_for_records_reuses_extract_evidence() -> None:
+    """Batched evaluation slices one sample's [global_logit, p_global] out
+    of the batched ModelOutput and hands it to the SAME frozen
+    `extract_evidence` every other evidence path uses — never a second
+    2-field extraction rule."""
     source = inspect.getsource(probe.forward_evidence_for_records)
-    assert "forward_checkpoint_evidence(" in source
+    assert "extract_evidence(" in source
     for forbidden in ("Image.open", "cv2.imread", "PIL."):
         assert forbidden not in source, forbidden
 
@@ -1070,6 +1074,364 @@ def test_execute_joint_probe_rejects_a_binding_bound_to_a_different_protocol(
                                   population_plan={"protocol_identity": "current" + "0" * 57,
                                                    "population_plan_identity_sha256": "y" * 64,
                                                    "cells": []})
+
+
+# ==============================================================================
+# H6. inference parity with C8 — device resolution, CUDA-safe evidence,
+#     batched forward, and explicit pre-forward package/bank reverification
+# ==============================================================================
+
+def test_construct_row_trainer_never_hard_codes_cpu() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert 'device="cpu"' not in source
+    assert "device='cpu'" not in source
+
+
+def test_construct_row_trainer_uses_the_c8_scientific_device_resolver() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert "_scientific_device" in source
+    assert "from prism_fas.pipeline.adapters.c7 import" in source
+
+
+def test_construct_row_trainer_passes_the_resolved_device_to_m9trainer() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert "device = _scientific_device()" in source
+    assert "device=device" in source
+
+
+def test_construct_row_trainer_blocks_before_any_resolution_when_device_unavailable(
+        monkeypatch) -> None:
+    """Device resolution must fail closed BEFORE the C7 lock, the C6 bank or
+    the trainer are ever touched — never a partial construction on a host
+    with no scientific device."""
+    import prism_fas.pipeline.adapters.c7 as c7_module
+
+    class _DeviceUnavailable(RuntimeError):
+        pass
+
+    def _raise() -> str:
+        raise _DeviceUnavailable("no CUDA on this host")
+
+    monkeypatch.setattr(c7_module, "_scientific_device", _raise)
+
+    called = {"n": 0}
+
+    def _spy(*args, **kwargs):
+        called["n"] += 1
+        raise AssertionError("verify_detector_config_lock must not be reached")
+
+    monkeypatch.setattr(c7_module, "verify_detector_config_lock", _spy)
+
+    binding = probe.CheckpointBinding(
+        arm="RND", seed=1, row_id="C-G-RND-P3READY-s20260806", run_identity="run",
+        config_identity="c" * 64, checkpoint_sha256="a" * 64, checkpoint_path="p",
+        checkpoint_kind="best", decision_logit_name="global_logit_G",
+        decision_graph_hash="g" * 64)
+    with pytest.raises(_DeviceUnavailable):
+        probe.construct_row_trainer(REPO, binding)
+    assert called["n"] == 0
+
+
+def test_evidence_scalar_converts_before_numpy() -> None:
+    source = inspect.getsource(probe._evidence_scalar)
+    assert ".detach()" in source
+    assert ".float()" in source
+    assert ".cpu()" in source
+
+
+def test_evidence_scalar_handles_a_tensor_requiring_detach_before_numpy() -> None:
+    """A `requires_grad` tensor refuses `.numpy()` directly — the same shape
+    of failure a CUDA tensor produces for `np.asarray` (for a different
+    reason: device, not grad). Proving `_evidence_scalar` survives THIS
+    case, entirely on CPU, proves the `.detach().float().cpu()` chain
+    actually runs rather than being dead code."""
+    import torch
+
+    tensor = torch.tensor(3.25, requires_grad=True)
+    with pytest.raises((RuntimeError, TypeError)):
+        np.asarray(tensor)
+    assert probe._evidence_scalar(tensor) == pytest.approx(3.25)
+
+
+def test_evidence_scalar_passes_through_plain_numbers_and_arrays() -> None:
+    assert probe._evidence_scalar(1.5) == 1.5
+    assert probe._evidence_scalar(np.array([2.5])) == 2.5
+
+
+def test_extract_evidence_reads_global_logit_correctly_from_a_tensor() -> None:
+    import torch
+
+    class _Output:
+        global_logit = torch.tensor(1.75)
+        p_global = torch.tensor(0.6)
+
+    vector = probe.extract_evidence(_Output())
+    assert vector[0] == pytest.approx(1.75)
+
+
+def test_extract_evidence_reads_p_global_correctly_from_a_tensor() -> None:
+    import torch
+
+    class _Output:
+        global_logit = torch.tensor(1.75)
+        p_global = torch.tensor(0.6)
+
+    vector = probe.extract_evidence(_Output())
+    assert vector[1] == pytest.approx(0.6)
+
+
+def test_extract_evidence_dimension_is_exactly_two() -> None:
+    import torch
+
+    class _Output:
+        global_logit = torch.tensor(0.0)
+        p_global = torch.tensor(0.0)
+
+    vector = probe.extract_evidence(_Output())
+    assert vector.shape == (2,) == (probe.EVIDENCE_DIMENSION,)
+
+
+class _SpyModel:
+    """Records every batch it is called with and the grad-enabled state at
+    call time; returns per-sample evidence encoded from each item's own
+    `sample_ids` entry, so a test can verify no sample was reordered,
+    dropped or duplicated across batch boundaries."""
+
+    def __init__(self) -> None:
+        import torch
+
+        self.torch = torch
+        self.calls: list[list[str]] = []
+        self.grad_enabled_during_call: list[bool] = []
+        self.eval_called = False
+
+    def eval(self) -> None:
+        self.eval_called = True
+
+    def __call__(self, batch: Any) -> Any:
+        self.calls.append(list(batch.sample_ids))
+        self.grad_enabled_during_call.append(self.torch.is_grad_enabled())
+        n = len(batch.sample_ids)
+        # value encodes the sample's own position in the GLOBAL id list
+        # (via a deterministic function of its id), never batch position.
+        values = [float(int(sid.split("-")[-1])) for sid in batch.sample_ids]
+        global_logit = self.torch.tensor(values, dtype=self.torch.float32)
+        p_global = self.torch.tensor([v / 100.0 for v in values], dtype=self.torch.float32)
+        return type("Output", (), {"global_logit": global_logit, "p_global": p_global})()
+
+
+class _FakeBatch:
+    """Stands in for a real `DetectorBatch`: carries only `sample_ids` (what
+    `_SpyModel` and `forward_evidence_for_records` actually use) and a
+    no-op `.to(device)`, so these tests exercise `forward_evidence_for_records`'s
+    OWN chunking/ordering/no_grad logic without needing to satisfy
+    `DetectorBatch.validate()`'s real image/region-prior shape contract —
+    that contract has its own coverage elsewhere (`dataset.py`'s tests)."""
+
+    def __init__(self, sample_ids: list[str]) -> None:
+        self.sample_ids = tuple(sample_ids)
+
+    def to(self, device: str) -> "_FakeBatch":
+        return self
+
+
+def _fake_trainer_for_forwarding(monkeypatch, *, batch_size: int, real_ids: list[str],
+                                 synthetic_ids: list[str]):
+    import prism_fas.detector.dataset as dataset_module
+
+    monkeypatch.setattr(
+        dataset_module, "collate_items",
+        lambda items: _FakeBatch([item.sample_id for item in items]))
+
+    class _FakeConfig:
+        validation_batch_size = batch_size
+
+    class _FakeItem:
+        def __init__(self, sample_id: str) -> None:
+            self.sample_id = sample_id
+
+    real_position = {sid: i for i, sid in enumerate(real_ids)}
+    synthetic_rows = [{"synthetic_id": sid} for sid in synthetic_ids]
+
+    class _FakeBank:
+        rows = synthetic_rows
+
+    class _FakeDataset:
+        _real_position = real_position
+        bank = _FakeBank()
+
+        def real_item(self, position: int):
+            return _FakeItem(real_ids[position])
+
+        def synthetic_item(self, position: int):
+            return _FakeItem(synthetic_ids[position])
+
+    class _FakeTrainer:
+        config = _FakeConfig()
+        dataset = _FakeDataset()
+        device = "cpu"
+        model = _SpyModel()
+
+    return _FakeTrainer()
+
+
+def test_forward_evidence_for_records_batches_with_validation_batch_size() -> None:
+    source = inspect.getsource(probe.forward_evidence_for_records)
+    assert "trainer.config.validation_batch_size" in source
+
+
+def test_forward_evidence_for_records_calls_model_in_chunks_of_batch_size(monkeypatch) -> None:
+    real_ids = [f"r-{i}" for i in range(5)]
+    trainer = _fake_trainer_for_forwarding(monkeypatch, batch_size=2, real_ids=real_ids,
+                                           synthetic_ids=[])
+    records = [probe.PopulationRecord(sid, sid, "casia_fasd", probe.REAL_SPOOF_CLASS)
+              for sid in real_ids]
+    probe.forward_evidence_for_records(trainer, records)
+    # 5 samples at batch_size=2 -> 3 forward calls (2, 2, 1)
+    assert len(trainer.model.calls) == 3
+    assert [len(c) for c in trainer.model.calls] == [2, 2, 1]
+
+
+def test_forward_evidence_for_records_runs_under_no_grad(monkeypatch) -> None:
+    real_ids = [f"r-{i}" for i in range(3)]
+    trainer = _fake_trainer_for_forwarding(monkeypatch, batch_size=2, real_ids=real_ids,
+                                           synthetic_ids=[])
+    records = [probe.PopulationRecord(sid, sid, "casia_fasd", probe.REAL_SPOOF_CLASS)
+              for sid in real_ids]
+    probe.forward_evidence_for_records(trainer, records)
+    assert trainer.model.grad_enabled_during_call
+    assert all(enabled is False for enabled in trainer.model.grad_enabled_during_call)
+
+
+def test_forward_evidence_for_records_gives_every_sample_exactly_one_vector(monkeypatch) -> None:
+    real_ids = [f"r-{i}" for i in range(4)]
+    synthetic_ids = [f"s-{i}" for i in range(100, 104)]
+    trainer = _fake_trainer_for_forwarding(monkeypatch, batch_size=3, real_ids=real_ids,
+                                           synthetic_ids=synthetic_ids)
+    records = ([probe.PopulationRecord(sid, sid, "casia_fasd", probe.REAL_SPOOF_CLASS)
+               for sid in real_ids]
+              + [probe.PopulationRecord(sid, sid, "casia_fasd", probe.SYNTHETIC_SPOOF_CLASS)
+                 for sid in synthetic_ids])
+    result = probe.forward_evidence_for_records(trainer, records)
+    assert set(result) == set(real_ids) | set(synthetic_ids)
+    assert len(result) == len(real_ids) + len(synthetic_ids)
+
+
+def test_forward_evidence_for_records_batching_does_not_reorder_or_mix_samples(monkeypatch) -> None:
+    """Each sample's evidence must come from ITS OWN row of whichever batch
+    it landed in — not from a neighbor's row, and not shifted by chunk
+    boundaries. `_SpyModel` encodes each sample's evidence deterministically
+    from its own id, so a mismatch here would mean batching corrupted the
+    identity <-> evidence mapping."""
+    real_ids = [f"r-{i}" for i in range(7)]
+    trainer = _fake_trainer_for_forwarding(monkeypatch, batch_size=3, real_ids=real_ids,
+                                           synthetic_ids=[])
+    records = [probe.PopulationRecord(sid, sid, "casia_fasd", probe.REAL_SPOOF_CLASS)
+              for sid in real_ids]
+    result = probe.forward_evidence_for_records(trainer, records)
+    for sid in real_ids:
+        expected = float(int(sid.split("-")[-1]))
+        assert result[sid][0] == pytest.approx(expected)
+        assert result[sid][1] == pytest.approx(expected / 100.0)
+
+
+def _bare_bound_artifacts(*, package_identity: str = "pkg" + "0" * 61,
+                          bank_identities: dict[str, str] | None = None) -> tuple[dict, dict]:
+    protocol_id = "a" * 64
+    checkpoint_binding = {
+        "protocol_identity": protocol_id,
+        "source_package_identity": package_identity,
+        "c6_bank_identities": bank_identities or {arm: f"bank-{arm}" + "0" * 55
+                                                  for arm in probe.ARMS},
+        "checkpoints": [],
+    }
+    checkpoint_binding["checkpoint_binding_identity_sha256"] = \
+        probe.checkpoint_binding_identity(checkpoint_binding)
+    population_plan = {"protocol_identity": protocol_id, "cells": []}
+    population_plan["population_plan_identity_sha256"] = \
+        probe.population_plan_identity(population_plan)
+    return checkpoint_binding, population_plan
+
+
+def _install_pre_forward_guard_fixtures(monkeypatch, *, current_package_identity: str,
+                                        current_bank_identities: dict[str, str]):
+    from prism_fas.pipeline.adapters import sources
+
+    monkeypatch.setattr(probe, "protocol_identity", lambda repo: "a" * 64)
+    monkeypatch.setattr(
+        sources, "verify_detector_inputs",
+        lambda repo, arms=None: {
+            "package_identity": current_package_identity,
+            "c6": {"banks": {arm: {"selected_set_sha256": current_bank_identities[arm]}
+                            for arm in probe.ARMS}}})
+
+    called = {"n": 0}
+
+    def _spy(repo, binding):
+        called["n"] += 1
+        raise AssertionError("construct_row_trainer must not be reached")
+
+    monkeypatch.setattr(probe, "construct_row_trainer", _spy)
+    return called
+
+
+def test_execute_blocks_on_source_package_identity_mismatch_before_construction(
+        monkeypatch, tmp_path) -> None:
+    checkpoint_binding, population_plan = _bare_bound_artifacts(package_identity="bound-pkg" + "0" * 55)
+    called = _install_pre_forward_guard_fixtures(
+        monkeypatch, current_package_identity="DIFFERENT-pkg" + "0" * 51,
+        current_bank_identities=checkpoint_binding["c6_bank_identities"])
+    # give the checkpoint binding SOME checkpoints so a later count-check
+    # would not itself explain a raise before the package check does
+    with pytest.raises(probe.SyntheticRealProbeError, match="source package identity"):
+        probe.execute_joint_probe(tmp_path, checkpoint_binding=checkpoint_binding,
+                                  population_plan=population_plan)
+    assert called["n"] == 0
+
+
+@pytest.mark.parametrize("arm", ["RND", "DET", "LLM"])
+def test_execute_blocks_on_a_single_arm_c6_bank_mismatch_before_construction(
+        monkeypatch, tmp_path, arm: str) -> None:
+    checkpoint_binding, population_plan = _bare_bound_artifacts()
+    current_banks = dict(checkpoint_binding["c6_bank_identities"])
+    current_banks[arm] = "DIFFERENT-bank" + "0" * 50
+    called = _install_pre_forward_guard_fixtures(
+        monkeypatch, current_package_identity=checkpoint_binding["source_package_identity"],
+        current_bank_identities=current_banks)
+    with pytest.raises(probe.SyntheticRealProbeError, match=arm):
+        probe.execute_joint_probe(tmp_path, checkpoint_binding=checkpoint_binding,
+                                  population_plan=population_plan)
+    assert called["n"] == 0
+
+
+def test_execute_still_requires_exactly_fifteen_checkpoints(monkeypatch, tmp_path) -> None:
+    checkpoint_binding, population_plan = _bare_bound_artifacts()
+    _install_pre_forward_guard_fixtures(
+        monkeypatch, current_package_identity=checkpoint_binding["source_package_identity"],
+        current_bank_identities=checkpoint_binding["c6_bank_identities"])
+    # package/bank checks pass (identities agree); checkpoints list is still
+    # empty, so the existing per-arm count guard must still fire.
+    with pytest.raises(probe.SyntheticRealProbeError, match="checkpoints"):
+        probe.execute_joint_probe(tmp_path, checkpoint_binding=checkpoint_binding,
+                                  population_plan=population_plan)
+
+
+def test_construct_row_trainer_still_verifies_checkpoint_sha_on_disk() -> None:
+    source = inspect.getsource(probe.construct_row_trainer)
+    assert "on_disk_sha256 != binding.checkpoint_sha256" in source
+
+
+def test_v2_protocol_identity_is_unchanged_by_the_inference_parity_fix() -> None:
+    assert probe.protocol_identity(REPO) == \
+        "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8"
+
+
+def test_pre_forward_guard_functions_never_reference_target_paths() -> None:
+    source = inspect.getsource(probe.execute_joint_probe)
+    for forbidden in ("siw", "SiW", "target_test", "target_taxonomy"):
+        assert forbidden not in source, forbidden
+    assert '"target_access": 0' in inspect.getsource(probe) or \
+        "target_access" in source   # the module carries target_access=0 throughout
 
 
 # ==============================================================================

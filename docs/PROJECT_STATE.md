@@ -28,61 +28,70 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX
+current_milestone: C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX
 current_substage: >-
   SUPERSEDES the substages below. On the GPU host, C4, C5, C6, C7 and C8 are
   SCIENTIFIC CLOSED (see `c7_scientific_closure_reconciliation` below,
   `reports/readiness/C7_SCIENTIFIC_CLOSURE_AUDIT.md`; C8 outcome PASS, all
-  eight substages PASS, 42/42 scientific rows PASS). C8's own GPU artifacts
-  (`runs/full/c8/`, `reports/full/c8/`, updated `state/*`) live only on the
-  GPU host; this laptop has none of them and none of their contents is
-  invented here. The prior milestone froze `C9_DETECTOR_BA_SEP_OPTION1_V2`
-  (superseding V1 with a pre-execution group-identity correction; V2 protocol
-  identity `720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8`,
-  unchanged since). Auditing that milestone's own committed runner (BEFORE any
-  BA_sep value was ever observed) found two implementation defects, not
-  scientific ones: (1) `--bind-only --arm {RND,DET,LLM}` bound one arm at a
-  time, which forces `N = min(real, this_arm, 0, 0) = 0` for every cell under
-  the already-frozen JOINT balancing rule (`N = min(real, RND, DET, LLM)`) —
-  no real bind had ever succeeded against real data on any host, so no
-  invalid binding was ever produced; and (2) `--execute` still routed to the
-  deliberately-`NotImplementedError` single-arm `run_scientific_probe`. This
-  milestone fixes both: the CLI now has NO `--arm` flag on any mode
-  (`python -m prism_fas.evaluation.synthetic_real_probe_runner --repo .
-  {--preflight-only|--bind-only|--execute}`); `--bind-only` atomically
-  resolves and writes exactly two global artifacts under
-  `reports/full/c8/reliability/synthetic_vs_real_spoof_probe/`
-  (`C9_BA_SEP_EXECUTION_BINDING.json`, all 15 checkpoints;
-  `C9_BA_SEP_POPULATION_PLAN.json`, the joint three-arm preselected sample
-  plan, zero-sample cells fail closed, a leakage audit re-proves group
-  safety); `--preflight-only` now passes only if the protocol, the source
-  package, all three C6 banks, all 15 checkpoints and the group-identity
-  mapping ALL resolve; and `--execute`
-  (`synthetic_real_probe.execute_joint_probe`) is now real code — it reuses
-  the exact C8 row-construction path (C7 lock, C6 bank, `_detector_config_for_row`,
-  `M9Trainer`, `checkpoint.load_checkpoint`/`apply_checkpoint`, strict,
-  identity-checked) to strict-load all 15 checkpoints, forwards evidence
-  through the unchanged frozen mechanics
-  (`forward_checkpoint_evidence`/`compute_ba_sep_for_seed`/`aggregate_ba_sep`/
-  `hard_verdict`), and writes five result artifacts on a REAL run (a
-  scientific FAILED verdict is written honestly, distinct in exit code from a
-  BLOCKED precondition failure). No BA_sep value has ever been computed, on
-  this task or any before it — `--preflight-only`, `--bind-only` and
-  `--execute` were each run once against the real repo on this laptop and
-  each correctly exited BLOCKED, writing no file. The V2 scientific protocol
+  eight substages PASS, 42/42 scientific rows PASS). The prior milestone fixed
+  the joint-bind/real-execute runner defects; since then, on the GPU HOST
+  (not this laptop), a real `--preflight-only` then `--bind-only` SUCCEEDED
+  and is now stable: protocol identity
+  `720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8`,
+  checkpoint binding identity
+  `fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0`,
+  population plan identity
+  `90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1`, 15/15
+  checkpoints bound, 12 population cells bound. No BA_sep had yet been
+  computed; no checkpoint had yet been LOADED for the real probe (binding
+  resolves and hashes manifests — it never opens a checkpoint's weights). A
+  final pre-first-execute audit found detector INFERENCE still did not match
+  the canonical C8 execution path in three respects, all implementation
+  parity, none a scientific decision: (1) `construct_row_trainer` hard-coded
+  `device="cpu"` instead of C8's own `pipeline.adapters.c7._scientific_device()`
+  resolver (CUDA-or-fail-closed, never a silent CPU fallback); (2)
+  `extract_evidence` called `np.asarray` directly on tensors, which raises
+  on a CUDA tensor — C8's own evaluation path always converts with
+  `.detach().float().cpu().numpy()` first; (3) evidence was forwarded one
+  sample per model call rather than batched by
+  `trainer.config.validation_batch_size` as C8's own cross-source evaluation
+  does. This milestone fixes all three: `construct_row_trainer` now resolves
+  the scientific device via `c7._scientific_device()` before touching the C7
+  lock or C6 bank, and fails closed if it cannot; a new `_evidence_scalar`
+  helper performs the CUDA-safe conversion chain for both evidence fields
+  (proven on this CPU-only laptop with a `requires_grad=True` tensor, which a
+  bare `np.asarray` also rejects); `forward_evidence_for_records` now chunks
+  by `trainer.config.validation_batch_size` and slices per-sample evidence
+  out of the batched `ModelOutput` via the unchanged `extract_evidence` —
+  never reordering, dropping or merging a sample across a chunk boundary.
+  `execute_joint_probe` also now explicitly reverifies the CURRENT source
+  package identity and all three CURRENT C6 arm bank identities against the
+  bound execution binding, BEFORE any checkpoint construction or forward —
+  a mismatch on any of the four now blocks by name, with zero model
+  forwards, rather than only ever surfacing as an eventual per-checkpoint
+  `RunIdentity` refusal. Neither `build_checkpoint_binding` nor
+  `build_population_plan` was edited, so the GPU host's already-bound
+  identities above are expected to reproduce unchanged (`reused: true`) on
+  its next `--preflight-only`/`--bind-only`. The V2 scientific protocol
   itself was NOT changed (identity verified unchanged by regression); no V3
-  was created. `detector_reliability.probe_protocol_status(repo)["resolved"]`
-  remains True for the same ONE of nine required reliability tests
+  was created. No BA_sep value has ever been computed, on this task or any
+  before it — `--preflight-only`, `--bind-only` and `--execute` were each run
+  once against the real repo on this laptop (no CUDA, no M3B package) and
+  each correctly exited BLOCKED, writing no file.
+  `detector_reliability.probe_protocol_status(repo)["resolved"]` remains
+  True for the same ONE of nine required reliability tests
   (`synthetic_vs_real_spoof_probe`); the other eight remain unresolved, so
   `verify_lock()` still refuses and C9 is still correctly
   BLOCKED_PENDING_DETECTOR_RELIABILITY_SCIENTIFIC_DECISION — see
-  `reports/readiness/C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX.md`. C10-C13
+  `reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.md`. C10-C13
   have not yet executed scientifically. target_access has been 0 throughout.
-previous_milestone: C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION
+previous_milestone: C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
-  # separately ran --profile full through C8; see execution_pipeline.full.
-pipeline_phase: scientific-execution-through-c8-c9-blocked-one-of-nine-protocols-frozen-v2-runner-fixed
+  # separately ran --profile full through C8, and separately succeeded at
+  # --preflight-only/--bind-only for the BA_sep probe; see
+  # execution_pipeline.full and stage_table.c9.ba_sep_option1_v2_gpu_binding.
+pipeline_phase: scientific-execution-through-c8-c9-blocked-one-of-nine-protocols-frozen-v2-bound-inference-parity-fixed
 
 # SCOPE WARNING — HISTORICAL, SUPERSEDED 2026-08-25. Kept for context: this is
 # what was true through the C7_C13_PRODUCTION_PATH_READINESS milestone, when
@@ -5297,6 +5306,62 @@ c7_scientific_closure_reconciliation:
           v2_file: tests/pipeline/test_c9_ba_sep_option1_v2_runner.py   # 90 passed
           all_c9_scoped_tests_total: 150
           broad_regression_tests_c7_and_pipeline: {failed: 33, passed: 1663, skipped: 22, baseline_unchanged: true}
+      ba_sep_option1_v2_gpu_binding:
+        # Reported by the user as already true at the start of the
+        # inference-parity-fix task; recorded here as the real, current GPU
+        # scientific state. This laptop cannot verify it directly (it has no
+        # runs/full/c8/); it is authoritative because it was named as fact
+        # by the human directing this work, not derived on this laptop.
+        status: FROZEN_BOUND
+        host: GPU_SCIENTIFIC_HOST   # not this laptop
+        protocol_identity: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+        checkpoint_binding_identity: fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0
+        population_plan_identity: 90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1
+        checkpoints_bound: 15
+        population_cells_bound: 12
+        real_ba_sep_computed: false
+        real_checkpoint_loaded_for_the_probe: false   # binding hashes manifests; it never opens weights
+        expected_to_remain_reproducible_after_the_inference_parity_fix: true   # build_checkpoint_binding
+                                                                               # and build_population_plan
+                                                                               # were not edited
+      ba_sep_option1_v2_inference_parity_fix:
+        status: IMPLEMENTED_NOT_RUN
+        v2_protocol_identity_unchanged: 720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8
+        v3_created: false
+        discovered: after the real GPU binding above succeeded, before the first real --execute
+        gaps_fixed:
+          - id: HARD_CODED_CPU_DEVICE
+            problem: construct_row_trainer passed device="cpu" unconditionally instead of C8's own scientific device resolver
+            fix: construct_row_trainer now calls pipeline.adapters.c7._scientific_device() first, before the C7 lock or C6 bank are touched, and passes the resolved device into M9Trainer; fails closed if no CUDA
+          - id: CUDA_UNSAFE_EVIDENCE_CONVERSION
+            problem: extract_evidence called np.asarray(tensor) directly, which raises on a CUDA tensor
+            fix: new _evidence_scalar() helper does .detach().float().cpu().numpy() first for any torch.Tensor; linear probe itself remains CPU float64, unchanged
+          - id: ONE_SAMPLE_PER_FORWARD
+            problem: forward_evidence_for_records forwarded one sample per model call, not matching C8's own batched cross-source evaluation
+            fix: now chunks by trainer.config.validation_batch_size, forwards under torch.no_grad(), slices per-sample evidence via the unchanged extract_evidence -- no sample reordered or mixed across chunks
+        new_explicit_pre_forward_guard: >-
+          execute_joint_probe now calls sources.verify_detector_inputs(repo, arms=ARMS)
+          and requires the CURRENT source package identity and all three CURRENT
+          C6 arm bank identities to match checkpoint_binding's bound values,
+          BEFORE any checkpoint construction or forward -- previously only ever
+          reachable as an eventual per-checkpoint RunIdentity refusal
+        build_checkpoint_binding_and_build_population_plan_edited: false
+        expected_gpu_rerun_result: >-
+          --preflight-only then --bind-only on the GPU host should reproduce
+          the SAME three identities recorded in ba_sep_option1_v2_gpu_binding
+          above, with reused: true
+        real_ba_sep_computed: false
+        runner_dry_run_on_this_laptop:
+          preflight_only: {exit_code: 2, target_access: 0}
+          bind_only: {exit_code: 2, artifacts_written: false, reason: no CUDA, no M3B package, no runs/full/c8/ on this host}
+          execute: {exit_code: 2, executed: false, reason: no execution binding on disk; run --bind-only first}
+        record: reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.md
+        record_json: reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.json
+        tests:
+          v1_shared_mechanics_file: tests/pipeline/test_c9_ba_sep_option1_protocol.py   # 44 passed
+          v2_file: tests/pipeline/test_c9_ba_sep_option1_v2_runner.py   # 113 passed
+          all_c9_scoped_tests_total: 173
+          broad_regression_tests_c7_and_pipeline: {failed: 33, passed: 1686, skipped: 22, baseline_unchanged: true}
       still_unresolved:
         - the other eight REQUIRED_DETECTOR_RELIABILITY_TESTS (residual_scale_zero,
           recipe_region_shift, artifact_map_swap, cross_route_synthetic,
@@ -5359,6 +5424,7 @@ c7_scientific_closure_reconciliation:
     protocol_freeze_record: reports/readiness/C9_BA_SEP_OPTION1_PROTOCOL_FREEZE.md   # V1, historical
     protocol_correction_record: reports/readiness/C9_BA_SEP_OPTION1_V2_PREEXECUTION_CORRECTION.md   # V2, current
     runner_integration_fix_record: reports/readiness/C9_BA_SEP_OPTION1_V2_RUNNER_INTEGRATION_FIX.md   # joint bind + real execute
+    inference_parity_fix_record: reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.md   # device/CUDA/batching parity
     no_ba_sep_number_produced: true
     no_fake_or_hardcoded_pass_lock_created: true
 
@@ -5369,27 +5435,32 @@ c7_scientific_closure_reconciliation:
     benign corruption tests, and crop_padding_interpolation's structural
     data-block). C7 and C8 remain scientifically closed and valid; nothing
     further is required of either. The synthetic_vs_real_spoof_probe
-    PROTOCOL is frozen as C9_DETECTOR_BA_SEP_OPTION1_V2 (supersedes V1 with a
-    pre-execution group-identity correction only; identity unchanged by this
-    task) but NOT executed — no BA_sep value exists under any version.
-    `python -m prism_fas.evaluation.synthetic_real_probe_runner` now provides
-    `--preflight-only`, `--bind-only` and `--execute`, NONE of which take
-    `--arm` any more (the joint balancing rule requires all three arms
-    bound/executed together; a prior per-arm CLI was fixed for exactly this
-    reason). `--bind-only` atomically resolves and writes the joint
-    checkpoint binding and population plan; `--execute`
-    (`synthetic_real_probe.execute_joint_probe`) is now REAL code that
-    strict-loads all 15 checkpoints via the exact C8 construction path and
-    would compute a real BA_sep — it still refuses on this laptop (no
-    runs/full/c8/, no M3B package) and on every host until `--bind-only` has
-    first produced matching artifacts there. When authorized to run it for
-    real, run it on the GPU host that has the real C8 checkpoints and source
-    package: `--preflight-only` first, then `--bind-only`, then `--execute`.
-    C9 may not close SOURCE_MATRIX_LOCK_C, and C10-C13 may not run, until a
-    real DETECTOR_RELIABILITY_LOCK_C exists with overall=PASSED, every
-    required test PASSED, and a bound probe_protocol_identity and
+    PROTOCOL is frozen as C9_DETECTOR_BA_SEP_OPTION1_V2 (identity unchanged
+    across both runner fixes) but NOT executed — no BA_sep value exists under
+    any version. The GPU host has already run `--preflight-only` and
+    `--bind-only` successfully (see
+    `stage_table.c9.ba_sep_option1_v2_gpu_binding`: protocol identity
+    `720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8`,
+    checkpoint binding identity
+    `fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0`,
+    population plan identity
+    `90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1`, 15/15
+    checkpoints, 12 cells). This milestone fixed three detector-inference
+    parity gaps found before the first real `--execute` (hard-coded CPU
+    device, CUDA-unsafe evidence conversion, unbatched forwarding) plus added
+    an explicit pre-forward package/C6-identity reverification;
+    `build_checkpoint_binding`/`build_population_plan` were NOT edited, so
+    the GPU host's bound identities above are expected to reproduce unchanged
+    on its next `--preflight-only`/`--bind-only` (`reused: true`). When
+    authorized to run `--execute` for real, run it on the GPU host that has
+    the real C8 checkpoints, the real source package and CUDA — this laptop
+    can only dry-run the CLI (no CUDA, no M3B package, no `runs/full/c8/`;
+    every mode here correctly exits BLOCKED). C9 may not close
+    SOURCE_MATRIX_LOCK_C, and C10-C13 may not run, until a real
+    DETECTOR_RELIABILITY_LOCK_C exists with overall=PASSED, every required
+    test PASSED, and a bound probe_protocol_identity and
     detector_checkpoint_identities. Do not run C9, C10, C11, C12 or C13, and
     do not access target, until then.
 
-last_updated_utc: 2026-08-26   # C9_DETECTOR_BA_SEP_OPTION1_V2 runner integration fix: joint bind + real execute (not run)
+last_updated_utc: 2026-08-26   # C9_DETECTOR_BA_SEP_OPTION1_V2 detector-inference parity fix (device/CUDA/batching); GPU binding already frozen; not executed
 ```

@@ -1,0 +1,127 @@
+{
+  "schema_version": "c9-ba-sep-option1-v2-inference-parity-fix-v1",
+  "document_kind": "IMPLEMENTATION_FIX_NOT_EXECUTION",
+  "decision_id": "C9_DETECTOR_BA_SEP_OPTION1_V2",
+  "supersedes_a_protocol_version": false,
+  "v2_protocol_identity_unchanged": true,
+  "v2_protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+  "v3_protocol_created": false,
+  "target_access": 0,
+  "companion_markdown": "reports/readiness/C9_BA_SEP_OPTION1_V2_INFERENCE_PARITY_FIX.md",
+
+  "discovered_after_successful_real_gpu_binding": true,
+  "real_gpu_binding_at_discovery": {
+    "protocol_identity": "720a2e344017d588d71005b81fdf0e7d2062081ae2f3881a61a306d952dc4ac8",
+    "checkpoint_binding_identity": "fa380fa8e732f8536fe175d449542e636563d92d8d75f64bb07b40ca180f63b0",
+    "population_plan_identity": "90d00d9f4bb50a93724d1ac6a632d6fa5052cf2d7ec0d08989c4c7004fa6cae1",
+    "checkpoints_bound": 15,
+    "population_cells_bound": 12
+  },
+  "no_checkpoint_loaded_for_the_real_probe_before_this_fix": true,
+  "no_detector_forward_occurred_for_the_real_probe_before_this_fix": true,
+  "no_ba_sep_observed_before_this_fix": true,
+  "no_ba_sep_observed_after_this_fix": true,
+
+  "gaps_found": [
+    {
+      "id": "HARD_CODED_CPU_DEVICE",
+      "description": "construct_row_trainer passed device=\"cpu\" to M9Trainer unconditionally; C8's own scientific row executor resolves device via pipeline.adapters.c7._scientific_device(), which requires CUDA and fails closed rather than falling back to CPU",
+      "is_a_scientific_decision": false,
+      "fix": "construct_row_trainer now calls _scientific_device() first, before the C7 lock or C6 bank are touched, and passes the resolved device into M9Trainer"
+    },
+    {
+      "id": "CUDA_TENSOR_UNSAFE_NUMPY_CONVERSION",
+      "description": "extract_evidence called np.asarray(tensor) directly, which raises on a CUDA tensor; C8's own canonical evaluation path always converts with .detach().float().cpu().numpy() first",
+      "is_a_scientific_decision": false,
+      "fix": "new _evidence_scalar() helper performs the same .detach().float().cpu().numpy() chain for any torch.Tensor before reducing to a float; non-tensor values pass through unchanged"
+    },
+    {
+      "id": "ONE_SAMPLE_PER_FORWARD_CALL",
+      "description": "forward_evidence_for_records forwarded exactly one sample per model call, not matching C8's own batched cross-source evaluation semantics",
+      "is_a_scientific_decision": false,
+      "fix": "now chunks by trainer.config.validation_batch_size, forwards each chunk once under torch.no_grad(), and slices per-sample evidence out of the batched ModelOutput via extract_evidence -- no sample reordered, dropped, or merged across chunk boundaries"
+    }
+  ],
+
+  "fix_details": {
+    "device_resolver_reused": "prism_fas.pipeline.adapters.c7._scientific_device",
+    "device_resolved_before": ["C7 lock verification", "C6 bank open", "M9Trainer construction"],
+    "device_resolution_failure_fails_closed": true,
+    "evidence_conversion_helper": "prism_fas.evaluation.synthetic_real_probe._evidence_scalar",
+    "evidence_conversion_chain": ".detach().float().cpu().numpy()",
+    "linear_probe_dtype_device_unchanged": "CPU, float64",
+    "batching_key": "trainer.config.validation_batch_size",
+    "batch_assembly_reused": "prism_fas.detector.dataset.collate_items (unchanged)",
+    "evidence_extraction_reused": "prism_fas.evaluation.synthetic_real_probe.extract_evidence (unchanged, called once per sample slice)",
+    "pre_forward_identity_reverification": {
+      "function": "prism_fas.evaluation.synthetic_real_probe.execute_joint_probe",
+      "calls": "sources.verify_detector_inputs(repo, arms=ARMS)",
+      "checked_before": ["checkpoint-count guard", "any checkpoint construction", "any model forward"],
+      "checks": ["current source package identity == checkpoint_binding.source_package_identity",
+                "current C6 RND bank identity == checkpoint_binding.c6_bank_identities.RND",
+                "current C6 DET bank identity == checkpoint_binding.c6_bank_identities.DET",
+                "current C6 LLM bank identity == checkpoint_binding.c6_bank_identities.LLM"],
+      "on_mismatch": "raises immediately; zero model constructions, zero forwards, zero BA_sep"
+    }
+  },
+
+  "existing_guards_preserved": [
+    "protocol_identity check", "checkpoint_binding self-hash check", "population_plan self-hash check",
+    "exactly 5 checkpoints per arm", "exactly 15 total checkpoints",
+    "checkpoint byte SHA-256 re-verification on disk", "checkpoint expected RunIdentity strict check",
+    "C7 detector config lock verification", "decision_logit_name == global_logit_G",
+    "model.eval()", "torch.no_grad()", "target_access == 0"
+  ],
+
+  "build_checkpoint_binding_and_build_population_plan_unedited": true,
+  "expected_gpu_rerun_result": {
+    "preflight_only": "same as before",
+    "bind_only": {"protocol_identity_unchanged": true, "checkpoint_binding_identity_unchanged": true,
+                 "population_plan_identity_unchanged": true, "reused": true}
+  },
+
+  "tests": {
+    "v1_shared_mechanics_file": "tests/pipeline/test_c9_ba_sep_option1_protocol.py",
+    "v1_shared_mechanics_count": 44,
+    "v2_file": "tests/pipeline/test_c9_ba_sep_option1_v2_runner.py",
+    "v2_count": 113,
+    "all_c9_scoped_tests_total": 173,
+    "all_passed": true,
+    "broad_regression_tests_c7_and_pipeline": {"failed": 33, "passed": 1686, "skipped": 22,
+      "note": "identical to the pre-existing baseline"},
+    "real_ba_sep_computed_in_tests": false,
+    "real_checkpoints_used_in_tests": false,
+    "real_images_opened_in_tests": false,
+    "real_cuda_used_in_tests": false,
+    "cuda_safe_conversion_proven_via": "a CPU-only requires_grad=True tensor, which a bare np.asarray also rejects, exercising the same guarded-conversion code path a CUDA tensor would"
+  },
+
+  "not_done_by_this_fix": [
+    "compute a real BA_sep value",
+    "load a real checkpoint for the real probe",
+    "forward a real detector for the real probe",
+    "resolve any of the nine REQUIRED_DETECTOR_RELIABILITY_TESTS",
+    "reclassify crop_padding_interpolation",
+    "create DETECTOR_RELIABILITY_LOCK_C.json",
+    "run C9, C10, C11, C12 or C13",
+    "access target data",
+    "retrain C7 or any C8 row",
+    "add C-R-RND",
+    "alter any C7 winner",
+    "change the V2 scientific protocol",
+    "create a V3 protocol",
+    "edit build_checkpoint_binding or build_population_plan"
+  ],
+
+  "final_status": {
+    "c8_scientific_closed": true,
+    "ba_sep_option1_v2_protocol": "FROZEN_NOT_RUN",
+    "ba_sep_binding": "FROZEN",
+    "ba_sep_inference_parity_fix": "IMPLEMENTED_NOT_RUN",
+    "ba_sep_scientifically_run": false,
+    "detector_reliability_lock": "NOT_PASSED",
+    "c9_scientifically_run": false,
+    "c10_c13_scientifically_run": false,
+    "target_access": 0
+  }
+}
