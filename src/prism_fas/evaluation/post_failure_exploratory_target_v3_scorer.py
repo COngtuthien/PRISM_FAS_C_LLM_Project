@@ -705,18 +705,40 @@ def validate_existing_exploratory_score_result_v3(repo: Path) -> dict[str, Any]:
     comparisons = dict((result.get("exploratory_comparisons") or {}).get("comparisons") or {})
     if len(comparisons) != EXPECTED_ATOMIC_COMPARISONS:
         problems.append(f"score result has {len(comparisons)} comparisons, expected {EXPECTED_ATOMIC_COMPARISONS}")
+    if set(comparisons) != set(REQUIRED_MATCHED_SEEDS):
+        problems.append("score result comparison names do not exactly match the frozen seven hypotheses")
     for name, expected_seeds in REQUIRED_MATCHED_SEEDS.items():
         entry = comparisons.get(name) or {}
         if sorted(entry.get("matched_seeds") or []) != sorted(expected_seeds):
             problems.append(f"{name}: recorded matched_seeds does not match the frozen requirement")
 
-    recorded_p_values = {name: entry.get("randomization", {}).get("p_value_two_sided")
-                         for name, entry in comparisons.items()}
-    recomputed_holm = holm_bonferroni({k: v for k, v in recorded_p_values.items() if v is not None})
-    stored_holm = dict((result.get("exploratory_comparisons") or {}).get("holm_bonferroni") or {})
-    if recomputed_holm != stored_holm:
-        problems.append("Holm-Bonferroni recomputed from the RECORDED randomization p-values does not "
-                        "match the stored correction")
+    # TECHNICAL_FINAL_VALIDATOR_TIE_ORDER_DEFECT: `comparisons` was read back
+    # from JSON written with `sort_keys=True`, so `comparisons.items()`
+    # iterates ALPHABETICALLY — never the frozen hypothesis order the
+    # scientific scoring execution actually used
+    # (`REQUIRED_MATCHED_SEEDS`'s own definition order:
+    # E-H1_RND_vs_DET, E-H1_RND_vs_LLM, E-H1_DET_vs_LLM, E-H2, E-H3,
+    # E-H4_DET, E-H4_LLM). `holm_bonferroni`'s `sorted(..., key=...)` is
+    # stable, so tied p-values keep whatever order they were INSERTED in —
+    # rebuilding `recorded_p_values` from `comparisons.items()` silently
+    # re-orders ties and can recompute a DIFFERENT (still internally valid)
+    # rank/adjusted_alpha assignment than the one the frozen scoring run
+    # actually produced and stored, even though no p-value changed. The
+    # validator's job is to REPRODUCE that execution, not redefine post-hoc
+    # tie handling after seeing the result — so `recorded_p_values` is
+    # rebuilt in `REQUIRED_MATCHED_SEEDS` order, and ONLY once the checks
+    # above have already established the comparison set is exactly the
+    # frozen seven (direct `comparisons[name]` indexing below would
+    # otherwise raise on a missing name rather than failing closed cleanly).
+    # `holm_bonferroni` itself is never changed by this fix.
+    if set(comparisons) == set(REQUIRED_MATCHED_SEEDS):
+        recorded_p_values = {name: comparisons[name].get("randomization", {}).get("p_value_two_sided")
+                             for name in REQUIRED_MATCHED_SEEDS}
+        recomputed_holm = holm_bonferroni({k: v for k, v in recorded_p_values.items() if v is not None})
+        stored_holm = dict((result.get("exploratory_comparisons") or {}).get("holm_bonferroni") or {})
+        if recomputed_holm != stored_holm:
+            problems.append("Holm-Bonferroni recomputed from the RECORDED randomization p-values (in the "
+                            "frozen hypothesis order) does not match the stored correction")
 
     cross_seed = dict(result.get("cross_seed_summary") or {})
     if set(cross_seed) != set(CONFIGURATIONS):
