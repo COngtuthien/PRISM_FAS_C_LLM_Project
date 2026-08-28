@@ -39,6 +39,26 @@ mid-promotion is recovered by validating already-promoted and still-staged
 rows against those recorded hashes and resuming file-renames only — zero
 model inference — then writing the overall lock and marking the
 transaction `COMPLETE`.
+
+SEMANTIC FIX (no protocol-identity change; the frozen
+`post_failure_exploratory_target_v3.yaml` is untouched): the target feature
+package identity check previously compared a whole-file-tree digest
+(V1's `compute_target_feature_package_identity`, modeled on a DIFFERENT
+adapter's synthetic-fixture algorithm) against the frozen pin
+`c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8` — a hash
+of the wrong TYPE, since that pin is actually
+`PACKAGE_LOCK.json["content_identity_sha256"]` (a stable JSON hash of the
+lock's own declared metadata, per Version B `modal_m10.py::m10_verify_target_features`
+and `data.package.builder.finalize_lock`). Corrected:
+`verify_target_feature_package_expected_v3`/`_required_v3` and the low-level
+`verify_locked_target_feature_package` recompute and compare the LOCK's
+own content identity, verify every manifest/shard byte the lock declares,
+reuse `data.package.validator.validate_package` for structural checks and
+`data.target_eval.assert_features_label_free`/`assert_no_target_identity`
+for target isolation, and never open `target_label_root`.
+`build_prediction_plan_binding` and `_preflight` now call these V3-only
+verifiers directly; V1's and V2's own (defective) verifiers are left
+completely unmodified and are no longer called from this module.
 """
 from __future__ import annotations
 
@@ -139,6 +159,170 @@ def current_code_commit(repo: Path) -> str:
 
 
 # ==============================================================================
+# 1b. Locked target feature package verification (fixes the V1/V2 semantic
+#     bug: neither ever compared a whole-file-tree digest against
+#     `PACKAGE_LOCK.json["content_identity_sha256"]` — a hash of a different
+#     TYPE entirely). V1's `compute_target_feature_package_identity` modeled
+#     itself on `pipeline.adapters.c10._package_identity`, a whole-tree digest
+#     used for that adapter's OWN synthetic rehearsal fixture — never the real
+#     contract the target feature package actually carries.
+#
+#     The real contract (Version B `modal_m10.py::m10_verify_target_features`,
+#     and `data.package.builder.finalize_lock`, both frozen historical
+#     evidence): `content_identity_sha256` is a stable JSON hash of the
+#     PACKAGE_LOCK body with exactly five volatile fields excluded
+#     (`created_at`, `git_commit`, `content_identity_sha256`,
+#     `build_seconds`, `environment`) — a hash of DECLARED METADATA, never a
+#     second whole-tree digest of the bytes on disk.
+# ==============================================================================
+
+V3_PACKAGE_LOCK_IDENTITY_EXCLUDED_FIELDS: tuple[str, ...] = (
+    "created_at", "git_commit", "content_identity_sha256", "build_seconds", "environment")
+
+
+def recompute_package_lock_content_identity(lock: Mapping[str, Any]) -> str:
+    """The EXACT historical algorithm, reused verbatim in spirit (never
+    reimplemented differently): a stable JSON hash of the lock body with the
+    five volatile fields excluded. Matches `modal_m10.py`'s
+    `IDENTITY_EXCLUDED_FIELDS` and `data.package.builder.finalize_lock` byte
+    for byte."""
+    body = {key: value for key, value in lock.items()
+           if key not in V3_PACKAGE_LOCK_IDENTITY_EXCLUDED_FIELDS}
+    return hashlib.sha256(json.dumps(
+        body, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+
+def verify_locked_target_feature_package(package_root: Path, *, expected_package_id: str,
+                                         expected_content_identity: str) -> dict[str, Any]:
+    """Low-level, read-only verifier over an EXPLICIT package root. Takes no
+    protocol and resolves no root itself — the caller decides what path this
+    checks, so a test can point it at a disposable fixture without touching
+    any frozen configuration. Never opens a target label; nothing here reads
+    `target_label_root` under any name.
+
+    Fail-closed on every mismatch once the package claims to be present: a
+    missing lock, a wrong `package_id`, a non-`validated` status, a lock that
+    does not hash to its own recorded `content_identity_sha256`, a lock
+    identity that disagrees with the frozen expected pin, a manifest byte
+    mismatch, or a shard byte/size mismatch each raise
+    `ExploratoryTargetV3Error` rather than return a soft failure. Only an
+    absent package root is a quiet, non-raising `NOT_PRESENT_ON_THIS_HOST` —
+    matching V1's original preflight-friendly contract.
+
+    `computed_identity` in the return value is ALWAYS the verified lock's own
+    `content_identity_sha256` — never a whole-tree digest.
+    """
+    root = Path(package_root)
+    if not root.is_dir():
+        return {"present_on_this_host": False, "verified": False,
+               "expected_identity": expected_content_identity, "computed_identity": None,
+               "reason": "NOT_PRESENT_ON_THIS_HOST"}
+
+    lock_path = root / "PACKAGE_LOCK.json"
+    if not lock_path.is_file():
+        raise ExploratoryTargetV3Error(
+            f"{root}: target feature package has no PACKAGE_LOCK.json; cannot verify")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+
+    if lock.get("package_id") != expected_package_id:
+        raise ExploratoryTargetV3Error(
+            f"target feature package_id is {lock.get('package_id')!r}, expected {expected_package_id!r}; "
+            "fail closed rather than bind the wrong package")
+    if lock.get("status") != "validated":
+        raise ExploratoryTargetV3Error(
+            f"target feature package status is {lock.get('status')!r}, not 'validated'; refusing to bind")
+
+    recomputed = recompute_package_lock_content_identity(lock)
+    lock_content_identity = lock.get("content_identity_sha256")
+    if recomputed != lock_content_identity:
+        raise ExploratoryTargetV3Error(
+            "the target feature PACKAGE_LOCK does not hash to its own recorded content_identity_sha256 "
+            f"(recomputed {recomputed!r} != lock {lock_content_identity!r}); fail closed rather than "
+            "trust a tampered or corrupted lock")
+    if lock_content_identity != expected_content_identity:
+        raise ExploratoryTargetV3Error(
+            f"target feature package content identity mismatch: expected {expected_content_identity!r}, "
+            f"lock declares {lock_content_identity!r}; fail closed rather than bind a drifted target package")
+
+    manifest_problems: list[str] = []
+    for name, expected_sha in (lock.get("manifest_sha256") or {}).items():
+        manifest_path = root / "manifests" / f"{name}.parquet"
+        if not manifest_path.is_file():
+            manifest_problems.append(f"missing manifest {name}")
+        elif hashlib.sha256(manifest_path.read_bytes()).hexdigest() != expected_sha:
+            manifest_problems.append(f"manifest hash mismatch: {name}")
+    if manifest_problems:
+        raise ExploratoryTargetV3Error(
+            f"target feature package manifest integrity failed: {manifest_problems}")
+
+    shard_problems: list[str] = []
+    shard_results: list[dict[str, Any]] = []
+    for entry in lock.get("shards") or []:
+        shard_path = root / "shards" / entry["shard_filename"]
+        if not shard_path.is_file():
+            shard_problems.append(f"missing shard {entry['shard_filename']}")
+            continue
+        digest = hashlib.sha256(shard_path.read_bytes()).hexdigest()
+        size = shard_path.stat().st_size
+        matches = digest == entry["sha256"] and size == entry["byte_size"]
+        if not matches:
+            shard_problems.append(f"shard mismatch: {entry['shard_filename']}")
+        shard_results.append({"shard": entry["shard_filename"], "rows": entry.get("row_count"),
+                              "sha256_matches": digest == entry["sha256"],
+                              "byte_size_matches": size == entry["byte_size"]})
+    if shard_problems:
+        raise ExploratoryTargetV3Error(f"target feature package shard integrity failed: {shard_problems}")
+
+    from prism_fas.data.package.validator import validate_package
+
+    structural = validate_package(root, require_validated_status=True)
+    if not structural.get("passed"):
+        raise ExploratoryTargetV3Error(
+            f"target feature package failed structural validation: {structural.get('errors')}")
+
+    from prism_fas.data.package.manifests import read_manifest
+    from prism_fas.data.target_eval import assert_features_label_free, assert_no_target_identity
+
+    feature_rows = read_manifest(root / "manifests" / "target_test_features.parquet")
+    label_free_proof = assert_features_label_free(feature_rows)
+    no_identity_proof = assert_no_target_identity(root)
+
+    return {"present_on_this_host": True, "verified": True,
+           "expected_identity": expected_content_identity, "computed_identity": lock_content_identity,
+           "package_id": lock.get("package_id"), "status": lock.get("status"),
+           "identity_self_consistent": True, "identity_matches_pin": True,
+           "manifest_problems": manifest_problems, "shards": shard_results,
+           "structural_validation_passed": True,
+           "label_free": label_free_proof, "no_target_identity": no_identity_proof, "reason": ""}
+
+
+def verify_target_feature_package_expected_v3(repo: Path, protocol: Mapping[str, Any]) -> dict[str, Any]:
+    """Protocol wrapper: resolves ONLY the target feature root and the
+    expected package id/content identity from the frozen V3 protocol, then
+    delegates entirely to `verify_locked_target_feature_package`. Never
+    resolves or opens `target_label_root` under any name."""
+    declared = protocol["target_feature_package"]
+    root = Path(repo) / declared["target_feature_root"]
+    return verify_locked_target_feature_package(
+        root, expected_package_id=str(declared["package_id"]),
+        expected_content_identity=str(declared["expected_identity"]))
+
+
+def verify_target_feature_package_required_v3(repo: Path, protocol: Mapping[str, Any]) -> dict[str, Any]:
+    """`--bind-prediction-plan` requires `present_on_this_host AND verified`,
+    else fails closed — mirrors V2's `verify_target_feature_package_required`
+    enforcement contract exactly, but is built entirely on the CORRECTED V3
+    locked-package verifier above; it never calls V1's or V2's defective
+    whole-tree-hash check."""
+    check = verify_target_feature_package_expected_v3(repo, protocol)
+    if not (check.get("present_on_this_host") and check.get("verified")):
+        raise ExploratoryTargetV3Error(
+            f"target feature package is not present-and-verified on this host ({check}); "
+            "--bind-prediction-plan requires verification before binding")
+    return {**check, "target_feature_package_identity_verified": True, "target_label_access": 0}
+
+
+# ==============================================================================
 # 2. Row bindings — reuses V1/V2 verbatim, adds target_feature_package_identity
 # ==============================================================================
 
@@ -166,7 +350,7 @@ def build_prediction_plan_binding(repo: Path) -> dict[str, Any]:
     rows = v1.resolve_target_matrix(repo)
     matrix_id = v1.target_matrix_identity(rows)
     c8_matrix = v1.bind_c8_matrix_identity(repo)
-    package_check = v2.verify_target_feature_package_required(repo, protocol)
+    package_check = verify_target_feature_package_required_v3(repo, protocol)
     package_identity = str(package_check["computed_identity"])
     row_bindings = resolve_all_row_bindings_v3(repo, rows, target_feature_package_identity=package_identity)
     label_seal = v1.verify_target_label_root_sealed(repo, protocol)
@@ -638,8 +822,8 @@ def _preflight(repo: Path) -> tuple[int, dict[str, Any]]:
         return EXIT_BLOCKED, report
 
     try:
-        report["target_feature_package"] = v1.verify_target_feature_package_expected(repo, protocol)
-    except v1.ExploratoryTargetError as error:
+        report["target_feature_package"] = verify_target_feature_package_expected_v3(repo, protocol)
+    except ExploratoryTargetV3Error as error:
         report["target_feature_package"] = {"verified": False, "error": str(error)}
 
     if isinstance(report["target_feature_package"], dict) and report["target_feature_package"].get("verified"):
@@ -891,7 +1075,11 @@ __all__ = [
     "PREDICTION_PLAN_BINDING_PATH", "PREDICTION_LOCK_PATH", "EXPECTED_TOTAL_ROWS",
     "STAGING_MARKER", "BINDING_REQUIRED_ROW_FIELDS", "LOCKSET_SCHEMA_VERSION",
     "ExploratoryTargetV3Error", "load_protocol", "protocol_identity", "active_protocol_identity",
-    "current_code_commit", "resolve_all_row_bindings_v3", "build_prediction_plan_binding",
+    "current_code_commit",
+    "V3_PACKAGE_LOCK_IDENTITY_EXCLUDED_FIELDS", "recompute_package_lock_content_identity",
+    "verify_locked_target_feature_package", "verify_target_feature_package_expected_v3",
+    "verify_target_feature_package_required_v3",
+    "resolve_all_row_bindings_v3", "build_prediction_plan_binding",
     "verify_binding_unchanged", "execution_identity", "predict_one_row_to_staging",
     "promote_staged_rows", "build_promotion_transaction", "PROMOTION_TRANSACTION_SCHEMA_VERSION",
     "build_v3_prediction_lockset",

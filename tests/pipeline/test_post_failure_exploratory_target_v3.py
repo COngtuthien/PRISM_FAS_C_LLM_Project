@@ -165,12 +165,15 @@ def _install_v3_binding_fixtures(monkeypatch, *, rows=FAKE_ROWS, checkpoint_sha2
                for row in rows_arg}
 
     monkeypatch.setattr(v2, "resolve_all_row_bindings_v2", _resolve_all_row_bindings_v2)
-    monkeypatch.setattr(v2, "verify_target_feature_package_required",
-                        lambda repo, protocol: {"present_on_this_host": True, "verified": True,
-                                                "expected_identity": PACKAGE_IDENTITY,
-                                                "computed_identity": state["package_identity"],
-                                                "target_feature_package_identity_verified": True,
-                                                "target_label_access": 0, "reason": ""})
+
+    def _fake_package_check(repo, protocol):
+        return {"present_on_this_host": True, "verified": True,
+               "expected_identity": PACKAGE_IDENTITY, "computed_identity": state["package_identity"],
+               "target_feature_package_identity_verified": True,
+               "target_label_access": 0, "reason": ""}
+
+    monkeypatch.setattr(v3, "verify_target_feature_package_expected_v3", _fake_package_check)
+    monkeypatch.setattr(v3, "verify_target_feature_package_required_v3", _fake_package_check)
     return state
 
 
