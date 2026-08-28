@@ -115,7 +115,7 @@ def extract(config: Path = typer.Option(PATHS, "--config", exists=True, dir_okay
     from prism_fas.data.adapters import adapter_for
     from prism_fas.data.m2_runner import run_preprocessing
     from prism_fas.data.manifests.repository import ManifestRepository
-    from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config
+    from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config, resolve_detector_path
     from prism_fas.data.run_context import M2OutputLayout, PreprocessingRunContext
     paths = load_paths(config); layout = _layout(); cfg = load_m2_config(preprocess_config)
     audit = _audit(paths, layout)
