@@ -821,10 +821,25 @@ def _preflight(repo: Path) -> tuple[int, dict[str, Any]]:
         report["matrix_error"] = str(error)
         return EXIT_BLOCKED, report
 
+    # Defect: `access_state` must report a REAL access truthfully, including
+    # a fail-closed one. `verify_locked_target_feature_package` (and its
+    # protocol wrapper here) has exactly one quiet, non-raising outcome —
+    # `present_on_this_host: False` when the package root does not exist —
+    # every other path either returns `present_on_this_host: True` or RAISES
+    # `ExploratoryTargetV3Error`, which by construction only happens AFTER
+    # the root was found present and real package content (the lock,
+    # manifests, shards) was opened to check it. So a raise here is itself
+    # proof of a real, attempted feature-identity access — never a reason to
+    # under-report it, even though the verification failed closed.
+    package_content_accessed = False
     try:
         report["target_feature_package"] = verify_target_feature_package_expected_v3(repo, protocol)
+        package_content_accessed = bool(report["target_feature_package"].get("present_on_this_host"))
     except ExploratoryTargetV3Error as error:
         report["target_feature_package"] = {"verified": False, "error": str(error)}
+        package_content_accessed = True
+    report["access_state"] = _access_state(
+        feature_identity=package_content_accessed, feature_count=(1 if package_content_accessed else 0))
 
     if isinstance(report["target_feature_package"], dict) and report["target_feature_package"].get("verified"):
         try:
