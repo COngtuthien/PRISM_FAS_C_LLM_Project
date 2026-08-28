@@ -28,8 +28,59 @@ version_b:
   clean: true
   immutable_verified: true
 
-current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION
+current_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_TARGET_PACKAGE_PROVISIONING
 current_substage: >-
+  V3 IMPLEMENTATION RECONCILED (previous milestone, unchanged protocol
+  identity `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c`).
+  ON THE GPU HOST, at commit `968b888bfbbcaa89a39ffb4452d33769dac9ef32`: V3
+  `--preflight-only` ran and correctly reported `matrix_resolved: true`,
+  `row_count: 24`, `c8_matrix_identity`
+  `a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8`,
+  `ready_for_bind: false` (`PREFLIGHT_EXIT=2`) because the target feature
+  package (`prism_target_eval_v2`) was NOT YET PRESENT — target labels
+  remained sealed throughout, no target prediction, no target metric. Raw
+  `data/raw/siw_mv2/SiW-Mv2` was verified present on the GPU host. The M10
+  target inventory dry-run PASSED (1700 total, 785 live, 915 spoof, 14
+  attack families, zero unmatched/undeclared/stem-mismatch/duplicate/count
+  anomalies, inventory identity
+  `b858564d19580ab37c637c9bae7cbc6a0f5cb650c0e12d399e2e13af179e6628`,
+  `INVENTORY_EXIT=0`). The M10 target build plan PASSED (6800 planned
+  frames, 4 frames/video, `output_namespace=target_eval_v2`,
+  `feature_package_id=prism_target_eval_v2`, preprocessing config hash
+  `48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959`,
+  `target_labels_revealed: false`, `PLAN_EXIT=0`). The FIRST real
+  `prism m10 target-package extract` attempt did NOT start scientific
+  preprocessing: it reached `src/prism_fas/cli/m10_target.py::extract` and
+  failed BEFORE `SCRFDDetector` construction and BEFORE `run_preprocessing()`
+  with `NameError: name 'resolve_detector_path' is not defined` — a
+  TECHNICAL_PRE_RUN_FAILURE (extract()'s local import pulled in
+  `SCRFDDetector, load_m2_config` but never `resolve_detector_path`, which
+  both the detector construction and the run-context binding call). This is
+  NOT a scientific target failure: target extraction scientific status =
+  `NOT_STARTED`, target frames decoded = 0, target crops written = 0,
+  target predictions = NO, target labels opened = NO, target metrics
+  observed = NO. The technical fix was implemented on the laptop and
+  pushed at commit `f8525fa` (starting HEAD
+  `968b888bfbbcaa89a39ffb4452d33769dac9ef32`): the local import in
+  `extract()` was changed from
+  `from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config`
+  to
+  `from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config, resolve_detector_path`
+  — no scientific config, threshold, preprocessing config, dataset plan,
+  target matrix, statistics, label, or target-package semantics changed. A
+  new regression test, `tests/test_m10_target_extract_detector_resolution.py`,
+  reproduces the exact `NameError` against the pre-fix code and proves the
+  post-fix code resolves `detector_path` successfully with no real
+  detector constructed and no target frames/crops processed on laptop; the
+  broad regression baseline is unchanged (zero regression attributable to
+  this fix). See `stage_table.post_failure_exploratory_target_v3.target_package_provisioning`
+  below for the full record. The target feature package is still not yet
+  built. The next authorized action is a RETRY of the full target-package
+  extraction on the GPU host, at commit `f8525fa`, with `--resume`; the
+  prediction-plan bind remains pending until the feature package is built
+  and identity-verified; `--predict` remains NOT AUTHORIZED; target label
+  access remains NOT AUTHORIZED.
+_superseded_current_substage_v3_implementation_reconciliation: >-
   IMPLEMENTATION RECONCILIATION of the ALREADY-FROZEN
   `POST_FAILURE_EXPLORATORY_TARGET_V3` protocol
   (`configs/evaluation/post_failure_exploratory_target_v3.yaml`, identity
@@ -439,7 +490,7 @@ _superseded_current_substage_v1: >-
   post-failure EXPLORATORY TARGET protocol is explicitly NOT started —
   deferred to a separate, future task, only after these diagnostics are
   observed and frozen. target_access has been 0 throughout.
-previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_PRETARGET_FINAL_HARDENING
+previous_milestone: POST_FAILURE_EXPLORATORY_TARGET_V3_IMPLEMENTATION_RECONCILIATION
 execution_profile: rehearsal   # THIS LAPTOP: `python train.py` still resolves
   # CPU_FULL_REHEARSAL here (no CUDA, no source package). The GPU host
   # separately ran --profile full through C8, ran the real BA_sep --execute
@@ -6531,7 +6582,119 @@ c7_scientific_closure_reconciliation:
       target_labels_opened: false
       real_diagnostic_or_target_value_computed: false
 
+    target_package_provisioning:
+      # GPU preflight of the RECONCILED V3 implementation, then a first,
+      # technically-failed target-package extraction attempt, then a
+      # laptop-side technical fix. NO scientific protocol/config/code
+      # changed anywhere in this record.
+      gpu_preflight_commit: 968b888bfbbcaa89a39ffb4452d33769dac9ef32
+      preflight:
+        protocol_identity: a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c
+        c8_matrix_identity: a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8
+        matrix_resolved: true
+        row_count: 24
+        target_feature_package_present: false
+        ready_for_bind: false
+        exit_code: 2
+        target_labels_sealed: true
+        target_prediction_made: false
+        target_metric_observed: false
+      raw_dataset_present: true
+      raw_dataset_path: data/raw/siw_mv2/SiW-Mv2
+      inventory:
+        status: PASS
+        total_videos: 1700
+        live: 785
+        spoof: 915
+        attack_families: 14
+        unmatched_count: 0
+        undeclared_family: []
+        stem_mismatch_count: 0
+        duplicate_id_count: 0
+        count_mismatch: {}
+        inventory_identity_sha256: b858564d19580ab37c637c9bae7cbc6a0f5cb650c0e12d399e2e13af179e6628
+        exit_code: 0
+      plan:
+        status: PASS
+        planned_frames: 6800
+        frames_per_video: 4
+        output_namespace: target_eval_v2
+        feature_package_id: prism_target_eval_v2
+        feature_package_root: data/processed/prism_target_eval_v2
+        m3a_root: data/processed/prism_target_eval_v2_m3a
+        label_root: data/evaluation_only/prism_target_v2_labels
+        preprocessing_version: m2-v1
+        preprocessing_config_hash: 48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959
+        sampling: uniform-v1
+        scrfd_model: scrfd_10g_bnkps
+        scrfd_input_size: 320
+        detection_threshold: 0.5
+        crop_output_size: 224
+        crop_padding: 0.25
+        output_image_format: jpg
+        jpeg_quality: 95
+        target_identity_embeddings: 0
+        target_labels_revealed: false
+        exit_code: 0
+      first_extract_attempt:
+        status: TECHNICAL_PRE_RUN_FAILURE
+        error: "NameError: name 'resolve_detector_path' is not defined"
+        failed_at: src/prism_fas/cli/m10_target.py::extract
+        detector_constructed: false
+        run_preprocessing_entered: false
+        scientific_extraction_started: false
+        target_frames_decoded: 0
+        target_crops_written: 0
+        target_predictions_made: false
+        target_labels_opened: false
+        target_metrics_observed: false
+        classification: TECHNICAL_PRE_RUN_FAILURE   # explicitly NOT a scientific target failure
+      technical_fix:
+        starting_head: 968b888bfbbcaa89a39ffb4452d33769dac9ef32
+        commit: f8525fa2a17c1ad3802944182bdff72b53bd9328
+        file: src/prism_fas/cli/m10_target.py
+        change: >-
+          extract()'s local import changed from
+          "from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config"
+          to
+          "from prism_fas.data.preprocess_m2 import SCRFDDetector, load_m2_config, resolve_detector_path"
+        scientific_config_changed: false
+        target_data_accessed_on_laptop: false
+        regression_test: tests/test_m10_target_extract_detector_resolution.py
+        regression_test_proves:
+          - pre-fix code reproduces the exact NameError
+          - post-fix code resolves detector_path successfully
+          - no real detector is constructed
+          - no target frames/crops are processed on laptop
+        tests_result: {new_focused_test: PASS, broad_baseline: unchanged, regression_attributable_to_this_fix: 0}
+      next_action:
+        retry_full_target_extract_on_gpu_with_resume: true
+        bind_prediction_plan: false
+        target_predict: false
+        target_label_access: false
+
   next_authorized_action: >-
+    RETRY the full target-package extraction on the GPU host, now at
+    commit `f8525fa2a17c1ad3802944182bdff72b53bd9328`: fast-forward the
+    GPU checkout to `f8525fa`; verify the `target_eval_v2` extract
+    namespace carries NO scientific output from the failed attempt (the
+    prior attempt failed before `SCRFDDetector` construction and before
+    `run_preprocessing()`, so it should be empty or contain only
+    disposable state — confirm before proceeding, do not assume); then run
+
+        .venv/bin/prism m10 target-package extract \
+          --config configs/paths.local.yaml \
+          --preprocess-config configs/data/preprocess_m2.yaml \
+          --confirm-full-run --chunk 25 --resume
+
+    STOP after extraction completes (or fails) and inspect its result
+    before running `package`/`labels`/`--bind-prediction-plan`/`--predict`.
+    This is the FIRST genuine scientific target-feature access this branch
+    would make — it is authorized ONLY as far as producing the processed
+    feature package; V3's `--bind-prediction-plan` and `--predict` remain
+    separately gated and are NOT authorized by this action. `target_access_state`
+    must stay label-free throughout (`target_labels_accessed: false`); no
+    target label may be opened by this action.
     This milestone RECONCILED THE IMPLEMENTATION of the already-frozen
     `POST_FAILURE_EXPLORATORY_TARGET_V3` protocol (identity
     `a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c` —
@@ -6603,5 +6766,5 @@ c7_scientific_closure_reconciliation:
     access target for real, until the user explicitly authorizes the
     `--predict` step named in the V3 GPU handoff.
 
-last_updated_utc: 2026-08-26   # IMPLEMENTATION RECONCILIATION of the already-frozen POST_FAILURE_EXPLORATORY_TARGET_V3 protocol (config byte-identical, protocol_identity unchanged: a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c) — NO NEW PROTOCOL VERSION, NO scientific decision changed. Eight implementation defects found by pre-target audit and corrected in place: (A) E1 promotion is now a crash-recoverable transaction (PREDICTION_PROMOTION_TRANSACTION_<id>.json, zero-inference recovery proven by test); (B) E2 row metadata comes solely from the frozen lockset, never resolve_target_matrix; (C) the label reveal binds two distinct commits (E1 prediction_execution_code_commit unchanged, fresh E2 first_authorized_reveal_code_commit via a local subprocess helper, no detector.checkpoint import); (D) target_access_state is correct and non-incrementing-on-reuse on every real artifact; (E) the score validator now detects post-reveal label tampering via re-hash, never touching label bytes before a reveal exists; (F) per-row score artifacts are self-hashing identity envelopes, validated exactly-24/no-extras/per-file; (G) the final score result binds complete provenance (scoring_execution_code_commit, target_label_artifact_sha256, target_feature_package_identity, all 24 per-row identities); (H) E2 scoring is now crash-recoverable via a disposable staging namespace and a promotion transaction, with zero rescoring and no second label reopen on recovery. V1, V2, and the V3 YAML remain byte-for-byte unchanged; nothing scientifically executed on this laptop; BA_sep/DETECTOR_RELIABILITY_LOCK_C/diagnostics-V2 remain FAILED immutable; no target feature, prediction, or label was accessed
+last_updated_utc: 2026-08-28   # TECHNICAL PRE-RUN EXTRACTION FIX ONLY — no scientific protocol/config/code changed. Recorded: GPU V3 preflight at commit 968b888 (protocol_identity a2b54f8844a2a36540e62470c2f5f30de52fbf509a37f03feb7f6d769d5c702c unchanged, c8_matrix_identity a777671fb9142a75369a905f66eee5f0f2ab5c3827f33d3803d52426e2e29af8, matrix_resolved, row_count=24, target feature package not yet present, ready_for_bind=false, exit=2, labels sealed, no prediction, no metric); raw SiW-Mv2 verified present on GPU; M10 inventory dry-run PASS (1700/785/915/14 families, zero anomalies, identity b858564d19580ab37c637c9bae7cbc6a0f5cb650c0e12d399e2e13af179e6628, exit=0); M10 target build plan PASS (6800 frames, 4/video, target_eval_v2, prism_target_eval_v2, config hash 48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959, exit=0); first real target-package extract attempt was a TECHNICAL_PRE_RUN_FAILURE (NameError: resolve_detector_path not defined, failed before SCRFDDetector construction and before run_preprocessing — NOT a scientific target failure; 0 frames decoded, 0 crops written, no predictions, no labels opened, no metrics) — fixed on laptop and pushed at commit f8525fa (one-line import fix in src/prism_fas/cli/m10_target.py::extract, no scientific config changed, new regression test tests/test_m10_target_extract_detector_resolution.py proves the exact NameError pre-fix and clean resolution post-fix with no real detector and no target data touched). V3 scientific protocol remains FROZEN/UNCHANGED at the same protocol_identity; BA_sep=FAIL/IMMUTABLE, DETECTOR_RELIABILITY=FAILED/IMMUTABLE, POST_FAILURE_DIAGNOSTICS_V2=FAIL/IMMUTABLE, C9 ORIGINAL=BLOCKED; no V4. Next authorized action: retry the full target-package extraction on the GPU host at commit f8525fa with --resume, then STOP before package/bind/predict
 ```
