@@ -59,6 +59,24 @@ for target isolation, and never open `target_label_root`.
 `build_prediction_plan_binding` and `_preflight` now call these V3-only
 verifiers directly; V1's and V2's own (defective) verifiers are left
 completely unmodified and are no longer called from this module.
+
+EXECUTION FIX (technical, not scientific; no protocol-identity change): a
+real GPU `--predict` attempt failed before `target_batches`/`predict_target`
+with `VariantError: unknown flags ['recipe_arm']`. `predict_one_row_to_staging`
+called `VariantCapabilities.from_flags(binding["flags"])`, resolving a
+variant from the FULL bound flags — including `recipe_arm`, C8 treatment/
+bank metadata (`source_matrix._track_g_flags`/`_track_r_flags`) that is
+deliberately NOT a `detector.variant.FLAG_KEYS` vocabulary entry, and that
+the canonical C8 path (`pipeline.adapters.c8._detector_config_for_row`,
+reused verbatim by `synthetic_real_probe.construct_row_trainer`) already
+strips before resolving a variant. Corrected:
+`resolve_verified_row_capabilities` derives capabilities from the variant
+the canonical trainer reconstruction already resolved
+(`trainer.config.variant`), cross-checked — before any target batch is
+created — against the variant portion of the frozen binding's own flags;
+`recipe_arm` is never removed from the binding, stays fully bound into
+`inference_config_hash`, and `ResolvedExperimentVariant.resolve()` is never
+weakened to tolerate it or any other unknown flag globally.
 """
 from __future__ import annotations
 
@@ -401,6 +419,67 @@ def execution_identity(*, plan_binding_identity: str, code_commit: str) -> str:
     return stable_identity({"plan_binding_identity": plan_binding_identity, "code_commit": code_commit})[:16]
 
 
+# The only non-variant metadata flag the frozen C8 target rows carry.
+# `source_matrix._track_g_flags`/`_track_r_flags` deliberately add it as
+# treatment/provenance metadata; `pipeline.adapters.c8._detector_config_for_row`
+# strips it before resolving a variant, and this module must do the same —
+# never widen `ResolvedExperimentVariant.resolve()` to tolerate it globally.
+KNOWN_NON_VARIANT_ROW_METADATA_FLAGS: frozenset[str] = frozenset({"recipe_arm"})
+
+
+def resolve_verified_row_capabilities(binding: Mapping[str, Any], *, trainer_variant: Any) -> Any:
+    """Derive `VariantCapabilities` from the variant the CANONICAL trainer
+    reconstruction (`synthetic_real_probe.construct_row_trainer`, which
+    reuses `pipeline.adapters.c8._detector_config_for_row` verbatim)
+    actually resolved — never from `VariantCapabilities.from_flags(binding["flags"])`,
+    which passes the FULL bound flags (including `recipe_arm`, C8
+    treatment/bank metadata, never a `ResolvedExperimentVariant` vocabulary
+    key) straight into `ResolvedExperimentVariant.resolve()` and fails with
+    `VariantError: unknown flags ['recipe_arm']`.
+
+    Fails closed, before any target batch is created, if: a required
+    `detector.variant.FLAG_KEYS` entry is missing from the binding; the
+    binding's flags carry any non-variant metadata beyond the one known key
+    (`recipe_arm`) — an arbitrary unexpected extra is never silently
+    accepted; `recipe_arm` disagrees with the row's own bound `arm`; or the
+    canonical trainer's reconstructed variant disagrees with the variant
+    portion of the frozen binding's own flags. `recipe_arm` itself is never
+    removed from `binding["flags"]` — it stays exactly as bound for
+    `inference_config_hash` and every other provenance use."""
+    from prism_fas.detector.variant import FLAG_KEYS
+    from prism_fas.evaluation.target_prediction import VariantCapabilities
+
+    row_id = str(binding.get("row_id", "<unknown row>"))
+    flags = binding["flags"]
+
+    missing = [key for key in FLAG_KEYS if key not in flags]
+    if missing:
+        raise ExploratoryTargetV3Error(
+            f"{row_id}: binding flags are missing required variant flag(s) {missing}")
+
+    unexpected = sorted(set(flags) - set(FLAG_KEYS) - KNOWN_NON_VARIANT_ROW_METADATA_FLAGS)
+    if unexpected:
+        raise ExploratoryTargetV3Error(
+            f"{row_id}: binding flags carry unexpected non-variant metadata {unexpected}; only "
+            f"{sorted(KNOWN_NON_VARIANT_ROW_METADATA_FLAGS)} is known non-variant metadata in the "
+            "frozen C8 target rows")
+
+    if flags.get("recipe_arm") != binding["arm"]:
+        raise ExploratoryTargetV3Error(
+            f"{row_id}: binding flags recipe_arm={flags.get('recipe_arm')!r} disagrees with the "
+            f"row's own bound arm={binding['arm']!r}; refusing to trust a drifted binding")
+
+    variant_flags = {key: flags[key] for key in FLAG_KEYS}
+    trainer_variant_flags = trainer_variant.flags()
+    if trainer_variant_flags != variant_flags:
+        raise ExploratoryTargetV3Error(
+            f"{row_id}: the canonical trainer's reconstructed variant ({trainer_variant_flags}) "
+            f"disagrees with the frozen binding's variant flags ({variant_flags}); refusing to "
+            "resolve prediction capabilities from an unverified variant")
+
+    return VariantCapabilities.from_variant(trainer_variant)
+
+
 def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, package_root: Path,
                                firewall: Any, staging_root: Path, code_commit: str) -> dict[str, Any]:
     """Real, label-free target inference for ONE row, writing ONLY into the
@@ -409,7 +488,7 @@ def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, packag
     `build_prediction_lock` verbatim — now finally passing `code_commit` and
     the real `target_feature_package_identity` (Defects A, B)."""
     from prism_fas.evaluation.synthetic_real_probe import CheckpointBinding, construct_row_trainer
-    from prism_fas.evaluation.target_prediction import (PREDICTION_LOCK_FILE, VariantCapabilities,
+    from prism_fas.evaluation.target_prediction import (PREDICTION_LOCK_FILE,
                                                          build_prediction_lock,
                                                          inference_config_hash,
                                                          predict_target, target_batches,
@@ -424,7 +503,9 @@ def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, packag
         decision_logit_name=str(binding["decision_logit_name"]),
         decision_graph_hash=str(binding["decision_graph_hash"]))
     trainer = construct_row_trainer(repo, checkpoint_binding)
-    capabilities = VariantCapabilities.from_flags(binding["flags"])
+    # Binding/variant consistency is verified BEFORE any target batch is
+    # created, any target image/feature is read, or predict_target() runs.
+    capabilities = resolve_verified_row_capabilities(binding, trainer_variant=trainer.config.variant)
     variant = str(binding["prediction_variant_id"])
     package_identity = str(binding["target_feature_package_identity"])
 
@@ -1095,7 +1176,9 @@ __all__ = [
     "verify_locked_target_feature_package", "verify_target_feature_package_expected_v3",
     "verify_target_feature_package_required_v3",
     "resolve_all_row_bindings_v3", "build_prediction_plan_binding",
-    "verify_binding_unchanged", "execution_identity", "predict_one_row_to_staging",
+    "verify_binding_unchanged", "execution_identity",
+    "KNOWN_NON_VARIANT_ROW_METADATA_FLAGS", "resolve_verified_row_capabilities",
+    "predict_one_row_to_staging",
     "promote_staged_rows", "build_promotion_transaction", "PROMOTION_TRANSACTION_SCHEMA_VERSION",
     "build_v3_prediction_lockset",
     "validate_existing_exploratory_prediction_result_v3",
