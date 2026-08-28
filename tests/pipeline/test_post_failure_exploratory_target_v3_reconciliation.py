@@ -187,7 +187,8 @@ def test_predict_recovers_from_crash_after_partial_promotion_with_zero_inference
 
     inference_calls: list[str] = []
 
-    def _fake_predict_one_row(repo, binding, *, package_root, firewall, staging_root, code_commit):
+    def _fake_predict_one_row(repo, binding, *, package_root, firewall, staging_root, code_commit,
+                              target_package_id):
         inference_calls.append(binding["row_id"])
         row_dir = Path(staging_root) / binding["row_id"]
         row_dir.mkdir(parents=True, exist_ok=True)

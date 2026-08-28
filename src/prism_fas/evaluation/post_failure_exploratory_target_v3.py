@@ -77,6 +77,26 @@ created — against the variant portion of the frozen binding's own flags;
 `recipe_arm` is never removed from the binding, stays fully bound into
 `inference_config_hash`, and `ResolvedExperimentVariant.resolve()` is never
 weakened to tolerate it or any other unknown flag globally.
+
+EXECUTION FIX 2 — `E1_TECHNICAL_TARGET_LOADER_POLICY_FAILURE` (technical,
+not scientific; no protocol-identity change): a real GPU `--predict`
+attempt loaded weights, passed the `recipe_arm` fix, then failed inside
+`target_batches`'s `open_package()` with `PackageContractError: package id
+'prism_target_eval_v2' != expected 'prism_data_v1_m3b'`.
+`construct_row_trainer` correctly reconstructs the SOURCE trainer, so
+`trainer.loader_config` still declares the SOURCE package policy
+(`configs/data/loader_m4.yaml`); passing it straight into `target_batches`
+made `open_package()` correctly reject the valid TARGET package. Corrected:
+`build_verified_target_loader_config` rebinds ONLY the two package-policy
+fields (`package.expected_package_id`, `package.expected_content_identity_sha256`)
+onto an otherwise byte-identical copy of the source config (via
+`model_dump` + `LoaderConfig.model_validate`, never mutating
+`trainer.loader_config` in place); `resolve_frozen_target_package_reference`
+sources the target package id/identity SOLELY from the already-frozen
+`PREDICTION_PLAN_BINDING.json`, fail-closed on any inconsistency, before
+any target sample is read. `target_prediction.target_batches` itself, and
+every other package-validation rule, are unchanged — this fixes the V3
+caller, never the generic package contract.
 """
 from __future__ import annotations
 
@@ -480,8 +500,83 @@ def resolve_verified_row_capabilities(binding: Mapping[str, Any], *, trainer_var
     return VariantCapabilities.from_variant(trainer_variant)
 
 
+def resolve_frozen_target_package_reference(frozen_binding: Mapping[str, Any]) -> tuple[str, str]:
+    """The V3 target package reference (`target_package_id`,
+    `target_content_identity`) comes SOLELY from the already-frozen
+    `PREDICTION_PLAN_BINDING.json` — never from whatever live package
+    happens to be on disk. Fails closed, before any target sample is ever
+    read, unless: the binding names a non-empty package id; the top-level
+    frozen `target_feature_package_identity` is non-empty; the nested
+    `target_feature_package` verification record's `computed_identity` AND
+    `expected_identity` both agree with it; and EVERY row's own
+    `target_feature_package_identity` agrees with it too."""
+    nested = frozen_binding.get("target_feature_package") or {}
+    package_id = str(nested.get("package_id") or "")
+    if not package_id:
+        raise ExploratoryTargetV3Error("the frozen binding does not name a non-empty target package_id")
+
+    content_identity = str(frozen_binding.get("target_feature_package_identity") or "")
+    if not content_identity:
+        raise ExploratoryTargetV3Error(
+            "the frozen binding does not carry a non-empty target_feature_package_identity")
+
+    for field in ("computed_identity", "expected_identity"):
+        nested_value = str(nested.get(field) or "")
+        if nested_value != content_identity:
+            raise ExploratoryTargetV3Error(
+                f"the frozen binding's target_feature_package.{field} ({nested_value!r}) disagrees "
+                f"with the top-level frozen target_feature_package_identity ({content_identity!r})")
+
+    rows = frozen_binding.get("rows") or {}
+    disagreeing = sorted(row_id for row_id, row in rows.items()
+                         if str(row.get("target_feature_package_identity") or "") != content_identity)
+    if disagreeing:
+        raise ExploratoryTargetV3Error(
+            f"row(s) {disagreeing} carry a target_feature_package_identity that disagrees with the "
+            f"frozen binding's top-level identity {content_identity!r}")
+
+    return package_id, content_identity
+
+
+def build_verified_target_loader_config(source_loader_config: Any, *, target_package_id: str,
+                                        target_content_identity: str) -> Any:
+    """`construct_row_trainer` reconstructs the original SOURCE trainer, so
+    `trainer.loader_config` still declares the SOURCE package policy
+    (`configs/data/loader_m4.yaml`: `expected_package_id: prism_data_v1_m3b`).
+    `target_batches` opens the TARGET feature package through that same
+    typed policy, so passing the source-bound config straight through makes
+    `open_package()` correctly reject the valid target package.
+
+    Rebinds ONLY the two package-policy fields the target reader needs —
+    `package.expected_package_id` and `package.expected_content_identity_sha256`
+    — onto an otherwise byte-identical copy of the source config, built via
+    `model_dump` + `LoaderConfig.model_validate` rather than mutating
+    `source_loader_config` in place, so the trainer's own object is never
+    touched. Every other field — image decode/color/size/dtype/range/
+    channels_first, `label_mapping`, `sampler`, `backends`, `dataloader`,
+    `package.require_validated_status`, `package.integrity_verification` —
+    is preserved verbatim, so target package validation is never weakened:
+    an exact package-id match, a `validated` status and (since
+    `target_content_identity` is always supplied here, never `None`) an
+    exact content-identity match are all still required."""
+    from prism_fas.data.loader.config import LoaderConfig
+
+    if not target_package_id:
+        raise ExploratoryTargetV3Error(
+            "cannot build a target loader config without a non-empty target_package_id")
+    if not target_content_identity:
+        raise ExploratoryTargetV3Error(
+            "cannot build a target loader config without a non-empty target_content_identity")
+
+    payload = source_loader_config.model_dump(mode="python")
+    payload["package"] = {**payload["package"], "expected_package_id": target_package_id,
+                          "expected_content_identity_sha256": target_content_identity}
+    return LoaderConfig.model_validate(payload)
+
+
 def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, package_root: Path,
-                               firewall: Any, staging_root: Path, code_commit: str) -> dict[str, Any]:
+                               firewall: Any, staging_root: Path, code_commit: str,
+                               target_package_id: str) -> dict[str, Any]:
     """Real, label-free target inference for ONE row, writing ONLY into the
     disposable staging namespace. Reuses `synthetic_real_probe.construct_row_trainer`
     and `target_prediction.target_batches`/`predict_target`/`write_predictions`/
@@ -509,7 +604,12 @@ def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, packag
     variant = str(binding["prediction_variant_id"])
     package_identity = str(binding["target_feature_package_identity"])
 
-    batches = target_batches(Path(package_root), trainer.loader_config, cache_root=trainer.cache_root,
+    # The SOURCE trainer's own loader config is source-package-bound; the
+    # target reader needs the SAME image/sampler/backend/dataloader policy
+    # but bound to the TARGET package — never trainer.loader_config as-is.
+    target_loader_config = build_verified_target_loader_config(
+        trainer.loader_config, target_package_id=target_package_id, target_content_identity=package_identity)
+    batches = target_batches(Path(package_root), target_loader_config, cache_root=trainer.cache_root,
                              firewall=firewall)
 
     config_hash = inference_config_hash(
@@ -536,7 +636,7 @@ def predict_one_row_to_staging(repo: Path, binding: Mapping[str, Any], *, packag
         rows=rows, checkpoint_sha256=binding["checkpoint_sha256"],
         source_calibration_sha256=binding["calibration_hash"], calibration_hash=binding["calibration_hash"],
         inference_config_hash=config_hash, target_feature_package_identity=package_identity,
-        target_package_id="prism_target_eval_v2", threshold=binding["threshold"],
+        target_package_id=target_package_id, threshold=binding["threshold"],
         unknown_threshold=None, scientific_config_hash=binding["config_identity"],
         source_matrix_lock_identity=binding["run_identity"], code_commit=code_commit)
     write_prediction_lock(row_staging_dir / PREDICTION_LOCK_FILE, lock)
@@ -1092,6 +1192,11 @@ def _predict(repo: Path) -> tuple[int, dict[str, Any]]:
         firewall = v1.build_firewall(repo, protocol)
         package_root = Path(repo) / protocol["roots"]["target_feature_root"]
         row_bindings = frozen_binding["rows"]
+        # The target package reference comes SOLELY from the frozen binding
+        # — resolved and fail-closed-verified before any target sample is
+        # read, whether this run predicts fresh or recovers from a
+        # promotion transaction.
+        target_package_id, _ = resolve_frozen_target_package_reference(frozen_binding)
 
         if recovered_from_promotion_transaction:
             row_results: dict[str, Any] = {
@@ -1103,7 +1208,8 @@ def _predict(repo: Path) -> tuple[int, dict[str, Any]]:
             for row_id in sorted(row_bindings):
                 row_results[row_id] = predict_one_row_to_staging(
                     repo, row_bindings[row_id], package_root=package_root, firewall=firewall,
-                    staging_root=staging_root, code_commit=code_commit)
+                    staging_root=staging_root, code_commit=code_commit,
+                    target_package_id=target_package_id)
 
         lockset = build_v3_prediction_lockset(
             protocol_id=frozen_binding["protocol_identity"], matrix_id=frozen_binding["target_matrix_identity"],
@@ -1178,6 +1284,7 @@ __all__ = [
     "resolve_all_row_bindings_v3", "build_prediction_plan_binding",
     "verify_binding_unchanged", "execution_identity",
     "KNOWN_NON_VARIANT_ROW_METADATA_FLAGS", "resolve_verified_row_capabilities",
+    "resolve_frozen_target_package_reference", "build_verified_target_loader_config",
     "predict_one_row_to_staging",
     "promote_staged_rows", "build_promotion_transaction", "PROMOTION_TRANSACTION_SCHEMA_VERSION",
     "build_v3_prediction_lockset",

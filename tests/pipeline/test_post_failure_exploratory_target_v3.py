@@ -167,8 +167,8 @@ def _install_v3_binding_fixtures(monkeypatch, *, rows=FAKE_ROWS, checkpoint_sha2
     monkeypatch.setattr(v2, "resolve_all_row_bindings_v2", _resolve_all_row_bindings_v2)
 
     def _fake_package_check(repo, protocol):
-        return {"present_on_this_host": True, "verified": True,
-               "expected_identity": PACKAGE_IDENTITY, "computed_identity": state["package_identity"],
+        return {"present_on_this_host": True, "verified": True, "package_id": "prism_target_eval_v2",
+               "expected_identity": state["package_identity"], "computed_identity": state["package_identity"],
                "target_feature_package_identity_verified": True,
                "target_label_access": 0, "reason": ""}
 
