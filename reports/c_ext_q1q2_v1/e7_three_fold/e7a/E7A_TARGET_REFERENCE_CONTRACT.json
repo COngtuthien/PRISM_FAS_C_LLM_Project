@@ -1,0 +1,24 @@
+{
+  "schema_version": "ext-q1q2-e7a-target-reference-contract-v1",
+  "TARGET_LABELS_LOADED": false,
+  "TARGET_LABEL_COLUMNS_PERSISTED": false,
+  "label_firewall_dir": "data/evaluation_only/prism_target_v2_labels",
+  "label_firewall_dir_opened_by_this_module": false,
+  "per_fold": {
+    "EXT-F1": {
+      "reuse_frozen_package": true,
+      "package_path": "data/processed/prism_target_eval_v2",
+      "action": "REUSE the already-frozen SiW-Mv2 evaluation package verbatim -- do not rebuild"
+    },
+    "EXT-F2": {
+      "target_domain": "MSU-MFSD",
+      "canonical_requirement": "a label-free MSU-MFSD held-out evaluation feature package, built the same way prism_target_eval_v2 was for SiW-Mv2 (4-frame-per-canonical-video sampler, label-free feature extraction only); NOT PRESENT locally, GPU_REQUIRED; no label-bearing shortcut constructed"
+    },
+    "EXT-F3": {
+      "target_domain": "CASIA-FASD",
+      "canonical_requirement": "a label-free CASIA-FASD held-out evaluation feature package, same construction; NOT PRESENT locally, GPU_REQUIRED; no label-bearing shortcut constructed"
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

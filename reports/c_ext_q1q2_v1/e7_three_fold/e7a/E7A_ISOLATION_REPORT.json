@@ -1,0 +1,91 @@
+{
+  "schema_version": "ext-q1q2-e7a-fold-isolation-audit-v1",
+  "per_fold": [
+    {
+      "fold_id": "EXT-F1",
+      "SOURCE_DOMAINS_EXACT": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "TARGET_DOMAIN_EXACT": "SiW-Mv2",
+      "SOURCE_TRAIN_TARGET_DOMAIN_ROWS": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SOURCE_DEV_TARGET_DOMAIN_ROWS": 0,
+      "TRAIN_DEV_SAMPLE_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SUBJECT_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "counts_by_dataset_class_split": {
+        "source_dev": {
+          "CASIA-FASD": {
+            "spoof": 1199,
+            "live": 240
+          },
+          "MSU-MFSD": {
+            "spoof": 480,
+            "live": 160
+          }
+        }
+      },
+      "source_dev_rows_checked": 2079,
+      "computed_against": "this fold's OWN source_dev pool (its source domain set equals the shared file's full content, so no filtering is needed)",
+      "note": null
+    },
+    {
+      "fold_id": "EXT-F2",
+      "SOURCE_DOMAINS_EXACT": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "TARGET_DOMAIN_EXACT": "MSU-MFSD",
+      "SOURCE_TRAIN_TARGET_DOMAIN_ROWS": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SOURCE_DEV_TARGET_DOMAIN_ROWS": 640,
+      "TRAIN_DEV_SAMPLE_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SUBJECT_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "counts_by_dataset_class_split": {
+        "source_dev": {
+          "CASIA-FASD": {
+            "spoof": 1199,
+            "live": 240
+          },
+          "MSU-MFSD": {
+            "spoof": 480,
+            "live": 160
+          }
+        }
+      },
+      "source_dev_rows_checked": 2079,
+      "computed_against": "the SHARED frozen CASIA+MSU source_dev.parquet pool, BEFORE any per-fold dataset filter is applied",
+      "note": "a NONZERO count here proves the shared pool file must NEVER be reused wholesale for EXT-F2 (see E7A_FOLD_MANIFEST_PLAN.json's FILTER_ONE_DATASET_FROM_FROZEN_FILE... contract) -- it does not mean a EXT-F2 manifest has actually leaked, since none has been materialized yet"
+    },
+    {
+      "fold_id": "EXT-F3",
+      "SOURCE_DOMAINS_EXACT": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "TARGET_DOMAIN_EXACT": "CASIA-FASD",
+      "SOURCE_TRAIN_TARGET_DOMAIN_ROWS": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SOURCE_DEV_TARGET_DOMAIN_ROWS": 1439,
+      "TRAIN_DEV_SAMPLE_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "SUBJECT_OVERLAP": "NOT_COMPUTABLE_LOCAL_BYTES_MISSING",
+      "counts_by_dataset_class_split": {
+        "source_dev": {
+          "CASIA-FASD": {
+            "spoof": 1199,
+            "live": 240
+          },
+          "MSU-MFSD": {
+            "spoof": 480,
+            "live": 160
+          }
+        }
+      },
+      "source_dev_rows_checked": 2079,
+      "computed_against": "the SHARED frozen CASIA+MSU source_dev.parquet pool, BEFORE any per-fold dataset filter is applied",
+      "note": "a NONZERO count here proves the shared pool file must NEVER be reused wholesale for EXT-F3 (see E7A_FOLD_MANIFEST_PLAN.json's FILTER_ONE_DATASET_FROM_FROZEN_FILE... contract) -- it does not mean a EXT-F3 manifest has actually leaked, since none has been materialized yet"
+    }
+  ],
+  "TARGET_LABEL_ACCESS": false,
+  "method": "reads ONLY the real, already-frozen source_dev.parquet (feature-side, label-free class column) where present; never scans held-out target image bytes; never opens data/evaluation_only/prism_target_v2_labels",
+  "no_silent_dropping_of_failed_or_missing_records": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

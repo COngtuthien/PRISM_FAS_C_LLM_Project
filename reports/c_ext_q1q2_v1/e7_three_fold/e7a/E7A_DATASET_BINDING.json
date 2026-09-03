@@ -1,0 +1,44 @@
+{
+  "schema_version": "ext-q1q2-e7a-dataset-infrastructure-audit-v1",
+  "rows": [
+    {
+      "DATASET": "CASIA-FASD",
+      "CANONICAL_SOURCE": "prism_fas.synthesis.pair_plan.SourceRow + prism_fas.data.adapters.adapters.CasiaFasdAdapter/MsuMfsdAdapter (frozen M3B package: data/packages/prism_data_v1_m3b)",
+      "IDENTITY_FIELD": "sample_id (opaque_record_id via prism_fas.data.preprocess_m2.sample_id)",
+      "SUBJECT_FIELD": "subject_id (populated; CASIA/MSU official protocol subject numbers)",
+      "package_identity_present": true,
+      "package_identity_sha256": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "source_train_manifest_present_locally": false,
+      "source_dev_manifest_present_locally": true,
+      "GPU_REQUIRED": true,
+      "REUSE_ACTION": "REUSE the frozen M3B source_train/source_dev split VERBATIM (per EXT_DATASET_FOLD_PLAN.json source_split_policy.casia_msu) -- never resplit CASIA/MSU with a new ratio or seed"
+    },
+    {
+      "DATASET": "MSU-MFSD",
+      "CANONICAL_SOURCE": "prism_fas.synthesis.pair_plan.SourceRow + prism_fas.data.adapters.adapters.CasiaFasdAdapter/MsuMfsdAdapter (frozen M3B package: data/packages/prism_data_v1_m3b)",
+      "IDENTITY_FIELD": "sample_id (opaque_record_id via prism_fas.data.preprocess_m2.sample_id)",
+      "SUBJECT_FIELD": "subject_id (populated; CASIA/MSU official protocol subject numbers)",
+      "package_identity_present": true,
+      "package_identity_sha256": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "source_train_manifest_present_locally": false,
+      "source_dev_manifest_present_locally": true,
+      "GPU_REQUIRED": true,
+      "REUSE_ACTION": "REUSE the frozen M3B source_train/source_dev split VERBATIM (per EXT_DATASET_FOLD_PLAN.json source_split_policy.casia_msu) -- never resplit CASIA/MSU with a new ratio or seed"
+    },
+    {
+      "DATASET": "SiW-Mv2",
+      "CANONICAL_SOURCE": "prism_fas.data.adapters.adapters.SiWMv2Adapter + opaque_record_id",
+      "IDENTITY_FIELD": "video_id (opaque, via SiWMv2Adapter._opaque -- carries no class/subject/filename by design)",
+      "SUBJECT_FIELD": "NOT RESOLVED by the committed adapter -- SiWMv2Adapter always sets subject_id=None (built for SiW-Mv2's historical role as the fixed, opaque, held-out TARGET; configs/version_c/c0_frozen_design.yaml pins siw_mv2: p3_fixed_held_out_target). Using SiW-Mv2 as SOURCE is a NEW role (EXT_DATASET_FOLD_PLAN.json: 'new held-out-domain role') with no existing subject-resolution adapter path.",
+      "target_eval_package_present_locally": true,
+      "raw_siw_source_bytes_present_locally": false,
+      "GPU_REQUIRED": true,
+      "REUSE_ACTION": "for EXT-F1 (SiW as TARGET): REUSE the frozen prism_target_eval_v2 package verbatim -- do not rebuild. For EXT-F2/F3 (SiW as SOURCE): a NEW subject-disjoint split must be constructed on the GPU host from raw SiW-Mv2, per the frozen source_split_policy.siw_as_source rule -- BUT the subject/group key this rule requires is not resolvable from the committed adapter as written; this is a genuine, unresolved gap, not a laptop-only limitation",
+      "target_label_firewall_dir_present": true,
+      "target_label_firewall_note": "labels live in a SEPARATE directory (data/evaluation_only/prism_target_v2_labels) from the feature package; this module never opens it"
+    }
+  ],
+  "no_second_parser_invented": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

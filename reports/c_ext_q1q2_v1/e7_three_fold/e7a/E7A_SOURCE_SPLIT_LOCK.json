@@ -1,0 +1,19 @@
+{
+  "schema_version": "ext-q1q2-e7a-source-split-lock-v1",
+  "casia_msu_rule": "REUSE the frozen Version-C source_train/source_dev construction verbatim (no resplit); reuse EXACTLY the frozen Version-C source_train / source_dev construction (data/processed/prism_target_eval_v2/manifests/{source_train,source_dev}.parquet)",
+  "casia_msu_train_fraction_reference": "prism_fas.synthesis.pair_plan.TRAIN_FRACTION (0.8) -- informational only; CASIA/MSU are REUSED, not resplit by this module",
+  "siw_as_source_rule": "deterministic subject/group-disjoint split, 80% train / 20% dev at group level",
+  "siw_as_source_seed": 20260901,
+  "siw_as_source_group_key": "canonical subject_id from metadata",
+  "siw_as_source_disjointness": "no video/frame from one subject/group in both train and dev",
+  "siw_as_source_fallback_if_unresolvable": "if reliable subject/group metadata cannot be resolved, EXT-F2/EXT-F3 source split construction STOPS as BLOCKED (never frame-random)",
+  "resolved_from": "reports/c_ext_q1q2_v1/e0/EXT_DATASET_FOLD_PLAN.json",
+  "SOURCE_SPLIT_RULE_RESOLVED": true,
+  "siw_source_subject_resolution_status": "UNRESOLVED_NO_ADAPTER_PATH",
+  "siw_source_subject_resolution_note": "the RULE (80% train / 20% dev, seed 20260901, group_key=subject_id) is frozen and resolved; its EXECUTABILITY for SiW-as-source is separately blocked because no committed adapter currently resolves a real subject/group key for SiW-Mv2 (see E7A_DATASET_BINDING.json) -- per the policy's OWN fallback, this STOPS SiW-as-source split construction as BLOCKED rather than falling back to frame-random",
+  "FROZEN_SOURCE_SPLIT_SEED": 20260901,
+  "status": "FROZEN",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "lock_identity": "b5bcb0b8ea622fe45db62feaef2e52f67ff2aac8366665ea3fec8c04aa112b65"
+}

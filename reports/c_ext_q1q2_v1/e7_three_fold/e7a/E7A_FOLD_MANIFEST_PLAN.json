@@ -1,0 +1,142 @@
+{
+  "schema_version": "ext-q1q2-e7a-fold-manifest-plan-v1",
+  "folds": [
+    {
+      "fold_id": "EXT-F1",
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "source_row_schema": [
+        "sample_id",
+        "dataset",
+        "source_record_id",
+        "subject_id",
+        "official_split",
+        "label_live_spoof",
+        "project_split",
+        "image_relative_path",
+        "prior_relative_path",
+        "crop_sha256",
+        "prior_sha256",
+        "package_schema_version"
+      ],
+      "source_train_manifest_ref": {
+        "kind": "REUSE_FROZEN_WHOLE_FILE",
+        "path": "data/packages/prism_data_v1_m3b/manifests/source_train.parquet"
+      },
+      "source_dev_manifest_ref": {
+        "kind": "REUSE_FROZEN_WHOLE_FILE",
+        "path": "data/packages/prism_data_v1_m3b/manifests/source_dev.parquet"
+      },
+      "heldout_target_reference": {
+        "kind": "REUSE_FROZEN",
+        "path": "data/processed/prism_target_eval_v2",
+        "label_columns_persisted": false
+      },
+      "preserves_for_downstream": [
+        "GPAT_support",
+        "Physics_generation",
+        "quality_calibration",
+        "REALONLY_sampling",
+        "detector_training",
+        "source_dev_threshold_calibration"
+      ],
+      "materialized_this_turn": false
+    },
+    {
+      "fold_id": "EXT-F2",
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "source_row_schema": [
+        "sample_id",
+        "dataset",
+        "source_record_id",
+        "subject_id",
+        "official_split",
+        "label_live_spoof",
+        "project_split",
+        "image_relative_path",
+        "prior_relative_path",
+        "crop_sha256",
+        "prior_sha256",
+        "package_schema_version"
+      ],
+      "source_train_manifest_ref": {
+        "kind": "FILTER_ONE_DATASET_FROM_FROZEN_FILE_PLUS_SIW_SOURCE_SPLIT_PLAN_ONLY",
+        "path": "PLAN_ONLY_GPU_REQUIRED"
+      },
+      "source_dev_manifest_ref": {
+        "kind": "FILTER_ONE_DATASET_FROM_FROZEN_FILE_PLUS_SIW_SOURCE_SPLIT_PLAN_ONLY",
+        "path": "PLAN_ONLY_GPU_REQUIRED"
+      },
+      "heldout_target_reference": {
+        "kind": "PLAN_ONLY_GPU_REQUIRED",
+        "path": null,
+        "label_columns_persisted": false
+      },
+      "preserves_for_downstream": [
+        "GPAT_support",
+        "Physics_generation",
+        "quality_calibration",
+        "REALONLY_sampling",
+        "detector_training",
+        "source_dev_threshold_calibration"
+      ],
+      "materialized_this_turn": false
+    },
+    {
+      "fold_id": "EXT-F3",
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "source_row_schema": [
+        "sample_id",
+        "dataset",
+        "source_record_id",
+        "subject_id",
+        "official_split",
+        "label_live_spoof",
+        "project_split",
+        "image_relative_path",
+        "prior_relative_path",
+        "crop_sha256",
+        "prior_sha256",
+        "package_schema_version"
+      ],
+      "source_train_manifest_ref": {
+        "kind": "FILTER_ONE_DATASET_FROM_FROZEN_FILE_PLUS_SIW_SOURCE_SPLIT_PLAN_ONLY",
+        "path": "PLAN_ONLY_GPU_REQUIRED"
+      },
+      "source_dev_manifest_ref": {
+        "kind": "FILTER_ONE_DATASET_FROM_FROZEN_FILE_PLUS_SIW_SOURCE_SPLIT_PLAN_ONLY",
+        "path": "PLAN_ONLY_GPU_REQUIRED"
+      },
+      "heldout_target_reference": {
+        "kind": "PLAN_ONLY_GPU_REQUIRED",
+        "path": null,
+        "label_columns_persisted": false
+      },
+      "preserves_for_downstream": [
+        "GPAT_support",
+        "Physics_generation",
+        "quality_calibration",
+        "REALONLY_sampling",
+        "detector_training",
+        "source_dev_threshold_calibration"
+      ],
+      "materialized_this_turn": false
+    }
+  ],
+  "no_fabricated_counts": true,
+  "target_labels_copied_into_heldout_manifest": false,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false
+}

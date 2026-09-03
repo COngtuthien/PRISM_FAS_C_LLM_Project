@@ -1,0 +1,41 @@
+{
+  "schema_version": "ext-q1q2-e7a-readiness-v1",
+  "downstream_contract": {
+    "EXT-F1": {
+      "source_train_manifest": "PLAN_ONLY",
+      "source_dev_manifest": "PLAN_ONLY",
+      "source_live_pool": "PLAN_ONLY",
+      "source_spoof_pool": "PLAN_ONLY",
+      "heldout_target_reference": "PLAN_ONLY",
+      "fold_identity": null
+    },
+    "EXT-F2": {
+      "source_train_manifest": "PLAN_ONLY",
+      "source_dev_manifest": "PLAN_ONLY",
+      "source_live_pool": "PLAN_ONLY",
+      "source_spoof_pool": "PLAN_ONLY",
+      "heldout_target_reference": "PLAN_ONLY",
+      "fold_identity": null
+    },
+    "EXT-F3": {
+      "source_train_manifest": "PLAN_ONLY",
+      "source_dev_manifest": "PLAN_ONLY",
+      "source_live_pool": "PLAN_ONLY",
+      "source_spoof_pool": "PLAN_ONLY",
+      "heldout_target_reference": "PLAN_ONLY",
+      "fold_identity": null
+    }
+  },
+  "SOURCE_SPLIT_RULE_RESOLVED": true,
+  "NAIVE_WHOLE_FILE_REUSE_WOULD_LEAK_FOR_F2_F3": true,
+  "MATERIALIZED_FOLD_MANIFEST_LEAKAGE_FOUND": false,
+  "E7A_READY_FOR_GPAT": false,
+  "casia_msu_local_bytes_complete": false,
+  "siw_source_subject_resolution_status": "UNRESOLVED_NO_ADAPTER_PATH",
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "status": "PREPARED_NOT_EXECUTED"
+}

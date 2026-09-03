@@ -1,0 +1,38 @@
+{
+  "schema_version": "ext-q1q2-e7a-execution-plan-v1",
+  "cli_operations": [
+    {
+      "flag": "--e7a-preflight",
+      "read_only": true,
+      "creates": "E7A additive preflight report only, never a manifest/GPAT/checkpoint"
+    },
+    {
+      "flag": "--e7a-build",
+      "read_only": false,
+      "requires": "explicit --authorize flag",
+      "creates": "source train/dev manifest REFERENCES",
+      "never": [
+        "renders",
+        "trains",
+        "fits GPAT",
+        "target-label-accesses"
+      ]
+    },
+    {
+      "flag": "--e7a-validate",
+      "read_only": true,
+      "creates": "nothing; reports NOT_YET_BUILT/PLAN_ONLY_NOT_MATERIALIZED/MATERIALIZED"
+    }
+  ],
+  "fail_closed_on": [
+    "missing canonical dataset bytes",
+    "identity mismatch against a persisted protocol lock",
+    "unresolved split rule",
+    "target/source leakage",
+    "subject overlap where prohibited"
+  ],
+  "no_automatic_fallback": true,
+  "executed_this_turn": [],
+  "target_access": false,
+  "llm_api_calls": 0
+}
