@@ -1,0 +1,30 @@
+{
+  "written": {
+    "EXT-F1": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1/EXT-F1/FOLD_MATERIALIZATION.json",
+    "EXT-F2": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1/EXT-F2/FOLD_MATERIALIZATION.json",
+    "EXT-F3": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1/EXT-F3/FOLD_MATERIALIZATION.json"
+  },
+  "resumed": {
+    "EXT-F1": false,
+    "EXT-F2": false,
+    "EXT-F3": false
+  },
+  "validation": {
+    "schema_version": "ext-q1q2-e7a-materialization-validate-v1",
+    "status": "MATERIALIZED",
+    "folds_present": {
+      "EXT-F1": true,
+      "EXT-F2": true,
+      "EXT-F3": true
+    },
+    "problems": [],
+    "E7A_MATERIALIZATION_VALID": true,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}
