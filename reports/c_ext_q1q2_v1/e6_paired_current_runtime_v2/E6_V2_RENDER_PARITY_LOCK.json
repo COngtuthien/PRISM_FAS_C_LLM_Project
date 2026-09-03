@@ -1,0 +1,204 @@
+{
+  "schema_version": "e6-v2-fairness-contract-v1",
+  "status": "FROZEN",
+  "original_arm": "LLM_ORIGINAL_CURRENT_V2",
+  "shuffle_arm": "LLM_SHUFFLE_A_CURRENT_V2",
+  "original_plan": {
+    "schema_version": "e6-v2-arm-plan-v1",
+    "arm": "LLM_ORIGINAL_CURRENT_V2",
+    "recipe_content_identity": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+    "recipe_bank_identity": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+    "recipe_count": 256,
+    "renders_per_recipe": 8,
+    "candidates_per_arm": 2048,
+    "gpat_checkpoint_sha256": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+    "physics_engine_version": "m7-physics-v1",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "source_pair_plan_identity": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+    "package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+    "quality_profile": "NOMINAL",
+    "quality_threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+    "quality_gate_thresholds": {
+      "tau_fd": 0.5,
+      "tau_fp": 5.687657785453908,
+      "tau_id": 0.547440037939055,
+      "tau_lm": 0.00836817528937794,
+      "tau_out": 0.0,
+      "tau_parse": 0.7094826178704915
+    },
+    "q_used_for_selection": false,
+    "by_route_quota": {
+      "gpat": 512,
+      "physics": 512
+    },
+    "final_bank_size": 1024,
+    "target_access": false,
+    "llm_api_calls": 0,
+    "arm_plan_identity": "439407af434d831d3c5bbc18f6ecfebeccae37745cce6be7d852efc557860725"
+  },
+  "shuffle_plan": {
+    "schema_version": "e6-v2-arm-plan-v1",
+    "arm": "LLM_SHUFFLE_A_CURRENT_V2",
+    "recipe_content_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+    "recipe_bank_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+    "recipe_count": 256,
+    "renders_per_recipe": 8,
+    "candidates_per_arm": 2048,
+    "gpat_checkpoint_sha256": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+    "physics_engine_version": "m7-physics-v1",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "source_pair_plan_identity": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+    "package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+    "quality_profile": "NOMINAL",
+    "quality_threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+    "quality_gate_thresholds": {
+      "tau_fd": 0.5,
+      "tau_fp": 5.687657785453908,
+      "tau_id": 0.547440037939055,
+      "tau_lm": 0.00836817528937794,
+      "tau_out": 0.0,
+      "tau_parse": 0.7094826178704915
+    },
+    "q_used_for_selection": false,
+    "by_route_quota": {
+      "gpat": 512,
+      "physics": 512
+    },
+    "final_bank_size": 1024,
+    "target_access": false,
+    "llm_api_calls": 0,
+    "arm_plan_identity": "b1989756f55f94b3237e4415a7e48e73865f3dbced1e4eab09d9d8252af78446"
+  },
+  "field_by_field": [
+    {
+      "field": "renders_per_recipe",
+      "original_current": 8,
+      "shuffle_a_current": 8,
+      "matches": true
+    },
+    {
+      "field": "candidates_per_arm",
+      "original_current": 2048,
+      "shuffle_a_current": 2048,
+      "matches": true
+    },
+    {
+      "field": "gpat_checkpoint_sha256",
+      "original_current": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+      "shuffle_a_current": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+      "matches": true
+    },
+    {
+      "field": "physics_engine_version",
+      "original_current": "m7-physics-v1",
+      "shuffle_a_current": "m7-physics-v1",
+      "matches": true
+    },
+    {
+      "field": "ontology_identity",
+      "original_current": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "shuffle_a_current": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "matches": true
+    },
+    {
+      "field": "source_pair_plan_identity",
+      "original_current": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+      "shuffle_a_current": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+      "matches": true
+    },
+    {
+      "field": "package_identity",
+      "original_current": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "shuffle_a_current": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "matches": true
+    },
+    {
+      "field": "quality_profile",
+      "original_current": "NOMINAL",
+      "shuffle_a_current": "NOMINAL",
+      "matches": true
+    },
+    {
+      "field": "quality_threshold_identity",
+      "original_current": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+      "shuffle_a_current": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+      "matches": true
+    },
+    {
+      "field": "q_used_for_selection",
+      "original_current": false,
+      "shuffle_a_current": false,
+      "matches": true
+    },
+    {
+      "field": "by_route_quota",
+      "original_current": {
+        "gpat": 512,
+        "physics": 512
+      },
+      "shuffle_a_current": {
+        "gpat": 512,
+        "physics": 512
+      },
+      "matches": true
+    },
+    {
+      "field": "final_bank_size",
+      "original_current": 1024,
+      "shuffle_a_current": 1024,
+      "matches": true
+    },
+    {
+      "field": "recipe_count",
+      "original_current": 256,
+      "shuffle_a_current": 256,
+      "matches": true
+    }
+  ],
+  "shared_by_construction": [
+    {
+      "field": "live_spoof_source_assignments",
+      "status": "SHARED_BY_CONSTRUCTION (see TASK C: verify_source_pair_recipe_alignment)"
+    },
+    {
+      "field": "route_assignment",
+      "status": "SHARED_BY_CONSTRUCTION (same C5_SOURCE_PAIR_PLAN.json)"
+    },
+    {
+      "field": "renderer_implementation",
+      "status": "SHARED_BY_CONSTRUCTION (same c5_render.render_arm / GPATRoute / PhysicsRoute code, invoked once per arm with no arm-conditional branch)"
+    },
+    {
+      "field": "quality_backend",
+      "status": "SHARED_BY_CONSTRUCTION (same default_metrics_provider / quality_calibration.QualityBackends)"
+    },
+    {
+      "field": "matching_configuration",
+      "status": "SHARED_BY_CONSTRUCTION for quota/thresholds; see TASK E for the matcher WRAPPER's own binding status"
+    },
+    {
+      "field": "detector_architecture",
+      "status": "SHARED_BY_CONSTRUCTION (same configs/models/m9_detector.yaml + Track G variant flags via c_ext_e6_training_plan.build_e6_variant_flags)"
+    },
+    {
+      "field": "training_schedule",
+      "status": "SHARED_BY_CONSTRUCTION (HISTORICAL_TOTAL_EPOCHS=35, HISTORICAL_STEPS_PER_EPOCH=45, both pinned and asserted by build_e6_training_config)"
+    },
+    {
+      "field": "detector_seeds",
+      "status": "SHARED_BY_CONSTRUCTION ([20260806, 20260807, 20260808, 20260809, 20260810])"
+    },
+    {
+      "field": "source_dev_calibration_protocol",
+      "status": "SHARED_BY_CONSTRUCTION (single configs/c_ext_q1q2_v1/folds.yaml: source_split_policy, not arm-specific)"
+    },
+    {
+      "field": "target_evaluation_protocol",
+      "status": "SHARED_BY_CONSTRUCTION (single configs/c_ext_q1q2_v1/folds.yaml: target_package_policy, not arm-specific; POLICY reference only -- no target opened)"
+    }
+  ],
+  "mismatches": [],
+  "runtime_render_parity": "PASS",
+  "only_intended_difference": "recipe joint composition (recipe content/field associations); field marginals are identical by the already-frozen Shuffle-A contract -- see resolve_recipe_field_marginal_parity for the independent RECIPE-content proof of that claim",
+  "lock_identity": "1452eeedee48643525976f59f474d9dedcec338b0ce189c1833dc6ace0e05dc2"
+}

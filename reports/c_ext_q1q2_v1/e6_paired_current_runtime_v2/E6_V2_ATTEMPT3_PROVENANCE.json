@@ -1,0 +1,59 @@
+{
+  "schema_version": "e6-v2-execution-attempt-provenance-v1",
+  "ATTEMPT": 3,
+  "STATUS": "TECHNICAL_FAILURE",
+  "FAILURE_STAGE": "SHUFFLE_QUALITY_MATCHING",
+  "FAILURE_CLASS": "CROSS_ARM_PROCESS_LIFETIME_CACHE_CONTAMINATION",
+  "gpu_observed_error": "prism_fas.synthesis.c6_matched_bank.MatchedBankError: physics: only 26 of 512 slots could be filled under the common source-domain quota (real, same-process production execution, ORIGINAL then SHUFFLE)",
+  "failure_detail": {
+    "bug_4_support_mask_cache_key_missing_recipe_content": {
+      "symbol": "synthetic_bank._support_masks / m8_pipeline.SampleStore.cached_mask",
+      "expression": "cache key was (sample_id, graph.recipe_id) / (sample_id, graph.recipe_id, role) -- `recipe_id` is IDENTICAL across ORIGINAL/SHUFFLE at the SAME schedule position by construction (c5_source_pair_plan/c5_arm_plan `_recipe_id` reads a per-ordinal field carried unchanged by the shuffle), while recipe CONTENT (region policy, requested regions, strength) differs. The cache lives on `store`, which `c_ext_e6_render._resolve_quality_model_runtime` caches for the LIFE OF THE PROCESS and reuses across every arm `run_v2_render_execution` measures in that same process. ORIGINAL runs FIRST (production order), populating the cache; SHUFFLE's later `_support_masks` calls at the SAME (sample_id, recipe_id) then silently returned ORIGINAL's stale support mask.",
+      "observed_effect": "physics quality-gate outcomes for SHUFFLE candidates computed against the WRONG requested-support mask when measured in the SAME process as ORIGINAL, corrupting support_overlap/measured_artifact_strength and collapsing the physics route-bank fillable count far below the fresh-process (standalone) value"
+    }
+  },
+  "fix": {
+    "summary": "_support_masks (synthetic_bank.py) and SampleStore.cached_mask (m8_pipeline.py) cache keys extended to (sample_id, recipe_id, graph.recipe_hash[, role]) -- recipe_hash is a content hash of the recipe itself, already computed by compile_recipe, so two arms' recipes at the same recipe_id/ordinal now always cache-miss against each other while a repeated call for the SAME recipe content still hits the cache",
+    "files_changed": [
+      "src/prism_fas/synthesis/synthetic_bank.py",
+      "src/prism_fas/synthesis/m8_pipeline.py"
+    ],
+    "render_algorithm_changed": false,
+    "quality_equations_changed": false,
+    "quality_thresholds_changed": false,
+    "q_changed": false,
+    "quota_changed": false,
+    "matching_algorithm_changed": false,
+    "source_domain_policy_changed": false
+  },
+  "candidate_id_collision_across_arms": "IMPOSSIBLE_BY_CONSTRUCTION",
+  "candidate_id_collision_reason": "c5_source_pair_plan.candidate_identity hashes BOTH `arm` and `recipe_bank_identity`; either alone already guarantees no collision between LLM_ORIGINAL_CURRENT_V2 and LLM_SHUFFLE_A_CURRENT_V2",
+  "gpu_observed_facts": {
+    "note": "each value below is a SEPARATE, VERBATIM GPU observation -- never recomputed or reconciled into a single number on this laptop",
+    "REAL_EXECUTION_FAILURE_FILLABLE": 26,
+    "REAL_EXECUTION_FAILURE_FILLABLE_LABEL": "TECHNICAL_ARTIFACT",
+    "STANDALONE_ORIGINAL_PREFLIGHT_FILLABLE": 512,
+    "STANDALONE_SHUFFLE_PREFLIGHT_FILLABLE": 479,
+    "STANDALONE_SHUFFLE_CASIA_AVAILABLE": 231,
+    "STANDALONE_SHUFFLE_CASIA_REQUIRED": 264,
+    "STANDALONE_SHUFFLE_MSU_AVAILABLE": 281,
+    "STANDALONE_SHUFFLE_MSU_REQUIRED": 248,
+    "standalone_479_pure_arithmetic_confirmed": true,
+    "standalone_479_formula": "min(231,264) + min(281,248) = 231 + 248 = 479"
+  },
+  "predicted_post_fix_same_process_shuffle_fillable": 479,
+  "predicted_post_fix_basis": "a fresh-process (standalone) run was NEVER exposed to the cross-arm cache in the first place (nothing else in the SAME process could have populated it before SHUFFLE's own candidates were measured), so the fix -- which only changes behavior when a SECOND arm's request would otherwise have hit a FIRST arm's stale entry -- should make a same-process run converge to the same result a fresh-process run already gave. This is a CODE-LEVEL PREDICTION.",
+  "post_fix_gpu_confirmed": false,
+  "true_frozen_matched_bank_infeasibility_provisional": true,
+  "true_frozen_matched_bank_infeasibility_basis": "IF the standalone 479 is confirmed by a clean same-process run post-fix, SHUFFLE's Physics quality-pass total (512) is numerically sufficient, but its domain COMPOSITION (CASIA 231 available vs 264 required; MSU 281 available vs 248 required) cannot satisfy the frozen EXACT per-domain quota -- MSU's 33-unit surplus cannot compensate CASIA's 33-unit deficit under `select_route_bank`'s per-domain-exact fill rule",
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "RENDER_ALGORITHM_CHANGED": false,
+  "QUALITY_ALGORITHM_CHANGED": false,
+  "MATCHING_ALGORITHM_CHANGED": false,
+  "QUOTA_CHANGED": false,
+  "Q_CHANGED": false,
+  "THRESHOLD_CHANGED": false,
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "GPU_RESUME_AUTHORIZED": false
+}

@@ -1,0 +1,90 @@
+{
+  "schema_version": "e6-v2-preparation-summary-v1",
+  "locks_written": [
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_PROTOCOL_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_SOURCE_PAIR_PARITY_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RENDER_PARITY_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_QUALITY_PARITY_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_TRAINING_PLAN_LOCK.json",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RENDER_EXECUTION_PLAN_LOCK.json"
+  ],
+  "readiness": {
+    "schema_version": "e6-v2-readiness-gate-v1",
+    "E6_V2_PROTOCOL_LOCKED": true,
+    "E6_V2_RECIPE_PARITY_PASS": true,
+    "ORIGINAL_RECIPE_CONTENT_EQUIVALENCE": true,
+    "RECIPE_FIELD_MARGINAL_PARITY": "PASS",
+    "JOINT_ASSOCIATIONS_CHANGED": true,
+    "E6_V2_SOURCE_PAIR_PARITY_PASS": true,
+    "E6_V2_RENDER_PARITY_PASS": true,
+    "E6_V2_QUALITY_PARITY_PASS": true,
+    "E6_V2_TRAINING_PLAN_LOCKED": true,
+    "LOCK_DEPENDENCY_CHAIN_VALID": true,
+    "lock_dependency_chain": {
+      "schema_version": "e6-v2-lock-dependency-chain-v1",
+      "chain": [
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json",
+          "depends_on": [
+            "assets/recipe_banks/c3/llm/recipes.jsonl (original recipes)",
+            "reports/c_ext_q1q2_v1/e6_llm_shuffle/LLM_SHUFFLE_A_RECIPES.jsonl",
+            "reports/c_ext_q1q2_v1/e0/EXT_RECIPE_BINDING.json",
+            "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json (via EXPECTED_ORIGINAL_LLM_SELECTED_SET_IDENTITY)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_SOURCE_PAIR_PARITY_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json (same original+shuffle recipe lists)",
+            "reports/full/c5/C5_SOURCE_PAIR_PLAN.json (ordinal alignment)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RENDER_PARITY_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json (same original+shuffle recipe lists)",
+            "c_ext_e6_render.audit_historical_path (frozen renderer/quality/matching contract)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_QUALITY_PARITY_LOCK.json",
+          "depends_on": [
+            "c_ext_e6_render.audit_historical_path",
+            "c_ext_e6_render.resolve_e6_route_quota",
+            "c_ext_e6_render.default_quality_matcher's signature (arm parameterization)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_TRAINING_PLAN_LOCK.json",
+          "depends_on": [
+            "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+            "configs/models/m9_detector.yaml",
+            "configs/train/m9_reference.yaml"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_PROTOCOL_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_llm_shuffle/render/E6_SUPPORT_OVERLAP_ROOT_CAUSE.json (forensic status citation only)",
+            "policy-level only -- does not numerically depend on the other five locks"
+          ]
+        }
+      ],
+      "cross_check": {
+        "original_recipe_identity_consistent_across_recipe_pair_and_render_parity": true,
+        "shuffle_recipe_identity_consistent_across_recipe_pair_and_render_parity": true
+      },
+      "lock_dependency_chain_valid": true
+    },
+    "E6_V2_READY_FOR_RENDER": true,
+    "blocking_locks": [],
+    "note": "E6_V2_READY_FOR_RENDER=TRUE authorizes nothing by itself -- rendering still requires a separate, explicit --execute --authorize-gpu-render invocation this milestone does not provide yet. The historical field E6_READY_FOR_REAL_RENDER (c_ext_e6_render) remains FALSE regardless of this gate, because the OLD historical-parity path stays BLOCKED_UNRECOVERABLE_HISTORICAL_RUNTIME."
+  },
+  "execution_plan_lock_identity": "69a41f0946324fd4c2a5a93364be88c3a1dc43b97543b88a2855e1585a39aa8f",
+  "execution_plan_lock_status": "FROZEN",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false
+}

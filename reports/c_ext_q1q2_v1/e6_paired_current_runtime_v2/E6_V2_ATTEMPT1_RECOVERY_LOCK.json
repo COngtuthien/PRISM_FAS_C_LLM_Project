@@ -1,0 +1,26 @@
+{
+  "schema_version": "e6-v2-attempt1-recovery-lock-v1",
+  "status": "FROZEN",
+  "attempt": 1,
+  "original_execution_plan_lock_identity": "69a41f0946324fd4c2a5a93364be88c3a1dc43b97543b88a2855e1585a39aa8f",
+  "original_execution_plan_lock_present": true,
+  "actual_nested_original_root": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates/LLM_ORIGINAL_CURRENT_V2/LLM_ORIGINAL_CURRENT_V2",
+  "corrected_future_path_contract": {
+    "work_root_function": "v2_render_work_root(arm)",
+    "rule": "arm-INDEPENDENT for every arm except the documented ARM_ORIGINAL exception; c5_render.render_arm/c5_raw_generation.candidate_dir append `arm` exactly once on top of it",
+    "ARM_ORIGINAL": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates/LLM_ORIGINAL_CURRENT_V2",
+    "ARM_SHUFFLE": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates"
+  },
+  "candidate_root_binding_used_for_quality": "default_quality_matcher(..., candidates_root=v2_render_work_root(arm)) -- explicit, never the historical c_ext_e6_render.CANDIDATES_ROOT default",
+  "recovery_option_chosen": "A",
+  "recovery_option_a_description": "explicitly adopt the nested attempt-1 ORIGINAL candidate-record root for recovery/resume -- existing valid rendered bytes are preserved and reused, never rerendered, because regenerating 2048 candidates for a path-cosmetics-only reason would discard real GPU work for no scientific benefit",
+  "recovery_option_b_rejected_for_now": "a future audited metadata/path-only migration (moving bytes to the corrected single-append layout) remains possible later, but is NOT executed this turn",
+  "recovery_option_c_rejected": "rerendering ORIGINAL is rejected -- nothing in this turn's audit found the existing 2048 records unusable",
+  "resume_policy": "identity-aware via c5_raw_generation.reuse_decision against the ACTUAL nested root for ORIGINAL; a candidate whose identity agrees and payload hashes still verify is reused, never re-rendered; a genuinely missing planned candidate may render (into the SAME nested root, for consistency); a FAILED_GENERATION record is retained, never resampled",
+  "existing_payload_bytes_preserved": true,
+  "scientific_protocol_unchanged": true,
+  "storage_layout_is_metadata_only": "candidate storage path never affects q, quality threshold decisions, the matching algorithm, route quota, selection ordering, selected_set_digest, or bank size -- proven by TASK D's historical-regression tests and TASK G's cross-arm layout-independence tests",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "lock_identity": "842d5ff46ddca2f104ad48c385c4fc6bd50a28afea3b93b0b32c6cb49464ac64"
+}

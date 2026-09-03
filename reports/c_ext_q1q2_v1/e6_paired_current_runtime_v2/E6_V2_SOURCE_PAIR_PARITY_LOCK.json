@@ -1,0 +1,10 @@
+{
+  "schema_version": "e6-v2-source-pair-parity-v1",
+  "status": "FROZEN",
+  "schedule_key": "recipe_ordinal (array index)",
+  "ordinals_checked": 256,
+  "all_ordinals_aligned": true,
+  "source_pair_parity_pct": 100.0,
+  "note": "candidate_ids differ between arms because recipe CONTENT (and therefore recipe_hash/graph_hash) differs; recipe_ordinal, route, live_target_sample_id and spoof_source_sample_id are IDENTICAL at every position, by construction of the shared C5_SOURCE_PAIR_PLAN.json and this proof.",
+  "lock_identity": "db80cb17ede7c12ebfbab476798068461a18884bd31bf8e0d245d2aea6c17532"
+}

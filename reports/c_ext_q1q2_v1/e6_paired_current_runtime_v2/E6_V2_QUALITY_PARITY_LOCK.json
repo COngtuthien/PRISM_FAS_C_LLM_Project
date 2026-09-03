@@ -1,0 +1,64 @@
+{
+  "schema_version": "e6-v2-quality-parity-lock-v1",
+  "status": "FROZEN",
+  "quality_runtime_parity": "PASS",
+  "matching_policy_parity": "PASS",
+  "quality": {
+    "schema_version": "e6-v2-quality-parity-v1",
+    "acceptance_criterion": "CURRENT_RUNTIME_INTERNAL_PARITY (ORIGINAL_CURRENT vs SHUFFLE_A_CURRENT only)",
+    "historical_q_role": "REFERENCE_ONLY -- never an acceptance criterion, never recomputed",
+    "quality_profile": "NOMINAL",
+    "quality_threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+    "quality_gate_thresholds": {
+      "tau_fd": 0.5,
+      "tau_fp": 5.687657785453908,
+      "tau_id": 0.547440037939055,
+      "tau_lm": 0.00836817528937794,
+      "tau_out": 0.0,
+      "tau_parse": 0.7094826178704915
+    },
+    "q_used_for_selection": false,
+    "quality_code": "prism_fas.synthesis.quality_gate.Thresholds/evaluate (shared, unmodified)",
+    "quality_models": "prism_fas.synthesis.quality_models.QualityModelRegistry (shared, unmodified)",
+    "historical_q_reconstruction_status": "UNRESOLVED_UNRECOVERABLE (see E6_SUPPORT_OVERLAP_ROOT_CAUSE.json) -- irrelevant to this internal-parity criterion",
+    "tolerance_gate_modified": false,
+    "quality_runtime_parity": "PASS"
+  },
+  "matching": {
+    "schema_version": "e6-v2-matching-policy-v1",
+    "route_quota_source": "resolve_e6_route_quota (ORIGINAL_LLM's own frozen C6 exposure, reused verbatim, never recomputed jointly)",
+    "route_quota": {
+      "gpat": {
+        "casia_fasd": 293,
+        "msu_mfsd": 219
+      },
+      "physics": {
+        "casia_fasd": 264,
+        "msu_mfsd": 248
+      }
+    },
+    "final_bank_size": 1024,
+    "by_route_quota": {
+      "gpat": 512,
+      "physics": 512
+    },
+    "candidate_budget": 2048,
+    "quality_gating": "prism_fas.synthesis.quality_gate.evaluate (shared, unmodified)",
+    "matching_primitives_reusable": true,
+    "matching_primitives": [
+      "synthesis.c6_matched_bank.SelectableCandidate",
+      "synthesis.c6_matched_bank.select_route_bank",
+      "synthesis.c6_matched_bank.selected_set_digest"
+    ],
+    "arm_hardcoded_in_source": false,
+    "arm_is_required_parameter_no_default": true,
+    "e6_default_quality_matcher_wrapper_reusable": true,
+    "status": "REUSABLE",
+    "original_v2_matcher_arm": "LLM_ORIGINAL_CURRENT_V2",
+    "shuffle_v2_matcher_arm": "LLM_SHUFFLE_A_CURRENT_V2",
+    "matching_algorithm_changed": false,
+    "blocked_reason": null,
+    "symmetric_policy": "identical candidate_budget, quality_gating, matching objective, route quota and bank_size apply to BOTH arms; only the arm= keyword differs between the two calls"
+  },
+  "lock_identity": "25b83adc72eb097c011b780db00e1edc5cb8d1bb12883abc9e432d63196024fb"
+}

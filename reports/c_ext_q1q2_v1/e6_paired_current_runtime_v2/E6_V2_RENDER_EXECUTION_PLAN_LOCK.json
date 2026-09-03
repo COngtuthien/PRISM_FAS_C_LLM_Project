@@ -1,0 +1,132 @@
+{
+  "schema_version": "e6-v2-render-execution-plan-lock-v1",
+  "status": "FROZEN",
+  "readiness_at_lock_time": {
+    "schema_version": "e6-v2-readiness-gate-v1",
+    "E6_V2_PROTOCOL_LOCKED": true,
+    "E6_V2_RECIPE_PARITY_PASS": true,
+    "ORIGINAL_RECIPE_CONTENT_EQUIVALENCE": true,
+    "RECIPE_FIELD_MARGINAL_PARITY": "PASS",
+    "JOINT_ASSOCIATIONS_CHANGED": true,
+    "E6_V2_SOURCE_PAIR_PARITY_PASS": true,
+    "E6_V2_RENDER_PARITY_PASS": true,
+    "E6_V2_QUALITY_PARITY_PASS": true,
+    "E6_V2_TRAINING_PLAN_LOCKED": true,
+    "LOCK_DEPENDENCY_CHAIN_VALID": true,
+    "lock_dependency_chain": {
+      "schema_version": "e6-v2-lock-dependency-chain-v1",
+      "chain": [
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json",
+          "depends_on": [
+            "assets/recipe_banks/c3/llm/recipes.jsonl (original recipes)",
+            "reports/c_ext_q1q2_v1/e6_llm_shuffle/LLM_SHUFFLE_A_RECIPES.jsonl",
+            "reports/c_ext_q1q2_v1/e0/EXT_RECIPE_BINDING.json",
+            "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json (via EXPECTED_ORIGINAL_LLM_SELECTED_SET_IDENTITY)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_SOURCE_PAIR_PARITY_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json (same original+shuffle recipe lists)",
+            "reports/full/c5/C5_SOURCE_PAIR_PLAN.json (ordinal alignment)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RENDER_PARITY_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json (same original+shuffle recipe lists)",
+            "c_ext_e6_render.audit_historical_path (frozen renderer/quality/matching contract)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_QUALITY_PARITY_LOCK.json",
+          "depends_on": [
+            "c_ext_e6_render.audit_historical_path",
+            "c_ext_e6_render.resolve_e6_route_quota",
+            "c_ext_e6_render.default_quality_matcher's signature (arm parameterization)"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_TRAINING_PLAN_LOCK.json",
+          "depends_on": [
+            "reports/full/c7/DETECTOR_CONFIG_LOCK.json",
+            "configs/models/m9_detector.yaml",
+            "configs/train/m9_reference.yaml"
+          ]
+        },
+        {
+          "lock": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_PROTOCOL_LOCK.json",
+          "depends_on": [
+            "reports/c_ext_q1q2_v1/e6_llm_shuffle/render/E6_SUPPORT_OVERLAP_ROOT_CAUSE.json (forensic status citation only)",
+            "policy-level only -- does not numerically depend on the other five locks"
+          ]
+        }
+      ],
+      "cross_check": {
+        "original_recipe_identity_consistent_across_recipe_pair_and_render_parity": true,
+        "shuffle_recipe_identity_consistent_across_recipe_pair_and_render_parity": true
+      },
+      "lock_dependency_chain_valid": true
+    },
+    "E6_V2_READY_FOR_RENDER": true,
+    "blocking_locks": [],
+    "note": "E6_V2_READY_FOR_RENDER=TRUE authorizes nothing by itself -- rendering still requires a separate, explicit --execute --authorize-gpu-render invocation this milestone does not provide yet. The historical field E6_READY_FOR_REAL_RENDER (c_ext_e6_render) remains FALSE regardless of this gate, because the OLD historical-parity path stays BLOCKED_UNRECOVERABLE_HISTORICAL_RUNTIME."
+  },
+  "upstream_lock_identities": {
+    "protocol": "b80496c506ca354f2a30ae5e22c1191d76cc0efd3a99ff16bcebd8d363dee0d9",
+    "recipe_pair": "c2d84390e327196119f6c1bd3283ef989da4d589afdc4ad663c644f4ba99c26e",
+    "source_pair_parity": "db80cb17ede7c12ebfbab476798068461a18884bd31bf8e0d245d2aea6c17532",
+    "render_parity": "1452eeedee48643525976f59f474d9dedcec338b0ce189c1833dc6ace0e05dc2",
+    "quality_parity": "25b83adc72eb097c011b780db00e1edc5cb8d1bb12883abc9e432d63196024fb",
+    "training_plan": "c5c7e7d9ed107c9513285f8792b45fda7cdc011b6551fd3de73a6dc2c09864b8"
+  },
+  "per_arm": {
+    "LLM_ORIGINAL_CURRENT_V2": {
+      "arm": "LLM_ORIGINAL_CURRENT_V2",
+      "recipe_semantic_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+      "recipe_content_identity": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+      "recipe_count": 256,
+      "renders_per_recipe": 8,
+      "planned_candidate_count": 2048,
+      "planned_physics_count": 1024,
+      "planned_gpat_count": 1024,
+      "source_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "source_pair_plan_identity": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "gpat_checkpoint_sha256": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+      "physics_engine_version": "m7-physics-v1",
+      "candidates_root": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates/LLM_ORIGINAL_CURRENT_V2",
+      "bank_lock_path": "data/processed/c_ext_q1q2_v1/e6_paired_current_runtime_v2/matched_bank/E6_V2_BANK_LOCK_LLM_ORIGINAL_CURRENT_V2.json"
+    },
+    "LLM_SHUFFLE_A_CURRENT_V2": {
+      "arm": "LLM_SHUFFLE_A_CURRENT_V2",
+      "recipe_semantic_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+      "recipe_content_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+      "recipe_count": 256,
+      "renders_per_recipe": 8,
+      "planned_candidate_count": 2048,
+      "planned_physics_count": 1024,
+      "planned_gpat_count": 1024,
+      "source_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "source_pair_plan_identity": "75f31415f7205c0f760e6ce1f1fccdbc1431a8f73fc46e9a6cea388e2fdde515",
+      "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+      "gpat_checkpoint_sha256": "80e852b3a0cd6eab9d31a05df0c9bc3dae53ce36dba9ede91d9b5ef365e3a755",
+      "physics_engine_version": "m7-physics-v1",
+      "candidates_root": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates/LLM_SHUFFLE_A_CURRENT_V2",
+      "bank_lock_path": "data/processed/c_ext_q1q2_v1/e6_paired_current_runtime_v2/matched_bank/E6_V2_BANK_LOCK_LLM_SHUFFLE_A_CURRENT_V2.json"
+    }
+  },
+  "execution_namespace": {
+    "runs_root": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2",
+    "candidates_root": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates",
+    "matched_bank_root": "data/processed/c_ext_q1q2_v1/e6_paired_current_runtime_v2/matched_bank",
+    "reports_root": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2",
+    "state_root": "state/c_ext_q1q2_v1/e6_paired_current_runtime_v2"
+  },
+  "resume_policy": "identity-aware: a candidate directory whose GenerationIdentity agrees and whose payload hashes still verify (c5_raw_generation.reuse_decision) is reused, never re-rendered; a missing/altered candidate is (re)built under the SAME identity; arm-specific state never collides because each arm has its own candidates_root.",
+  "failure_policy": "a genuine terminal generation failure (SemanticGenerationFailure, e.g. an empty exact mask) is retained and reported, never resampled, never silently replaced with a different source pair -- this is synthesis.c5_render.render_arm's own historical policy, reused verbatim and applied symmetrically to both arms.",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "lock_identity": "69a41f0946324fd4c2a5a93364be88c3a1dc43b97543b88a2855e1585a39aa8f"
+}

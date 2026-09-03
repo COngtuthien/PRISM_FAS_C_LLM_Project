@@ -1,0 +1,94 @@
+{
+  "schema_version": "e6-v2-final-closure-v1",
+  "E6_V2_STATUS": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+  "ORIGINAL_GPAT_MAX_FILLABLE": 512,
+  "ORIGINAL_PHYSICS_MAX_FILLABLE": 512,
+  "SHUFFLE_GPAT_MAX_FILLABLE": 512,
+  "SHUFFLE_PHYSICS_MAX_FILLABLE": 479,
+  "SHUFFLE_PHYSICS_REQUIRED": 512,
+  "SHUFFLE_PHYSICS_CASIA_AVAILABLE": 231,
+  "SHUFFLE_PHYSICS_CASIA_REQUIRED": 264,
+  "SHUFFLE_PHYSICS_CASIA_DEFICIT": 33,
+  "SHUFFLE_PHYSICS_MSU_AVAILABLE": 281,
+  "SHUFFLE_PHYSICS_MSU_REQUIRED": 248,
+  "SHUFFLE_PHYSICS_MSU_SURPLUS": 33,
+  "ORDER_DEPENDENCE_PRESENT": false,
+  "ATTEMPT1_CLASS": "TECHNICAL",
+  "ATTEMPT2_16_OF_512_CLASS": "TECHNICAL_ARTIFACT",
+  "ATTEMPT3_26_OF_512_CLASS": "TECHNICAL_ARTIFACT",
+  "FINAL_479_OF_512_CLASS": "SCIENTIFIC_INFEASIBILITY",
+  "MATCHING_ALGORITHM_CHANGED": false,
+  "QUALITY_ALGORITHM_CHANGED": false,
+  "Q_CHANGED": false,
+  "QUALITY_THRESHOLD_CHANGED": false,
+  "DOMAIN_QUOTA_CHANGED": false,
+  "ROUTE_QUOTA_CHANGED": false,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "E6_V2_READY_FOR_TRAINING": false,
+  "E6_V2_TRAINING_BLOCK_REASON": "SHUFFLE_PHYSICS_MATCHED_BANK_INFEASIBLE_UNDER_FROZEN_DOMAIN_QUOTA",
+  "provenance_chain": [
+    {
+      "filename": "E6_V2_PROTOCOL_LOCK.json",
+      "present": true,
+      "sha256": "bda6dd65023931e5eabe27f2430c4bc1dd5452ba4ceb2bfbadbb1ca8970f4ab0",
+      "lock_identity": "b80496c506ca354f2a30ae5e22c1191d76cc0efd3a99ff16bcebd8d363dee0d9",
+      "schema_version": "e6-v2-protocol-lock-v1"
+    },
+    {
+      "filename": "E6_V2_RENDER_EXECUTION_PLAN_LOCK.json",
+      "present": true,
+      "sha256": "7ba257674d1e657cbb4a7f12a5b9f6e304d6aba7eebe07224178ff4cbe26d240",
+      "lock_identity": "69a41f0946324fd4c2a5a93364be88c3a1dc43b97543b88a2855e1585a39aa8f",
+      "schema_version": "e6-v2-render-execution-plan-lock-v1"
+    },
+    {
+      "filename": "E6_V2_ATTEMPT1_PROVENANCE.json",
+      "present": true,
+      "sha256": "4bb3799e0417e8b51c2ec2501e61fa444a8fedb5ee38fc6753b51f368e7fea38",
+      "ATTEMPT": 1,
+      "STATUS": "TECHNICAL_FAILURE",
+      "schema_version": "e6-v2-execution-attempt-provenance-v1"
+    },
+    {
+      "filename": "E6_V2_ATTEMPT1_RECOVERY_LOCK.json",
+      "present": true,
+      "sha256": "80366085f927a1f7d56fba395d0be315908e50b08ec780e977fdcdefded03a58",
+      "lock_identity": "842d5ff46ddca2f104ad48c385c4fc6bd50a28afea3b93b0b32c6cb49464ac64",
+      "schema_version": "e6-v2-attempt1-recovery-lock-v1"
+    },
+    {
+      "filename": "E6_V2_ATTEMPT2_PROVENANCE.json",
+      "present": true,
+      "sha256": "8e5023f7997ef84e14bd442c94818e904fc9a3ab5f0028d122377026845f4f09",
+      "ATTEMPT": 2,
+      "STATUS": "TECHNICAL_FAILURE",
+      "schema_version": "e6-v2-execution-attempt-provenance-v1"
+    },
+    {
+      "filename": "E6_V2_ATTEMPT3_PROVENANCE.json",
+      "present": true,
+      "sha256": "85e478ea3e41cbbc4416f4230db1a98600b830c40acbde17b21f7e09fe43c249",
+      "ATTEMPT": 3,
+      "STATUS": "TECHNICAL_FAILURE",
+      "schema_version": "e6-v2-execution-attempt-provenance-v1"
+    },
+    {
+      "filename": "E6_V2_ATTEMPT3_POSTFIX_CONFIRMATION.json",
+      "present": true,
+      "sha256": "8fc42c86e787834cae1c10c96c46f50e528c54e8fbd9e776d70b61001f1c262b",
+      "schema_version": "e6-v2-matching-sequence-postfix-confirmation-v1"
+    }
+  ],
+  "provenance_chain_complete": true,
+  "provenance_chain_missing": [],
+  "prior_provenance_files_rewritten": false,
+  "root_cause_reasoning": {
+    "casia": "264 required - 231 available = 33 deficit",
+    "msu": "281 available - 248 required = 33 surplus",
+    "why_surplus_cannot_compensate": "select_route_bank fills each source domain independently up to min(quota[d], available[d]); the frozen quota is EXACT per domain, never fungible across domains -- MSU's 33-candidate surplus has no mechanism to fill CASIA's 33-candidate deficit under the frozen selector"
+  },
+  "status": "FROZEN",
+  "closure_identity": "2a7b95496bf25cbd5d17265188b9003ff17cf48abc7a500dde598738ec1a2a03"
+}

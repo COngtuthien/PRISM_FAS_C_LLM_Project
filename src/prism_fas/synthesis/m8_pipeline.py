@@ -114,11 +114,16 @@ class SampleStore:
         """Deterministic region mask with memoization.
 
         Mask building is the dominant CPU cost of a GPAT epoch and is a pure
-        function of (sample, recipe, role), so the result is cached. The cache
-        can only change timing, never values.
+        function of (sample, recipe CONTENT, role), so the result is cached.
+        The cache can only change timing, never values -- PROVIDED the key
+        identifies recipe content, not just `recipe_id`, which is
+        deliberately IDENTICAL across a bank and its field-shuffled sibling
+        at the same schedule position while content differs (see
+        `synthetic_bank._support_masks`'s identical fix and docstring for
+        the proven cross-arm contamination this exact key shape caused).
         """
         if self._mask_cache is None: self._mask_cache = {}
-        key = (sample_id, graph.recipe_id, role)
+        key = (sample_id, graph.recipe_id, graph.recipe_hash, role)
         hit = self._mask_cache.get(key)
         if hit is not None: return hit
         policy = graph.region_mask_policy

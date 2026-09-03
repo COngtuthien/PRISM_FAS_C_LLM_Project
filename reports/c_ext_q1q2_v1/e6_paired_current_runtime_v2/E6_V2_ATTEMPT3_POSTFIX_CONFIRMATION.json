@@ -1,0 +1,53 @@
+{
+  "schema_version": "e6-v2-matching-sequence-postfix-confirmation-v1",
+  "PROCESS_SEQUENCE": [
+    "LLM_ORIGINAL_CURRENT_V2",
+    "LLM_SHUFFLE_A_CURRENT_V2"
+  ],
+  "REVERSE_SEQUENCE": [
+    "LLM_SHUFFLE_A_CURRENT_V2",
+    "LLM_ORIGINAL_CURRENT_V2"
+  ],
+  "forward": {
+    "LLM_ORIGINAL_CURRENT_V2": {
+      "GPAT_MAX_FILLABLE": 512,
+      "PHYSICS_MAX_FILLABLE": 512
+    },
+    "LLM_SHUFFLE_A_CURRENT_V2": {
+      "GPAT_MAX_FILLABLE": 512,
+      "PHYSICS_MAX_FILLABLE": 479,
+      "physics_domain_table": {
+        "casia_fasd": {
+          "available": 231,
+          "required_quota": 264,
+          "fillable": 231
+        },
+        "msu_mfsd": {
+          "available": 281,
+          "required_quota": 248,
+          "fillable": 248
+        }
+      }
+    }
+  },
+  "reverse": {
+    "LLM_SHUFFLE_A_CURRENT_V2": {
+      "PHYSICS_MAX_FILLABLE": 479
+    },
+    "LLM_ORIGINAL_CURRENT_V2": {
+      "PHYSICS_MAX_FILLABLE": 512
+    }
+  },
+  "ORDER_DEPENDENCE_PRESENT": false,
+  "confirms_prediction_from": "E6_V2_ATTEMPT3_PROVENANCE.json#predicted_post_fix_same_process_shuffle_fillable",
+  "predicted_value": 479,
+  "observed_value": 479,
+  "prediction_confirmed": true,
+  "cross_arm_cache_contamination_removed": true,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "bank_selected": false,
+  "bank_written": false,
+  "training_performed": false
+}

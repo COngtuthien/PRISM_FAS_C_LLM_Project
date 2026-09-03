@@ -1,0 +1,33 @@
+{
+  "schema_version": "e6-v2-execution-attempt-provenance-v1",
+  "ATTEMPT": 2,
+  "STATUS": "TECHNICAL_FAILURE",
+  "FAILURE_STAGE": "ORIGINAL_QUALITY_MATCHING",
+  "FAILURE_CLASS": "QUALITY_RECONSTRUCTION_BANK_HISTORICAL_BINDING",
+  "gpu_observed_error": "prism_fas.synthesis.c6_matched_bank.MatchedBankError: physics: only 16 of 512 slots could be filled under the common source-domain quota (raised from run_v2_render_execution -> match_v2_arm -> default_quality_matcher -> select_route_bank)",
+  "failure_detail": {
+    "bug_3_quality_bank_historical_binding": {
+      "symbol": "c_ext_e6_render._resolve_quality_bank / _resolve_quality_runtime",
+      "expression": "_resolve_quality_runtime cached a SINGLE global `bank` (_resolve_quality_bank(repo), the LLM-SHUFFLE-A recipe bank) for the life of the process, with no per-arm/per-caller override -- c6_scientific.requested_support_for(store, bank, row) then looked up row['recipe_id'] (identical across ORIGINAL/SHUFFLE by construction) inside the WRONG bank's recipe CONTENT for every ORIGINAL candidate, compiling the wrong requested-support graph/strength and collapsing the physics quality-gate pass rate",
+      "observed_effect": "physics quality-gate pass count far below the frozen quota (16 of 512 in the real GPU run) despite route/domain metadata being verified correct"
+    }
+  },
+  "fix": {
+    "summary": "default_metrics_provider/default_quality_matcher gained an optional, explicit `quality_bank` override (default None == the exact historical LLM-SHUFFLE-A bank, byte-for-byte); match_v2_arm now builds and supplies THIS arm's own recipe bank via build_e6_v2_route_bank(repo, recipes, arm=arm, ...), built from the SAME `recipes` list render_v2_arm rendered from",
+    "files_changed": [
+      "src/prism_fas/evaluation/c_ext_e6_render.py",
+      "src/prism_fas/evaluation/c_ext_e6_v2_paired.py"
+    ],
+    "historical_e6_v1_behavior_preserved": true
+  },
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "RENDER_ALGORITHM_CHANGED": false,
+  "QUALITY_ALGORITHM_CHANGED": false,
+  "MATCHING_ALGORITHM_CHANGED": false,
+  "QUOTA_CHANGED": false,
+  "Q_CHANGED": false,
+  "THRESHOLD_CHANGED": false,
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "GPU_RESUME_AUTHORIZED": false
+}

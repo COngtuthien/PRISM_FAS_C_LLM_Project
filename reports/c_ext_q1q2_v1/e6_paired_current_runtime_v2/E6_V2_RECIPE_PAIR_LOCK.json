@@ -1,0 +1,137 @@
+{
+  "schema_version": "e6-v2-recipe-pair-lock-v1",
+  "status": "FROZEN",
+  "original_arm": "LLM_ORIGINAL_CURRENT_V2",
+  "shuffle_arm": "LLM_SHUFFLE_A_CURRENT_V2",
+  "original_recipe_identity_file_sha_v2": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+  "original_recipe_identity_semantic_frozen": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+  "original_recipe_identity_relationship": "A -- 7d4b... is an ORDERED FILE/CONTENT SHA over the raw recipe list; fcc4c800... is an ORDER-INDEPENDENT SEMANTIC recipe-bank identity over per-recipe canonical content hashes. Both describe the SAME 256 recipe payloads.",
+  "original_recipe_content_equivalence": "PROVEN",
+  "original_recipe_identity_equivalence": {
+    "schema_version": "e6-v2-original-recipe-identity-equivalence-v1",
+    "earlier_identity": {
+      "identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+      "algorithm": "SHA-256 over compact JSON of the SORTED list of per-recipe canonical SHA-256 hashes (recipes.selection.SelectionResult.selected_set_identity); each per-recipe hash is SHA-256 over compact, sorted-key JSON of the PARSED RecipeV11.model_dump(mode='json') with every float rounded to 6 decimals (recipes.canonical.recipe_hash / canonical_json / canonical_payload)",
+      "source_artifact": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json (arms.LLM.selected_set_identity)",
+      "propagated_into": [
+        "reports/c_ext_q1q2_v1/e0/EXT_RECIPE_BINDING.json",
+        "reports/c_ext_q1q2_v1/e6_llm_shuffle/E6_TRAINING_PLAN_LOCK.json (original_llm_recipe_identity)",
+        "c_ext_e6_render.EXPECTED_ORIGINAL_LLM_SELECTED_SET_IDENTITY"
+      ],
+      "ordering_included": false,
+      "fields_included": "every field of the PARSED RecipeV11 schema (model_dump), per recipe; the outer identity is over the SORTED set of per-recipe hashes, so file order never affects it",
+      "number_of_recipes": 256,
+      "where_first_frozen": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json (C3 recipe generation/selection milestone)"
+    },
+    "new_v2_identity": {
+      "identity": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+      "algorithm": "SHA-256 over compact JSON of the RAW recipe list in FILE order (c_ext_common.sha256_json: sorted DICT keys, array/list order preserved)",
+      "source_artifact": "assets/recipe_banks/c3/llm/recipes.jsonl",
+      "ordering_included": true,
+      "fields_included": "every RAW JSON field exactly as stored in the file (unparsed -- no pydantic validation/defaults/normalization)",
+      "number_of_recipes": 256,
+      "where_first_frozen": "not previously frozen anywhere -- computed fresh by load_original_llm_recipes each time this module runs"
+    },
+    "recomputed_semantic_identity_from_v2_load": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+    "matches_frozen_semantic_identity": true,
+    "original_recipe_content_equivalence": "PROVEN",
+    "classification": "A -- 7d4b... is an ORDERED FILE/CONTENT SHA over the raw recipe list; fcc4c800... is an ORDER-INDEPENDENT SEMANTIC recipe-bank identity over per-recipe canonical content hashes. Both describe the SAME 256 recipe payloads.",
+    "conclusion": "the recomputed semantic identity matches the frozen EXPECTED_ORIGINAL_LLM_SELECTED_SET_IDENTITY exactly -- the 256 recipes this module reads ARE proven, not assumed, to be the same frozen ORIGINAL LLM recipes the original E6 protocol intended."
+  },
+  "original_recipe_count": 256,
+  "original_recipe_file_sha256": "db563c67da5953a562b92b090894ea954b8065485a6db29fc96f01b344433620",
+  "original_recipe_source_path": "assets/recipe_banks/c3/llm/recipes.jsonl",
+  "shuffle_recipe_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+  "shuffle_recipe_count": 256,
+  "shuffle_recipe_file_sha256": "6f4d47de2e91bd480911fbde509168fd6217e2fcc7edecd9075e6fbbb62cfe59",
+  "shuffle_recipe_source_path": "reports/c_ext_q1q2_v1/e6_llm_shuffle/LLM_SHUFFLE_A_RECIPES.jsonl",
+  "shuffle_training_plan_identity": "076c3ae44ebc63133d324f502fa1ec0a54b675cdf415e310644b941c9983aed1",
+  "no_recipe_regeneration": true,
+  "recipe_counts_match": true,
+  "recipe_field_marginal_parity": "PASS",
+  "joint_associations_changed": true,
+  "recipe_field_marginal_parity_detail": {
+    "schema_version": "e6-v2-recipe-field-marginal-parity-v1",
+    "group_definition_source": "reports/c_ext_q1q2_v1/e0/EXT_RECIPE_BINDING.json",
+    "groups": [
+      "medium",
+      "geometry",
+      "illumination",
+      "region",
+      "artifact_family_and_parameters",
+      "severity_group"
+    ],
+    "per_group": [
+      {
+        "group": "medium",
+        "fields": [
+          "medium.family",
+          "medium.transparency",
+          "medium.roughness"
+        ],
+        "original_multiset_hash": "3486ec1496ff773dc6398a5ee77305004f4d1dcd9ded191e187313f043a6c729",
+        "shuffle_multiset_hash": "3486ec1496ff773dc6398a5ee77305004f4d1dcd9ded191e187313f043a6c729",
+        "exact_multiset_equal": true
+      },
+      {
+        "group": "geometry",
+        "fields": [
+          "geometry.shape",
+          "geometry.rigidity",
+          "geometry.coverage"
+        ],
+        "original_multiset_hash": "c396bad8d00eebccd19d93e5c1826bb1c86e95ff87c93770ffc4e37bbfa8cfa7",
+        "shuffle_multiset_hash": "c396bad8d00eebccd19d93e5c1826bb1c86e95ff87c93770ffc4e37bbfa8cfa7",
+        "exact_multiset_equal": true
+      },
+      {
+        "group": "illumination",
+        "fields": [
+          "capture.illumination"
+        ],
+        "original_multiset_hash": "6d015553a63526ab8ff09ab875d3217f19f833f6cb9c67fee9782c036e30b3cf",
+        "shuffle_multiset_hash": "6d015553a63526ab8ff09ab875d3217f19f833f6cb9c67fee9782c036e30b3cf",
+        "exact_multiset_equal": true
+      },
+      {
+        "group": "region",
+        "fields": [
+          "regions"
+        ],
+        "original_multiset_hash": "3ea911f0139e314b4a31d3e366a647cf26e9af545b91d9d2422a0e952a775899",
+        "shuffle_multiset_hash": "3ea911f0139e314b4a31d3e366a647cf26e9af545b91d9d2422a0e952a775899",
+        "exact_multiset_equal": true
+      },
+      {
+        "group": "artifact_family_and_parameters",
+        "fields": [
+          "artifacts"
+        ],
+        "original_multiset_hash": "1f1954b81f3894195ee10cb89be8fb9cd769702ce7ab016adb85610a141b476d",
+        "shuffle_multiset_hash": "1f1954b81f3894195ee10cb89be8fb9cd769702ce7ab016adb85610a141b476d",
+        "exact_multiset_equal": true
+      },
+      {
+        "group": "severity_group",
+        "fields": [
+          "capture.yaw",
+          "capture.compression_q",
+          "capture.scale",
+          "capture.motion",
+          "capture.defocus"
+        ],
+        "original_multiset_hash": "30eb7138b04556dfeaf30db581ae82a55816fdd38f37949ca8972e51f8f1d83c",
+        "shuffle_multiset_hash": "30eb7138b04556dfeaf30db581ae82a55816fdd38f37949ca8972e51f8f1d83c",
+        "exact_multiset_equal": true
+      }
+    ],
+    "original_recipe_count": 256,
+    "shuffle_recipe_count": 256,
+    "recipe_counts_match": true,
+    "recipe_ids_same_order": true,
+    "recipe_field_marginal_parity": "PASS",
+    "joint_associations_changed": true,
+    "note": "PASS means every one of the 6 historically-frozen shuffle groups has an IDENTICAL value multiset between the original and shuffled recipe sets -- no field value was introduced or removed, only redistributed among recipe_ids. joint_associations_changed=True (expected) means the WHOLE-recipe content differs per recipe_id despite every group's marginal being preserved -- exactly what a constraint-preserving shuffle is supposed to produce."
+  },
+  "lock_identity": "c2d84390e327196119f6c1bd3283ef989da4d589afdc4ad663c644f4ba99c26e"
+}

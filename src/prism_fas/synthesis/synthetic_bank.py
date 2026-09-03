@@ -229,14 +229,29 @@ def _support_masks(store: SampleStore, sample_id: str, graph: Any) -> Any:
     engine and the GPAT trainer build them.
 
     Memoized on the store: mask building is a pure function of
-    (sample, recipe) and is the dominant CPU cost of a generation pass, so the
-    cache can only change timing, never values.
+    (sample, recipe CONTENT) and is the dominant CPU cost of a generation
+    pass, so the cache can only change timing, never values -- PROVIDED the
+    key actually identifies recipe content, not just `recipe_id`.
+    `recipe_id` alone is NOT sufficient: it is deliberately IDENTICAL across
+    a recipe bank and its field-shuffled sibling at the same schedule
+    position (`c5_source_pair_plan.candidate_identity`'s own `recipe_id`
+    input is bank-independent by construction), while the recipe CONTENT
+    (region policy, requested regions, strength) differs. `store` is a
+    single object cached for the life of the process
+    (`c_ext_e6_render._resolve_quality_model_runtime`) and reused across
+    every arm measured in that process, so a `recipe_id`-only key silently
+    returns one arm's stale support mask to a later arm's request for the
+    SAME sample_id/recipe_id pair -- this was E6-v2 ATTEMPT-3's proven
+    cross-arm process-state contamination bug. `graph.recipe_hash` is a
+    content hash of the recipe itself (`recipes.canonical.recipe_hash`,
+    already computed by `compile_recipe`), so including it makes the cache
+    correct across arms/banks while still caching within one.
     """
     cache = getattr(store, "_region_mask_results", None)
     if cache is None:
         cache = {}
         store._region_mask_results = cache          # type: ignore[attr-defined]
-    key = (sample_id, graph.recipe_id)
+    key = (sample_id, graph.recipe_id, graph.recipe_hash)
     hit = cache.get(key)
     if hit is not None: return hit
     policy = graph.region_mask_policy

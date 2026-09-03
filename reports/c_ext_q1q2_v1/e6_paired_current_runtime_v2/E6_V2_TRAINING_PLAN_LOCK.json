@@ -1,0 +1,37 @@
+{
+  "schema_version": "e6-v2-training-policy-v1",
+  "status": "FROZEN",
+  "training_policy_parity": "PASS",
+  "track": "G",
+  "fold": "EXT-F1",
+  "run_id_pattern": "{fold}-{track}-{condition}-{bank_or_variant}-s{seed}",
+  "run_ids": {
+    "LLM_ORIGINAL_CURRENT_V2": [
+      "EXT-F1-G-LLM-ORIGINAL-CURRENT-V2-s20260806",
+      "EXT-F1-G-LLM-ORIGINAL-CURRENT-V2-s20260807",
+      "EXT-F1-G-LLM-ORIGINAL-CURRENT-V2-s20260808",
+      "EXT-F1-G-LLM-ORIGINAL-CURRENT-V2-s20260809",
+      "EXT-F1-G-LLM-ORIGINAL-CURRENT-V2-s20260810"
+    ],
+    "LLM_SHUFFLE_A_CURRENT_V2": [
+      "EXT-F1-G-LLM-SHUFFLE-A-CURRENT-V2-s20260806",
+      "EXT-F1-G-LLM-SHUFFLE-A-CURRENT-V2-s20260807",
+      "EXT-F1-G-LLM-SHUFFLE-A-CURRENT-V2-s20260808",
+      "EXT-F1-G-LLM-SHUFFLE-A-CURRENT-V2-s20260809",
+      "EXT-F1-G-LLM-SHUFFLE-A-CURRENT-V2-s20260810"
+    ]
+  },
+  "detector_seeds": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "config_identical_excluding_run_id": true,
+  "config_proof_method": "build_e6_training_config called for BOTH arms at the same representative seed; every field except run_id compared directly (dataclasses.asdict equality), not merely asserted",
+  "synthetic_bank_identity_status": "PENDING (no bank rendered this turn)",
+  "training_authorized_this_turn": false,
+  "target_access": false,
+  "lock_identity": "c5c7e7d9ed107c9513285f8792b45fda7cdc011b6551fd3de73a6dc2c09864b8"
+}

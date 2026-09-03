@@ -1,0 +1,32 @@
+{
+  "schema_version": "e6-v2-execution-attempt-provenance-v1",
+  "ATTEMPT": 1,
+  "STATUS": "TECHNICAL_FAILURE",
+  "FAILURE_STAGE": "ORIGINAL_QUALITY_MATCHING",
+  "FAILURE_CLASS": "RENDER_ROOT_DOUBLE_ARM_APPEND_AND_QUALITY_ROOT_HISTORICAL_BINDING",
+  "failure_detail": {
+    "bug_1_double_arm_append": {
+      "symbol": "c_ext_e6_v2_paired.render_v2_arm",
+      "expression": "candidates_root = repo / v2_candidates_root(arm)  # already arm-inclusive, passed as work_root to c5_render.render_arm, which appends plan['arm'] again via c5_raw_generation.candidate_dir(work_root, arm, id) == work_root / arm / id",
+      "observed_effect": "runs/c_ext_q1q2_v1/EXT-F1/e6_paired_current_runtime_v2/candidates/LLM_ORIGINAL_CURRENT_V2/LLM_ORIGINAL_CURRENT_V2/<candidate_id>/"
+    },
+    "bug_2_quality_root_historical_binding": {
+      "symbol": "c_ext_e6_render.default_metrics_provider",
+      "expression": "candidates_root = repo / CANDIDATES_ROOT; directory = raw.candidate_dir(candidates_root, E6_ARM_NAME, row['candidate_id'])  -- both CANDIDATES_ROOT and E6_ARM_NAME are the historical E6 (v1) module constants, never parameterized by the caller",
+      "observed_effect": "attempted to read runs/c_ext_q1q2_v1/EXT-F1/e6_llm_shuffle/render/candidates/LLM_SHUFFLE_A/<candidate_id> regardless of which v2 arm was being measured"
+    }
+  },
+  "gpu_observed_facts": {
+    "note": "recorded VERBATIM from the real GPU attempt-1 report -- NOT recomputed or re-derived on this laptop (that is audit_attempt1_original's separate job, run only when the real nested tree is present)",
+    "original_candidate_count": 2048,
+    "original_generated": 2045,
+    "original_failed_generation": 3,
+    "shuffle_records": 0
+  },
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "RENDER_ALGORITHM_CHANGED": false,
+  "QUALITY_ALGORITHM_CHANGED": false,
+  "MATCHING_ALGORITHM_CHANGED": false,
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0
+}

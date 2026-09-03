@@ -1,0 +1,88 @@
+{
+  "schema_version": "e6-v2-protocol-lock-v1",
+  "status": "FROZEN",
+  "amendment": {
+    "schema_version": "e6-v2-protocol-amendment-v1",
+    "amends": "the ORIGINAL E6 historical-parity path (c_ext_e6_render / reports/c_ext_q1q2_v1/e6_llm_shuffle/render)",
+    "reason": "historical renderer parity is unrecoverable -- the historical C5 runtime that produced ORIGINAL_LLM's persisted trace.requested_coverage for 7/256 recipes cannot be reproduced by, or located anywhere in the git history of, the CURRENT production runtime (see E6_SUPPORT_OVERLAP_ROOT_CAUSE.json)",
+    "forensic_root_cause_cited": "An uncommitted historical-runtime implementation of the recipe-coverage -> region-mask-policy dataflow (most likely inside compile_recipe's region_mask_policy construction, or an equally uncommitted variant immediately upstream of _support_masks) computed and persisted a recipe-specific alternate coverage value for exactly 7 of 256 LLM-arm recipes. This implementation has never existed in any commit, branch, or dangling git object in this repository, and is therefore UNRECOVERABLE by any git-based method available on this host.",
+    "historical_original_llm_c5_c6_bank": {
+      "status": "READ_ONLY_HISTORICAL_REFERENCE",
+      "may_serve_as_paired_e6_original": false,
+      "reason": "its renderer identity/runtime cannot be reproduced now"
+    },
+    "historical_downstream_c_g_llm": {
+      "status": "READ_ONLY_REFERENCE",
+      "may_serve_as_paired_e6_original": false,
+      "reason": "same -- downstream metrics were trained on the unreproducible historical bank"
+    },
+    "new_e6_paired_experiment": {
+      "arm_a": "ORIGINAL_LLM_CURRENT_RUNTIME",
+      "arm_b": "LLM_SHUFFLE_A_CURRENT_RUNTIME",
+      "both_start_from_frozen_recipe_json": true,
+      "original_recipe_source": "assets/recipe_banks/c3/llm/recipes.jsonl",
+      "shuffle_recipe_source": "reports/c_ext_q1q2_v1/e6_llm_shuffle/LLM_SHUFFLE_A_RECIPES.jsonl",
+      "no_recipe_regeneration": true,
+      "no_llm_call": true
+    },
+    "old_e6_historical_parity_path_status": "BLOCKED_UNRECOVERABLE_HISTORICAL_RUNTIME",
+    "old_e6_historical_parity_path": "reports/c_ext_q1q2_v1/e6_llm_shuffle/render",
+    "old_e6_path_overwritten": false,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "statistical_contrast": {
+    "schema_version": "e6-v2-statistical-contrast-v1",
+    "primary_contrast": "ORIGINAL_LLM_CURRENT_RUNTIME vs LLM_SHUFFLE_A_CURRENT_RUNTIME",
+    "primary_metric": "ACER",
+    "secondary_metrics": [
+      "APCER",
+      "BPCER",
+      "AUC",
+      "EER"
+    ],
+    "replicate_unit": "detector_seed",
+    "replicate_seeds": [
+      20260806,
+      20260807,
+      20260808,
+      20260809,
+      20260810
+    ],
+    "not_independent_replicates": "video-level bootstrap resampling (never substituted for detector-seed replicates)",
+    "target_labels_accessed_at_freeze": false,
+    "pre_registered_before_target_inference": true
+  },
+  "interpretation_ceiling": {
+    "schema_version": "e6-v2-interpretation-ceiling-v1",
+    "if_original_better_consistently": "supports that joint recipe composition matters",
+    "if_original_better_does_NOT_prove": [
+      "LLM reasoning causality",
+      "semantic plausibility causality",
+      "a general LLM mechanism"
+    ],
+    "if_approximately_equal": "do not claim a joint-composition mechanism",
+    "if_shuffle_better": "report directly; do not repair or tune LLM-SHUFFLE-A post hoc",
+    "historical_c_g_llm_role": "contextual evidence only, never part of the primary contrast",
+    "frozen_before_results": true
+  },
+  "seven_anomalous_recipes_policy": {
+    "schema_version": "e6-v2-seven-recipe-policy-v1",
+    "recipe_ids": [
+      "R-000138",
+      "R-000167",
+      "R-000193",
+      "R-000221",
+      "R-000287",
+      "R-000318",
+      "R-000354"
+    ],
+    "excluded_from_either_bank": false,
+    "hard_coded_historical_alternate_coverage": false,
+    "render_under_current_semantics": true,
+    "role": "historical anomaly is PROVENANCE EVIDENCE only, not an E6-v2 exclusion criterion"
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "lock_identity": "b80496c506ca354f2a30ae5e22c1191d76cc0efd3a99ff16bcebd8d363dee0d9"
+}
