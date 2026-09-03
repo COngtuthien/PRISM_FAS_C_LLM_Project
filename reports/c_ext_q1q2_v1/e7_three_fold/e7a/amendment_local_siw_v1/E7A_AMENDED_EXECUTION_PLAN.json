@@ -1,0 +1,44 @@
+{
+  "schema_version": "ext-q1q2-e7a-amended-execution-plan-v1",
+  "cli_operations": [
+    {
+      "flag": "--e7a-local-siw-preflight",
+      "read_only": true,
+      "does": [
+        "inventory local raw SiW",
+        "verify counts/families against the frozen layout contract",
+        "verify M3B CASIA/MSU manifest presence/counts",
+        "compute PROPOSED split counts/identity (in-memory only)"
+      ],
+      "never": [
+        "writes a source manifest",
+        "trains",
+        "renders",
+        "fits GPAT"
+      ]
+    },
+    {
+      "flag": "--e7a-local-siw-freeze",
+      "read_only": false,
+      "requires": "explicit --authorize",
+      "does": "persists the amendment + population + split-policy locks additively",
+      "never": [
+        "writes a source manifest",
+        "trains",
+        "renders",
+        "fits GPAT"
+      ]
+    },
+    {
+      "flag": "--e7a-build",
+      "read_only": false,
+      "requires": "explicit --authorize",
+      "does": "constructs source train/dev manifest references (unchanged from the original E7-A contract)",
+      "still_fails_closed_on": "incomplete local bytes (unchanged this turn -- laptop has neither SiW raw bytes nor the M3B source_train.parquet)"
+    }
+  ],
+  "laptop_this_turn_executes_real_gpu_data": false,
+  "executed_this_turn": [],
+  "target_access": false,
+  "llm_api_calls": 0
+}

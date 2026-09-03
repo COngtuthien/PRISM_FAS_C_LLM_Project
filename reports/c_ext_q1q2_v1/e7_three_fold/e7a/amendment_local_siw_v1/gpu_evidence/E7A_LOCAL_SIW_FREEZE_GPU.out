@@ -1,0 +1,22 @@
+{
+  "readiness": {
+    "schema_version": "ext-q1q2-e7a-amended-readiness-v1",
+    "prerequisites": {
+      "amendment_lock_present_and_matching": true,
+      "exact_local_siw_root_present": true,
+      "frozen_population_inventory_matches": true,
+      "deterministic_video_split_implementation_available": true,
+      "m3b_casia_msu_manifests_present_and_matching": true,
+      "target_domain_isolation_checks_resolvable": true,
+      "no_target_label_access": true
+    },
+    "E7A_READY_FOR_BUILD": true,
+    "E7A_READY_FOR_GPU_LOCAL_PREFLIGHT": true,
+    "rendering_performed": false,
+    "training_performed": false,
+    "gpat_fitting_performed": false,
+    "target_access": false,
+    "llm_api_calls": 0,
+    "status": "PREPARED_NOT_EXECUTED"
+  }
+}

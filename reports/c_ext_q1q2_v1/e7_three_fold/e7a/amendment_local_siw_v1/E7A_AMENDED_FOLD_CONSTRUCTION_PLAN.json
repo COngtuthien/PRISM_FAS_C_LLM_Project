@@ -1,0 +1,39 @@
+{
+  "schema_version": "ext-q1q2-e7a-amended-fold-construction-plan-v1",
+  "EXT-F1": {
+    "unchanged": true,
+    "source": [
+      "CASIA-FASD",
+      "MSU-MFSD"
+    ],
+    "target": "SiW-Mv2",
+    "action": "reuse the already-frozen prism_target_eval_v2 target package verbatim"
+  },
+  "EXT-F2": {
+    "source": [
+      "CASIA-FASD",
+      "SiW-Mv2"
+    ],
+    "target": "MSU-MFSD",
+    "casia_rows": "FILTER dataset=='casia_fasd' ONLY from the frozen M3B source_train/source_dev -- MSU rows are EXT-F2's held-out target and must NEVER be included as source",
+    "siw_rows": "the amended local video-disjoint split, train/dev partitions per compute_siw_video_split",
+    "siw_source_split_identity": "fcd5da7abf4833addd6da352a1716198cc5cd0d20b619c6a31ba72e9fb45af2a",
+    "excludes_msu_source_rows": true
+  },
+  "EXT-F3": {
+    "source": [
+      "MSU-MFSD",
+      "SiW-Mv2"
+    ],
+    "target": "CASIA-FASD",
+    "msu_rows": "FILTER dataset=='msu_mfsd' ONLY from the frozen M3B source_train/source_dev -- CASIA rows are EXT-F3's held-out target and must NEVER be included as source",
+    "siw_rows": "REUSES the EXACT SAME SiW source-split identity as EXT-F2 -- never recomputed independently",
+    "siw_source_split_identity": "fcd5da7abf4833addd6da352a1716198cc5cd0d20b619c6a31ba72e9fb45af2a",
+    "excludes_casia_source_rows": true
+  },
+  "f2_f3_share_one_siw_split": true,
+  "manifests_written": false,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false
+}

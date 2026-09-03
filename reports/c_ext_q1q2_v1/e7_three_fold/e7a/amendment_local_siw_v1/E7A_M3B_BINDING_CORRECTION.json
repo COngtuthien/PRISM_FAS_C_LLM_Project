@@ -1,0 +1,30 @@
+{
+  "schema_version": "ext-q1q2-e7a-m3b-binding-correction-v1",
+  "e0_frozen_prose_path": "data/processed/prism_target_eval_v2/manifests/source_train.parquet",
+  "e0_frozen_prose_note": "EXT_DATASET_FOLD_PLAN.json's source_split_policy.casia_msu prose names this path; it is a target-package placeholder with ZERO rows on this host and must never be used to construct CASIA/MSU source manifests",
+  "e0_file_rewritten": false,
+  "corrected_canonical_source_train_path": "data/packages/prism_data_v1_m3b/manifests/source_train.parquet",
+  "corrected_canonical_source_dev_path": "data/packages/prism_data_v1_m3b/manifests/source_dev.parquet",
+  "corrected_source_train_present_locally": true,
+  "corrected_source_dev_present_locally": true,
+  "expected_source_train_counts": {
+    "total": 1440,
+    "casia": 960,
+    "msu": 480
+  },
+  "expected_source_dev_counts": {
+    "total": 2079,
+    "casia": 1439,
+    "msu": 640
+  },
+  "observed_source_dev_counts_this_host": {
+    "total": 2079,
+    "casia": 1439,
+    "msu": 640
+  },
+  "observed_source_dev_matches_expected": true,
+  "target_eval_v2_placeholder_note": "data/processed/prism_target_eval_v2/manifests/{source_train,source_dev}.parquet exist but hold ZERO rows -- schema-only placeholders, never accepted as a CASIA/MSU source manifest",
+  "m3b_bytes_altered": false,
+  "target_access": false,
+  "llm_api_calls": 0
+}

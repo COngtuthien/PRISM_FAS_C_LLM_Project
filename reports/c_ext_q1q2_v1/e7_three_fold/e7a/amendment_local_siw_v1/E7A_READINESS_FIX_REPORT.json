@@ -1,0 +1,21 @@
+{
+  "schema_version": "ext-q1q2-e7a-readiness-fix-report-v1",
+  "fix_1_raw_path_detection": {
+    "bug": "audit_dataset_infrastructure hardcoded raw_siw_source_bytes_present_locally=False unconditionally, regardless of whether the GPU host actually has the exact permitted local root (data/raw/siw_mv2/SiW-Mv2)",
+    "fixed": true,
+    "current_value_this_host": true
+  },
+  "fix_2_m3b_binding": {
+    "bug": "E0's frozen source_split_policy.casia_msu PROSE names the zero-row data/processed/prism_target_eval_v2 placeholder path; operational file checks always used the correct data/packages/prism_data_v1_m3b path, but the prose was misleading",
+    "fixed": true,
+    "correction_artifact": "E7A_M3B_BINDING_CORRECTION.json"
+  },
+  "fix_3_readiness_logic": {
+    "bug": "e7a_preflight's original E7A_READY_FOR_BUILD was TRUE whenever resolve_source_split_policy() did not RAISE -- but an UNRESOLVED subject-resolution status is not an exception, so readiness was TRUE even though no real F2/F3 build was actually possible",
+    "old_value_this_host": true,
+    "fixed": true,
+    "new_logic": "E7A_READY_FOR_BUILD now additionally requires: the amendment lock present and matching, the exact local SiW root present, the frozen population inventory matching expected counts, the deterministic video-split implementation available, the M3B CASIA/MSU manifests present with matching identities, target-domain isolation checks resolvable, and no target label access"
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

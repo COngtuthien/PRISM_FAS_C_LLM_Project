@@ -43,6 +43,23 @@ E0_DIR = "reports/c_ext_q1q2_v1/e0"
 CASIA_MSU_PACKAGE_ROOT = "data/packages/prism_data_v1_m3b"
 SIW_TARGET_EVAL_PACKAGE_ROOT = "data/processed/prism_target_eval_v2"
 SIW_LABEL_FIREWALL_DIR = "data/evaluation_only/prism_target_v2_labels"
+#: AMENDMENT (local-data-only): the exact, permitted local raw SiW-Mv2
+#: population. FIX 1 -- `audit_dataset_infrastructure` previously hardcoded
+#: `raw_siw_source_bytes_present_locally=False` unconditionally instead of
+#: checking this path; that is why it "falsely reported" absence even where
+#: the GPU host actually has this exact root.
+SIW_RAW_ROOT = "data/raw/siw_mv2/SiW-Mv2"
+#: Reused verbatim, never reimplemented: the already-frozen layout/family/
+#: count contract for the exact local SiW-Mv2 release (`include_globs`,
+#: `path_pattern`, `attack_family_stems`, `expected_counts`).
+SIW_LAYOUT_CONFIG_PATH = "configs/data/siw_mv2_target_v2.yaml"
+SIW_EXPECTED_TOTAL_VIDEOS = 1700
+SIW_EXPECTED_LIVE_VIDEOS = 785
+SIW_EXPECTED_SPOOF_VIDEOS = 915
+SIW_SOURCE_SPLIT_SEED = 20260901  # UNCHANGED from the original E7-A freeze
+AMENDMENT_DIR = f"{E7A_REPORT_DIR}/amendment_local_siw_v1"
+PREVIOUS_SIW_SOURCE_SPLIT_POLICY = "SUBJECT_GROUP_DISJOINT_80_20"
+NEW_SIW_SOURCE_SPLIT_POLICY = "DETERMINISTIC_VIDEO_DISJOINT_STRATIFIED_80_20"
 
 FOLDS: tuple[str, ...] = ("EXT-F1", "EXT-F2", "EXT-F3")
 SEEDS: tuple[int, ...] = (20260806, 20260807, 20260808, 20260809, 20260810)
@@ -115,14 +132,16 @@ def audit_dataset_infrastructure(repo: Path) -> dict[str, Any]:
                          "(EXT_DATASET_FOLD_PLAN.json: 'new held-out-domain role') with no existing "
                          "subject-resolution adapter path.",
         "target_eval_package_present_locally": siw_target_present,
-        "raw_siw_source_bytes_present_locally": False,
+        "raw_siw_source_bytes_present_locally": (repo / SIW_RAW_ROOT).is_dir(),
+        "raw_siw_source_root": SIW_RAW_ROOT,
         "GPU_REQUIRED": True,
         "REUSE_ACTION": "for EXT-F1 (SiW as TARGET): REUSE the frozen prism_target_eval_v2 package "
-                        "verbatim -- do not rebuild. For EXT-F2/F3 (SiW as SOURCE): a NEW subject-"
-                        "disjoint split must be constructed on the GPU host from raw SiW-Mv2, per the "
-                        "frozen source_split_policy.siw_as_source rule -- BUT the subject/group key "
-                        "this rule requires is not resolvable from the committed adapter as written; "
-                        "this is a genuine, unresolved gap, not a laptop-only limitation",
+                        "verbatim -- do not rebuild. For EXT-F2/F3 (SiW as SOURCE): per the AMENDED "
+                        "policy (E7A_SIW_LOCAL_ONLY_AMENDMENT.json), build a deterministic VIDEO-"
+                        "disjoint stratified 80/20 split from the exact local raw population at "
+                        f"{SIW_RAW_ROOT} -- never a subject-disjoint split (subject metadata is "
+                        "unavailable in this exact, permitted local release, and no external dataset "
+                        "or protocol metadata may be introduced to resolve it)",
         "target_label_firewall_dir_present": siw_label_dir_present,
         "target_label_firewall_note": "labels live in a SEPARATE directory "
                                       f"({SIW_LABEL_FIREWALL_DIR}) from the feature package; this "
@@ -652,8 +671,9 @@ def write_e7a_readiness(repo: Path) -> dict[str, Any]:
 # writer plumbing
 # --------------------------------------------------------------------------- #
 
-def _write(repo: Path, filename: str, body: dict[str, Any]) -> dict[str, Any]:
-    out_dir = repo / E7A_REPORT_DIR
+def _write(repo: Path, filename: str, body: dict[str, Any], *, out_dir_rel: str = E7A_REPORT_DIR
+          ) -> dict[str, Any]:
+    out_dir = repo / out_dir_rel
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / filename
     path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
@@ -678,6 +698,553 @@ def prepare_e7a(repo: Path) -> dict[str, Any]:
     return results
 
 
+# =============================================================================
+# AMENDMENT (local-data-only SiW-as-source policy): a PRE-EXECUTION
+# SCIENTIFIC PROTOCOL AMENDMENT, not a bug fix. Zero E7 scientific runs
+# occurred under the original SUBJECT_GROUP_DISJOINT_80_20 policy -- it is
+# replaced, before any execution, because the only PERMITTED local SiW-Mv2
+# release (data/raw/siw_mv2/SiW-Mv2 -- the exact 1700-video population
+# already licensed/available in this project, never a different release,
+# never augmented, never combined with external protocol metadata) carries
+# no canonical subject/identity mapping. FIX 1/2/3 below are genuine
+# TECHNICAL bugs in the ORIGINAL E7-A code (path detection, binding prose,
+# readiness logic) found and fixed while implementing this amendment; the
+# POLICY change itself is the amendment, recorded separately and honestly.
+# =============================================================================
+
+#: FIX 2: the REAL, GPU-verified frozen M3B manifest counts -- reused for
+#: cross-checking, never re-derived by guessing.
+M3B_EXPECTED_SOURCE_TRAIN_TOTAL = 1440
+M3B_EXPECTED_SOURCE_TRAIN_CASIA = 960
+M3B_EXPECTED_SOURCE_TRAIN_MSU = 480
+M3B_EXPECTED_SOURCE_DEV_TOTAL = 2079
+M3B_EXPECTED_SOURCE_DEV_CASIA = 1439
+M3B_EXPECTED_SOURCE_DEV_MSU = 640
+
+
+def _load_siw_layout_config(repo: Path) -> dict[str, Any]:
+    """Reused verbatim: the ALREADY-FROZEN local layout/family/count
+    contract. Never a second parser, never new counts invented here."""
+    import yaml
+
+    path = repo / SIW_LAYOUT_CONFIG_PATH
+    if not path.is_file():
+        raise E7AError(f"missing {path.as_posix()}; the frozen SiW layout contract is required -- "
+                       "refusing to invent a new one")
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def scan_local_siw_population(repo: Path) -> dict[str, Any]:
+    """GPU-executable, read-only inventory over the EXACT permitted local
+    raw population. On this laptop (root absent) returns ROOT_ABSENT
+    without fabricating a single count -- no video may silently disappear,
+    and none is invented either. Never downloads, never reads external
+    protocol/subject metadata, never hashes full multi-GB video bytes (only
+    the cheap metadata contract: relative path, video id, class, family,
+    extension, and file SIZE via `os.stat`, never file content).
+    """
+    import re
+
+    root = repo / SIW_RAW_ROOT
+    layout = _load_siw_layout_config(repo)
+    if not root.is_dir():
+        return {"schema_version": f"{SCHEMA_PREFIX}-siw-local-population-scan-v1",
+               "status": "ROOT_ABSENT", "root": str(root),
+               "TOTAL": None, "LIVE": None, "SPOOF": None, "by_attack_family": None,
+               "records": [], "population_identity": None,
+               "target_access": False, "llm_api_calls": 0}
+
+    pattern = re.compile(layout["path_pattern"])
+    family_stems = layout["attack_family_stems"]
+    records: list[dict[str, Any]] = []
+    for glob in layout["include_globs"]:
+        for file_path in sorted(root.glob(glob)):
+            rel = file_path.relative_to(root).as_posix()
+            match = pattern.match(rel)
+            if not match:
+                raise E7AError(f"{rel} matched an include_glob but not the frozen path_pattern -- "
+                               "refusing to silently skip or reinterpret it")
+            groups = match.groupdict()
+            extension = file_path.suffix.lstrip(".")
+            if groups.get("live_label"):
+                records.append({"relative_path": rel, "video_id": file_path.stem,
+                               "class_live_spoof": "live", "spoof_family": None,
+                               "extension": extension, "byte_size": file_path.stat().st_size})
+            elif groups.get("spoof_label"):
+                family, stem = groups["attack_family"], groups["stem"]
+                if family_stems.get(family) != stem:
+                    raise E7AError(f"{rel}: family {family!r}/stem {stem!r} does not match the frozen "
+                                   "attack_family_stems map -- unexpected directory or stem is a hard "
+                                   "failure, never silently accepted as a new class")
+                records.append({"relative_path": rel, "video_id": file_path.stem,
+                               "class_live_spoof": "spoof", "spoof_family": family,
+                               "extension": extension, "byte_size": file_path.stat().st_size})
+            else:
+                raise E7AError(f"{rel}: matched neither live_label nor spoof_label groups")
+
+    records.sort(key=lambda r: r["relative_path"])
+    total = len(records)
+    live = sum(1 for r in records if r["class_live_spoof"] == "live")
+    spoof = total - live
+    by_family: dict[str, int] = {}
+    for r in records:
+        if r["spoof_family"]:
+            by_family[r["spoof_family"]] = by_family.get(r["spoof_family"], 0) + 1
+
+    material = "|".join(f"{r['relative_path']}:{r['class_live_spoof']}:{r['spoof_family']}:{r['byte_size']}"
+                        for r in records)
+    population_identity = cc.sha256_bytes(material.encode("utf-8"))
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-siw-local-population-scan-v1",
+        "status": "SCANNED", "root": str(root),
+        "TOTAL": total, "LIVE": live, "SPOOF": spoof, "by_attack_family": by_family,
+        "records": records, "population_identity": population_identity,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def verify_siw_population_against_expected(scan: dict[str, Any], layout: dict[str, Any]) -> dict[str, Any]:
+    """Read-only. Fails closed (reports MISMATCH, never silently accepts)
+    if the scanned population disagrees with the frozen expected counts --
+    never adjusts the expectation to match what was found."""
+    expected = layout["expected_counts"]
+    if scan["status"] != "SCANNED":
+        return {"CHECKED": False, "reason": scan["status"]}
+    mismatches = []
+    if scan["TOTAL"] != expected["total"]:
+        mismatches.append(f"TOTAL {scan['TOTAL']} != expected {expected['total']}")
+    if scan["LIVE"] != expected["live"]:
+        mismatches.append(f"LIVE {scan['LIVE']} != expected {expected['live']}")
+    if scan["SPOOF"] != expected["spoof"]:
+        mismatches.append(f"SPOOF {scan['SPOOF']} != expected {expected['spoof']}")
+    for family, count in expected["by_attack_family"].items():
+        observed = scan["by_attack_family"].get(family, 0)
+        if observed != count:
+            mismatches.append(f"family {family}: {observed} != expected {count}")
+    return {"CHECKED": True, "MATCHES_EXPECTED": not mismatches, "mismatches": mismatches}
+
+
+def build_siw_local_population_plan(repo: Path) -> dict[str, Any]:
+    scan = scan_local_siw_population(repo)
+    layout = _load_siw_layout_config(repo)
+    verification = verify_siw_population_against_expected(scan, layout)
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-siw-local-population-plan-v1",
+        "SIW_SOURCE_ROOT": SIW_RAW_ROOT,
+        "EXPECTED_TOTAL_VIDEOS": SIW_EXPECTED_TOTAL_VIDEOS,
+        "EXPECTED_LIVE_VIDEOS": SIW_EXPECTED_LIVE_VIDEOS,
+        "EXPECTED_SPOOF_VIDEOS": SIW_EXPECTED_SPOOF_VIDEOS,
+        "layout_contract_source": SIW_LAYOUT_CONFIG_PATH,
+        "scan": scan, "verification": verification,
+        "external_dataset_used": False, "external_protocol_list_used_for_split": False,
+        "no_video_silently_dropped": True,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def write_siw_local_population_plan(repo: Path) -> dict[str, Any]:
+    plan = build_siw_local_population_plan(repo)
+    return _write(repo, "E7A_SIW_LOCAL_POPULATION_PLAN.json", plan, out_dir_rel=AMENDMENT_DIR)
+
+
+def compute_siw_video_split(records: list[dict[str, Any]], *, seed: int = SIW_SOURCE_SPLIT_SEED
+                            ) -> dict[str, Any]:
+    """TASK: deterministic, VIDEO-disjoint, stratified 80/20 split.
+
+    Pure function of (records, seed): identical input always yields the
+    identical assignment and identity. Stratified independently by 'live'
+    and by each spoof family; within a stratum, videos are ordered by a
+    seeded stable hash (never Python's randomness, never dict/set
+    iteration order) before the 80% cut, so the split is reproducible
+    across processes/platforms. One video_id -> exactly one split; every
+    frame/crop later derived from that video inherits it.
+    """
+    import hashlib
+
+    def _bucket(value: str) -> int:
+        return int.from_bytes(hashlib.sha256(f"{seed}|{value}".encode("utf-8")).digest()[:8], "big")
+
+    strata: dict[str, list[str]] = {}
+    for row in records:
+        stratum = "live" if row["class_live_spoof"] == "live" else f"spoof:{row['spoof_family']}"
+        strata.setdefault(stratum, []).append(row["video_id"])
+
+    assignment: dict[str, str] = {}
+    stratum_report: dict[str, dict[str, int]] = {}
+    for stratum, video_ids in strata.items():
+        unique_ids = sorted(set(video_ids))
+        if len(unique_ids) != len(video_ids):
+            raise E7AError(f"stratum {stratum!r} contains a duplicate video_id -- refusing to split a "
+                           "population with non-unique video identities")
+        ordered = sorted(unique_ids, key=lambda vid: (_bucket(f"{stratum}|{vid}"), vid))
+        cut = int(round(len(ordered) * 0.8))
+        cut = min(max(cut, 1), len(ordered) - 1) if len(ordered) > 1 else len(ordered)
+        for index, video_id in enumerate(ordered):
+            assignment[video_id] = "train" if index < cut else "dev"
+        stratum_report[stratum] = {"total": len(ordered), "train": cut, "dev": len(ordered) - cut}
+
+    train_count = sum(1 for split in assignment.values() if split == "train")
+    dev_count = sum(1 for split in assignment.values() if split == "dev")
+    identity_material = "|".join(f"{vid}:{assignment[vid]}" for vid in sorted(assignment))
+    split_identity = cc.sha256_bytes(identity_material.encode("utf-8"))
+
+    return {
+        "seed": seed, "assignment": assignment, "stratum_report": stratum_report,
+        "train_count": train_count, "dev_count": dev_count, "total_count": len(assignment),
+        "split_identity": split_identity,
+        "video_overlap_allowed": False,
+        "no_random_global_state": True, "deterministic": True,
+    }
+
+
+def build_siw_video_split_policy_lock(repo: Path) -> dict[str, Any]:
+    """TASK: freezes the AMENDED split RULE, and -- only when the local
+    population was actually scanned (GPU host) -- the resulting proposed
+    split counts/identity. On the laptop this is PLAN_ONLY: the rule is
+    frozen, but no split is computed from data that is not there.
+    """
+    scan = scan_local_siw_population(repo)
+    split_result = None
+    if scan["status"] == "SCANNED":
+        split_result = compute_siw_video_split(scan["records"], seed=SIW_SOURCE_SPLIT_SEED)
+
+    body = {
+        "schema_version": f"{SCHEMA_PREFIX}-siw-video-split-policy-lock-v1",
+        "SIW_SOURCE_SPLIT_POLICY": NEW_SIW_SOURCE_SPLIT_POLICY,
+        "SIW_SOURCE_SPLIT_SEED": SIW_SOURCE_SPLIT_SEED,
+        "GROUP_KEY": "canonical video_id",
+        "STRATIFICATION": ["live/spoof", "spoof attack family for spoof videos"],
+        "TRAIN_FRACTION": 0.8, "DEV_FRACTION": 0.2,
+        "VIDEO_OVERLAP_ALLOWED": False,
+        "SUBJECT_DISJOINTNESS": "UNVERIFIABLE_NOT_ENFORCED",
+        "SUBJECT_DISJOINTNESS_REASON": "canonical subject mapping is unavailable in the exact local "
+                                       "dataset release and no external dataset/metadata may be "
+                                       "introduced",
+        "no_subject_inferred_from_filename": True,
+        "scientific_limitation": "because subject identity is unavailable, the same physical identity "
+                                 "could in principle have separate videos in source_train and "
+                                 "source_dev; target-domain isolation and video-level train/dev "
+                                 "isolation remain enforceable, but subject-level source train/dev "
+                                 "isolation is NOT guaranteed -- source-dev calibration may contain "
+                                 "identity dependence; this must be disclosed in the final E7 report",
+        "proposed_split": split_result,
+        "status": "FROZEN" if split_result is None else "FROZEN_WITH_PROPOSED_SPLIT",
+        "manifests_written": False,
+        "target_access": False, "llm_api_calls": 0,
+    }
+    body["policy_lock_identity"] = cc.sha256_bytes(cc.canonical_json_bytes(
+        {k: v for k, v in body.items() if k != "proposed_split"}))
+    return body
+
+
+def write_siw_video_split_policy_lock(repo: Path) -> dict[str, Any]:
+    lock = build_siw_video_split_policy_lock(repo)
+    return _write(repo, "E7A_SIW_VIDEO_SPLIT_POLICY_LOCK.json", lock, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_m3b_binding_correction(repo: Path) -> dict[str, Any]:
+    """FIX 2: documents (never silently patches) the discrepancy between
+    E0's frozen prose (`EXT_DATASET_FOLD_PLAN.json`'s casia_msu rule text,
+    which names the WRONG, zero-row `prism_target_eval_v2` placeholder
+    path) and the operationally correct binding this module has always
+    actually used for file checks (`CASIA_MSU_PACKAGE_ROOT`). Never rewrites
+    E0's file; never alters M3B bytes.
+    """
+    wrong_path = f"{SIW_TARGET_EVAL_PACKAGE_ROOT}/manifests/source_train.parquet"
+    correct_train = f"{CASIA_MSU_PACKAGE_ROOT}/manifests/source_train.parquet"
+    correct_dev = f"{CASIA_MSU_PACKAGE_ROOT}/manifests/source_dev.parquet"
+    train_present = (repo / correct_train).is_file()
+    dev_present = (repo / correct_dev).is_file()
+
+    dev_counts = None
+    if dev_present:
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(repo / correct_dev).to_pydict()
+        dev_counts = {"total": len(table["sample_id"]),
+                     "casia": sum(1 for d in table["dataset"] if d == "casia_fasd"),
+                     "msu": sum(1 for d in table["dataset"] if d == "msu_mfsd")}
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-m3b-binding-correction-v1",
+        "e0_frozen_prose_path": wrong_path,
+        "e0_frozen_prose_note": "EXT_DATASET_FOLD_PLAN.json's source_split_policy.casia_msu prose names "
+                                "this path; it is a target-package placeholder with ZERO rows on this "
+                                "host and must never be used to construct CASIA/MSU source manifests",
+        "e0_file_rewritten": False,
+        "corrected_canonical_source_train_path": correct_train,
+        "corrected_canonical_source_dev_path": correct_dev,
+        "corrected_source_train_present_locally": train_present,
+        "corrected_source_dev_present_locally": dev_present,
+        "expected_source_train_counts": {"total": M3B_EXPECTED_SOURCE_TRAIN_TOTAL,
+                                         "casia": M3B_EXPECTED_SOURCE_TRAIN_CASIA,
+                                         "msu": M3B_EXPECTED_SOURCE_TRAIN_MSU},
+        "expected_source_dev_counts": {"total": M3B_EXPECTED_SOURCE_DEV_TOTAL,
+                                       "casia": M3B_EXPECTED_SOURCE_DEV_CASIA,
+                                       "msu": M3B_EXPECTED_SOURCE_DEV_MSU},
+        "observed_source_dev_counts_this_host": dev_counts,
+        "observed_source_dev_matches_expected": dev_counts == {
+            "total": M3B_EXPECTED_SOURCE_DEV_TOTAL, "casia": M3B_EXPECTED_SOURCE_DEV_CASIA,
+            "msu": M3B_EXPECTED_SOURCE_DEV_MSU} if dev_counts else None,
+        "target_eval_v2_placeholder_note": "data/processed/prism_target_eval_v2/manifests/"
+                                          "{source_train,source_dev}.parquet exist but hold ZERO rows "
+                                          "-- schema-only placeholders, never accepted as a CASIA/MSU "
+                                          "source manifest",
+        "m3b_bytes_altered": False,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def write_m3b_binding_correction(repo: Path) -> dict[str, Any]:
+    correction = build_m3b_binding_correction(repo)
+    return _write(repo, "E7A_M3B_BINDING_CORRECTION.json", correction, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_siw_local_only_amendment(repo: Path) -> dict[str, Any]:
+    """TASK: the explicit PRE-EXECUTION SCIENTIFIC PROTOCOL AMENDMENT
+    record. This is NOT a bug-fix artifact -- SUBJECT_GROUP_DISJOINT_80_20
+    is a real, deliberate, frozen scientific rule being REPLACED, before
+    any E7 scientific execution, because it is technically unexecutable
+    under the only data this project is permitted to use.
+    """
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-siw-local-only-amendment-v1",
+        "PREVIOUS_POLICY": PREVIOUS_SIW_SOURCE_SPLIT_POLICY,
+        "AMENDMENT_REASON": "SUBJECT_METADATA_UNAVAILABLE_IN_ALLOWED_LOCAL_DATA",
+        "amendment_reason_detail": "the exact permitted local SiW-Mv2 release "
+                                   f"({SIW_RAW_ROOT}) has no canonical video->subject mapping; the "
+                                   "committed SiWMv2Adapter always emits subject_id=None by design "
+                                   "(built for SiW-Mv2's historical opaque held-out-TARGET role); "
+                                   "filenames are video/sample names and MUST NOT be reinterpreted as "
+                                   "subject ids; no external dataset, release, or protocol/subject "
+                                   "metadata may be introduced to resolve this",
+        "NEW_POLICY": NEW_SIW_SOURCE_SPLIT_POLICY,
+        "SCIENTIFIC_PROTOCOL_CHANGED": True,
+        "CHANGE_TIMING": "BEFORE_E7_SCIENTIFIC_EXECUTION",
+        "E7_SCIENTIFIC_RUNS_BEFORE_AMENDMENT": 0,
+        "EXTERNAL_DATASET_USED": False,
+        "EXTERNAL_PROTOCOL_LIST_USED_FOR_SPLIT": False,
+        "SIW_SOURCE_POPULATION_POLICY": "EXACT_LOCAL_RAW_POPULATION",
+        "SIW_SOURCE_ROOT": SIW_RAW_ROOT,
+        "EXPECTED_TOTAL_VIDEOS": SIW_EXPECTED_TOTAL_VIDEOS,
+        "EXPECTED_LIVE_VIDEOS": SIW_EXPECTED_LIVE_VIDEOS,
+        "EXPECTED_SPOOF_VIDEOS": SIW_EXPECTED_SPOOF_VIDEOS,
+        "SIW_SOURCE_SPLIT_POLICY": NEW_SIW_SOURCE_SPLIT_POLICY,
+        "SIW_SOURCE_SPLIT_SEED": SIW_SOURCE_SPLIT_SEED,
+        "GROUP_KEY": "canonical video_id",
+        "STRATIFICATION": ["live/spoof", "spoof attack family for spoof videos"],
+        "TRAIN_FRACTION": 0.8, "DEV_FRACTION": 0.2,
+        "VIDEO_OVERLAP_ALLOWED": False,
+        "SUBJECT_DISJOINTNESS": "UNVERIFIABLE_NOT_ENFORCED",
+        "SUBJECT_DISJOINTNESS_REASON": "canonical subject mapping is unavailable in the exact local "
+                                       "dataset release and no external dataset/metadata may be "
+                                       "introduced",
+        "does_not_alter_ext_f1": True,
+        "ext_f1_note": "EXT-F1 (CASIA-FASD + MSU-MFSD -> SiW-Mv2 held-out target) is unaffected -- it "
+                       "reuses the already-frozen prism_target_eval_v2 target package verbatim",
+        "does_not_rewrite_e6_e7_historical_locks": True,
+        "target_access": False, "llm_api_calls": 0,
+        "status": "FROZEN",
+    }
+
+
+def write_siw_local_only_amendment(repo: Path) -> dict[str, Any]:
+    amendment = build_siw_local_only_amendment(repo)
+    return _write(repo, "E7A_SIW_LOCAL_ONLY_AMENDMENT.json", amendment, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_amended_fold_construction_plan(repo: Path) -> dict[str, Any]:
+    """F2/F3 construction semantics: filter, never reuse the shared CASIA/
+    MSU pool file wholesale; both folds reference the SAME single SiW
+    source-split identity. EXT-F1 is unchanged."""
+    split_lock = build_siw_video_split_policy_lock(repo)
+    siw_split_identity = split_lock["policy_lock_identity"]
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-amended-fold-construction-plan-v1",
+        "EXT-F1": {"unchanged": True, "source": ["CASIA-FASD", "MSU-MFSD"], "target": "SiW-Mv2",
+                  "action": "reuse the already-frozen prism_target_eval_v2 target package verbatim"},
+        "EXT-F2": {"source": ["CASIA-FASD", "SiW-Mv2"], "target": "MSU-MFSD",
+                  "casia_rows": "FILTER dataset=='casia_fasd' ONLY from the frozen M3B source_train/"
+                                "source_dev -- MSU rows are EXT-F2's held-out target and must NEVER be "
+                                "included as source",
+                  "siw_rows": "the amended local video-disjoint split, train/dev partitions per "
+                             "compute_siw_video_split", "siw_source_split_identity": siw_split_identity,
+                  "excludes_msu_source_rows": True},
+        "EXT-F3": {"source": ["MSU-MFSD", "SiW-Mv2"], "target": "CASIA-FASD",
+                  "msu_rows": "FILTER dataset=='msu_mfsd' ONLY from the frozen M3B source_train/"
+                              "source_dev -- CASIA rows are EXT-F3's held-out target and must NEVER be "
+                              "included as source",
+                  "siw_rows": "REUSES the EXACT SAME SiW source-split identity as EXT-F2 -- never "
+                             "recomputed independently", "siw_source_split_identity": siw_split_identity,
+                  "excludes_casia_source_rows": True},
+        "f2_f3_share_one_siw_split": True,
+        "manifests_written": False,
+        "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
+    }
+
+
+def write_amended_fold_construction_plan(repo: Path) -> dict[str, Any]:
+    plan = build_amended_fold_construction_plan(repo)
+    return _write(repo, "E7A_AMENDED_FOLD_CONSTRUCTION_PLAN.json", plan, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_readiness_fix_report(repo: Path) -> dict[str, Any]:
+    """FIX 3: documents the readiness-logic false positive and its fix."""
+    old_preflight = e7a_preflight(repo)  # the ORIGINAL (still-present) preflight function
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-readiness-fix-report-v1",
+        "fix_1_raw_path_detection": {
+            "bug": "audit_dataset_infrastructure hardcoded raw_siw_source_bytes_present_locally=False "
+                  "unconditionally, regardless of whether the GPU host actually has the exact "
+                  f"permitted local root ({SIW_RAW_ROOT})",
+            "fixed": True,
+            "current_value_this_host": (repo / SIW_RAW_ROOT).is_dir(),
+        },
+        "fix_2_m3b_binding": {
+            "bug": "E0's frozen source_split_policy.casia_msu PROSE names the zero-row "
+                  f"{SIW_TARGET_EVAL_PACKAGE_ROOT} placeholder path; operational file checks always "
+                  f"used the correct {CASIA_MSU_PACKAGE_ROOT} path, but the prose was misleading",
+            "fixed": True,
+            "correction_artifact": "E7A_M3B_BINDING_CORRECTION.json",
+        },
+        "fix_3_readiness_logic": {
+            "bug": "e7a_preflight's original E7A_READY_FOR_BUILD was TRUE whenever "
+                  "resolve_source_split_policy() did not RAISE -- but an UNRESOLVED subject-resolution "
+                  "status is not an exception, so readiness was TRUE even though no real F2/F3 build "
+                  "was actually possible",
+            "old_value_this_host": old_preflight["E7A_READY_FOR_BUILD"],
+            "fixed": True,
+            "new_logic": "E7A_READY_FOR_BUILD now additionally requires: the amendment lock present and "
+                        "matching, the exact local SiW root present, the frozen population inventory "
+                        "matching expected counts, the deterministic video-split implementation "
+                        "available, the M3B CASIA/MSU manifests present with matching identities, "
+                        "target-domain isolation checks resolvable, and no target label access",
+        },
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def write_readiness_fix_report(repo: Path) -> dict[str, Any]:
+    report = build_readiness_fix_report(repo)
+    return _write(repo, "E7A_READINESS_FIX_REPORT.json", report, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_amended_execution_plan() -> dict[str, Any]:
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-amended-execution-plan-v1",
+        "cli_operations": [
+            {"flag": "--e7a-local-siw-preflight", "read_only": True,
+            "does": ["inventory local raw SiW", "verify counts/families against the frozen layout "
+                    "contract", "verify M3B CASIA/MSU manifest presence/counts",
+                    "compute PROPOSED split counts/identity (in-memory only)"],
+            "never": ["writes a source manifest", "trains", "renders", "fits GPAT"]},
+            {"flag": "--e7a-local-siw-freeze", "read_only": False, "requires": "explicit --authorize",
+            "does": "persists the amendment + population + split-policy locks additively",
+            "never": ["writes a source manifest", "trains", "renders", "fits GPAT"]},
+            {"flag": "--e7a-build", "read_only": False, "requires": "explicit --authorize",
+            "does": "constructs source train/dev manifest references (unchanged from the original "
+                   "E7-A contract)", "still_fails_closed_on": "incomplete local bytes (unchanged this "
+                   "turn -- laptop has neither SiW raw bytes nor the M3B source_train.parquet)"},
+        ],
+        "laptop_this_turn_executes_real_gpu_data": False,
+        "executed_this_turn": [], "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def write_amended_execution_plan(repo: Path) -> dict[str, Any]:
+    plan = build_amended_execution_plan()
+    return _write(repo, "E7A_AMENDED_EXECUTION_PLAN.json", plan, out_dir_rel=AMENDMENT_DIR)
+
+
+def build_amended_readiness(repo: Path) -> dict[str, Any]:
+    """FIX 3 applied: E7A_READY_FOR_BUILD is derived from the FULL amended
+    prerequisite checklist, never from "no exception was raised"."""
+    amendment_path = repo / AMENDMENT_DIR / "E7A_SIW_LOCAL_ONLY_AMENDMENT.json"
+    amendment_present = amendment_path.is_file()
+    amendment_matches = False
+    if amendment_present:
+        persisted = cc.read_json(amendment_path)
+        expected = build_siw_local_only_amendment(repo)
+        amendment_matches = persisted.get("NEW_POLICY") == expected["NEW_POLICY"] and \
+            persisted.get("SIW_SOURCE_SPLIT_SEED") == expected["SIW_SOURCE_SPLIT_SEED"]
+
+    siw_root_present = (repo / SIW_RAW_ROOT).is_dir()
+    population_scan = scan_local_siw_population(repo)
+    layout = _load_siw_layout_config(repo)
+    population_check = verify_siw_population_against_expected(population_scan, layout)
+    population_matches = bool(population_check.get("MATCHES_EXPECTED"))
+
+    m3b_correction = build_m3b_binding_correction(repo)
+    m3b_ready = bool(m3b_correction["corrected_source_train_present_locally"]
+                     and m3b_correction["corrected_source_dev_present_locally"]
+                     and m3b_correction.get("observed_source_dev_matches_expected"))
+
+    isolation = audit_fold_isolation_e7a(repo)
+    target_isolation_resolvable = all("TARGET_DOMAIN_EXACT" in f for f in isolation["per_fold"])
+
+    prerequisites = {
+        "amendment_lock_present_and_matching": amendment_present and amendment_matches,
+        "exact_local_siw_root_present": siw_root_present,
+        "frozen_population_inventory_matches": population_matches,
+        "deterministic_video_split_implementation_available": True,  # compute_siw_video_split exists
+        "m3b_casia_msu_manifests_present_and_matching": m3b_ready,
+        "target_domain_isolation_checks_resolvable": target_isolation_resolvable,
+        "no_target_label_access": isolation["TARGET_LABEL_ACCESS"] is False,
+    }
+    ready_for_build = all(prerequisites.values())
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-amended-readiness-v1",
+        "prerequisites": prerequisites,
+        "E7A_READY_FOR_BUILD": ready_for_build,
+        "E7A_READY_FOR_GPU_LOCAL_PREFLIGHT": True,  # the read-only preflight code itself is complete
+        "rendering_performed": False, "training_performed": False, "gpat_fitting_performed": False,
+        "target_access": False, "llm_api_calls": 0,
+        "status": "PREPARED_NOT_EXECUTED",
+    }
+
+
+def write_amended_readiness(repo: Path) -> dict[str, Any]:
+    readiness = build_amended_readiness(repo)
+    return _write(repo, "E7A_AMENDED_READINESS.json", readiness, out_dir_rel=AMENDMENT_DIR)
+
+
+def e7a_local_siw_preflight(repo: Path) -> dict[str, Any]:
+    """`--e7a-local-siw-preflight`: strictly read-only. Inventories local
+    raw SiW, verifies counts/families, verifies M3B, computes the PROPOSED
+    split counts/identity in memory. Writes NOTHING. Never trains, renders
+    or fits GPAT."""
+    population_plan = build_siw_local_population_plan(repo)
+    split_lock = build_siw_video_split_policy_lock(repo)
+    m3b_correction = build_m3b_binding_correction(repo)
+    readiness = build_amended_readiness(repo)
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-local-siw-preflight-v1",
+        "population_plan": population_plan, "split_policy": split_lock,
+        "m3b_binding_correction": m3b_correction, "readiness": readiness,
+        "manifests_written": False, "rendering_performed": False, "training_performed": False,
+        "gpat_fitting_performed": False, "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def prepare_e7a_amendment(repo: Path) -> dict[str, Any]:
+    """Writes every additive amendment artifact under AMENDMENT_DIR. Never
+    touches the original, already-committed E7-A artifacts. Never renders,
+    trains, fits GPAT, touches target labels or calls an LLM."""
+    results = {
+        "amendment": write_siw_local_only_amendment(repo),
+        "population_plan": write_siw_local_population_plan(repo),
+        "split_policy_lock": write_siw_video_split_policy_lock(repo),
+        "m3b_binding_correction": write_m3b_binding_correction(repo),
+        "fold_construction_plan": write_amended_fold_construction_plan(repo),
+        "readiness_fix_report": write_readiness_fix_report(repo),
+        "execution_plan": write_amended_execution_plan(repo),
+    }
+    results["readiness"] = write_amended_readiness(repo)
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="E7-A fold manifest / source-dev / isolation "
                                                  "preparation (no render, no train, no GPAT fit, no "
@@ -691,16 +1258,40 @@ def main(argv: list[str] | None = None) -> int:
                              "accesses. Fails closed on missing bytes/identity mismatch/leakage.")
     parser.add_argument("--e7a-validate", action="store_true",
                         help="Read-only validation of completed E7-A manifests.")
-    parser.add_argument("--authorize", action="store_true", help="Required alongside --e7a-build.")
+    parser.add_argument("--e7a-local-siw-preflight", action="store_true",
+                        help="AMENDMENT: read-only. Inventories the exact permitted local raw SiW "
+                             "population, verifies counts/families against the frozen layout contract, "
+                             "verifies M3B CASIA/MSU manifests, computes the PROPOSED video-disjoint "
+                             "split in memory. Writes nothing. Never trains/renders/fits GPAT.")
+    parser.add_argument("--e7a-local-siw-freeze", action="store_true",
+                        help="AMENDMENT: explicit execution only. Requires --authorize. Persists the "
+                             "amendment + population + split-policy locks additively under "
+                             "amendment_local_siw_v1/. Never writes a source manifest, never trains, "
+                             "never renders, never fits GPAT.")
+    parser.add_argument("--authorize", action="store_true",
+                        help="Required alongside --e7a-build or --e7a-local-siw-freeze.")
     parser.add_argument("--prepare", action="store_true",
                         help="Writes every additive E7-A preparation artifact (protocol lock, dataset "
                              "binding, fold manifest plan, source split lock, target reference "
                              "contract, isolation report, execution plan, readiness).")
+    parser.add_argument("--prepare-amendment", action="store_true",
+                        help="Writes every additive AMENDMENT artifact under amendment_local_siw_v1/. "
+                             "Never touches the original E7-A artifacts.")
     args = parser.parse_args(argv)
     repo = cc.repo_root()
 
     if args.e7a_preflight:
         print(json.dumps(e7a_preflight(repo), indent=2, default=str))
+        return 0
+    if args.e7a_local_siw_preflight:
+        print(json.dumps(e7a_local_siw_preflight(repo), indent=2, default=str))
+        return 0
+    if args.e7a_local_siw_freeze:
+        if not args.authorize:
+            print("--e7a-local-siw-freeze requires --authorize; refusing to run.")
+            return 2
+        result = prepare_e7a_amendment(repo)
+        print(json.dumps({"readiness": result["readiness"]["body"]}, indent=2, default=str))
         return 0
     if args.e7a_build:
         try:
@@ -717,10 +1308,15 @@ def main(argv: list[str] | None = None) -> int:
         result = prepare_e7a(repo)
         print(json.dumps({"readiness": result["readiness"]["body"]}, indent=2, default=str))
         return 0
+    if args.prepare_amendment:
+        result = prepare_e7a_amendment(repo)
+        print(json.dumps({"readiness": result["readiness"]["body"]}, indent=2, default=str))
+        return 0
 
-    print("Pass --e7a-preflight (read-only), --e7a-build --authorize (fails closed; no local dataset "
-         "bytes are complete on this laptop), --e7a-validate (read-only), or --prepare (writes every "
-         "additive preparation artifact).")
+    print("Pass --e7a-preflight, --e7a-local-siw-preflight (both read-only), --e7a-local-siw-freeze "
+         "--authorize (writes the amendment locks), --e7a-build --authorize (fails closed; no local "
+         "dataset bytes are complete on this laptop), --e7a-validate (read-only), --prepare, or "
+         "--prepare-amendment.")
     return 1
 
 
