@@ -1,0 +1,20 @@
+{
+  "schema_version": "ext-q1q2-e7-readiness-v1",
+  "E7_EXT_F1_SHUFFLE_STATUS": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+  "E7_EXT_F2_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+  "E7_EXT_F3_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+  "E7_NONSHUFFLE_READY_CELLS": 2,
+  "E7_NONSHUFFLE_MISSING_ARTIFACTS": 10,
+  "FOLD_ISOLATION_PASS": true,
+  "E7_READY_FOR_GPU_PHASE_A": true,
+  "next_gpu_commands_required": [
+    "none this turn -- E7-A (fold manifests / source-dev / isolation) is the first GPU-boundary phase (Task H) and is not authorized to run until a future turn explicitly does so"
+  ],
+  "E7_NOMINAL_TRAININGS": 75,
+  "E7_PREDECLARED_BLOCKED_TRAININGS": 5,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "status": "PREPARED_NOT_EXECUTED"
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": "ext-q1q2-e7-execution-phase-plan-v1",
+  "phases": [
+    {
+      "phase": "E7-A",
+      "name": "fold manifests / source-dev / isolation locks",
+      "gate": "FOLD_ISOLATION_PASS == true for the fold; source/dev manifests subject-disjoint where required",
+      "resume_identity": "fold_isolation_lock_identity + source_split_seed"
+    },
+    {
+      "phase": "E7-B",
+      "name": "fold-specific GPAT + quality runtime preparation",
+      "gate": "E7-A complete for the fold; GPAT support fit and quality backend resolvable on the GPU host",
+      "resume_identity": "fold GPAT support identity + quality calibration identity"
+    },
+    {
+      "phase": "E7-C",
+      "name": "synthetic generation + matching feasibility (RND/DET/LLM, and Shuffle where the preflight plan applies)",
+      "gate": "E7-B complete; per condition, render + frozen quality evaluation + frozen matched-bank feasibility check (Task F's rule) all pass",
+      "resume_identity": "per-arm matched-bank lock identity or BLOCKED_SCIENTIFIC_INFEASIBILITY record"
+    },
+    {
+      "phase": "E7-D",
+      "name": "detector training, 5 seeds per feasible condition/fold",
+      "gate": "E7-C feasible for that condition/fold cell (or condition is G-REALONLY, which skips E7-C entirely)",
+      "resume_identity": "checkpoint identity per EXT-F{n}-G-<condition>-s<seed>"
+    },
+    {
+      "phase": "E7-E",
+      "name": "label-free target prediction",
+      "gate": "E7-D checkpoint exists and passed source-dev checkpoint selection",
+      "resume_identity": "prediction artifact identity; target labels never read here"
+    },
+    {
+      "phase": "E7-F",
+      "name": "controlled scoring / aggregation",
+      "gate": "E7-E predictions exist for every seed of a condition/fold cell",
+      "resume_identity": "aggregate result identity; per-seed rows preserved before aggregation"
+    }
+  ],
+  "single_giant_command_forbidden": true,
+  "each_phase_has_own_gate_and_resume_identity": true,
+  "executed_this_turn": [],
+  "target_access": false,
+  "llm_api_calls": 0
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": "ext-q1q2-e7-fold-isolation-lock-v1",
+  "folds": [
+    {
+      "fold": "EXT-F1",
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "checks": {
+        "source_matches_frozen_plan": true,
+        "target_matches_frozen_plan": true,
+        "target_absent_from_source_domains": true,
+        "target_absent_from_gpat_support_fitting": true,
+        "target_absent_from_quality_calibration": true,
+        "target_absent_from_detector_training": true,
+        "target_absent_from_source_dev_threshold_calibration": true,
+        "target_absent_from_synthetic_source_live_samples": true,
+        "subject_disjoint_rule_recorded_where_required": false
+      },
+      "fold_isolation_pass": true
+    },
+    {
+      "fold": "EXT-F2",
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "checks": {
+        "source_matches_frozen_plan": true,
+        "target_matches_frozen_plan": true,
+        "target_absent_from_source_domains": true,
+        "target_absent_from_gpat_support_fitting": true,
+        "target_absent_from_quality_calibration": true,
+        "target_absent_from_detector_training": true,
+        "target_absent_from_source_dev_threshold_calibration": true,
+        "target_absent_from_synthetic_source_live_samples": true,
+        "subject_disjoint_rule_recorded_where_required": true
+      },
+      "fold_isolation_pass": true
+    },
+    {
+      "fold": "EXT-F3",
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "checks": {
+        "source_matches_frozen_plan": true,
+        "target_matches_frozen_plan": true,
+        "target_absent_from_source_domains": true,
+        "target_absent_from_gpat_support_fitting": true,
+        "target_absent_from_quality_calibration": true,
+        "target_absent_from_detector_training": true,
+        "target_absent_from_source_dev_threshold_calibration": true,
+        "target_absent_from_synthetic_source_live_samples": true,
+        "subject_disjoint_rule_recorded_where_required": true
+      },
+      "fold_isolation_pass": true
+    }
+  ],
+  "FOLD_ISOLATION_PASS": true,
+  "method": "cross-checked against the E0-frozen EXT_DATASET_FOLD_PLAN.json/EXT_MODEL_BINDING.json policy artifacts; never reads or scans real target-domain image bytes",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "status": "FROZEN",
+  "lock_identity": "456cc26484c33045483260dfe2b79159ea429931c141432372501c6be8c79103"
+}

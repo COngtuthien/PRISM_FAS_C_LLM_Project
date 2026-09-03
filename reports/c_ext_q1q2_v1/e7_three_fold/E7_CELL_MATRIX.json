@@ -1,0 +1,1365 @@
+{
+  "schema_version": "ext-q1q2-e7-cell-matrix-v1",
+  "total_cells": 75,
+  "cells": [
+    {
+      "fold": "EXT-F1",
+      "condition": "G-REALONLY",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F1-G-REALONLY-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-REALONLY",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F1-G-REALONLY-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-REALONLY",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F1-G-REALONLY-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-REALONLY",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F1-G-REALONLY-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-REALONLY",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F1-G-REALONLY-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-RND",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-RND-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-RND",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-RND-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-RND",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-RND-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-RND",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-RND-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-RND",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-RND-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-DET",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-DET-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-DET",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-DET-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-DET",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-DET-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-DET",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-DET-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-DET",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-DET-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-SHUFFLE-A-s20260806",
+      "readiness_status": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+      "block_reason": "E6_V2_FINAL_CLOSURE.json: SHUFFLE Physics EXT-F1 fillable = 479/512 under the frozen per-source-domain quota (CASIA-FASD deficit = 33; MSU-MFSD's 33-candidate surplus cannot compensate under the frozen, non-fungible per-domain quota). CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- a scientific outcome, not a technical defect."
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-SHUFFLE-A-s20260807",
+      "readiness_status": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+      "block_reason": "E6_V2_FINAL_CLOSURE.json: SHUFFLE Physics EXT-F1 fillable = 479/512 under the frozen per-source-domain quota (CASIA-FASD deficit = 33; MSU-MFSD's 33-candidate surplus cannot compensate under the frozen, non-fungible per-domain quota). CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- a scientific outcome, not a technical defect."
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-SHUFFLE-A-s20260808",
+      "readiness_status": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+      "block_reason": "E6_V2_FINAL_CLOSURE.json: SHUFFLE Physics EXT-F1 fillable = 479/512 under the frozen per-source-domain quota (CASIA-FASD deficit = 33; MSU-MFSD's 33-candidate surplus cannot compensate under the frozen, non-fungible per-domain quota). CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- a scientific outcome, not a technical defect."
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-SHUFFLE-A-s20260809",
+      "readiness_status": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+      "block_reason": "E6_V2_FINAL_CLOSURE.json: SHUFFLE Physics EXT-F1 fillable = 479/512 under the frozen per-source-domain quota (CASIA-FASD deficit = 33; MSU-MFSD's 33-candidate surplus cannot compensate under the frozen, non-fungible per-domain quota). CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- a scientific outcome, not a technical defect."
+    },
+    {
+      "fold": "EXT-F1",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F1",
+      "matched_bank_required": true,
+      "run_id": "EXT-F1-G-LLM-SHUFFLE-A-s20260810",
+      "readiness_status": "BLOCKED_SCIENTIFIC_INFEASIBILITY",
+      "block_reason": "E6_V2_FINAL_CLOSURE.json: SHUFFLE Physics EXT-F1 fillable = 479/512 under the frozen per-source-domain quota (CASIA-FASD deficit = 33; MSU-MFSD's 33-candidate surplus cannot compensate under the frozen, non-fungible per-domain quota). CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- a scientific outcome, not a technical defect."
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-REALONLY",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F2-G-REALONLY-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-REALONLY",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F2-G-REALONLY-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-REALONLY",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F2-G-REALONLY-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-REALONLY",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F2-G-REALONLY-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-REALONLY",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F2-G-REALONLY-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-RND",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-RND-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-RND",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-RND-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-RND",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-RND-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-RND",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-RND-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-RND",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-RND-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-DET",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-DET-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-DET",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-DET-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-DET",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-DET-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-DET",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-DET-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-DET",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-DET-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260806,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-SHUFFLE-A-s20260806",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F2 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260807,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-SHUFFLE-A-s20260807",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F2 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260808,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-SHUFFLE-A-s20260808",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F2 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260809,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-SHUFFLE-A-s20260809",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F2 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F2",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260810,
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F2",
+      "matched_bank_required": true,
+      "run_id": "EXT-F2-G-LLM-SHUFFLE-A-s20260810",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F2 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-REALONLY",
+      "seed": 20260806,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F3-G-REALONLY-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-REALONLY",
+      "seed": 20260807,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F3-G-REALONLY-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-REALONLY",
+      "seed": 20260808,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F3-G-REALONLY-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-REALONLY",
+      "seed": 20260809,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F3-G-REALONLY-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-REALONLY",
+      "seed": 20260810,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": null,
+      "synthetic_required": false,
+      "GPAT_support_required": false,
+      "quality_calibration_scope": "NOT_APPLICABLE",
+      "matched_bank_required": false,
+      "run_id": "EXT-F3-G-REALONLY-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-RND",
+      "seed": 20260806,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-RND-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-RND",
+      "seed": 20260807,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-RND-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-RND",
+      "seed": 20260808,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-RND-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-RND",
+      "seed": 20260809,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-RND-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-RND",
+      "seed": 20260810,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "RND",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-RND-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-DET",
+      "seed": 20260806,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-DET-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-DET",
+      "seed": 20260807,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-DET-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-DET",
+      "seed": 20260808,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-DET-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-DET",
+      "seed": 20260809,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-DET-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-DET",
+      "seed": 20260810,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "DET",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-DET-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM",
+      "seed": 20260806,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-s20260806",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM",
+      "seed": 20260807,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-s20260807",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM",
+      "seed": 20260808,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-s20260808",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM",
+      "seed": 20260809,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-s20260809",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM",
+      "seed": 20260810,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-s20260810",
+      "readiness_status": "READINESS_AUDIT_REQUIRED",
+      "block_reason": null
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260806,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-SHUFFLE-A-s20260806",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F3 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260807,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-SHUFFLE-A-s20260807",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F3 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260808,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-SHUFFLE-A-s20260808",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F3 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260809,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-SHUFFLE-A-s20260809",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F3 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    },
+    {
+      "fold": "EXT-F3",
+      "condition": "G-LLM-SHUFFLE-A",
+      "seed": 20260810,
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "recipe_bank": "LLM-SHUFFLE-A",
+      "synthetic_required": true,
+      "GPAT_support_required": true,
+      "quality_calibration_scope": "FOLD_SPECIFIC_PENDING_SPEC_CONFIRMATION:EXT-F3",
+      "matched_bank_required": true,
+      "run_id": "EXT-F3-G-LLM-SHUFFLE-A-s20260810",
+      "readiness_status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "block_reason": "EXT-F3 Shuffle source-domain population has not been tested under the frozen render/quality/matching rules yet; EXT-F1's infeasibility must NOT be assumed to generalize (different source domains -> different quality-pass domain composition)"
+    }
+  ],
+  "count_by_readiness_status": {
+    "READINESS_AUDIT_REQUIRED": 60,
+    "BLOCKED_SCIENTIFIC_INFEASIBILITY": 5,
+    "PENDING_FEASIBILITY_PREFLIGHT": 10
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false
+}

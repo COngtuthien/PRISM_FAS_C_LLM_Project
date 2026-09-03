@@ -1,0 +1,36 @@
+{
+  "schema_version": "ext-q1q2-e7-shuffle-f2-f3-preflight-plan-v1",
+  "applies_to": [
+    "EXT-F2/G-LLM-SHUFFLE-A",
+    "EXT-F3/G-LLM-SHUFFLE-A"
+  ],
+  "stages_before_detector_training": [
+    "recipe_binding",
+    "source_pair_plan",
+    "fold_specific_rendering",
+    "frozen_quality_evaluation",
+    "frozen_source_domain_matched_bank_feasibility"
+  ],
+  "required_bank_size_per_route": {
+    "GPAT": 512,
+    "Physics": 512
+  },
+  "authorization_rule": "detector training for a fold/Shuffle cell is authorized ONLY IF both routes (GPAT and Physics) reach the full required bank size; otherwise the cell is recorded BLOCKED_SCIENTIFIC_INFEASIBILITY",
+  "no_parameter_changes_permitted": true,
+  "forbidden_rescue_actions": [
+    "lower bank size 512",
+    "change source-domain quotas",
+    "relax quality thresholds",
+    "modify q",
+    "resample candidates",
+    "rerender solely to obtain a passing bank",
+    "change matching policy"
+  ],
+  "ext_f1_result_does_not_predetermine_f2_f3": true,
+  "reason": "EXT-F1's Physics infeasibility (479/512) is a property of EXT-F1's OWN quality-pass source-domain composition (CASIA-FASD/MSU-MFSD); EXT-F2 and EXT-F3 draw from different source-domain pairs (CASIA-FASD/SiW-Mv2 and MSU-MFSD/SiW-Mv2 respectively) and must be independently rendered, measured and matched under the SAME frozen rules before any feasibility conclusion is drawn",
+  "executed_this_turn": false,
+  "rendering_performed": false,
+  "training_performed": false,
+  "target_access": false,
+  "llm_api_calls": 0
+}

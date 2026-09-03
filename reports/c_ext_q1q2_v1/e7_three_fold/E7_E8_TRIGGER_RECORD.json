@@ -1,0 +1,21 @@
+{
+  "schema_version": "ext-q1q2-e7-e8-trigger-record-v1",
+  "E8_TRIGGER_FROM_E2": true,
+  "trigger_basis": "prior E2 found |SMD(q)| >= 0.25 on the final accepted q distribution",
+  "frozen_e8_trigger_rule": {
+    "frozen_at": "E0",
+    "mutation_policy": "never changed after seeing any target metric",
+    "rule": "|SMD(q)| >= 0.25 between LLM and RND OR between LLM and DET on the final accepted q distribution, at any fold or frozen F1 bank"
+  },
+  "E8_CONDITIONS": [
+    "G-RND-QMATCH",
+    "G-DET-QMATCH",
+    "G-LLM-QMATCH"
+  ],
+  "shuffle_excluded_from_e8": true,
+  "e8_required_unless": "E7 scientific closure makes the planned q-matched analysis impossible (e.g. every fold/condition needed for the q-matched contrast is itself BLOCKED_SCIENTIFIC_INFEASIBILITY) -- not yet determined, since E7 is only being prepared, not executed, this turn",
+  "E8_EXECUTED": false,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "training_performed": false
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": "ext-q1q2-e7-reuse-rebuild-table-v1",
+  "rows": [
+    {
+      "artifact": "abstract frozen recipe banks (ORIGINAL_LLM, LLM-SHUFFLE-A recipe CONTENT)",
+      "reuse_allowed": true,
+      "fold_specific": false,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "none -- reuse verbatim across every fold"
+    },
+    {
+      "artifact": "frozen detector architecture (Track G, DETECTOR_CONFIG_LOCK.json)",
+      "reuse_allowed": true,
+      "fold_specific": false,
+      "currently_present": true,
+      "currently_valid": true,
+      "action_required": "none"
+    },
+    {
+      "artifact": "optimizer/training policy (m9_reference.yaml)",
+      "reuse_allowed": true,
+      "fold_specific": false,
+      "currently_present": true,
+      "currently_valid": true,
+      "action_required": "none"
+    },
+    {
+      "artifact": "seed registry (detector_seeds)",
+      "reuse_allowed": true,
+      "fold_specific": false,
+      "currently_present": true,
+      "currently_valid": true,
+      "action_required": "none"
+    },
+    {
+      "artifact": "recipe semantics (ontology, compile_recipe)",
+      "reuse_allowed": true,
+      "fold_specific": false,
+      "currently_present": true,
+      "currently_valid": true,
+      "action_required": "none"
+    },
+    {
+      "artifact": "source train/dev manifests",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": true,
+      "currently_valid": "EXT-F1 only (reuses frozen Version-C source_train/source_dev construction per EXT_DATASET_FOLD_PLAN.json)",
+      "action_required": "F2/F3 need SiW-Mv2-as-source subject-disjoint split construction; NOT_PRESENT_LOCALLY per E0's own local_data_feasibility audit -- GPU_REQUIRED"
+    },
+    {
+      "artifact": "GPAT support/model (per-fold fitting)",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "must be fit fresh per fold; GPU_REQUIRED for F2/F3"
+    },
+    {
+      "artifact": "quality calibration, IF source-derived",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": "UNCONFIRMED",
+      "currently_valid": "UNCONFIRMED",
+      "action_required": "governing-spec confirmation needed on whether QUALITY_CALIBRATION.json's NOMINAL calibration is source-domain-derived (fold-specific) or dataset-independent (reusable); treated conservatively as fold-specific pending that confirmation -- flagged, not assumed either way"
+    },
+    {
+      "artifact": "Physics/GPAT synthetic candidates (rendered bytes)",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": true,
+      "currently_valid": "EXT-F1 only, and only for LLM/LLM-SHUFFLE-A (E6/E6-v2 scope); RND/DET have no EXT-scoped rendered candidates at all",
+      "action_required": "F2/F3 candidates must be rendered fresh from each fold's own source pairs; EXT-F1 candidates are NEVER reused for F2/F3"
+    },
+    {
+      "artifact": "matched synthetic bank (selected/frozen)",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "no fold/condition has a completed, selected matched bank yet (E6-v2's SHUFFLE/EXT-F1 bank was found infeasible, never selected/written)"
+    },
+    {
+      "artifact": "detector checkpoints",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "none exist under the EXT-F{n}-G-<condition>-s<seed> run_id pattern; training not authorized this turn"
+    },
+    {
+      "artifact": "source-dev calibration (temperature/threshold)",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "computed only after a fold-specific detector checkpoint exists"
+    },
+    {
+      "artifact": "target predictions",
+      "reuse_allowed": false,
+      "fold_specific": true,
+      "currently_present": false,
+      "currently_valid": false,
+      "action_required": "label-free prediction only, only after training; not this turn (Task E7-E)"
+    }
+  ],
+  "rule": "EXT-F1 rendered candidates are NEVER reused for EXT-F2/EXT-F3 -- every fold's synthetic material, GPAT support, matched bank, checkpoint and calibration is fold-specific by construction (different source domains, different held-out target)",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false
+}

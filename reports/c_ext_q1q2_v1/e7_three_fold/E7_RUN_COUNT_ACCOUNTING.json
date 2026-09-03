@@ -1,0 +1,16 @@
+{
+  "schema_version": "ext-q1q2-e7-run-count-accounting-v1",
+  "E7_NOMINAL_TRAININGS": 75,
+  "E7_PREDECLARED_BLOCKED_TRAININGS": 5,
+  "E7_PREDECLARED_BLOCKED_BASIS": "EXT-F1 x G-LLM-SHUFFLE-A x five detector seeds",
+  "E7_CURRENT_MAX_AUTHORIZABLE_BEFORE_F2_F3_SHUFFLE_PREFLIGHT": 70,
+  "potentially_authorizable_vs_ready_now": {
+    "potentially_authorizable": 70,
+    "ready_now": 0,
+    "why_zero_ready_now": "no cell has a completed, valid upstream chain (rendered+matched bank where required, or a REALONLY lock with gpu_real_run_executed=true) AND explicit training authorization this turn; --authorize-gpu-training was never passed"
+  },
+  "update_policy": "if EXT-F2 and/or EXT-F3 Shuffle preflight (Task F) later finds infeasibility, E7_PREDECLARED_BLOCKED_TRAININGS increases ADDITIVELY (+5 per newly-blocked fold/condition cell); a prior blocked count is never decreased retroactively without a new, separately-recorded finding",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "training_performed": false
+}

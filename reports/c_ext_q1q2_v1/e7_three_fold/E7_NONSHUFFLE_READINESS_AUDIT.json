@@ -1,0 +1,90 @@
+{
+  "schema_version": "ext-q1q2-e7-nonshuffle-readiness-audit-v1",
+  "conditions_audited": [
+    "G-REALONLY",
+    "G-RND",
+    "G-DET",
+    "G-LLM"
+  ],
+  "findings": {
+    "EXT-F1": {
+      "G-REALONLY": {
+        "artifacts_present": [
+          "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json"
+        ],
+        "status": "PREPARED_NOT_TRAINED",
+        "gpu_real_run_executed": false,
+        "detail": "lock frozen with EXT-F1-G-<condition>-s<seed> run-ids, GPU training NOT yet executed"
+      },
+      "G-RND": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-F1-scoped preparation module/lock exists for G-RND; the only on-disk RND/DET material under reports/c_ext_q1q2_v1/ is HISTORICAL Flow-1 C-G-{RND,DET}-P3READY source-score reuse for E4's threshold-transfer analysis -- a different analytical purpose, NOT an E7 unified-fold training preparation, and explicitly not a substitute for one"
+      },
+      "G-DET": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-F1-scoped preparation module/lock exists for G-DET; the only on-disk RND/DET material under reports/c_ext_q1q2_v1/ is HISTORICAL Flow-1 C-G-{RND,DET}-P3READY source-score reuse for E4's threshold-transfer analysis -- a different analytical purpose, NOT an E7 unified-fold training preparation, and explicitly not a substitute for one"
+      },
+      "G-LLM": {
+        "artifacts_present": [
+          "reports/c_ext_q1q2_v1/e6_llm_shuffle/E6_TRAINING_PLAN_LOCK.json"
+        ],
+        "status": "PREPARED_NOT_TRAINED",
+        "gpu_real_run_executed": null,
+        "detail": "lock frozen with EXT-F1-G-<condition>-s<seed> run-ids, GPU training NOT yet executed"
+      }
+    },
+    "EXT-F2": {
+      "G-REALONLY": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F2 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-RND": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F2 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-DET": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F2 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-LLM": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F2 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      }
+    },
+    "EXT-F3": {
+      "G-REALONLY": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F3 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-RND": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F3 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-DET": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F3 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      },
+      "G-LLM": {
+        "artifacts_present": [],
+        "status": "NOT_PREPARED",
+        "detail": "no EXT-scoped preparation exists for EXT-F3 (any condition); EXT_DATASET_FOLD_PLAN.json's own local_data_feasibility audit records F2/F3 fold construction as GPU_REQUIRED and NOT_PRESENT_LOCALLY"
+      }
+    }
+  },
+  "E7_NONSHUFFLE_READY_CELLS": 2,
+  "E7_NONSHUFFLE_MISSING_ARTIFACTS": 10,
+  "historical_flow1_accepted_as_e7_substitute": false,
+  "historical_flow1_note": "HISTORICAL Flow-1 C-G-{RND,DET}-P3READY source scores exist and are reused (correctly) by E4's threshold-transfer analysis, a SEPARATE purpose from E7 unified-fold detector training; they are NOT accepted as EXT-F1-G-RND/DET training completions and none exists for F2/F3",
+  "no_retraining_performed": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

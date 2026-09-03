@@ -1,0 +1,57 @@
+{
+  "schema_version": "ext-q1q2-e7-protocol-interpretation-v1",
+  "governing_document_name": "EXT-Q1Q2 Detailed Spec v1.0",
+  "governing_document_present_on_this_host": false,
+  "governing_document_note": "the raw .docx is not present under docs/spec/ or anywhere else on this laptop clone; this interpretation is corroborated against artifacts already frozen from an earlier faithful reading of it (each carrying a '_source' field citing specific spec sections) plus the E7 definition given explicitly in this turn's instruction, which is fully consistent with those frozen artifacts -- never independently re-derived from a document this session cannot open",
+  "corroborating_frozen_artifacts": [
+    {
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_DATASET_FOLD_PLAN.json",
+      "confirms": "EXT-F1/F2/F3 source/target domains match exactly; run_id_pattern '{fold}-{track}-{condition}-{bank_or_variant}-s{seed}' already anticipates G-<condition> naming"
+    },
+    {
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_SEED_REGISTRY.json",
+      "confirms": "detector_seeds == [20260806..20260810], sourced from spec section 6"
+    },
+    {
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json",
+      "confirms": "EXT-H1..H4 (RND/DET/REALONLY/SHUFFLE contrasts against LLM) sourced from spec sections 7.2, 9.1, 19.3; e8_trigger rule frozen at E0"
+    },
+    {
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_MODEL_BINDING.json",
+      "confirms": "Track G frozen architecture/calibration policy, uses_target=false throughout"
+    }
+  ],
+  "E7_GOVERNING_SPEC_DEFINED": true,
+  "E7_NOMINAL_CONDITIONS": [
+    "G-REALONLY",
+    "G-RND",
+    "G-DET",
+    "G-LLM",
+    "G-LLM-SHUFFLE-A"
+  ],
+  "E7_NOMINAL_FOLDS": [
+    "EXT-F1",
+    "EXT-F2",
+    "EXT-F3"
+  ],
+  "E7_NOMINAL_SEEDS": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "E7_NOMINAL_TRAINING_COUNT": 75,
+  "EXT-F1_G_LLM_SHUFFLE_A": "BLOCKED_SCIENTIFIC_INFEASIBILITY_FROM_E6_V2",
+  "ext_f1_shuffle_block_basis": {
+    "e6_v2_closure_artifact_present": true,
+    "e6_v2_status": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+    "e6_v2_closure_path": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+    "is_protocol_relaxation": false,
+    "explanation": "this is an OBSERVED infeasible experimental cell (SHUFFLE Physics EXT-F1 fills only 479/512 of the frozen matched-bank quota; the deficit is domain composition, not renderable/trainable candidate scarcity), never a change to any quota, threshold, q or matching rule"
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false
+}
