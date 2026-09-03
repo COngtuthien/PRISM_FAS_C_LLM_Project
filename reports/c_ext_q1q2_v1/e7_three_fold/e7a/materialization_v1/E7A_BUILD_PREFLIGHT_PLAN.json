@@ -1,0 +1,32 @@
+{
+  "schema_version": "ext-q1q2-e7a-build-preflight-plan-v1",
+  "note": "this is the LAPTOP-side, real (never fabricated) read-only --e7a-build-preflight result. It PASSES=False here because this laptop genuinely lacks the local SiW raw root and the M3B source_train.parquet -- exactly the expected, honest laptop outcome. Written by preparation, not by the GPU CLI preflight path itself (which prints only, writes nothing).",
+  "preflight_result": {
+    "schema_version": "ext-q1q2-e7a-build-preflight-v1",
+    "AMENDED_PROTOCOL_ACTIVE": true,
+    "POPULATION_IDENTITY_MATCH": false,
+    "SIW_SPLIT_IDENTITY_MATCH": false,
+    "SIW_POLICY_LOCK_IDENTITY_MATCH": false,
+    "M3B_SOURCE_TRAIN_MATCH": false,
+    "M3B_SOURCE_DEV_MATCH": true,
+    "EXT_F1_SOURCE_TRAIN_COUNT": null,
+    "EXT_F1_SOURCE_DEV_COUNT": null,
+    "EXT_F2_SOURCE_TRAIN_COUNT": null,
+    "EXT_F2_SOURCE_DEV_COUNT": null,
+    "EXT_F2_HELDOUT_TARGET_ROWS_IN_SOURCE": null,
+    "EXT_F3_SOURCE_TRAIN_COUNT": null,
+    "EXT_F3_SOURCE_DEV_COUNT": null,
+    "EXT_F3_HELDOUT_TARGET_ROWS_IN_SOURCE": null,
+    "F2_F3_SAME_SIW_SPLIT": true,
+    "VIDEO_TRAIN_DEV_OVERLAP": null,
+    "SUBJECT_DISJOINTNESS": "UNVERIFIABLE_NOT_ENFORCED",
+    "TARGET_ACCESS": false,
+    "MANIFESTS_WRITTEN": false,
+    "RENDERING_PERFORMED": false,
+    "TRAINING_PERFORMED": false,
+    "GPAT_FITTING_PERFORMED": false,
+    "LLM_API_CALLS": 0,
+    "actual_split_identity": null,
+    "E7A_BUILD_PREFLIGHT_PASS": false
+  }
+}

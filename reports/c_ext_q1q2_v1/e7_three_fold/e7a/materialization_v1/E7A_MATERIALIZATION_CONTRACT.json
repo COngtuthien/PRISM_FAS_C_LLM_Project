@@ -1,0 +1,31 @@
+{
+  "schema_version": "ext-q1q2-e7a-materialization-contract-v1",
+  "namespace": "reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1/",
+  "per_fold_output": "materialization_v1/{EXT-F1,EXT-F2,EXT-F3}/FOLD_MATERIALIZATION.json",
+  "reference_kinds": {
+    "m3b_processed_sample": {
+      "meaning": "a row read verbatim from the frozen M3B source_train/source_dev parquet -- already face-cropped/preprocessed by the frozen Version-C pipeline",
+      "fields": ["fold_id", "dataset", "project_split", "reference_kind", "sample_id",
+        "source_record_id", "subject_id", "label_live_spoof", "image_relative_path",
+        "prior_relative_path", "crop_sha256", "prior_sha256"]
+    },
+    "siw_raw_video": {
+      "meaning": "a raw SiW-Mv2 video from the exact local permitted population -- NOT yet face-preprocessed; requires the frozen Version-C SCRFD/face-crop pipeline before any detector training can use it",
+      "fields": ["fold_id", "dataset", "project_split", "reference_kind", "video_id",
+        "relative_path", "label_live_spoof", "spoof_family", "extension",
+        "population_identity", "split_identity", "requires_frozen_face_preprocessing"],
+      "never_contains": ["subject_id"],
+      "why": "SiWMv2Adapter carries no canonical subject mapping in this exact local release; per the E7A_SIW_LOCAL_ONLY_AMENDMENT.json amendment, no subject_id is ever fabricated from a filename or otherwise"
+    }
+  },
+  "fold_identity_formula": "sha256(canonical_json({fold_id, source_domains (sorted), target_domain, source_train_reference_identity, source_dev_reference_identity, siw_population_identity, siw_split_identity, m3b_package_identity, target_reference_identity}))",
+  "source_train_reference_identity_formula": "sha256(canonical_json(source_train_references list, in construction order))",
+  "source_dev_reference_identity_formula": "sha256(canonical_json(source_dev_references list, in construction order))",
+  "e7a_never_runs": ["SCRFD face detection/crop", "GPAT support fitting", "Physics/GPAT synthetic rendering",
+    "detector training", "target label access", "LLM API calls"],
+  "downstream_phase_owns": "the frozen Version-C face-preprocessing pipeline must be run (a LATER phase, not E7-A) on every siw_raw_video reference before it can enter detector training; E7-A's materialized output is a REFERENCE manifest, never pixel data",
+  "atomicity": "each FOLD_MATERIALIZATION.json is written to a .tmp sibling and Path.replace()'d into place -- atomic on POSIX",
+  "resume_policy": "identical fold_identity on a pre-existing materialization -> resume-safe (no rewrite, ALREADY_MATERIALIZED_MATCH); differing fold_identity -> E7AMaterializationConflict, FAIL CLOSED, never silently overwritten",
+  "target_access": false,
+  "llm_api_calls": 0
+}

@@ -796,3 +796,399 @@ def test_prepare_e7a_amendment_writes_all_expected_artifacts(tmp_path):
     assert written == expected
     for name in expected:
         assert (repo / e7a.AMENDMENT_DIR / name).is_file()
+
+
+# =============================================================================
+# MATERIALIZATION (this turn): 30 required tests.
+# =============================================================================
+
+def _m3b_full_fixture(repo: Path, monkeypatch, *, casia_train: int = 3, msu_train: int = 2,
+                      casia_dev: int = 4, msu_dev: int = 3) -> None:
+    """A small M3B source_train + source_dev fixture, with the module's
+    EXPECTED_* count constants monkeypatched down to match -- exercises the
+    FULL happy path without needing to synthesize the real ~3500-row M3B
+    package."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    def _rows(prefix, casia_n, msu_n, split):
+        rows = {"sample_id": [], "dataset": [], "source_record_id": [], "subject_id": [],
+               "official_split": [], "label_live_spoof": [], "project_split": []}
+        for i in range(casia_n):
+            rows["sample_id"].append(f"casia-{prefix}-{i}"); rows["dataset"].append("casia_fasd")
+            rows["source_record_id"].append(f"rec-{prefix}-{i}"); rows["subject_id"].append(f"cs-{i}")
+            rows["official_split"].append("train"); rows["label_live_spoof"].append("live")
+            rows["project_split"].append(split)
+        for i in range(msu_n):
+            rows["sample_id"].append(f"msu-{prefix}-{i}"); rows["dataset"].append("msu_mfsd")
+            rows["source_record_id"].append(f"rec-msu-{prefix}-{i}"); rows["subject_id"].append(f"ms-{i}")
+            rows["official_split"].append("train"); rows["label_live_spoof"].append("spoof")
+            rows["project_split"].append(split)
+        return pa.table(rows)
+
+    manifest_dir = repo / e7a.CASIA_MSU_PACKAGE_ROOT / "manifests"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    pq.write_table(_rows("tr", casia_train, msu_train, "source_train"), manifest_dir / "source_train.parquet")
+    pq.write_table(_rows("dv", casia_dev, msu_dev, "source_dev"), manifest_dir / "source_dev.parquet")
+    (repo / e7a.CASIA_MSU_PACKAGE_ROOT / "PACKAGE_LOCK.json").write_text(
+        json.dumps({"content_identity_sha256": "fake-package-identity"}), encoding="utf-8")
+
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_TRAIN_TOTAL", casia_train + msu_train)
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_TRAIN_CASIA", casia_train)
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_TRAIN_MSU", msu_train)
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_DEV_TOTAL", casia_dev + msu_dev)
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_DEV_CASIA", casia_dev)
+    monkeypatch.setattr(e7a, "M3B_EXPECTED_SOURCE_DEV_MSU", msu_dev)
+
+
+def _happy_path_fixture(tmp_path: Path, monkeypatch, *, live_count: int = 6, replay_count: int = 4,
+                        paper_count: int = 4, casia_train: int = 3, msu_train: int = 2,
+                        casia_dev: int = 4, msu_dev: int = 3) -> Path:
+    """A complete, self-consistent fixture satisfying every E7A_BUILD_PREFLIGHT_PASS
+    prerequisite: SiW root scanned + amendment frozen against it, M3B
+    source_train/source_dev present with matching (monkeypatched) counts."""
+    repo = _full_amendment_fixture(tmp_path)
+    _siw_raw_root_fixture(repo, live_count=live_count, replay_count=replay_count, paper_count=paper_count)
+    _m3b_full_fixture(repo, monkeypatch, casia_train=casia_train, msu_train=msu_train,
+                      casia_dev=casia_dev, msu_dev=msu_dev)
+    e7a.write_siw_local_only_amendment(repo)
+    e7a.write_siw_local_population_plan(repo)
+    e7a.write_siw_video_split_policy_lock(repo)
+    return repo
+
+
+# --- 1-3: identity binding fix ------------------------------------------------
+
+def test_actual_split_identity_vs_policy_lock_identity_are_distinct(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    lock = e7a.build_siw_video_split_policy_lock(repo)
+    assert lock["proposed_split"]["split_identity"] != lock["policy_lock_identity"]
+
+
+def test_fold_plan_uses_actual_split_identity_under_correct_field(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    lock = e7a.build_siw_video_split_policy_lock(repo)
+    plan = e7a.build_amended_fold_construction_plan(repo)
+    assert plan["EXT-F2"]["siw_source_split_identity"] == lock["proposed_split"]["split_identity"]
+    assert plan["EXT-F2"]["siw_source_split_identity"] != lock["policy_lock_identity"]
+
+
+def test_policy_identity_preserved_under_separately_named_field(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    lock = e7a.build_siw_video_split_policy_lock(repo)
+    plan = e7a.build_amended_fold_construction_plan(repo)
+    assert plan["EXT-F2"]["siw_source_split_policy_lock_identity"] == lock["policy_lock_identity"]
+    assert plan["EXT-F3"]["siw_source_split_policy_lock_identity"] == lock["policy_lock_identity"]
+
+
+def test_plan_only_state_when_no_local_siw_data(tmp_path):
+    repo = _full_amendment_fixture(tmp_path)  # no SiW raw root fixture -- root absent
+    plan = e7a.build_amended_fold_construction_plan(repo)
+    assert plan["EXT-F2"]["siw_source_split_identity"] is None
+    assert plan["EXT-F2"]["siw_source_split_state"] == "PLAN_ONLY"
+
+
+# --- 4-5: unconditional raise removed; preflight read-only ------------------
+
+def test_build_no_longer_contains_unconditional_terminal_raise():
+    import inspect
+
+    source = inspect.getsource(e7a.e7a_amended_build)
+    # the amended build must not end with an unconditional raise -- it must
+    # actually reach a materialization path when the preflight passes
+    assert "no canonical dataset bytes are complete on this host" not in source
+
+
+def test_build_preflight_is_read_only(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    before_tree = sorted(str(p.relative_to(repo)) for p in repo.rglob("*") if p.is_file())
+    e7a.e7a_build_preflight(repo)
+    after_tree = sorted(str(p.relative_to(repo)) for p in repo.rglob("*") if p.is_file())
+    assert before_tree == after_tree
+
+
+# --- 6-9: preflight fails without prerequisites -------------------------------
+
+def test_build_preflight_fails_without_local_siw(tmp_path, monkeypatch):
+    repo = _full_amendment_fixture(tmp_path)
+    _m3b_full_fixture(repo, monkeypatch)
+    e7a.write_siw_local_only_amendment(repo)
+    e7a.write_siw_local_population_plan(repo)  # ROOT_ABSENT
+    e7a.write_siw_video_split_policy_lock(repo)
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["E7A_BUILD_PREFLIGHT_PASS"] is False
+    assert preflight["POPULATION_IDENTITY_MATCH"] is False
+
+
+def test_build_preflight_fails_without_m3b_source_train(tmp_path, monkeypatch):
+    repo = _full_amendment_fixture(tmp_path)
+    _siw_raw_root_fixture(repo)
+    e7a.write_siw_local_only_amendment(repo)
+    e7a.write_siw_local_population_plan(repo)
+    e7a.write_siw_video_split_policy_lock(repo)
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["E7A_BUILD_PREFLIGHT_PASS"] is False
+    assert preflight["M3B_SOURCE_TRAIN_MATCH"] is False
+
+
+def test_build_preflight_fails_on_population_identity_mismatch(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    # drift the local population AFTER the amendment was frozen
+    (repo / e7a.SIW_RAW_ROOT / "Live" / "Live_99.mov").write_bytes(b"extra-video")
+    layout_config = repo / e7a.SIW_LAYOUT_CONFIG_PATH
+    import yaml
+
+    layout = yaml.safe_load(layout_config.read_text(encoding="utf-8"))
+    layout["expected_counts"]["live"] += 1
+    layout["expected_counts"]["total"] += 1
+    layout_config.write_text(yaml.safe_dump(layout), encoding="utf-8")
+
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["POPULATION_IDENTITY_MATCH"] is False
+    assert preflight["E7A_BUILD_PREFLIGHT_PASS"] is False
+
+
+def test_build_preflight_fails_on_split_identity_mismatch(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    split_lock_path = repo / e7a.AMENDMENT_DIR / "E7A_SIW_VIDEO_SPLIT_POLICY_LOCK.json"
+    tampered = json.loads(split_lock_path.read_text(encoding="utf-8"))
+    tampered["proposed_split"]["split_identity"] = "0" * 64
+    split_lock_path.write_text(json.dumps(tampered), encoding="utf-8")
+
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["SIW_SPLIT_IDENTITY_MATCH"] is False
+    assert preflight["E7A_BUILD_PREFLIGHT_PASS"] is False
+
+
+# --- 10-14: F2/F3 counts / exclusions / shared split --------------------------
+
+def test_f2_expected_counts(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch, live_count=800, replay_count=500, paper_count=400,
+                               casia_train=960, msu_train=480, casia_dev=1439, msu_dev=640)
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["E7A_BUILD_PREFLIGHT_PASS"] is True
+    scan = e7a.scan_local_siw_population(repo)
+    split = e7a.compute_siw_video_split(scan["records"], seed=e7a.SIW_SOURCE_SPLIT_SEED)
+    expected_train = 960 + split["train_count"]
+    expected_dev = 1439 + split["dev_count"]
+    assert preflight["EXT_F2_SOURCE_TRAIN_COUNT"] == expected_train
+    assert preflight["EXT_F2_SOURCE_DEV_COUNT"] == expected_dev
+
+
+def test_f3_expected_counts(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch, live_count=800, replay_count=500, paper_count=400,
+                               casia_train=960, msu_train=480, casia_dev=1439, msu_dev=640)
+    preflight = e7a.e7a_build_preflight(repo)
+    scan = e7a.scan_local_siw_population(repo)
+    split = e7a.compute_siw_video_split(scan["records"], seed=e7a.SIW_SOURCE_SPLIT_SEED)
+    expected_train = 480 + split["train_count"]
+    expected_dev = 640 + split["dev_count"]
+    assert preflight["EXT_F3_SOURCE_TRAIN_COUNT"] == expected_train
+    assert preflight["EXT_F3_SOURCE_DEV_COUNT"] == expected_dev
+
+
+def test_f2_zero_msu_source_refs(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    body = json.loads((repo / e7a.MATERIALIZATION_DIR / "EXT-F2" / "FOLD_MATERIALIZATION.json")
+                      .read_text(encoding="utf-8"))
+    all_refs = body["source_train_references"] + body["source_dev_references"]
+    assert not any(r["dataset"] == "MSU-MFSD" for r in all_refs)
+
+
+def test_f3_zero_casia_source_refs(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    body = json.loads((repo / e7a.MATERIALIZATION_DIR / "EXT-F3" / "FOLD_MATERIALIZATION.json")
+                      .read_text(encoding="utf-8"))
+    all_refs = body["source_train_references"] + body["source_dev_references"]
+    assert not any(r["dataset"] == "CASIA-FASD" for r in all_refs)
+
+
+def test_same_siw_split_reused_f2_f3_materialized(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    f2 = json.loads((repo / e7a.MATERIALIZATION_DIR / "EXT-F2" / "FOLD_MATERIALIZATION.json")
+                    .read_text(encoding="utf-8"))
+    f3 = json.loads((repo / e7a.MATERIALIZATION_DIR / "EXT-F3" / "FOLD_MATERIALIZATION.json")
+                    .read_text(encoding="utf-8"))
+    assert f2["siw_split_identity"] == f3["siw_split_identity"]
+    assert result["validation"]["E7A_MATERIALIZATION_VALID"] is True
+
+
+# --- 15-17: video overlap / no fake subject / reference kind distinction ----
+
+def test_siw_train_dev_video_overlap_zero(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    preflight = e7a.e7a_build_preflight(repo)
+    assert preflight["VIDEO_TRAIN_DEV_OVERLAP"] == 0
+
+
+def test_subject_id_not_invented_for_siw(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    for fold in ("EXT-F2", "EXT-F3"):
+        body = json.loads((repo / e7a.MATERIALIZATION_DIR / fold / "FOLD_MATERIALIZATION.json")
+                          .read_text(encoding="utf-8"))
+        for ref in body["source_train_references"] + body["source_dev_references"]:
+            if ref["reference_kind"] == "siw_raw_video":
+                assert "subject_id" not in ref
+
+
+def test_raw_siw_and_m3b_processed_refs_semantically_distinct(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    body = json.loads((repo / e7a.MATERIALIZATION_DIR / "EXT-F2" / "FOLD_MATERIALIZATION.json")
+                      .read_text(encoding="utf-8"))
+    kinds = {r["reference_kind"] for r in body["source_train_references"] + body["source_dev_references"]}
+    assert kinds == {"m3b_processed_sample", "siw_raw_video"}
+    m3b_ref = next(r for r in body["source_train_references"] if r["reference_kind"] == "m3b_processed_sample")
+    siw_ref = next(r for r in body["source_train_references"] if r["reference_kind"] == "siw_raw_video")
+    assert "sample_id" in m3b_ref and "video_id" not in m3b_ref
+    assert "video_id" in siw_ref and "sample_id" not in siw_ref
+
+
+# --- 18-20: atomic write, resume-safe, conflict fails closed -----------------
+
+def test_authorized_build_writes_atomically(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    for fold in ("EXT-F1", "EXT-F2", "EXT-F3"):
+        final_path = repo / e7a.MATERIALIZATION_DIR / fold / "FOLD_MATERIALIZATION.json"
+        tmp_marker = repo / e7a.MATERIALIZATION_DIR / fold / "FOLD_MATERIALIZATION.json.tmp"
+        assert final_path.is_file()
+        assert not tmp_marker.exists()  # the .tmp file must never survive a successful write
+
+
+def test_resume_safe_identical_build(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    first = e7a.e7a_amended_build(repo, authorize=True)
+    assert all(v is False for v in first["resumed"].values())
+    second = e7a.e7a_amended_build(repo, authorize=True)
+    assert all(v is True for v in second["resumed"].values())
+
+
+def test_conflicting_existing_build_fails_closed(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    conflicting_path = repo / e7a.MATERIALIZATION_DIR / "EXT-F1" / "FOLD_MATERIALIZATION.json"
+    body = json.loads(conflicting_path.read_text(encoding="utf-8"))
+    body["fold_identity"] = "conflicting-identity"
+    conflicting_path.write_text(json.dumps(body), encoding="utf-8")
+
+    with pytest.raises(e7a.E7AMaterializationConflict):
+        e7a.e7a_amended_build(repo, authorize=True)
+
+
+# --- 21-23: validation catches leakage/mismatch; target labels never opened -
+
+def test_validation_catches_target_domain_leakage(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    f2_path = repo / e7a.MATERIALIZATION_DIR / "EXT-F2" / "FOLD_MATERIALIZATION.json"
+    body = json.loads(f2_path.read_text(encoding="utf-8"))
+    body["source_train_references"].append({"fold_id": "EXT-F2", "dataset": "MSU-MFSD",
+                                            "project_split": "source_train",
+                                            "reference_kind": "m3b_processed_sample",
+                                            "sample_id": "leaked-msu-0"})
+    f2_path.write_text(json.dumps(body), encoding="utf-8")
+
+    validation = e7a.e7a_validate_materialization(repo)
+    assert validation["E7A_MATERIALIZATION_VALID"] is False
+    assert any("leakage" in p for p in validation["problems"])
+
+
+def test_validation_catches_identity_mismatch(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    e7a.e7a_amended_build(repo, authorize=True)
+    f1_path = repo / e7a.MATERIALIZATION_DIR / "EXT-F1" / "FOLD_MATERIALIZATION.json"
+    body = json.loads(f1_path.read_text(encoding="utf-8"))
+    body["fold_identity"] = "tampered"
+    f1_path.write_text(json.dumps(body), encoding="utf-8")
+
+    validation = e7a.e7a_validate_materialization(repo)
+    assert validation["E7A_MATERIALIZATION_VALID"] is False
+    assert any("fold_identity" in p for p in validation["problems"])
+
+
+def test_target_labels_never_opened(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    assert result["target_access"] is False
+    for fold in ("EXT-F1", "EXT-F2", "EXT-F3"):
+        body = json.loads((repo / e7a.MATERIALIZATION_DIR / fold / "FOLD_MATERIALIZATION.json")
+                          .read_text(encoding="utf-8"))
+        assert body["target_labels_opened"] is False
+    source = Path(e7a.__file__).read_text(encoding="utf-8")
+    assert "SIW_LABEL_FIREWALL_DIR)" not in source[source.index("def e7a_amended_build("):
+                                                    source.index("def e7a_validate_materialization(")]
+
+
+# --- 24-27: no render/train/GPAT-fit/LLM --------------------------------------
+
+def test_materialization_never_renders(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    assert result["rendering_performed"] is False
+    source = Path(e7a.__file__).read_text(encoding="utf-8")
+    assert "render_arm(" not in source
+
+
+def test_materialization_never_trains(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    assert result["training_performed"] is False
+
+
+def test_materialization_never_fits_gpat(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    assert result["gpat_fitting_performed"] is False
+    source = Path(e7a.__file__).read_text(encoding="utf-8")
+    assert "GPATRoute(" not in source
+    assert "SCRFDDetector(" not in source
+
+
+def test_materialization_never_calls_llm(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    result = e7a.e7a_amended_build(repo, authorize=True)
+    assert result["llm_api_calls"] == 0
+
+
+# --- 28-30: historical artifacts unchanged; protected artifacts unchanged --
+
+def test_historical_e7a_artifacts_unchanged(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    original_dir = repo / e7a.E7A_REPORT_DIR
+    original_dir.mkdir(parents=True, exist_ok=True)
+    (original_dir / "E7A_PROTOCOL_LOCK.json").write_text('{"frozen": true}', encoding="utf-8")
+    before = (original_dir / "E7A_PROTOCOL_LOCK.json").read_bytes()
+
+    e7a.e7a_amended_build(repo, authorize=True)
+
+    assert (original_dir / "E7A_PROTOCOL_LOCK.json").read_bytes() == before
+
+
+def test_amendment_freeze_artifacts_unchanged_except_additive_correction(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    amendment_files = list((repo / e7a.AMENDMENT_DIR).glob("*.json"))
+    before = {p.name: p.read_bytes() for p in amendment_files}
+
+    e7a.e7a_amended_build(repo, authorize=True)
+
+    after = {p.name: p.read_bytes() for p in (repo / e7a.AMENDMENT_DIR).glob("*.json")}
+    for name, content in before.items():
+        assert after[name] == content  # every original amendment file byte-identical
+
+
+def test_protected_flow1_flow2_artifacts_unchanged(tmp_path, monkeypatch):
+    repo = _happy_path_fixture(tmp_path, monkeypatch)
+    flow_dir = repo / "reports/flow2_counterfactual_assumed_pass"
+    flow_dir.mkdir(parents=True, exist_ok=True)
+    sentinel = flow_dir / "SENTINEL.json"
+    sentinel.write_text('{"untouched": true}', encoding="utf-8")
+    before = sentinel.read_bytes()
+
+    e7a.e7a_amended_build(repo, authorize=True)
+
+    assert sentinel.read_bytes() == before

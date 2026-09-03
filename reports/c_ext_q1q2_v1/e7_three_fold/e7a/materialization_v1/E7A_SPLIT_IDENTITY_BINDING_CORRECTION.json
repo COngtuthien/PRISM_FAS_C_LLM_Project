@@ -1,0 +1,43 @@
+{
+  "schema_version": "ext-q1q2-e7a-split-identity-binding-correction-v1",
+  "TECHNICAL_BUG": true,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "FROZEN_ASSIGNMENT_CHANGED": false,
+  "POPULATION_CHANGED": false,
+  "bug_summary": "build_amended_fold_construction_plan() bound the field 'siw_source_split_identity' to split_lock['policy_lock_identity'] (the identity of the FROZEN RULE: seed/ratio/stratification) instead of the actual deterministic video assignment's own identity (compute_siw_video_split()'s 'split_identity', i.e. split_lock['proposed_split']['split_identity']). These are different concepts and were conflated.",
+  "affected_function": "src/prism_fas/evaluation/c_ext_e7a_fold_prep.py::build_amended_fold_construction_plan",
+  "affected_committed_artifact": "reports/c_ext_q1q2_v1/e7_three_fold/e7a/amendment_local_siw_v1/E7A_AMENDED_FOLD_CONSTRUCTION_PLAN.json",
+  "affected_committed_artifact_rewritten": false,
+  "affected_committed_artifact_note": "the committed 836f74a artifact is left exactly as it was (buggy field binding preserved for historical record); this correction file documents the discrepancy additively and the fixed function is available in the module for all future calls",
+  "old_incorrect_binding": {
+    "field": "siw_source_split_identity",
+    "value_written": "fcd5da7abf4833addd6da352a1716198cc5cd0d20b619c6a31ba72e9fb45af2a",
+    "value_written_is_actually": "policy_lock_identity (the frozen RULE identity)"
+  },
+  "corrected_binding": {
+    "siw_source_split_identity": "b492a5d4d86537016012d5357bc5c4410f77e36409082831ef6703168ee096a1",
+    "siw_source_split_identity_meaning": "compute_siw_video_split()'s own split_identity -- the ACTUAL deterministic video train/dev assignment. What a resume/build comparison must match bit-for-bit.",
+    "siw_source_split_policy_lock_identity": "fcd5da7abf4833addd6da352a1716198cc5cd0d20b619c6a31ba72e9fb45af2a",
+    "siw_source_split_policy_lock_identity_meaning": "the identity of the frozen RULE itself (seed=20260901, 80/20 ratio, live/spoof-family stratification). Stays constant even if the underlying population changes and the resulting assignment identity therefore changes."
+  },
+  "frozen_reference_values": {
+    "SIW_SOURCE_ROOT": "data/raw/siw_mv2/SiW-Mv2",
+    "TOTAL": 1700, "LIVE": 785, "SPOOF": 915,
+    "population_identity": "d05dafb814a98baebd7a5cd004ca0eb92ba798c13a8a6c5b6c90b1919e365c79",
+    "split_identity": "b492a5d4d86537016012d5357bc5c4410f77e36409082831ef6703168ee096a1",
+    "policy_lock_identity": "fcd5da7abf4833addd6da352a1716198cc5cd0d20b619c6a31ba72e9fb45af2a",
+    "train_count": 1362, "dev_count": 338, "total_count": 1700,
+    "SUBJECT_DISJOINTNESS": "UNVERIFIABLE_NOT_ENFORCED",
+    "VIDEO_OVERLAP_ALLOWED": false
+  },
+  "fix_verification": {
+    "fixed_function_present": true,
+    "when_local_raw_data_unavailable": "siw_source_split_identity is explicitly None (PLAN_ONLY state), never fabricated",
+    "gpu_build_requirement": "on the GPU, the persisted frozen split lock (both proposed_split.split_identity AND policy_lock_identity) must match a freshly recomputed one before --e7a-build may write anything -- enforced by e7a_build_preflight's SIW_SPLIT_IDENTITY_MATCH and SIW_POLICY_LOCK_IDENTITY_MATCH checks"
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

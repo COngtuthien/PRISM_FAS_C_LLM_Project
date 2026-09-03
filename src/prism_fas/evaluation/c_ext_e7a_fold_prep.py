@@ -1057,11 +1057,28 @@ def write_siw_local_only_amendment(repo: Path) -> dict[str, Any]:
 def build_amended_fold_construction_plan(repo: Path) -> dict[str, Any]:
     """F2/F3 construction semantics: filter, never reuse the shared CASIA/
     MSU pool file wholesale; both folds reference the SAME single SiW
-    source-split identity. EXT-F1 is unchanged."""
+    source-split identity. EXT-F1 is unchanged.
+
+    BUG 1 FIX: `siw_source_split_identity` and `siw_source_split_policy_lock_identity`
+    are DIFFERENT concepts and are now persisted separately and correctly.
+    `siw_source_split_identity` is the ACTUAL deterministic video assignment's
+    own identity (`compute_siw_video_split`'s `split_identity` -- what one
+    build/resume comparison must match bit-for-bit); `..._policy_lock_identity`
+    is the identity of the frozen RULE itself (seed/ratio/stratification),
+    which stays constant even if the underlying population changes and the
+    resulting assignment identity therefore changes. Previously both fields
+    were silently bound to the SAME `policy_lock_identity` value -- a real
+    identity-binding bug, now fixed. When local raw data are unavailable,
+    `siw_source_split_identity` is explicitly `None` (PLAN_ONLY), never
+    fabricated.
+    """
     split_lock = build_siw_video_split_policy_lock(repo)
-    siw_split_identity = split_lock["policy_lock_identity"]
+    policy_lock_identity = split_lock["policy_lock_identity"]
+    proposed_split = split_lock.get("proposed_split")
+    actual_split_identity = proposed_split["split_identity"] if proposed_split else None
+    siw_state = "PLAN_ONLY" if actual_split_identity is None else "ACTUAL_SPLIT_COMPUTED"
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-amended-fold-construction-plan-v1",
+        "schema_version": f"{SCHEMA_PREFIX}-amended-fold-construction-plan-v2",
         "EXT-F1": {"unchanged": True, "source": ["CASIA-FASD", "MSU-MFSD"], "target": "SiW-Mv2",
                   "action": "reuse the already-frozen prism_target_eval_v2 target package verbatim"},
         "EXT-F2": {"source": ["CASIA-FASD", "SiW-Mv2"], "target": "MSU-MFSD",
@@ -1069,14 +1086,20 @@ def build_amended_fold_construction_plan(repo: Path) -> dict[str, Any]:
                                 "source_dev -- MSU rows are EXT-F2's held-out target and must NEVER be "
                                 "included as source",
                   "siw_rows": "the amended local video-disjoint split, train/dev partitions per "
-                             "compute_siw_video_split", "siw_source_split_identity": siw_split_identity,
+                             "compute_siw_video_split",
+                  "siw_source_split_identity": actual_split_identity,
+                  "siw_source_split_policy_lock_identity": policy_lock_identity,
+                  "siw_source_split_state": siw_state,
                   "excludes_msu_source_rows": True},
         "EXT-F3": {"source": ["MSU-MFSD", "SiW-Mv2"], "target": "CASIA-FASD",
                   "msu_rows": "FILTER dataset=='msu_mfsd' ONLY from the frozen M3B source_train/"
                               "source_dev -- CASIA rows are EXT-F3's held-out target and must NEVER be "
                               "included as source",
                   "siw_rows": "REUSES the EXACT SAME SiW source-split identity as EXT-F2 -- never "
-                             "recomputed independently", "siw_source_split_identity": siw_split_identity,
+                             "recomputed independently",
+                  "siw_source_split_identity": actual_split_identity,
+                  "siw_source_split_policy_lock_identity": policy_lock_identity,
+                  "siw_source_split_state": siw_state,
                   "excludes_casia_source_rows": True},
         "f2_f3_share_one_siw_split": True,
         "manifests_written": False,
@@ -1245,6 +1268,427 @@ def prepare_e7a_amendment(repo: Path) -> dict[str, Any]:
     return results
 
 
+# =============================================================================
+# MATERIALIZATION (this turn): fixes BUG 2 (`e7a_build` always raised
+# unconditionally) by implementing the actual E7-A build, bound EXPLICITLY
+# to the amended local-only SiW policy (never `resolve_source_split_policy`,
+# the ORIGINAL subject-disjoint rule, which stays defined only for
+# provenance and is never called by this path). Additive namespace only;
+# never touches the original d81c5b4 E7-A files or the 836f74a amendment
+# freeze evidence.
+# =============================================================================
+
+MATERIALIZATION_DIR = f"{E7A_REPORT_DIR}/materialization_v1"
+
+
+class E7AMaterializationConflict(E7AError):
+    """An existing materialized fold disagrees with what would be built now."""
+
+
+def _load_persisted_amendment_artifacts(repo: Path) -> dict[str, Any]:
+    """Loads the COMMITTED (836f74a) amendment freeze artifacts. Never the
+    original pre-amendment E7A_SOURCE_SPLIT_LOCK.json/subject-disjoint
+    rule."""
+    paths = {
+        "amendment": repo / AMENDMENT_DIR / "E7A_SIW_LOCAL_ONLY_AMENDMENT.json",
+        "population_plan": repo / AMENDMENT_DIR / "E7A_SIW_LOCAL_POPULATION_PLAN.json",
+        "split_lock": repo / AMENDMENT_DIR / "E7A_SIW_VIDEO_SPLIT_POLICY_LOCK.json",
+    }
+    missing = [name for name, path in paths.items() if not path.is_file()]
+    if missing:
+        raise E7AError(f"missing persisted amendment artifacts: {missing}; run "
+                       "--e7a-local-siw-freeze --authorize first")
+    return {name: cc.read_json(path) for name, path in paths.items()}
+
+
+def _m3b_manifest_rows(repo: Path, split: str) -> list[dict[str, Any]] | None:
+    path = repo / CASIA_MSU_PACKAGE_ROOT / "manifests" / f"{split}.parquet"
+    if not path.is_file():
+        return None
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(path).to_pydict()
+    return [{key: table[key][index] for key in table} for index in range(len(table["sample_id"]))]
+
+
+def _m3b_counts_match(rows: list[dict[str, Any]] | None, *, total: int, casia: int, msu: int) -> bool:
+    if rows is None:
+        return False
+    observed_total = len(rows)
+    observed_casia = sum(1 for r in rows if r["dataset"] == "casia_fasd")
+    observed_msu = sum(1 for r in rows if r["dataset"] == "msu_mfsd")
+    return observed_total == total and observed_casia == casia and observed_msu == msu
+
+
+def build_m3b_source_reference(row: dict[str, Any], *, fold_id: str, project_split: str) -> dict[str, Any]:
+    """The additive E7-A reference for one M3B-processed sample. Only real
+    fields -- nothing fabricated. `reference_kind` explicitly distinguishes
+    this from a raw SiW video reference."""
+    return {
+        "fold_id": fold_id, "dataset": _DATASET_LABEL.get(row["dataset"], row["dataset"]),
+        "project_split": project_split, "reference_kind": "m3b_processed_sample",
+        "sample_id": row["sample_id"], "source_record_id": row.get("source_record_id"),
+        "subject_id": row.get("subject_id"), "label_live_spoof": row.get("label_live_spoof"),
+        "image_relative_path": row.get("image_relative_path"),
+        "prior_relative_path": row.get("prior_relative_path"),
+        "crop_sha256": row.get("crop_sha256"), "prior_sha256": row.get("prior_sha256"),
+    }
+
+
+def build_siw_source_reference(record: dict[str, Any], *, fold_id: str, project_split: str,
+                               population_identity: str, split_identity: str) -> dict[str, Any]:
+    """The additive E7-A reference for one raw SiW-Mv2 video. NEVER
+    contains a subject_id -- SiW is still raw-video source input requiring
+    the frozen Version-C face preprocessing (SCRFD etc.) before any
+    detector training; E7-A itself never runs that preprocessing."""
+    return {
+        "fold_id": fold_id, "dataset": "SiW-Mv2", "project_split": project_split,
+        "reference_kind": "siw_raw_video",
+        "video_id": record["video_id"], "relative_path": record["relative_path"],
+        "label_live_spoof": record["class_live_spoof"], "spoof_family": record["spoof_family"],
+        "extension": record["extension"],
+        "population_identity": population_identity, "split_identity": split_identity,
+        "requires_frozen_face_preprocessing": True,
+    }
+
+
+def _fold_identity(*, fold_id: str, source_domains: list[str], target_domain: str,
+                   source_train_reference_identity: str, source_dev_reference_identity: str,
+                   siw_population_identity: str | None, siw_split_identity: str | None,
+                   m3b_package_identity: str | None, target_reference_identity: str | None
+                   ) -> str:
+    material = {
+        "fold_id": fold_id, "source_domains": sorted(source_domains), "target_domain": target_domain,
+        "source_train_reference_identity": source_train_reference_identity,
+        "source_dev_reference_identity": source_dev_reference_identity,
+        "siw_population_identity": siw_population_identity, "siw_split_identity": siw_split_identity,
+        "m3b_package_identity": m3b_package_identity, "target_reference_identity": target_reference_identity,
+    }
+    return cc.sha256_bytes(cc.canonical_json_bytes(material))
+
+
+def e7a_build_preflight(repo: Path) -> dict[str, Any]:
+    """`--e7a-build-preflight`: STRICTLY READ-ONLY. Computes exactly what
+    `--e7a-build --authorize` would materialize but writes nothing.
+    """
+    try:
+        persisted = _load_persisted_amendment_artifacts(repo)
+        amended_protocol_active = True
+    except E7AError:
+        persisted = None
+        amended_protocol_active = False
+
+    population_identity_match = False
+    split_identity_match = False
+    actual_split_identity = None
+    fresh_assignment: dict[str, str] = {}
+    video_train_dev_overlap = None
+    if persisted:
+        fresh_scan = scan_local_siw_population(repo)
+        persisted_population_identity = persisted["population_plan"].get("scan", {}).get("population_identity")
+        population_identity_match = (fresh_scan["status"] == "SCANNED"
+                                     and fresh_scan.get("population_identity") == persisted_population_identity
+                                     and persisted_population_identity is not None)
+        if population_identity_match:
+            fresh_split = compute_siw_video_split(fresh_scan["records"], seed=SIW_SOURCE_SPLIT_SEED)
+            persisted_split_identity = (persisted["split_lock"].get("proposed_split") or {}).get(
+                "split_identity")
+            split_identity_match = (fresh_split["split_identity"] == persisted_split_identity
+                                    and persisted_split_identity is not None)
+            if split_identity_match:
+                actual_split_identity = fresh_split["split_identity"]
+                fresh_assignment = fresh_split["assignment"]
+                train_ids = {v for v, s in fresh_assignment.items() if s == "train"}
+                dev_ids = {v for v, s in fresh_assignment.items() if s == "dev"}
+                video_train_dev_overlap = len(train_ids & dev_ids)
+
+    fresh_policy_lock = build_siw_video_split_policy_lock(repo)
+    policy_lock_identity_match = (persisted is not None and fresh_policy_lock["policy_lock_identity"]
+                                  == persisted["split_lock"].get("policy_lock_identity"))
+
+    m3b_train_rows = _m3b_manifest_rows(repo, "source_train")
+    m3b_dev_rows = _m3b_manifest_rows(repo, "source_dev")
+    m3b_source_train_match = _m3b_counts_match(
+        m3b_train_rows, total=M3B_EXPECTED_SOURCE_TRAIN_TOTAL, casia=M3B_EXPECTED_SOURCE_TRAIN_CASIA,
+        msu=M3B_EXPECTED_SOURCE_TRAIN_MSU)
+    m3b_source_dev_match = _m3b_counts_match(
+        m3b_dev_rows, total=M3B_EXPECTED_SOURCE_DEV_TOTAL, casia=M3B_EXPECTED_SOURCE_DEV_CASIA,
+        msu=M3B_EXPECTED_SOURCE_DEV_MSU)
+
+    everything_available = (amended_protocol_active and population_identity_match and split_identity_match
+                            and policy_lock_identity_match and m3b_source_train_match
+                            and m3b_source_dev_match)
+
+    f1_train = f1_dev = f2_train = f2_dev = f3_train = f3_dev = None
+    f2_heldout_leak = f3_heldout_leak = None
+    if everything_available:
+        f1_train = len(m3b_train_rows)
+        f1_dev = len(m3b_dev_rows)
+        casia_train = [r for r in m3b_train_rows if r["dataset"] == "casia_fasd"]
+        casia_dev = [r for r in m3b_dev_rows if r["dataset"] == "casia_fasd"]
+        msu_train = [r for r in m3b_train_rows if r["dataset"] == "msu_mfsd"]
+        msu_dev = [r for r in m3b_dev_rows if r["dataset"] == "msu_mfsd"]
+        siw_train_count = sum(1 for s in fresh_assignment.values() if s == "train")
+        siw_dev_count = sum(1 for s in fresh_assignment.values() if s == "dev")
+
+        f2_train = len(casia_train) + siw_train_count
+        f2_dev = len(casia_dev) + siw_dev_count
+        f2_heldout_leak = 0  # F2's construction never includes an MSU row -- see e7a_amended_build
+
+        f3_train = len(msu_train) + siw_train_count
+        f3_dev = len(msu_dev) + siw_dev_count
+        f3_heldout_leak = 0  # F3 never includes CASIA by construction
+
+    subject_disjointness = "UNVERIFIABLE_NOT_ENFORCED"
+    required = {
+        "AMENDED_PROTOCOL_ACTIVE": amended_protocol_active,
+        "POPULATION_IDENTITY_MATCH": population_identity_match,
+        "SIW_SPLIT_IDENTITY_MATCH": split_identity_match,
+        "SIW_POLICY_LOCK_IDENTITY_MATCH": policy_lock_identity_match,
+        "M3B_SOURCE_TRAIN_MATCH": m3b_source_train_match,
+        "M3B_SOURCE_DEV_MATCH": m3b_source_dev_match,
+    }
+    build_pass = all(required.values()) and (video_train_dev_overlap in (None, 0))
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-build-preflight-v1",
+        **required,
+        "EXT_F1_SOURCE_TRAIN_COUNT": f1_train, "EXT_F1_SOURCE_DEV_COUNT": f1_dev,
+        "EXT_F2_SOURCE_TRAIN_COUNT": f2_train, "EXT_F2_SOURCE_DEV_COUNT": f2_dev,
+        "EXT_F2_HELDOUT_TARGET_ROWS_IN_SOURCE": f2_heldout_leak,
+        "EXT_F3_SOURCE_TRAIN_COUNT": f3_train, "EXT_F3_SOURCE_DEV_COUNT": f3_dev,
+        "EXT_F3_HELDOUT_TARGET_ROWS_IN_SOURCE": f3_heldout_leak,
+        "F2_F3_SAME_SIW_SPLIT": True,
+        "VIDEO_TRAIN_DEV_OVERLAP": video_train_dev_overlap,
+        "SUBJECT_DISJOINTNESS": subject_disjointness,
+        "TARGET_ACCESS": False,
+        "MANIFESTS_WRITTEN": False, "RENDERING_PERFORMED": False, "TRAINING_PERFORMED": False,
+        "GPAT_FITTING_PERFORMED": False, "LLM_API_CALLS": 0,
+        "actual_split_identity": actual_split_identity,
+        "E7A_BUILD_PREFLIGHT_PASS": build_pass,
+    }
+
+
+def _materialize_fold(repo: Path, *, fold_id: str, source_domains: list[str], target_domain: str,
+                      train_refs: list[dict[str, Any]], dev_refs: list[dict[str, Any]],
+                      siw_population_identity: str | None, siw_split_identity: str | None,
+                      m3b_package_identity: str | None, target_reference: dict[str, Any]
+                      ) -> dict[str, Any]:
+    train_identity = cc.sha256_bytes(cc.canonical_json_bytes(train_refs))
+    dev_identity = cc.sha256_bytes(cc.canonical_json_bytes(dev_refs))
+    target_reference_identity = cc.sha256_bytes(cc.canonical_json_bytes(target_reference))
+    fold_identity = _fold_identity(
+        fold_id=fold_id, source_domains=source_domains, target_domain=target_domain,
+        source_train_reference_identity=train_identity, source_dev_reference_identity=dev_identity,
+        siw_population_identity=siw_population_identity, siw_split_identity=siw_split_identity,
+        m3b_package_identity=m3b_package_identity, target_reference_identity=target_reference_identity)
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-materialized-fold-v1",
+        "fold_id": fold_id, "source_domains": source_domains, "target_domain": target_domain,
+        "source_train_references": train_refs, "source_dev_references": dev_refs,
+        "source_train_reference_identity": train_identity, "source_dev_reference_identity": dev_identity,
+        "target_reference": target_reference, "target_reference_identity": target_reference_identity,
+        "siw_population_identity": siw_population_identity, "siw_split_identity": siw_split_identity,
+        "m3b_package_identity": m3b_package_identity,
+        "fold_identity": fold_identity,
+        "target_labels_opened": False,
+        "status": "FROZEN",
+    }
+
+
+def e7a_amended_build(repo: Path, *, authorize: bool = False) -> dict[str, Any]:
+    """`--e7a-build --authorize` (amended path): materializes EXT-F1/F2/F3
+    source_train/source_dev REFERENCE manifests plus a label-free held-out
+    target reference. Bound EXPLICITLY to the amended local-only SiW
+    policy -- NEVER calls `resolve_source_split_policy` (the original,
+    unexecutable subject-disjoint rule). Re-runs the exact same preflight
+    internally before writing. Writes atomically (temp file + rename). If
+    an existing materialization is present: identical fold_identity ->
+    resume-safe ALREADY_MATERIALIZED_MATCH; different -> FAIL CLOSED, never
+    overwrites. Runs the validator automatically after a fresh write.
+    """
+    if not authorize:
+        raise E7AError("--e7a-build requires explicit authorization; refusing to run")
+
+    preflight = e7a_build_preflight(repo)
+    if not preflight["E7A_BUILD_PREFLIGHT_PASS"]:
+        raise E7AError(f"E7-A amended build preflight did not pass: {preflight}")
+
+    persisted = _load_persisted_amendment_artifacts(repo)
+    population_identity = persisted["population_plan"]["scan"]["population_identity"]
+    split_identity = preflight["actual_split_identity"]
+    m3b_package_identity = cc.read_json(repo / CASIA_MSU_PACKAGE_ROOT / "PACKAGE_LOCK.json").get(
+        "content_identity_sha256")
+
+    m3b_train_rows = _m3b_manifest_rows(repo, "source_train")
+    m3b_dev_rows = _m3b_manifest_rows(repo, "source_dev")
+    fresh_scan = scan_local_siw_population(repo)
+    fresh_split = compute_siw_video_split(fresh_scan["records"], seed=SIW_SOURCE_SPLIT_SEED)
+    assignment = fresh_split["assignment"]
+    records_by_id = {r["video_id"]: r for r in fresh_scan["records"]}
+
+    def _siw_refs(fold_id: str, split_name: str) -> list[dict[str, Any]]:
+        return [build_siw_source_reference(records_by_id[vid], fold_id=fold_id, project_split=split_name,
+                                           population_identity=population_identity,
+                                           split_identity=split_identity)
+               for vid, split in assignment.items() if split == split_name]
+
+    materialized: dict[str, dict[str, Any]] = {}
+
+    # EXT-F1: unchanged, whole-file M3B semantics; SiW is the held-out target (not source)
+    f1_train_refs = [build_m3b_source_reference(r, fold_id="EXT-F1", project_split="source_train")
+                     for r in m3b_train_rows]
+    f1_dev_refs = [build_m3b_source_reference(r, fold_id="EXT-F1", project_split="source_dev")
+                  for r in m3b_dev_rows]
+    materialized["EXT-F1"] = _materialize_fold(
+        repo, fold_id="EXT-F1", source_domains=["CASIA-FASD", "MSU-MFSD"], target_domain="SiW-Mv2",
+        train_refs=f1_train_refs, dev_refs=f1_dev_refs, siw_population_identity=None,
+        siw_split_identity=None, m3b_package_identity=m3b_package_identity,
+        target_reference={"kind": "REUSE_FROZEN", "path": SIW_TARGET_EVAL_PACKAGE_ROOT})
+
+    # EXT-F2: CASIA-only M3B rows + the amended SiW split; MSU is held out
+    f2_train_refs = ([build_m3b_source_reference(r, fold_id="EXT-F2", project_split="source_train")
+                      for r in m3b_train_rows if r["dataset"] == "casia_fasd"]
+                     + _siw_refs("EXT-F2", "train"))
+    f2_dev_refs = ([build_m3b_source_reference(r, fold_id="EXT-F2", project_split="source_dev")
+                   for r in m3b_dev_rows if r["dataset"] == "casia_fasd"]
+                  + _siw_refs("EXT-F2", "dev"))
+    materialized["EXT-F2"] = _materialize_fold(
+        repo, fold_id="EXT-F2", source_domains=["CASIA-FASD", "SiW-Mv2"], target_domain="MSU-MFSD",
+        train_refs=f2_train_refs, dev_refs=f2_dev_refs, siw_population_identity=population_identity,
+        siw_split_identity=split_identity, m3b_package_identity=m3b_package_identity,
+        target_reference={"kind": "BUILD_REQUIRED", "path": None,
+                         "note": "no processed label-free MSU-MFSD held-out target package exists "
+                                 "locally or is claimed to exist"})
+
+    # EXT-F3: MSU-only M3B rows + the SAME amended SiW split; CASIA is held out
+    f3_train_refs = ([build_m3b_source_reference(r, fold_id="EXT-F3", project_split="source_train")
+                      for r in m3b_train_rows if r["dataset"] == "msu_mfsd"]
+                     + _siw_refs("EXT-F3", "train"))
+    f3_dev_refs = ([build_m3b_source_reference(r, fold_id="EXT-F3", project_split="source_dev")
+                   for r in m3b_dev_rows if r["dataset"] == "msu_mfsd"]
+                  + _siw_refs("EXT-F3", "dev"))
+    materialized["EXT-F3"] = _materialize_fold(
+        repo, fold_id="EXT-F3", source_domains=["MSU-MFSD", "SiW-Mv2"], target_domain="CASIA-FASD",
+        train_refs=f3_train_refs, dev_refs=f3_dev_refs, siw_population_identity=population_identity,
+        siw_split_identity=split_identity, m3b_package_identity=m3b_package_identity,
+        target_reference={"kind": "BUILD_REQUIRED", "path": None,
+                         "note": "no processed label-free CASIA-FASD held-out target package exists "
+                                 "locally or is claimed to exist"})
+
+    assert materialized["EXT-F2"]["siw_split_identity"] == materialized["EXT-F3"]["siw_split_identity"]
+
+    written: dict[str, str] = {}
+    resumed: dict[str, bool] = {}
+    for fold_id, body in materialized.items():
+        out_dir = repo / MATERIALIZATION_DIR / fold_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+        final_path = out_dir / "FOLD_MATERIALIZATION.json"
+        if final_path.is_file():
+            existing = cc.read_json(final_path)
+            if existing.get("fold_identity") == body["fold_identity"]:
+                resumed[fold_id] = True
+                written[fold_id] = str(final_path)
+                continue
+            raise E7AMaterializationConflict(
+                f"{fold_id}: existing materialization fold_identity {existing.get('fold_identity')} "
+                f"disagrees with the freshly computed {body['fold_identity']!r}; refusing to overwrite "
+                "conflicting scientific output -- FAIL CLOSED")
+        tmp_path = out_dir / "FOLD_MATERIALIZATION.json.tmp"
+        tmp_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
+        tmp_path.replace(final_path)  # atomic on POSIX
+        resumed[fold_id] = False
+        written[fold_id] = str(final_path)
+
+    validation = e7a_validate_materialization(repo)
+    return {
+        "written": written, "resumed": resumed, "validation": validation,
+        "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
+        "training_performed": False, "gpat_fitting_performed": False,
+    }
+
+
+def e7a_validate_materialization(repo: Path) -> dict[str, Any]:
+    """Upgraded `--e7a-validate`: validates the NEW materialization
+    namespace (not merely whether the old plan says materialized_this_turn).
+    Read-only."""
+    fold_ids = ("EXT-F1", "EXT-F2", "EXT-F3")
+    present = {fid: (repo / MATERIALIZATION_DIR / fid / "FOLD_MATERIALIZATION.json").is_file()
+              for fid in fold_ids}
+    if not any(present.values()):
+        return {"schema_version": f"{SCHEMA_PREFIX}-materialization-validate-v1",
+               "status": "NOT_YET_BUILT", "E7A_MATERIALIZATION_VALID": False,
+               "target_access": False, "llm_api_calls": 0}
+
+    problems: list[str] = []
+    bodies: dict[str, Any] = {}
+    for fid in fold_ids:
+        if not present[fid]:
+            problems.append(f"{fid}: missing FOLD_MATERIALIZATION.json")
+            continue
+        bodies[fid] = cc.read_json(repo / MATERIALIZATION_DIR / fid / "FOLD_MATERIALIZATION.json")
+
+    expected_domains = {"EXT-F1": (["CASIA-FASD", "MSU-MFSD"], "SiW-Mv2"),
+                       "EXT-F2": (["CASIA-FASD", "SiW-Mv2"], "MSU-MFSD"),
+                       "EXT-F3": (["MSU-MFSD", "SiW-Mv2"], "CASIA-FASD")}
+    for fid, body in bodies.items():
+        expected_source, expected_target = expected_domains[fid]
+        if body["source_domains"] != expected_source:
+            problems.append(f"{fid}: source_domains {body['source_domains']} != expected {expected_source}")
+        if body["target_domain"] != expected_target:
+            problems.append(f"{fid}: target_domain {body['target_domain']} != expected {expected_target}")
+        all_datasets = {r["dataset"] for r in body["source_train_references"] + body["source_dev_references"]}
+        if expected_target in all_datasets:
+            problems.append(f"{fid}: held-out target domain {expected_target} found in source references "
+                            "-- target-domain leakage")
+        for ref in body["source_train_references"] + body["source_dev_references"]:
+            if ref["reference_kind"] == "siw_raw_video" and ref.get("subject_id") is not None:
+                problems.append(f"{fid}: a siw_raw_video reference carries a subject_id -- fabricated "
+                                "subject identity")
+            if ref["reference_kind"] not in ("m3b_processed_sample", "siw_raw_video"):
+                problems.append(f"{fid}: unrecognized reference_kind {ref['reference_kind']!r}")
+        if body["target_labels_opened"] is not False:
+            problems.append(f"{fid}: target_labels_opened is not False")
+
+        train_ids = {r.get("video_id") for r in body["source_train_references"]
+                    if r["reference_kind"] == "siw_raw_video"}
+        dev_ids = {r.get("video_id") for r in body["source_dev_references"]
+                  if r["reference_kind"] == "siw_raw_video"}
+        overlap = train_ids & dev_ids
+        if overlap:
+            problems.append(f"{fid}: {len(overlap)} SiW video(s) appear in BOTH source_train and "
+                            "source_dev references")
+
+    if "EXT-F2" in bodies and "EXT-F3" in bodies:
+        if bodies["EXT-F2"]["siw_split_identity"] != bodies["EXT-F3"]["siw_split_identity"]:
+            problems.append("EXT-F2 and EXT-F3 do not reuse the exact same siw_split_identity")
+
+    for fid, body in bodies.items():
+        recomputed = _fold_identity(
+            fold_id=fid, source_domains=body["source_domains"], target_domain=body["target_domain"],
+            source_train_reference_identity=body["source_train_reference_identity"],
+            source_dev_reference_identity=body["source_dev_reference_identity"],
+            siw_population_identity=body["siw_population_identity"],
+            siw_split_identity=body["siw_split_identity"],
+            m3b_package_identity=body["m3b_package_identity"],
+            target_reference_identity=body["target_reference_identity"])
+        if recomputed != body["fold_identity"]:
+            problems.append(f"{fid}: fold_identity does not recompute exactly from its own persisted "
+                            "components")
+        if fid in ("EXT-F2", "EXT-F3") and body["target_reference"]["kind"] == "BUILD_REQUIRED":
+            pass  # truthfully reported as build-required, not a validation problem
+        elif fid == "EXT-F2" and body["target_reference"]["path"] is not None and \
+                not str(body["target_reference"]["path"]):
+            problems.append(f"{fid}: target reference path is missing")
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-materialization-validate-v1",
+        "status": "MATERIALIZED", "folds_present": present, "problems": problems,
+        "E7A_MATERIALIZATION_VALID": not problems,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="E7-A fold manifest / source-dev / isolation "
                                                  "preparation (no render, no train, no GPAT fit, no "
@@ -1252,12 +1696,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--e7a-preflight", action="store_true",
                         help="Read-only: dataset availability, frozen identities, paths, split rules. "
                              "Creates nothing scientific.")
+    parser.add_argument("--e7a-build-preflight", action="store_true",
+                        help="MATERIALIZATION: strictly read-only. Computes exactly what "
+                             "--e7a-build --authorize would materialize (identities, per-fold "
+                             "reference counts, leakage/overlap checks) but writes nothing.")
     parser.add_argument("--e7a-build", action="store_true",
-                        help="Explicit execution only. Requires --authorize. Constructs source "
-                             "train/dev manifest references. Never renders/trains/fits GPAT/target-"
-                             "accesses. Fails closed on missing bytes/identity mismatch/leakage.")
+                        help="Explicit execution only. Requires --authorize. Bound to the AMENDED "
+                             "local-only SiW policy. Materializes EXT-F1/F2/F3 source_train/source_dev "
+                             "reference manifests. Never renders/trains/fits GPAT/target-accesses. "
+                             "Fails closed on missing bytes/identity mismatch/leakage/conflicting "
+                             "existing output.")
     parser.add_argument("--e7a-validate", action="store_true",
-                        help="Read-only validation of completed E7-A manifests.")
+                        help="Read-only validation of the materialization_v1/ namespace.")
     parser.add_argument("--e7a-local-siw-preflight", action="store_true",
                         help="AMENDMENT: read-only. Inventories the exact permitted local raw SiW "
                              "population, verifies counts/families against the frozen layout contract, "
@@ -1293,16 +1743,19 @@ def main(argv: list[str] | None = None) -> int:
         result = prepare_e7a_amendment(repo)
         print(json.dumps({"readiness": result["readiness"]["body"]}, indent=2, default=str))
         return 0
+    if args.e7a_build_preflight:
+        print(json.dumps(e7a_build_preflight(repo), indent=2, default=str))
+        return 0
     if args.e7a_build:
         try:
-            result = e7a_build(repo, authorize=args.authorize)
+            result = e7a_amended_build(repo, authorize=args.authorize)
         except E7AError as error:
             print(f"E7-A build refused: {error}")
             return 1
         print(json.dumps(result, indent=2, default=str))
         return 0
     if args.e7a_validate:
-        print(json.dumps(e7a_validate(repo), indent=2, default=str))
+        print(json.dumps(e7a_validate_materialization(repo), indent=2, default=str))
         return 0
     if args.prepare:
         result = prepare_e7a(repo)
