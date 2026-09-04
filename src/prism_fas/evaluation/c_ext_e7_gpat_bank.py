@@ -1608,7 +1608,10 @@ def compute_gpat_input_package_identity(*, fold_id: str, e7d_package_identity: s
     package identity, the shared SiW source-prior package identity when
     applicable, the frozen base GPAT config SHA, the frozen M7 recipe-bank
     identity, and the sorted per-row (dataset, source_record_id,
-    label_live_spoof, project_split, crop_sha256, prior_sha256) material."""
+    subject_id, label_live_spoof, project_split, crop_sha256,
+    prior_sha256) material -- subject_id is bound so a CASIA/MSU subject
+    swap or a fabricated SiW subject changes the identity, never just
+    membership."""
     material = {"fold_id": fold_id, "e7d_source_support_package_identity": e7d_package_identity,
                "m3b_package_identity": m3b_package_identity,
                "siw_source_prior_package_identity": siw_source_prior_package_identity,
@@ -1673,6 +1676,15 @@ def _validate_gpat_input_rows(repo: Path, fold_id: str, manifest_rows: list[dict
             problems.append(f"row {sample_id!r} is siw_mv2 but has a non-null subject_id -- "
                             "SiW subject_id must never be fabricated")
         expected = expected_by_id.get(sample_id)
+        # GAP 2 hardening: exact-compare EVERY authoritative field, not merely sample_id
+        # membership -- catches a mutated CASIA/MSU subject_id, a fabricated SiW subject, a
+        # swapped source_record_id, or a swapped label even when sample_id itself is untouched.
+        if expected is not None:
+            for field in ("dataset", "source_record_id", "subject_id", "label_live_spoof",
+                          "project_split"):
+                if row.get(field) != expected.get(field):
+                    problems.append(f"row {sample_id!r} field {field!r} = {row.get(field)!r} != "
+                                    f"E7-D/E7-A authoritative {expected.get(field)!r}")
         image_sha = expected["crop_sha256"] if expected else row.get("crop_sha256")
         prior_sha = expected["prior_sha256"] if expected else row.get("prior_sha256")
         image_path = package_root / row.get("image_relative_path", "")
@@ -1727,7 +1739,8 @@ def _validate_gpat_input_rows(repo: Path, fold_id: str, manifest_rows: list[dict
     identity_inputs = _gpat_input_identity_inputs(repo, fold_id)
     recomputed_identity = compute_gpat_input_package_identity(
         fold_id=fold_id, rows=[(row.get("dataset"), row.get("source_record_id"),
-                                row.get("label_live_spoof"), row.get("project_split"),
+                                row.get("subject_id"), row.get("label_live_spoof"),
+                                row.get("project_split"),
                                 (expected_by_id.get(sample_id) or {}).get("crop_sha256"),
                                 (expected_by_id.get(sample_id) or {}).get("prior_sha256"))
                                for sample_id, row in manifest_by_id.items()],
@@ -1831,9 +1844,9 @@ def materialize_gpat_input_package(repo: Path, fold_id: str, *, authorize: bool 
 
     identity_inputs = _gpat_input_identity_inputs(repo, fold_id)
     package_identity = compute_gpat_input_package_identity(
-        fold_id=fold_id, rows=[(row["dataset"], row["source_record_id"], row["label_live_spoof"],
-                               row["project_split"], row["crop_sha256"], row["prior_sha256"])
-                              for row in rows],
+        fold_id=fold_id, rows=[(row["dataset"], row["source_record_id"], row["subject_id"],
+                               row["label_live_spoof"], row["project_split"], row["crop_sha256"],
+                               row["prior_sha256"]) for row in rows],
         **identity_inputs)
 
     candidate = _validate_gpat_input_rows(repo, fold_id, manifest_rows, package_identity)
@@ -1972,12 +1985,92 @@ def validate_fold_pair_plan(repo: Path, fold_id: str) -> dict[str, Any]:
     if lock.get("package_identity") != current_package_identity:
         problems.append(f"pair-plan package_identity {lock.get('package_identity')!r} != current "
                         f"GPAT input package identity {current_package_identity!r}")
-    recomputed_identity = pair_plan.pair_plan_identity(output_root)
-    if recomputed_identity != lock.get("pair_plan_identity_sha256"):
-        problems.append("pair_plan_identity_sha256 does not recompute exactly")
 
     train_rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_train.parquet")
     validation_rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_validation.parquet")
+
+    # GAP 1 fix: `pair_plan.pair_plan_identity()` merely RE-READS
+    # PAIR_PLAN_LOCK.json's own stored field -- that is an echo, not a recomputation. TRUE
+    # recomputation calls the real, unmodified `pair_plan.build_pair_plan()` under the same
+    # scoped ALLOWED_DATASETS adapter `materialize_fold_pair_plan` uses, compares EVERY pair
+    # field between the freshly-rebuilt plan and the on-disk manifests, and independently
+    # rebuilds every identity-bearing PAIR_PLAN_LOCK component using the SAME helper functions
+    # (`summarize_pairs`, `rows_digest`, `_digest`) and the SAME canonical-JSON/IDENTITY_EXCLUDED
+    # contract `write_pair_plan()` itself uses -- never a fresh reimplementation of pairing.
+    bank_root = repo / M7_RECIPE_BANK_ROOT
+    datasets = FOLD_SOURCE_DATASET_SLUGS[fold_id]
+    recomputed_identity: str | None = None
+    try:
+        with _scoped_pair_plan_allowed_datasets(datasets) as scoped_pair_plan:
+            expected_plan = scoped_pair_plan.build_pair_plan(package_root, bank_root, seed=GPAT_FIT_SEED)
+    except Exception as exc:  # noqa: BLE001 -- any failure to rebuild is itself a hard validation failure
+        problems.append(f"could not rebuild the expected pair plan for comparison: {exc}")
+        expected_plan = None
+
+    if expected_plan is not None:
+        expected_train = expected_plan["pairs"]["train"]
+        expected_validation = expected_plan["pairs"]["validation"]
+
+        for name, expected_rows, actual_rows in (("train", expected_train, train_rows),
+                                                  ("validation", expected_validation, validation_rows)):
+            by_id_expected = {r["pair_id"]: r for r in expected_rows}
+            by_id_actual = {r["pair_id"]: r for r in actual_rows}
+            if set(by_id_expected) != set(by_id_actual):
+                only_expected = sorted(set(by_id_expected) - set(by_id_actual))
+                only_actual = sorted(set(by_id_actual) - set(by_id_expected))
+                problems.append(f"{name} pair_id set does not match a fresh rebuild -- "
+                                f"{len(only_expected)} only in the rebuild, {len(only_actual)} "
+                                f"only on disk (examples: rebuild={only_expected[:3]!r}, "
+                                f"disk={only_actual[:3]!r})")
+            content_mismatches = sorted(pid for pid in (set(by_id_expected) & set(by_id_actual))
+                                        if by_id_expected[pid] != by_id_actual[pid])
+            if content_mismatches:
+                problems.append(f"{name} pair(s) with the SAME pair_id but DIFFERENT field content "
+                                f"vs a fresh rebuild (covers pair_id/recipe_id/recipe_seed/every "
+                                f"other pair field): {content_mismatches[:5]!r}")
+
+        # Independently rebuild every identity-bearing PAIR_PLAN_LOCK component from the
+        # freshly-rebuilt plan -- reusing `summarize_pairs`/`rows_digest`/`_digest` verbatim.
+        expected_summary = {"train": pair_plan.summarize_pairs(expected_train),
+                            "validation": pair_plan.summarize_pairs(expected_validation)}
+        expected_lock_material = {
+            "pair_plan_schema_version": pair_plan.PAIR_PLAN_SCHEMA_VERSION, "seed": int(GPAT_FIT_SEED),
+            "package_identity": expected_plan["package_identity"],
+            "recipe_bank_identity": expected_plan["recipe_bank_identity"],
+            "train_pairs": len(expected_train), "validation_pairs": len(expected_validation),
+            "record_set_hashes": {
+                "live_train": pair_plan._digest(*sorted(
+                    r for r, p in expected_plan["live_partition"].items() if p == "train")),
+                "live_validation": pair_plan._digest(*sorted(
+                    r for r, p in expected_plan["live_partition"].items() if p == "validation")),
+                "spoof_train": pair_plan._digest(*sorted(
+                    r for r, p in expected_plan["spoof_partition"].items() if p == "train")),
+                "spoof_validation": pair_plan._digest(*sorted(
+                    r for r, p in expected_plan["spoof_partition"].items() if p == "validation"))},
+            "pair_rows_sha256": {"train": pair_plan.rows_digest(expected_train),
+                                 "validation": pair_plan.rows_digest(expected_validation)},
+            "pair_id_set_sha256": {"train": pair_plan._digest(*[r["pair_id"] for r in expected_train]),
+                                   "validation": pair_plan._digest(
+                                       *[r["pair_id"] for r in expected_validation])},
+            "domain_composition": {"train": expected_summary["train"]["live_datasets"],
+                                   "validation": expected_summary["validation"]["live_datasets"],
+                                   "train_relation": expected_summary["train"]["domain_relation"],
+                                   "validation_relation": expected_summary["validation"]["domain_relation"]},
+            "recipe_coverage": {"train": expected_summary["train"]["distinct_recipes"],
+                                "validation": expected_summary["validation"]["distinct_recipes"]},
+            "attack_family_balance": "unavailable"}
+
+        for field, expected_value in expected_lock_material.items():
+            if lock.get(field) != expected_value:
+                problems.append(f"PAIR_PLAN_LOCK identity-bearing field {field!r} does not match a "
+                                f"fresh recomputation: recorded={lock.get(field)!r}, "
+                                f"expected={expected_value!r}")
+
+        recomputed_identity = pair_plan._digest(json.dumps(expected_lock_material, sort_keys=True,
+                                                            separators=(",", ":")))
+        if recomputed_identity != lock.get("pair_plan_identity_sha256"):
+            problems.append(f"recomputed pair_plan_identity_sha256 {recomputed_identity!r} != "
+                            f"recorded {lock.get('pair_plan_identity_sha256')!r}")
     source_train_ids: set[str] = set()
     subject_by_sample_id: dict[str, str | None] = {}
     manifest_path = package_root / "manifests" / "source_train.parquet"
@@ -2039,7 +2132,10 @@ def validate_fold_pair_plan(repo: Path, fold_id: str) -> dict[str, Any]:
            "status": "INVALID" if problems else "VALID", "problems": problems,
            "observed_train_pairs": len(train_rows), "observed_validation_pairs": len(validation_rows),
            "seed": lock.get("seed"), "package_identity": lock.get("package_identity"),
-           "pair_plan_identity_match": recomputed_identity == lock.get("pair_plan_identity_sha256"),
+           "pair_plan_identity": lock.get("pair_plan_identity_sha256"),
+           "recomputed_pair_plan_identity": recomputed_identity,
+           "pair_plan_identity_match": recomputed_identity is not None
+                                       and recomputed_identity == lock.get("pair_plan_identity_sha256"),
            "target_access": False, "llm_api_calls": 0}
 
 
@@ -2155,56 +2251,187 @@ def _gpat_fit_capability(repo: Path) -> dict[str, Any]:
 # TASK N.6 -- GPAT_FIT_LOCK validation + the real fit orchestrator.
 # --------------------------------------------------------------------------- #
 
+def _history_is_finite(history: list[dict[str, Any]]) -> bool:
+    """True iff every numeric value in every history entry is finite -- not
+    only `train_total`."""
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        for value in entry.values():
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)) and not math.isfinite(value):
+                return False
+    return True
+
+
+def _checkpoint_expected_identity(lock: dict[str, Any]) -> dict[str, str | None]:
+    return {"package_identity": lock.get("package_identity"),
+           "recipe_bank_identity": lock.get("m7_recipe_bank_identity"),
+           "pair_plan_identity": lock.get("pair_plan_identity"),
+           "config_hash": lock.get("effective_config_hash"),
+           "architecture_hash": lock.get("architecture_hash"),
+           "adaface_weight_sha256": lock.get("adaface_weight_sha256")}
+
+
 def validate_gpat_fit_lock(repo: Path, fold_id: str) -> dict[str, Any]:
-    """STRICT, read-only. Never writes, never resumes/retrains."""
+    """STRICT, read-only. A terminal lock is VALID only if it, the native
+    checkpoints, AND every upstream artifact (GPAT input package, pair
+    plan, effective config, frozen M7 bank) ALL independently revalidate
+    against CURRENT on-disk state -- never merely a self-consistent
+    snapshot frozen at fit time (GAP 3). Never writes, never resumes/
+    retrains."""
     if fold_id not in FOLD_IDS:
         raise E7Error(f"unknown fold_id {fold_id!r}")
     lock_path = gpat_fit_lock_path(repo, fold_id)
     if not lock_path.is_file():
         return {"schema_version": f"{SCHEMA_PREFIX}-gpat-fit-lock-validate-v1", "fold_id": fold_id,
                "status": "NOT_MATERIALIZED"}
-    from prism_fas.synthesis.gpat_checkpoint import checkpoint_summary
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, checkpoint_summary, load_checkpoint
+    from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
 
     problems: list[str] = []
     lock = cc.read_json(lock_path)
     if lock.get("status") != "VALID":
         problems.append(f"lock status {lock.get('status')!r} != 'VALID'")
+
+    # 1-2: current GPAT input package must independently revalidate AND match the lock's own
+    # recorded package_identity -- never merely trust the lock's stored value.
+    input_validation = validate_gpat_input_package(repo, fold_id)
+    if input_validation["status"] != "VALID":
+        problems.append(f"current GPAT input package is not VALID: "
+                        f"{input_validation.get('problems')!r}")
+    if input_validation.get("recomputed_package_identity") != lock.get("package_identity"):
+        problems.append(f"current GPAT input package identity "
+                        f"{input_validation.get('recomputed_package_identity')!r} != "
+                        f"lock.package_identity {lock.get('package_identity')!r}")
+
+    # 3-4: current pair plan must independently revalidate (a TRUE rebuild, see GAP 1) AND
+    # match the lock's own recorded pair_plan_identity.
+    pair_validation = validate_fold_pair_plan(repo, fold_id)
+    if pair_validation["status"] != "VALID":
+        problems.append(f"current pair plan is not VALID: {pair_validation.get('problems')!r}")
+    if pair_validation.get("recomputed_pair_plan_identity") != lock.get("pair_plan_identity"):
+        problems.append(f"current pair-plan identity "
+                        f"{pair_validation.get('recomputed_pair_plan_identity')!r} != "
+                        f"lock.pair_plan_identity {lock.get('pair_plan_identity')!r}")
+
+    # 5-7: effective config recomputes exactly (base config SHA + effective config hash).
+    try:
+        effective = build_effective_gpat_config(repo, fold_id)
+        if effective["base_config_sha256"] != lock.get("base_config_sha256"):
+            problems.append(f"current base_config_sha256 {effective['base_config_sha256']!r} != "
+                            f"lock.base_config_sha256 {lock.get('base_config_sha256')!r}")
+        if effective["effective_config_hash"] != lock.get("effective_config_hash"):
+            problems.append(f"current effective_config_hash {effective['effective_config_hash']!r} "
+                            f"!= lock.effective_config_hash {lock.get('effective_config_hash')!r}")
+    except E7Error as exc:
+        problems.append(f"effective config could not be recomputed: {exc}")
+
+    # 8: frozen M7 recipe-bank identity.
+    if lock.get("m7_recipe_bank_identity") != FROZEN_M7_BANK["bank_content_identity_sha256"]:
+        problems.append(f"lock.m7_recipe_bank_identity {lock.get('m7_recipe_bank_identity')!r} != "
+                        f"frozen M7 bank identity "
+                        f"{FROZEN_M7_BANK['bank_content_identity_sha256']!r}")
+
+    # 9-12: BOTH best.pt and last.pt exist, their SHA matches the lock, their schema is correct,
+    # and BOTH strictly identity-verify against the full expected package/bank/pair-plan/config/
+    # architecture/AdaFace identity (never only best.pt).
     best_path = gpat_best_checkpoint_path(repo, fold_id)
     last_path = gpat_last_checkpoint_path(repo, fold_id)
-    if not best_path.is_file():
-        problems.append("best checkpoint missing on disk")
-    elif cc.sha256_file(best_path) != lock.get("best_checkpoint_sha256"):
-        problems.append("best checkpoint SHA256 mismatch")
-    if not last_path.is_file():
-        problems.append("last checkpoint missing on disk")
-    elif cc.sha256_file(last_path) != lock.get("last_checkpoint_sha256"):
-        problems.append("last checkpoint SHA256 mismatch")
-    if best_path.is_file():
-        summary = checkpoint_summary(best_path)
-        identity = summary.get("identity") or {}
-        recorded_name = {"package_identity": "package_identity",
-                        "recipe_bank_identity": "m7_recipe_bank_identity",
-                        "pair_plan_identity": "pair_plan_identity",
-                        "config_hash": "effective_config_hash",
-                        "architecture_hash": "architecture_hash",
-                        "adaface_weight_sha256": "adaface_weight_sha256"}
-        for field, lock_field in recorded_name.items():
-            if identity.get(field) != lock.get(lock_field):
-                problems.append(f"checkpoint identity {field} {identity.get(field)!r} != lock "
-                                f"{lock_field} {lock.get(lock_field)!r}")
+    expected_identity = _checkpoint_expected_identity(lock)
+    checkpoint_payloads: dict[str, dict[str, Any]] = {}
+    for name, path, sha_field in (("best", best_path, "best_checkpoint_sha256"),
+                                  ("last", last_path, "last_checkpoint_sha256")):
+        if not path.is_file():
+            problems.append(f"{name} checkpoint missing on disk")
+            continue
+        if cc.sha256_file(path) != lock.get(sha_field):
+            problems.append(f"{name} checkpoint SHA256 mismatch")
+        summary = checkpoint_summary(path)
+        if summary.get("schema_version") != GPAT_CHECKPOINT_SCHEMA_VERSION:
+            problems.append(f"{name} checkpoint schema_version {summary.get('schema_version')!r} "
+                            f"!= expected {GPAT_CHECKPOINT_SCHEMA_VERSION!r}")
+        try:
+            checkpoint_payloads[name] = load_checkpoint(path, expected_identity=expected_identity)
+        except CheckpointError as exc:
+            problems.append(f"{name} checkpoint FAILED strict identity load: {exc}")
+
+    # 13: record_set_hashes remain consistent between the lock and both checkpoints.
+    for name, payload in checkpoint_payloads.items():
+        if payload.get("record_set_hashes") != lock.get("record_set_hashes"):
+            problems.append(f"{name} checkpoint record_set_hashes != lock.record_set_hashes")
+
+    # 14: history contains only finite numeric metrics, in both checkpoints.
+    for name, payload in checkpoint_payloads.items():
+        if not _history_is_finite(payload.get("history") or []):
+            problems.append(f"{name} checkpoint history contains a non-finite numeric value")
+
     return {"schema_version": f"{SCHEMA_PREFIX}-gpat-fit-lock-validate-v1", "fold_id": fold_id,
            "status": "INVALID" if problems else "VALID", "problems": problems,
            "target_access": False, "llm_api_calls": 0}
 
 
+# --------------------------------------------------------------------------- #
+# TASK N.7 -- GPU code provenance (GAP 5). GPU git HEAD may legitimately stay
+# on a different branch (e.g. `main`) while the exact GPAT implementation
+# module is rsynced in from `gpu-work`. `git_commit(repo)` (repository HEAD)
+# must therefore never be recorded AS IF it were the implementation
+# checkpoint -- this proves the RUNNING module file is byte-identical to a
+# real, inspectable, declared commit instead.
+# --------------------------------------------------------------------------- #
+
+def resolve_implementation_commit_provenance(repo: Path) -> dict[str, Any]:
+    """Requires `$PRISM_E7_IMPLEMENTATION_COMMIT` and verifies that
+    `git show <that commit>:src/prism_fas/evaluation/c_ext_e7_gpat_bank.py`
+    has SHA256 EXACTLY equal to the currently-running module file. FAILS
+    CLOSED (raises `E7Error`) if the env var is unset or the bytes disagree
+    -- never falsely calls repository HEAD the implementation checkpoint.
+    Laptop CPU/unit tests may monkeypatch this function; it is intentionally
+    called only AFTER the real GPU-capability gate, so laptop
+    GPU_REQUIRED behavior is reached before this is ever evaluated."""
+    import os
+    import subprocess
+
+    from prism_fas.utils.core import git_commit
+
+    implementation_commit = os.environ.get("PRISM_E7_IMPLEMENTATION_COMMIT")
+    if not implementation_commit:
+        raise E7Error("PRISM_E7_IMPLEMENTATION_COMMIT is not set -- production GPU GPAT fitting "
+                      "requires an explicit, verifiable implementation-commit pin; refusing to "
+                      "proceed (repository HEAD is never treated as the implementation checkpoint)")
+    module_relative = "src/prism_fas/evaluation/c_ext_e7_gpat_bank.py"
+    module_path = Path(__file__).resolve()
+    module_sha256 = cc.sha256_file(module_path)
+    try:
+        committed_bytes = subprocess.check_output(
+            ["git", "show", f"{implementation_commit}:{module_relative}"], cwd=repo,
+            stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as exc:
+        raise E7Error(f"could not read {module_relative!r} at commit "
+                      f"{implementation_commit!r}: {exc.stderr!r}") from exc
+    committed_sha256 = cc.sha256_bytes(committed_bytes)
+    if committed_sha256 != module_sha256:
+        raise E7Error(f"PRISM_E7_IMPLEMENTATION_COMMIT={implementation_commit!r}: "
+                      f"{module_relative!r} at that commit (sha256={committed_sha256}) does NOT "
+                      f"match the currently-running module file (sha256={module_sha256}) -- FAIL "
+                      "CLOSED before GPAT fitting; the rsynced runtime module is not provably "
+                      "pinned to the declared implementation commit")
+    return {"repository_head_commit": git_commit(repo), "implementation_commit": implementation_commit,
+           "implementation_module_sha256": module_sha256}
+
+
 def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
     """`--prepare-gpat --fold EXT-Fn --authorize`: REAL transactional GPAT
-    fit. Order: (1) terminal-lock resume/short-circuit, (2) GPAT-input
-    package materialize+validate, (3) pair-plan materialize+validate,
-    (4) effective-config build, (5) real GPU-capability gate, (6) resume-
-    compatibility pre-check, (7) real `GPATTrainer(...).fit(...)`,
-    (8) checkpoint/history/isolation validation, (9) write
-    GPAT_FIT_LOCK.json LAST. Uses `GPATTrainer.fit` UNMODIFIED; never
+    fit. Order: (1) terminal-lock resume/short-circuit (strengthened, see
+    `validate_gpat_fit_lock`), (2) GPAT-input package materialize+validate,
+    (3) pair-plan materialize+validate (TRUE recomputation, see GAP 1),
+    (4) effective-config build, (5) real GPU-capability gate, (5.5) GPU
+    implementation-commit provenance gate (GAP 5), (6) resume-compatibility
+    pre-check, (7) real `GPATTrainer(...).fit(...)`, (8) independent
+    checkpoint SHA/identity/record-set/history/source-isolation validation
+    (GAP 4), (9) write GPAT_FIT_LOCK.json LAST. Uses `GPATTrainer.fit`
+    UNMODIFIED; never
     monkeypatched."""
     if fold_id not in FOLD_IDS:
         raise E7Error(f"unknown fold_id {fold_id!r}")
@@ -2247,14 +2474,19 @@ def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[s
                       "GPATTrainer.fit call remains, and it must run on a GPU host with the "
                       f"pinned AdaFace weight resolvable under {capability['weight_root']!r}.")
 
+    # GAP 5: required strictly AFTER the GPU-capability gate (so laptop GPU_REQUIRED behavior
+    # is reached first) and strictly BEFORE GPATTrainer.fit. Never treats repository HEAD as
+    # the implementation checkpoint -- GPU git HEAD may legitimately stay on `main` while this
+    # module is rsynced in from `gpu-work`.
+    provenance = resolve_implementation_commit_provenance(repo)
+
     # Steps 6-9: real resume-compatibility pre-check + GPATTrainer.fit + terminal lock. Written
     # for correctness; unreachable on this laptop (the capability gate above always fails first).
-    from prism_fas.synthesis.gpat_checkpoint import checkpoint_summary
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, checkpoint_summary, load_checkpoint
     from prism_fas.synthesis.gpat_model import build_gpat_model
     from prism_fas.synthesis.gpat_trainer import GPATTrainer
     from prism_fas.synthesis.quality_models import resolve_weight
     from prism_fas.synthesis.quality_models import sha256_file as quality_sha256_file
-    from prism_fas.utils.core import git_commit
 
     package_root = repo / GPAT_INPUT_ROOT / fold_id
     pairs_root = repo / GPAT_PAIR_PLAN_ROOT / fold_id
@@ -2293,26 +2525,63 @@ def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[s
     if not best_path.is_file() or not last_path.is_file():
         raise E7Error(f"{fold_id}: GPATTrainer.fit returned but native checkpoints are missing -- "
                       "FAIL CLOSED, no terminal lock written")
-    best_summary = checkpoint_summary(best_path)
-    if best_summary.get("identity") != fit_result["identity"]:
+
+    # GAP 4: independently SHA256 BOTH checkpoints from disk (never merely trust fit()'s own
+    # reported hash), strictly load/validate BOTH against the full expected identity, verify
+    # BOTH checkpoints' record_set_hashes, and verify ALL numeric history values (not only
+    # train_total) in both the checkpoints and fit()'s own returned history.
+    best_sha256_disk = cc.sha256_file(best_path)
+    last_sha256_disk = cc.sha256_file(last_path)
+    if best_sha256_disk != fit_result["checkpoints"]["best_sha256"]:
+        raise E7Error(f"{fold_id}: best checkpoint on-disk SHA256 {best_sha256_disk!r} != fit()'s "
+                      f"own reported SHA256 {fit_result['checkpoints']['best_sha256']!r} -- FAIL CLOSED")
+    if last_sha256_disk != fit_result["checkpoints"]["last_sha256"]:
+        raise E7Error(f"{fold_id}: last checkpoint on-disk SHA256 {last_sha256_disk!r} != fit()'s "
+                      f"own reported SHA256 {fit_result['checkpoints']['last_sha256']!r} -- FAIL CLOSED")
+    try:
+        best_payload = load_checkpoint(best_path, expected_identity=expected_identity)
+        last_payload = load_checkpoint(last_path, expected_identity=expected_identity)
+    except CheckpointError as exc:
+        raise E7Error(f"{fold_id}: post-fit strict checkpoint identity validation FAILED -- FAIL "
+                      f"CLOSED, no terminal lock written: {exc}") from exc
+    if best_payload.get("identity") != fit_result["identity"]:
         raise E7Error(f"{fold_id}: best checkpoint identity does not match fit() identity -- "
                       "FAIL CLOSED")
-    if not all(math.isfinite(entry.get("train_total", float("nan"))) for entry in fit_result["history"]):
-        raise E7Error(f"{fold_id}: fit history contains a non-finite loss -- FAIL CLOSED")
+    for name, payload in (("best", best_payload), ("last", last_payload)):
+        if payload.get("record_set_hashes") != fit_result["record_set_hashes"]:
+            raise E7Error(f"{fold_id}: {name} checkpoint record_set_hashes != fit()'s own "
+                          "record_set_hashes -- FAIL CLOSED")
+        if not _history_is_finite(payload.get("history") or []):
+            raise E7Error(f"{fold_id}: {name} checkpoint history contains a non-finite numeric "
+                          "value -- FAIL CLOSED")
+    if not _history_is_finite(fit_result["history"]):
+        raise E7Error(f"{fold_id}: fit() history contains a non-finite numeric value -- FAIL CLOSED")
+
     source_isolation = fit_result["source_isolation"]
-    if source_isolation.get("source_dev_opened") or source_isolation.get("target_test_opened"):
-        raise E7Error(f"{fold_id}: source isolation audit reports a forbidden open -- FAIL CLOSED")
+    forbidden_flags = ("source_dev_opened", "target_test_opened", "target_label_artifact_opened",
+                       "raw_dataset_path_opened")
+    tripped = [flag for flag in forbidden_flags if source_isolation.get(flag)]
+    if tripped:
+        raise E7Error(f"{fold_id}: source isolation audit reports forbidden open(s) {tripped} -- "
+                      "FAIL CLOSED")
+    non_train_manifests = [m for m in (source_isolation.get("manifests_opened") or [])
+                           if not str(m).endswith("source_train.parquet")]
+    if non_train_manifests:
+        raise E7Error(f"{fold_id}: source isolation audit opened non-source_train manifest(s) "
+                      f"{non_train_manifests} -- FAIL CLOSED")
 
     lock = {"schema_version": f"{SCHEMA_PREFIX}-gpat-fit-lock-v1", "fold_id": fold_id, "status": "VALID",
-           "run_id": run_id, "code_checkpoint": git_commit(repo),
+           "run_id": run_id, "repository_head_commit": provenance["repository_head_commit"],
+           "implementation_commit": provenance["implementation_commit"],
+           "implementation_module_sha256": provenance["implementation_module_sha256"],
            "base_config_sha256": effective["base_config_sha256"],
            "effective_config_hash": effective["effective_config_hash"], "package_identity": package_identity,
            "pair_plan_identity": pair_plan_identity_value,
            "m7_recipe_bank_identity": FROZEN_M7_BANK["bank_content_identity_sha256"],
            "best_checkpoint_relative_path": str(best_path.relative_to(repo)),
-           "best_checkpoint_sha256": fit_result["checkpoints"]["best_sha256"],
+           "best_checkpoint_sha256": best_sha256_disk,
            "last_checkpoint_relative_path": str(last_path.relative_to(repo)),
-           "last_checkpoint_sha256": fit_result["checkpoints"]["last_sha256"],
+           "last_checkpoint_sha256": last_sha256_disk,
            "architecture_hash": architecture_hash, "adaface_weight_sha256": adaface_weight_sha256,
            "seed": GPAT_FIT_SEED, "device": fit_result["device"],
            "epochs_requested": effective["effective_config"]["epochs"],

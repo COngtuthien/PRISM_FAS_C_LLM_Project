@@ -1984,10 +1984,20 @@ class _FakeTrainer:
                "source_isolation": {"source_dev_opened": False, "target_test_opened": False}}
 
 
+_FIXED_IMPLEMENTATION_PROVENANCE = {"repository_head_commit": "deadbeef" * 5,
+                                    "implementation_commit": "cafef00d" * 5,
+                                    "implementation_module_sha256": "ee" * 32}
+
+
 def _patch_gpat_capable(monkeypatch, repo):
     monkeypatch.setattr(e7g, "_gpat_fit_capability",
                         lambda repo_arg: {"capable": True, "cuda_available": True,
                                          "weight_root": str(repo / "model_cache"), "problems": []})
+    # GAP 5: production execution requires PRISM_E7_IMPLEMENTATION_COMMIT + a real `git show`
+    # byte-match; laptop CPU/unit tests mock this dedicated gate directly rather than requiring
+    # a real commit to exist in the test repo.
+    monkeypatch.setattr(e7g, "resolve_implementation_commit_provenance",
+                        lambda repo_arg: dict(_FIXED_IMPLEMENTATION_PROVENANCE))
 
 
 def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
@@ -2010,6 +2020,9 @@ def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
                "pair_plan_identity": pair_plan_identity, "config_hash": effective["effective_config_hash"],
                "architecture_hash": "arch", "adaface_weight_sha256": "ada"}
 
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, STRICT_IDENTITY_FIELDS
+    from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
+
     monkeypatch.setattr(_FakeTrainer, "identity_fn", staticmethod(real_identity))
     monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _FakeTrainer)
     monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
@@ -2018,7 +2031,18 @@ def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
                         lambda weight_root, role: Path(weight_root) / "identity.bin")
     monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
     monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
-                        lambda path: {"identity": real_identity()})
+                        lambda path: {"identity": real_identity(),
+                                     "schema_version": GPAT_CHECKPOINT_SCHEMA_VERSION})
+
+    def fake_load_checkpoint(path, *, expected_identity):
+        identity = real_identity()
+        mismatched = [f for f in STRICT_IDENTITY_FIELDS
+                     if f in expected_identity and identity.get(f) != expected_identity[f]]
+        if mismatched:
+            raise CheckpointError(f"refusing to resume: identity mismatch on {mismatched}")
+        return {"identity": identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}]}
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint", fake_load_checkpoint)
 
 
 def test_existing_valid_gpat_fit_lock_already_valid_zero_trainer_calls(tmp_path, monkeypatch):
@@ -2093,6 +2117,12 @@ def test_terminal_lock_written_only_after_checkpoint_validation(tmp_path, monkey
     monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
     monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
                         lambda path: {"identity": dict(fixed_identity)})
+    # Bypasses the strict expected_identity check itself (tested separately) so this test
+    # isolates the SPECIFIC comparison of best_payload.identity vs fit_result["identity"].
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint",
+                        lambda path, *, expected_identity: {"identity": dict(fixed_identity),
+                                                            "record_set_hashes": {},
+                                                            "history": [{"train_total": 0.1}]})
     with pytest.raises(e7g.E7Error, match="best checkpoint identity does not match"):
         e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
     assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
@@ -2172,7 +2202,7 @@ def test_e7abcd_protected_artifacts_unchanged_gpat(tmp_path, monkeypatch):
                      "src/prism_fas/evaluation/c_ext_e7d_source_support.py",
                      "src/prism_fas/synthesis/gpat_trainer.py", "src/prism_fas/synthesis/gpat_model.py",
                      "src/prism_fas/synthesis/gpat_losses.py", "src/prism_fas/synthesis/m8_pipeline.py",
-                     "src/prism_fas/synthesis/pair_plan.py"):
+                     "src/prism_fas/synthesis/pair_plan.py", "src/prism_fas/synthesis/gpat_checkpoint.py"):
         committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
                                   capture_output=True, text=True).stdout
         on_disk = (REPO / relative).read_text(encoding="utf-8")
@@ -2189,3 +2219,378 @@ def test_readiness_reports_per_fold_gpat_fitted(tmp_path, monkeypatch):
     readiness = e7g.build_readiness(repo)
     assert readiness["F1_GPAT_FITTED"] is False
     assert readiness["E7_READY_FOR_TRAINING"] is False
+
+
+# =========================================================================== #
+# TECHNICAL_GPAT_VALIDATION_AND_PROVENANCE_GAP fix (GAPs 1-5).
+# =========================================================================== #
+
+def _corrupt_pair_manifest_row(repo: Path, fold_id: str, *, partition: str, field: str, value) -> None:
+    """Test-only helper: rewrites ONE field of ONE row in the on-disk pair
+    manifest, reusing pair_plan's own `_write_parquet`/`_PAIR_FIELDS`
+    (never reimplementing the parquet schema)."""
+    from prism_fas.synthesis import pair_plan
+
+    output_root = repo / e7g.GPAT_PAIR_PLAN_ROOT / fold_id
+    path = output_root / f"pair_manifest_{partition}.parquet"
+    rows = pair_plan.load_pair_manifest(path)
+    rows[0] = {**rows[0], field: value}
+    pair_plan._write_parquet(path, rows)
+
+
+# --- GAP 1: pair-plan identity TRUE recomputation --------------------------------------
+
+def test_pair_plan_identity_recomputed_not_echoed(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    from prism_fas.synthesis import pair_plan
+
+    # The OLD echo function is never relied upon any more -- corrupting it must not affect
+    # a genuinely-valid plan's validation result.
+    monkeypatch.setattr(pair_plan, "pair_plan_identity", lambda output_root: "corrupted-echo")
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+    assert validation["recomputed_pair_plan_identity"] != "corrupted-echo"
+
+
+def test_pair_manifest_content_corruption_recipe_id_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    _corrupt_pair_manifest_row(repo, "EXT-F1", partition="train", field="recipe_id",
+                               value="corrupted_recipe")
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    # The corrupted bytes live only in the on-disk parquet manifest (never in the untouched
+    # PAIR_PLAN_LOCK.json), so this is caught by the direct rebuild-vs-disk CONTENT comparison,
+    # not necessarily by the lock's own identity field -- either way, status must be INVALID.
+    assert validation["status"] == "INVALID"
+    assert any("content" in p.lower() for p in validation["problems"])
+
+
+def test_pair_manifest_content_corruption_pair_id_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    _corrupt_pair_manifest_row(repo, "EXT-F1", partition="train", field="pair_id",
+                               value="gpatpair_corrupted00000000")
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+
+
+def test_pair_manifest_content_corruption_recipe_seed_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    from prism_fas.synthesis import pair_plan
+
+    output_root = repo / e7g.GPAT_PAIR_PLAN_ROOT / "EXT-F1"
+    rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_train.parquet")
+    rows[0] = {**rows[0], "recipe_seed": int(rows[0]["recipe_seed"]) + 1}
+    pair_plan._write_parquet(output_root / "pair_manifest_train.parquet", rows)
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+
+
+def test_pair_manifest_row_content_corruption_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    from prism_fas.synthesis import pair_plan
+
+    output_root = repo / e7g.GPAT_PAIR_PLAN_ROOT / "EXT-F1"
+    rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_train.parquet")
+    flipped = "cross_domain" if rows[0]["domain_relation"] == "same_domain" else "same_domain"
+    rows[0] = {**rows[0], "domain_relation": flipped}
+    pair_plan._write_parquet(output_root / "pair_manifest_train.parquet", rows)
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+
+
+def test_pair_plan_lock_identity_bearing_field_corruption_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    lock_path = repo / e7g.GPAT_PAIR_PLAN_ROOT / "EXT-F1" / "PAIR_PLAN_LOCK.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["train_pairs"] = lock["train_pairs"] + 1
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("train_pairs" in p for p in validation["problems"])
+
+
+# --- GAP 2: subject_id authority strictly bound ------------------------------------------
+
+def _mutate_gpat_input_row(repo: Path, fold_id: str, *, predicate, field: str, value) -> None:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    manifest_path = repo / e7g.GPAT_INPUT_ROOT / fold_id / "manifests" / "source_train.parquet"
+    rows = pq.read_table(manifest_path).to_pylist()
+    mutated = False
+    for row in rows:
+        if predicate(row):
+            row[field] = value
+            mutated = True
+            break
+    assert mutated, "predicate matched no row -- fixture assumption broken"
+    pq.write_table(pa.Table.from_pylist(rows), manifest_path)
+
+
+def test_m3b_subject_authority_mutation_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    _mutate_gpat_input_row(repo, "EXT-F1", predicate=lambda r: r["dataset"] == "casia_fasd",
+                           field="subject_id", value="fabricated_subject")
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("subject_id" in p for p in validation["problems"])
+
+
+def test_siw_subject_fabrication_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    _mutate_gpat_input_row(repo, "EXT-F2", predicate=lambda r: r["dataset"] == "siw_mv2",
+                           field="subject_id", value="fabricated_siw_subject")
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F2")
+    assert validation["status"] == "INVALID"
+    assert any("subject_id" in p for p in validation["problems"])
+
+
+def test_source_record_id_swap_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    _mutate_gpat_input_row(repo, "EXT-F1", predicate=lambda r: r["dataset"] == "casia_fasd",
+                           field="source_record_id", value="swapped_record_id")
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("source_record_id" in p for p in validation["problems"])
+
+
+def test_label_swap_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    _mutate_gpat_input_row(repo, "EXT-F1", predicate=lambda r: r["label_live_spoof"] == "live",
+                           field="label_live_spoof", value="spoof")
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("label_live_spoof" in p for p in validation["problems"])
+
+
+def test_subject_id_included_in_package_identity():
+    common = dict(fold_id="EXT-F1", e7d_package_identity="e7d", m3b_package_identity="m3b",
+                 siw_source_prior_package_identity=None, base_config_sha256="cfg", m7_bank_identity="bank")
+    identity_a = e7g.compute_gpat_input_package_identity(
+        rows=[("casia_fasd", "rec1", "subj_a", "live", "source_train", "c" * 64, "p" * 64)], **common)
+    identity_b = e7g.compute_gpat_input_package_identity(
+        rows=[("casia_fasd", "rec1", "subj_b", "live", "source_train", "c" * 64, "p" * 64)], **common)
+    assert identity_a != identity_b
+
+
+# --- GAP 3: terminal lock revalidates against CURRENT state --------------------------------
+
+def test_terminal_lock_rejects_current_package_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["package_identity"] = "drifted-package-identity"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("package identity" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_current_pair_plan_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["pair_plan_identity"] = "drifted-pair-plan-identity"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("pair-plan identity" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_effective_config_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["effective_config_hash"] = "drifted-effective-config-hash"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("effective_config_hash" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_last_checkpoint_identity_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, STRICT_IDENTITY_FIELDS
+
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    good_identity = {"package_identity": lock["package_identity"],
+                     "recipe_bank_identity": lock["m7_recipe_bank_identity"],
+                     "pair_plan_identity": lock["pair_plan_identity"],
+                     "config_hash": lock["effective_config_hash"],
+                     "architecture_hash": lock["architecture_hash"],
+                     "adaface_weight_sha256": lock["adaface_weight_sha256"]}
+
+    def selective_load_checkpoint(path, *, expected_identity):
+        if str(path).endswith("last.pt"):
+            raise CheckpointError("refusing to resume: identity mismatch on ['package_identity']")
+        return {"identity": good_identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}]}
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint", selective_load_checkpoint)
+    from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
+                        lambda path: {"identity": good_identity,
+                                     "schema_version": GPAT_CHECKPOINT_SCHEMA_VERSION})
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("last checkpoint FAILED strict identity load" in p for p in validation["problems"])
+
+
+# --- GAP 4: post-fit validation before the terminal marker ---------------------------------
+
+def test_nonfinite_history_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+
+    class _NonFiniteTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            result = super().fit(run_id=run_id, progress=progress, resume=resume)
+            result["history"] = [{"train_total": 0.1, "some_other_metric": float("nan")}]
+            return result
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _NonFiniteTrainer)
+    with pytest.raises(e7g.E7Error, match="non-finite"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+def test_forbidden_source_audit_flag_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+
+    class _LeakyTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            result = super().fit(run_id=run_id, progress=progress, resume=resume)
+            result["source_isolation"] = {"source_dev_opened": False, "target_test_opened": False,
+                                          "target_label_artifact_opened": True,
+                                          "raw_dataset_path_opened": False}
+            return result
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _LeakyTrainer)
+    with pytest.raises(e7g.E7Error, match="forbidden open"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+def test_forbidden_manifest_access_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+
+    class _NonTrainManifestTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            result = super().fit(run_id=run_id, progress=progress, resume=resume)
+            result["source_isolation"] = {"source_dev_opened": False, "target_test_opened": False,
+                                          "manifests_opened": ["manifests/source_dev.parquet"]}
+            return result
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _NonTrainManifestTrainer)
+    with pytest.raises(e7g.E7Error, match="non-source_train manifest"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+def test_checkpoint_disk_sha_independently_verified(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+
+    class _WrongShaTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            result = super().fit(run_id=run_id, progress=progress, resume=resume)
+            result["checkpoints"] = {**result["checkpoints"], "best_sha256": "0" * 64}
+            return result
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _WrongShaTrainer)
+    with pytest.raises(e7g.E7Error, match="on-disk SHA256"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+# --- GAP 5: GPU implementation-commit provenance --------------------------------------------
+
+def test_gpu_implementation_commit_sha_mismatch_detected():
+    import os
+
+    old = os.environ.get("PRISM_E7_IMPLEMENTATION_COMMIT")
+    try:
+        # The module file on disk right now (mid-session edits) cannot possibly be
+        # byte-identical to its content at the pre-session BASE_COMMIT.
+        os.environ["PRISM_E7_IMPLEMENTATION_COMMIT"] = "04295804479747488ebfa7edaeb49d1a35dac89b"
+        with pytest.raises(e7g.E7Error, match="does NOT match"):
+            e7g.resolve_implementation_commit_provenance(REPO)
+    finally:
+        if old is None:
+            os.environ.pop("PRISM_E7_IMPLEMENTATION_COMMIT", None)
+        else:
+            os.environ["PRISM_E7_IMPLEMENTATION_COMMIT"] = old
+
+
+def test_gpu_implementation_module_sha_match_required_env_missing():
+    import os
+
+    old = os.environ.pop("PRISM_E7_IMPLEMENTATION_COMMIT", None)
+    try:
+        with pytest.raises(e7g.E7Error, match="PRISM_E7_IMPLEMENTATION_COMMIT is not set"):
+            e7g.resolve_implementation_commit_provenance(REPO)
+    finally:
+        if old is not None:
+            os.environ["PRISM_E7_IMPLEMENTATION_COMMIT"] = old
+
+
+def test_gpu_provenance_gate_not_required_before_capability_gate(tmp_path, monkeypatch):
+    import os
+
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    old = os.environ.pop("PRISM_E7_IMPLEMENTATION_COMMIT", None)
+    try:
+        # GPU capability is NOT patched here -- the real capability gate must fail FIRST,
+        # never the provenance gate, so laptop GPU_REQUIRED behavior is unaffected.
+        with pytest.raises(e7g.E7Error, match="GPU_REQUIRED"):
+            e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    finally:
+        if old is not None:
+            os.environ["PRISM_E7_IMPLEMENTATION_COMMIT"] = old
+
+
+def test_gpat_fit_lock_carries_provenance_fields_not_repo_head(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock = result["lock"]
+    assert lock["repository_head_commit"] == _FIXED_IMPLEMENTATION_PROVENANCE["repository_head_commit"]
+    assert lock["implementation_commit"] == _FIXED_IMPLEMENTATION_PROVENANCE["implementation_commit"]
+    assert lock["implementation_module_sha256"] == \
+        _FIXED_IMPLEMENTATION_PROVENANCE["implementation_module_sha256"]
+    assert "code_checkpoint" not in lock  # never falsely calls repository HEAD the impl checkpoint
