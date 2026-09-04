@@ -142,6 +142,12 @@ SIW_SOURCE_PRIOR_M3B_PACKAGE_ID = "prism_data_v1_m3b_ext_siw_source_v1"
 M3A_INPUT_BINDING_FILENAME = "E7_M3A_INPUT_BINDING.json"
 EXPECTED_SIW_TRAIN_SUCCESS_COUNT = FROZEN_SIW_CROP_ACCOUNTING["train_success"]  # == 5426
 EXPECTED_SIW_DEV_SUCCESS_COUNT = FROZEN_SIW_CROP_ACCOUNTING["dev_success"]  # == 1350
+#: `prism_fas.data.package.config.PACKAGE_SCHEMA_VERSION` frozen literal, reused as a plain
+#: string here so the identity binding never has to import the config module.
+M3A_PACKAGE_SCHEMA_VERSION = "m3a-v1"
+#: The two folds that actually carry a SiW source domain -- the SHARED SiW authority is
+#: cross-checked against BOTH, independent of which one a command was invoked with.
+SIW_SHARING_FOLD_IDS = ("EXT-F2", "EXT-F3")
 
 #: The ONLY existing on-disk SiW prior material (`prism_target_eval_v2`) is
 #: architecturally bound as F1's held-out TARGET-feature package (real,
@@ -509,23 +515,19 @@ def compute_siw_source_prior_package_identity(rows: list[dict[str, Any]]) -> str
     return cc.sha256_bytes(cc.canonical_json_bytes(material))
 
 
-def validate_source_priors(repo: Path, fold_id: str) -> dict[str, Any]:
-    """STRICT, read-only validator for the shared SiW-as-source prior
-    package. F2 and F3 both validate the exact SAME on-disk package. Never
-    alters package bytes."""
-    if fold_id not in FOLD_IDS:
-        raise E7Error(f"unknown fold_id {fold_id!r}")
-    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
-        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
-               "status": "NOT_APPLICABLE"}
-    package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
-    if not package_path.is_file():
-        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
-               "status": "NOT_MATERIALIZED"}
-
+def _validate_siw_source_prior_rows(repo: Path, fold_id: str, rows: list[dict[str, Any]],
+                                    recorded_package_identity: str | None) -> dict[str, Any]:
+    """The SUBSTANTIVE validation shared by both the strict on-disk
+    validator (`validate_source_priors`) and the pre-write CANDIDATE
+    validator (`validate_source_prior_candidate`) -- identical checks
+    either way: row_count, duplicate-key absence, every source crop/prior
+    exists on disk with the exact SHA, full required M3B prior keys, the
+    target firewall, and package-identity recomputation. By the time this
+    runs the candidate's crop/prior BYTES already exist on disk (written by
+    the real `build_m3b_package` call) -- the ONLY thing that may not yet
+    exist is the terminal `SIW_SOURCE_PRIOR_PACKAGE.json` marker itself,
+    which this function never reads or requires. Never writes."""
     problems: list[str] = []
-    body = cc.read_json(package_path)
-    rows = body.get("rows", [])
     if len(rows) != EXPECTED_SIW_SUCCESS_CROP_COUNT:
         problems.append(f"row_count {len(rows)} != expected {EXPECTED_SIW_SUCCESS_CROP_COUNT}")
 
@@ -586,21 +588,59 @@ def validate_source_priors(repo: Path, fold_id: str) -> dict[str, Any]:
                     problems.append(f"prior file {rel!r} missing required keys: {sorted(missing_keys)}")
 
     recomputed_identity = compute_siw_source_prior_package_identity(rows)
-    identity_match = recomputed_identity == body.get("package_identity")
+    identity_match = recomputed_identity == recorded_package_identity
     if not identity_match:
         problems.append(f"recomputed package_identity {recomputed_identity!r} != recorded "
-                        f"{body.get('package_identity')!r}")
+                        f"{recorded_package_identity!r}")
 
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
         "status": "INVALID" if problems else "VALID", "problems": problems,
         "row_count": len(rows), "expected_row_count": EXPECTED_SIW_SUCCESS_CROP_COUNT,
         "crop_rows_verified": crop_rows_verified, "missing_crops": missing_crops,
         "bad_crop_hashes": bad_crop_hashes, "missing_prior_files": missing_priors,
-        "bad_prior_hashes": bad_prior_hashes, "package_identity": body.get("package_identity"),
+        "bad_prior_hashes": bad_prior_hashes, "package_identity": recorded_package_identity,
         "recomputed_package_identity": recomputed_identity, "package_identity_match": identity_match,
         "target_access": False, "llm_api_calls": 0,
     }
+
+
+def validate_source_priors(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only validator for the ON-DISK shared SiW-as-source
+    prior package (the written `SIW_SOURCE_PRIOR_PACKAGE.json` terminal
+    marker). F2 and F3 both validate the exact SAME on-disk package. Never
+    alters package bytes."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
+               "status": "NOT_APPLICABLE"}
+    package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    if not package_path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
+               "status": "NOT_MATERIALIZED"}
+
+    body = cc.read_json(package_path)
+    rows = body.get("rows", [])
+    result = _validate_siw_source_prior_rows(repo, fold_id, rows, body.get("package_identity"))
+    return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id, **result}
+
+
+def validate_source_prior_candidate(repo: Path, fold_id: str, rows: list[dict[str, Any]],
+                                    package_identity: str) -> dict[str, Any]:
+    """STRICT, read-only validator for CANDIDATE rows/identity -- performs
+    the EXACT SAME substantive checks as `validate_source_priors`, but
+    BEFORE `SIW_SOURCE_PRIOR_PACKAGE.json` exists (never reads or requires
+    the terminal marker). This is what `prepare_source_priors` MUST call,
+    and MUST see return VALID, before it is ever allowed to write that
+    marker -- a failure here leaves no terminal marker at all."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        raise E7Error(f"{fold_id} has no SiW source domain -- candidate validation is "
+                      "NOT_APPLICABLE for this fold")
+    result = _validate_siw_source_prior_rows(repo, fold_id, rows, package_identity)
+    return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-candidate-validate-v1",
+           "fold_id": fold_id, **result}
 
 
 def _m3a_sample_id(source_video_id: Any, frame_index: Any) -> str:
@@ -691,24 +731,102 @@ def _load_siw_m2_crop_index(repo: Path) -> dict[tuple[Any, Any], dict[str, Any]]
     return index
 
 
-def compute_m3a_input_package_identity(fold_id: str, *, e7d_package_identity: str | None,
+def _canonicalize_siw_row(row: dict[str, Any]) -> tuple[Any, ...]:
+    """The canonical, comparable tuple for one E7-D authoritative SiW row --
+    used both to assert F2/F3 population equality and as the per-row
+    material a fold-order-independent identity is built from."""
+    return (row.get("source_video_id"), row.get("frame_index"), row.get("project_split"),
+           row.get("label_live_spoof"), row.get("crop_relative_path"), row.get("crop_sha256"))
+
+
+def load_siw_shared_source_authority(repo: Path) -> dict[str, Any]:
+    """Loads E7-D's authoritative SiW rows from BOTH EXT-F2 and EXT-F3,
+    canonicalizes each, and asserts they are IDENTICAL -- F2 and F3 share
+    ONE SiW source population, so neither fold may ever be treated as
+    authority over the other, and no command's invocation order may be
+    allowed to change which rows the shared package is built from.
+
+    FAILS CLOSED (raises `E7Error`) if the two folds' canonical SiW
+    populations differ at all, or if either fold's E7-D authority is not
+    yet materialized. Returns a fold-order-independent identity plus the
+    canonical merged row set."""
+    per_fold_canonical: dict[str, set[tuple[Any, ...]]] = {}
+    for fold_id in SIW_SHARING_FOLD_IDS:
+        train, dev = _load_e7d_authoritative_siw_rows(repo, fold_id)
+        rows = ([{**r, "project_split": "source_train"} for r in train] +
+                [{**r, "project_split": "source_dev"} for r in dev])
+        per_fold_canonical[fold_id] = {_canonicalize_siw_row(r) for r in rows}
+
+    f2_canonical = per_fold_canonical["EXT-F2"]
+    f3_canonical = per_fold_canonical["EXT-F3"]
+    if f2_canonical != f3_canonical:
+        only_f2 = sorted(f2_canonical - f3_canonical)
+        only_f3 = sorted(f3_canonical - f2_canonical)
+        raise E7Error(f"EXT-F2 and EXT-F3 authoritative SiW source populations DIFFER -- FAIL "
+                      f"CLOSED (never choosing one fold as authority): {len(only_f2)} row(s) only "
+                      f"in EXT-F2, {len(only_f3)} row(s) only in EXT-F3 -- first divergent "
+                      f"examples: only_f2={only_f2[:3]!r}, only_f3={only_f3[:3]!r}")
+
+    canonical_rows = sorted(f2_canonical)
+    train_count = sum(1 for r in canonical_rows if r[2] == "source_train")
+    dev_count = sum(1 for r in canonical_rows if r[2] == "source_dev")
+    if train_count != EXPECTED_SIW_TRAIN_SUCCESS_COUNT or dev_count != EXPECTED_SIW_DEV_SUCCESS_COUNT:
+        raise E7Error(f"canonical shared SiW authority counts train={train_count} dev={dev_count} "
+                      f"!= expected train={EXPECTED_SIW_TRAIN_SUCCESS_COUNT} "
+                      f"dev={EXPECTED_SIW_DEV_SUCCESS_COUNT} -- FAIL CLOSED")
+
+    e7d_fold_package_identities = {}
+    for fold_id in SIW_SHARING_FOLD_IDS:
+        binding_path = repo / e7d.E7D_OUTPUT_ROOT / fold_id / "SOURCE_SUPPORT_PACKAGE.json"
+        e7d_fold_package_identities[fold_id] = (cc.read_json(binding_path).get("package_identity")
+                                                if binding_path.is_file() else None)
+
+    # `e7d_fold_package_identities` is bound as SORTED provenance only (canonical_json_bytes
+    # sorts keys) -- it documents which two frozen E7-D packages agreed, it never determines
+    # the identity by itself and never depends on which fold a command was invoked with.
+    material = {
+        "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
+        "e7a_siw_split_identity": e7c.FROZEN_E7B["siw_split_identity"],
+        "e7d_fold_package_identities": e7d_fold_package_identities,
+        "canonical_row_material": canonical_rows,
+    }
+    identity = cc.sha256_bytes(cc.canonical_json_bytes(material))
+    return {"identity": identity, "row_count": len(canonical_rows), "train_count": train_count,
+           "dev_count": dev_count, "e7d_fold_package_identities": e7d_fold_package_identities,
+           "rows": [{"source_video_id": r[0], "frame_index": r[1], "project_split": r[2],
+                    "label_live_spoof": r[3], "crop_relative_path": r[4], "crop_sha256": r[5]}
+                   for r in canonical_rows]}
+
+
+def compute_m3a_input_package_identity(*, shared_authority_identity: str | None,
+                                       m3a_config_identity: str | None,
                                        rows: list[dict[str, Any]]) -> str:
     """Deterministic identity over CANONICAL METADATA only -- no absolute
-    paths, no timestamps, no hostname. Binds E7-B SiW source package
-    identity, E7-D source support / E7-A split identity, the frozen M3A
-    package config identity, and the sorted per-row (source_video_id,
-    frame_index, project_split, crop_sha256, preprocessing_config_hash,
-    detector_model_sha256) material."""
+    paths, no timestamps, no hostname, and DELIBERATELY no per-fold E7-D
+    whole-package identity (EXT-F2's and EXT-F3's differ by construction,
+    since each fold's own E7-D package also carries a different non-SiW
+    source domain) -- fold-order independence is structural here: this
+    function does not accept a `fold_id` at all, only the already
+    fold-order-independent `SIW_SHARED_SOURCE_AUTHORITY_IDENTITY` (see
+    `load_siw_shared_source_authority`). Binds E7-B SiW source package
+    identity, E7-A split identity, the shared SiW authority identity, the
+    frozen M3A schema version, the actual M3A package config identity,
+    E7-B's own frozen preprocessing-config/detector-model identity, and the
+    sorted per-row (source_video_id, frame_index, project_split,
+    label_live_spoof, crop_sha256, base_prior_sha256) material."""
     row_material = sorted(
         (r.get("source_video_id"), r.get("frame_index"), r.get("project_split"),
-         r.get("crop_sha256"), r.get("preprocessing_config_hash"), r.get("detector_model_sha256"))
+         r.get("label_live_spoof"), r.get("crop_sha256"), r.get("base_prior_sha256"))
         for r in rows)
     material = {
         "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
-        "e7d_source_support_package_identity": e7d_package_identity,
         "e7a_siw_split_identity": e7c.FROZEN_E7B["siw_split_identity"],
+        "siw_shared_source_authority_identity": shared_authority_identity,
         "m3a_input_package_id": SIW_SOURCE_M3A_INPUT_PACKAGE_ID,
-        "m3a_package_config_path": M3A_PACKAGE_CONFIG_PATH,
+        "m3a_schema_version": M3A_PACKAGE_SCHEMA_VERSION,
+        "m3a_package_config_identity": m3a_config_identity,
+        "e7b_preprocessing_config_hash": e7c.FROZEN_E7B["preprocessing_config_hash"],
+        "e7b_detector_model_sha256": e7c.FROZEN_E7B["detector_model_sha256"],
         "row_material": row_material,
     }
     return cc.sha256_bytes(cc.canonical_json_bytes(material))
@@ -760,50 +878,44 @@ def materialize_m3a_input_package(repo: Path, fold_id: str, *, authorize: bool =
         # status is still "building" (e.g. a crashed prior attempt) -- fall through and
         # resume via build_priors()'s own reuse logic; NEVER report ALREADY_VALID for this.
 
-    siw_binding_path = repo / e7d.E7D_OUTPUT_ROOT / fold_id / "SOURCE_SUPPORT_PACKAGE.json"
-    e7d_package_identity = (cc.read_json(siw_binding_path).get("package_identity")
-                            if siw_binding_path.is_file() else None)
-
-    train_e7d, dev_e7d = _load_e7d_authoritative_siw_rows(repo, fold_id)
-    if len(train_e7d) != EXPECTED_SIW_TRAIN_SUCCESS_COUNT or len(dev_e7d) != EXPECTED_SIW_DEV_SUCCESS_COUNT:
-        raise E7Error(f"{fold_id}: E7-D authoritative SiW row counts train={len(train_e7d)} "
-                      f"dev={len(dev_e7d)} != expected train={EXPECTED_SIW_TRAIN_SUCCESS_COUNT} "
-                      f"dev={EXPECTED_SIW_DEV_SUCCESS_COUNT} -- FAIL CLOSED")
+    # The shared SiW authority is loaded from BOTH EXT-F2 and EXT-F3's E7-D rows and asserted
+    # identical -- this fold's own identity/content is NEVER used alone; invocation order can
+    # never change which rows the shared package is built from (GAP 2 fix).
+    authority = load_siw_shared_source_authority(repo)
     crop_index = _load_siw_m2_crop_index(repo)
 
     samples: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
-    for project_split, e7d_rows in (("source_train", train_e7d), ("source_dev", dev_e7d)):
-        for row in e7d_rows:
-            key = (row.get("source_video_id"), row.get("frame_index"))
-            crop = crop_index.get(key)
-            if crop is None:
-                raise E7Error(f"{fold_id}: SiW crop for {key!r} not present in E7-B m2_run crop "
-                              "manifest -- FAIL CLOSED")
-            if crop.get("crop_relative_path") != row.get("crop_relative_path") or \
-                    crop.get("crop_sha256") != row.get("crop_sha256"):
-                raise E7Error(f"{fold_id}: E7-D authoritative row for {key!r} disagrees with the "
-                              "real M2 crop manifest -- FAIL CLOSED")
-            candidate_ref = f"{e7b.E7B_SIW_SOURCE_PACKAGE_ROOT}/m2_run/{crop['crop_relative_path']}"
-            assert_not_target_path(fold_id, candidate_ref)
-            crop_path = m2_root / crop["crop_relative_path"]
-            if not crop_path.is_file():
-                raise E7Error(f"{fold_id}: SiW crop missing on disk: "
-                              f"{crop['crop_relative_path']!r} -- FAIL CLOSED")
-            if cc.sha256_file(crop_path) != crop["crop_sha256"]:
-                raise E7Error(f"{fold_id}: SiW crop SHA256 mismatch on disk: "
-                              f"{crop['crop_relative_path']!r} -- FAIL CLOSED")
-            sample_id = _m3a_sample_id(*key)
-            if sample_id in seen_ids:
-                raise E7Error(f"{fold_id}: duplicate derived sample_id for {key!r} -- FAIL CLOSED")
-            seen_ids.add(sample_id)
-            samples.append({**crop, "sample_id": sample_id, "dataset": "siw_mv2",
-                            "dataset_role": "source",
-                            "official_split": e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER,
-                            "subject_id": None, "label_live_spoof": row.get("label_live_spoof"),
-                            "_e7_project_split": project_split,
-                            "_e7_source_video_id": key[0], "_e7_frame_index": key[1]})
+    for row in authority["rows"]:
+        key = (row["source_video_id"], row["frame_index"])
+        crop = crop_index.get(key)
+        if crop is None:
+            raise E7Error(f"SiW crop for {key!r} not present in E7-B m2_run crop manifest -- "
+                          "FAIL CLOSED")
+        if crop.get("crop_relative_path") != row["crop_relative_path"] or \
+                crop.get("crop_sha256") != row["crop_sha256"]:
+            raise E7Error(f"canonical shared SiW authority row for {key!r} disagrees with the "
+                          "real M2 crop manifest -- FAIL CLOSED")
+        candidate_ref = f"{e7b.E7B_SIW_SOURCE_PACKAGE_ROOT}/m2_run/{crop['crop_relative_path']}"
+        for check_fold_id in SIW_SHARING_FOLD_IDS:
+            assert_not_target_path(check_fold_id, candidate_ref)
+        crop_path = m2_root / crop["crop_relative_path"]
+        if not crop_path.is_file():
+            raise E7Error(f"SiW crop missing on disk: {crop['crop_relative_path']!r} -- FAIL CLOSED")
+        if cc.sha256_file(crop_path) != crop["crop_sha256"]:
+            raise E7Error(f"SiW crop SHA256 mismatch on disk: {crop['crop_relative_path']!r} -- "
+                          "FAIL CLOSED")
+        sample_id = _m3a_sample_id(*key)
+        if sample_id in seen_ids:
+            raise E7Error(f"duplicate derived sample_id for {key!r} -- FAIL CLOSED")
+        seen_ids.add(sample_id)
+        samples.append({**crop, "sample_id": sample_id, "dataset": "siw_mv2",
+                        "dataset_role": "source",
+                        "official_split": e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER,
+                        "subject_id": None, "label_live_spoof": row["label_live_spoof"],
+                        "_e7_project_split": row["project_split"],
+                        "_e7_source_video_id": key[0], "_e7_frame_index": key[1]})
 
     config = _m3a_package_config(repo)
     package_root.mkdir(parents=True, exist_ok=True)
@@ -847,11 +959,14 @@ def materialize_m3a_input_package(repo: Path, fold_id: str, *, authorize: bool =
                                                    "label_live_spoof": sample["label_live_spoof"]})
         binding_rows.append({"sample_id": sample_id, "source_video_id": sample["_e7_source_video_id"],
                              "frame_index": sample["_e7_frame_index"],
+                             "project_split": row["project_split"],
+                             "label_live_spoof": sample["label_live_spoof"],
                              "crop_relative_path": sample["crop_relative_path"],
                              "crop_sha256": sample["crop_sha256"],
+                             "base_prior_relative_path": prior["prior_relative_path"],
+                             "base_prior_sha256": prior["prior_sha256"],
                              "preprocessing_config_hash": sample["preprocessing_config_hash"],
-                             "detector_model_sha256": sample["detector_model_sha256"],
-                             "project_split": row["project_split"]})
+                             "detector_model_sha256": sample["detector_model_sha256"]})
 
     hashes = {}
     hashes["samples"] = write_manifest(package_root / "manifests" / "samples.parquet", sample_rows,
@@ -897,13 +1012,20 @@ def materialize_m3a_input_package(repo: Path, fold_id: str, *, authorize: bool =
                       f"{report['errors']!r}")
 
     m3a_input_package_identity = compute_m3a_input_package_identity(
-        fold_id, e7d_package_identity=e7d_package_identity, rows=binding_rows)
+        shared_authority_identity=authority["identity"], m3a_config_identity=config.config_hash,
+        rows=binding_rows)
     lock = cc.read_json(lock_path)
     atomic_json_write(package_root / M3A_INPUT_BINDING_FILENAME, {
-        "schema_version": f"{SCHEMA_PREFIX}-m3a-input-binding-v1", "fold_id": fold_id,
+        "schema_version": f"{SCHEMA_PREFIX}-m3a-input-binding-v2",
+        # `fold_id` records ONLY which invocation happened to perform this materialization --
+        # it is provenance, never authority: the identity/content above are IDENTICAL whichever
+        # of EXT-F2/EXT-F3 this was invoked with.
+        "materializing_fold_id": fold_id,
         "m3a_input_package_identity": m3a_input_package_identity,
         "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
-        "e7d_source_support_package_identity": e7d_package_identity,
+        "siw_shared_source_authority_identity": authority["identity"],
+        "e7d_fold_package_identities": authority["e7d_fold_package_identities"],
+        "m3a_package_config_identity": config.config_hash,
         "package_lock_content_identity": lock.get("content_identity_sha256"),
         "official_split_placeholder": e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER,
         "rows": binding_rows})
@@ -1024,8 +1146,42 @@ def validate_m3a_input_package(repo: Path, fold_id: str) -> dict[str, Any]:
         elif cc.sha256_file(crop_path) != row.get("crop_sha256"):
             problems.append(f"binding row {key!r}: source crop SHA256 mismatch: {rel!r}")
 
+    # Never merely trust the binding file's own stored rows: reload THIS fold's own E7-D
+    # authoritative SiW rows, canonicalize, and require EXACT equality with the binding
+    # population. A package that only "looks" shared but was silently built from one fold's
+    # rows must fail validation from the OTHER fold.
+    fold_train_e7d, fold_dev_e7d = _load_e7d_authoritative_siw_rows(repo, fold_id)
+    fold_canonical = ({_canonicalize_siw_row({**r, "project_split": "source_train"})
+                       for r in fold_train_e7d} |
+                      {_canonicalize_siw_row({**r, "project_split": "source_dev"})
+                       for r in fold_dev_e7d})
+    binding_canonical = {_canonicalize_siw_row(r) for r in rows}
+    if fold_canonical != binding_canonical:
+        only_fold = sorted(fold_canonical - binding_canonical)
+        only_binding = sorted(binding_canonical - fold_canonical)
+        problems.append(f"{fold_id}'s own E7-D authoritative SiW population does not exactly "
+                        f"equal the shared M3A binding population -- {len(only_fold)} row(s) "
+                        f"only in {fold_id}'s own authority, {len(only_binding)} row(s) only in "
+                        f"the binding (first examples: only_fold={only_fold[:3]!r}, "
+                        f"only_binding={only_binding[:3]!r})")
+
+    try:
+        fresh_authority = load_siw_shared_source_authority(repo)
+        fresh_authority_identity = fresh_authority["identity"]
+    except E7Error as exc:
+        problems.append(f"fresh SIW_SHARED_SOURCE_AUTHORITY_IDENTITY recomputation failed: {exc}")
+        fresh_authority_identity = None
+    if fresh_authority_identity is not None and \
+            fresh_authority_identity != binding.get("siw_shared_source_authority_identity"):
+        problems.append(f"recomputed SIW_SHARED_SOURCE_AUTHORITY_IDENTITY {fresh_authority_identity!r} "
+                        f"!= binding's recorded "
+                        f"{binding.get('siw_shared_source_authority_identity')!r} -- E7-D "
+                        "authoritative data has changed since materialization")
+
+    fresh_config_identity = _m3a_package_config(repo).config_hash
     recomputed_identity = compute_m3a_input_package_identity(
-        fold_id, e7d_package_identity=binding.get("e7d_source_support_package_identity"), rows=rows)
+        shared_authority_identity=fresh_authority_identity, m3a_config_identity=fresh_config_identity,
+        rows=rows)
     identity_match = recomputed_identity == binding.get("m3a_input_package_identity")
     if not identity_match:
         problems.append(f"recomputed m3a_input_package_identity {recomputed_identity!r} != "
@@ -1165,8 +1321,20 @@ def prepare_source_priors(repo: Path, fold_id: str, *, authorize: bool = False) 
 
     rows = _derive_siw_source_prior_rows(repo)
     package_identity = compute_siw_source_prior_package_identity(rows)
+
+    # STRICTLY validate the CANDIDATE rows/identity BEFORE the terminal marker is ever written
+    # (GAP 1 fix) -- a failure here leaves NO SIW_SOURCE_PRIOR_PACKAGE.json on disk at all,
+    # never a partially-valid/invalid marker.
+    candidate_validation = validate_source_prior_candidate(repo, fold_id, rows, package_identity)
+    if candidate_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: candidate SiW source-prior rows FAILED strict validation -- "
+                      f"refusing to write the terminal marker: "
+                      f"{candidate_validation['problems']!r}")
+
     atomic_json_write(package_path, {"schema_version": "siw-source-prior-package-v1",
                                      "package_identity": package_identity, "rows": rows})
+    # Optional read-only post-write validation -- the terminal marker is the literal LAST write
+    # of this transaction; this only re-confirms what step above already established.
     validation = validate_source_priors(repo, fold_id)
     if validation["status"] != "VALID":
         raise E7Error(f"{fold_id}: freshly-written SiW source-prior package FAILED strict "

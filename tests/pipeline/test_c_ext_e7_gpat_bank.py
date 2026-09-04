@@ -778,12 +778,17 @@ def _patch_expected_counts(monkeypatch, *, train: int, dev: int, total: int,
         "spoof_train_success": spoof_train, "live_dev_success": live_dev, "spoof_dev_success": spoof_dev})
 
 
-def _build_full_fixture(tmp_path: Path, monkeypatch, fold_id: str = "EXT-F2") -> Path:
+def _build_full_fixture(tmp_path: Path, monkeypatch) -> Path:
+    """The SHARED SiW authority requires BOTH EXT-F2's and EXT-F3's E7-D
+    rows to exist and agree -- writes the IDENTICAL canonical population to
+    both folds, matching the real invariant (F2 and F3 share one SiW
+    source population)."""
     repo = _base_repo(tmp_path)
     train = [dict(r) for r in _TRAIN_FIXTURE]
     dev = [dict(r) for r in _DEV_FIXTURE]
     _write_siw_m2_fixture(repo, train + dev)
-    _write_e7d_siw_fixture(repo, fold_id, train, dev)
+    for fold_id in ("EXT-F2", "EXT-F3"):
+        _write_e7d_siw_fixture(repo, fold_id, [dict(r) for r in train], [dict(r) for r in dev])
     _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
                            live_dev=1, spoof_dev=0)
     return repo
@@ -861,18 +866,19 @@ def test_terminal_failures_never_enter_m3a_package(tmp_path, monkeypatch):
     train = [dict(r) for r in _TRAIN_FIXTURE]
     dev = [dict(r) for r in _DEV_FIXTURE]
     _write_siw_m2_fixture(repo, train + dev)
-    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F2"
-    fold_root.mkdir(parents=True, exist_ok=True)
-    train_e7d = [_e7d_siw_row("EXT-F2", r) for r in train]
-    dev_e7d = [_e7d_siw_row("EXT-F2", r) for r in dev]
-    # E7-D's OWN source_train.json/source_dev.json never contain a failure row -- terminal
-    # failures live only in terminal_failures.json, which this adapter never reads.
-    (fold_root / "source_train.json").write_text(json.dumps({"rows": train_e7d}), encoding="utf-8")
-    (fold_root / "source_dev.json").write_text(json.dumps({"rows": dev_e7d}), encoding="utf-8")
-    (fold_root / "terminal_failures.json").write_text(
-        json.dumps({"rows": [_e7d_siw_row("EXT-F2", {"video_id": "siwfail", "frame_index": 0,
-                                                      "label_live_spoof": "spoof"}, status="failure")]}),
-        encoding="utf-8")
+    for fold_id in ("EXT-F2", "EXT-F3"):
+        fold_root = repo / e7d.E7D_OUTPUT_ROOT / fold_id
+        fold_root.mkdir(parents=True, exist_ok=True)
+        train_e7d = [_e7d_siw_row(fold_id, r) for r in train]
+        dev_e7d = [_e7d_siw_row(fold_id, r) for r in dev]
+        # E7-D's OWN source_train.json/source_dev.json never contain a failure row -- terminal
+        # failures live only in terminal_failures.json, which this adapter never reads.
+        (fold_root / "source_train.json").write_text(json.dumps({"rows": train_e7d}), encoding="utf-8")
+        (fold_root / "source_dev.json").write_text(json.dumps({"rows": dev_e7d}), encoding="utf-8")
+        (fold_root / "terminal_failures.json").write_text(
+            json.dumps({"rows": [_e7d_siw_row(fold_id, {"video_id": "siwfail", "frame_index": 0,
+                                                         "label_live_spoof": "spoof"}, status="failure")]}),
+            encoding="utf-8")
     _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
                            live_dev=1, spoof_dev=0)
     result = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
@@ -897,7 +903,8 @@ def test_m3a_crop_sha_verified(tmp_path, monkeypatch):
     train = [dict(r) for r in _TRAIN_FIXTURE]
     dev = [dict(r) for r in _DEV_FIXTURE]
     _write_siw_m2_fixture(repo, train + dev, corrupt_sha_for="siwv1")
-    _write_e7d_siw_fixture(repo, "EXT-F2", train, dev)
+    for fold_id in ("EXT-F2", "EXT-F3"):
+        _write_e7d_siw_fixture(repo, fold_id, [dict(r) for r in train], [dict(r) for r in dev])
     _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
                            live_dev=1, spoof_dev=0)
     with pytest.raises(e7g.E7Error, match="disagrees with the real M2 crop manifest"):
@@ -922,9 +929,12 @@ def test_m3a_target_package_never_used(tmp_path, monkeypatch):
     train = [dict(r) for r in _TRAIN_FIXTURE]
     dev = [dict(r) for r in _DEV_FIXTURE]
     _write_siw_m2_fixture(repo, train + dev)
-    _write_e7d_siw_fixture(repo, "EXT-F2",
-                           train, dev,
-                           crop_path_override=f"../../../{e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT}/x.jpg")
+    override = f"../../../{e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT}/x.jpg"
+    for fold_id in ("EXT-F2", "EXT-F3"):
+        # Both folds must agree (even on the malicious override) so the shared-authority
+        # equality check doesn't mask this as a mere population mismatch.
+        _write_e7d_siw_fixture(repo, fold_id, [dict(r) for r in train], [dict(r) for r in dev],
+                               crop_path_override=override)
     _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
                            live_dev=1, spoof_dev=0)
     with pytest.raises(e7g.E7Error):
@@ -936,8 +946,10 @@ def test_m3a_evaluation_only_never_opened(tmp_path, monkeypatch):
     train = [dict(r) for r in _TRAIN_FIXTURE]
     dev = [dict(r) for r in _DEV_FIXTURE]
     _write_siw_m2_fixture(repo, train + dev)
-    _write_e7d_siw_fixture(repo, "EXT-F2", train, dev,
-                           crop_path_override="../../../../data/evaluation_only/x.jpg")
+    override = "../../../../data/evaluation_only/x.jpg"
+    for fold_id in ("EXT-F2", "EXT-F3"):
+        _write_e7d_siw_fixture(repo, fold_id, [dict(r) for r in train], [dict(r) for r in dev],
+                               crop_path_override=override)
     _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
                            live_dev=1, spoof_dev=0)
     with pytest.raises(e7g.E7Error):
@@ -1097,6 +1109,11 @@ def test_siw_source_prior_package_written_last(tmp_path, monkeypatch):
         order.append("compute_identity")
         return "y" * 64
 
+    def fake_candidate_validate(repo_arg, fold_id, rows, package_identity):
+        order.append("candidate_validate")
+        assert not (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).exists()
+        return {"status": "VALID", "problems": []}
+
     monkeypatch.setattr(e7g, "_gpu_prior_generation_capability",
                         lambda repo: {"capable": True, "cuda_available": True,
                                      "weight_root": str(repo / "model_cache"), "problems": []})
@@ -1105,16 +1122,18 @@ def test_siw_source_prior_package_written_last(tmp_path, monkeypatch):
     monkeypatch.setattr("prism_fas.data.package.builder.finalize_lock", fake_finalize_lock)
     monkeypatch.setattr(e7g, "_derive_siw_source_prior_rows", fake_derive_rows)
     monkeypatch.setattr(e7g, "compute_siw_source_prior_package_identity", fake_write_source_prior)
+    monkeypatch.setattr(e7g, "validate_source_prior_candidate", fake_candidate_validate)
     monkeypatch.setattr(e7g, "validate_source_priors",
                         lambda repo, fold_id: {"status": "VALID", "recomputed_package_identity": "y" * 64})
 
     result = e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
     assert result["status"] == "MATERIALIZED"
     # build_m3b_package, THEN pre-finalize validate, THEN finalize_lock, THEN the post-finalize
-    # validate (mirroring cli/main.py's own pre/finalize_lock/report pattern), and only THEN
-    # is the shared prior package derived and its terminal marker written.
+    # validate (mirroring cli/main.py's own pre/finalize_lock/report pattern), THEN the shared
+    # prior rows are derived and the CANDIDATE is strictly validated, and only THEN is the
+    # terminal marker ever written.
     assert order == ["build_m3b_package", "validate_package", "finalize_lock", "validate_package",
-                     "derive_rows", "compute_identity"]
+                     "derive_rows", "compute_identity", "candidate_validate"]
     assert (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).is_file()
 
 
@@ -1209,3 +1228,306 @@ def test_cli_prepare_source_priors_accepts_f2(monkeypatch, tmp_path, capsys):
     assert e7g.main(["--prepare-source-priors", "--authorize", "--fold", "EXT-F2"]) == 1
     out = json.loads(capsys.readouterr().out)
     assert "EXT-F2" in out
+
+
+# =========================================================================== #
+# TECHNICAL_SHARED_PRIOR_IDENTITY_AND_TERMINAL_MARKER_GAP fix.
+# =========================================================================== #
+
+# --- GAP 2: shared SiW authority is fold-order independent -------------------------------
+
+def test_f2_f3_populations_must_match_exactly(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev)
+    _write_e7d_siw_fixture(repo, "EXT-F2", [dict(r) for r in train], [dict(r) for r in dev])
+    diverged_train = [dict(r) for r in train]
+    diverged_train[0]["label_live_spoof"] = "spoof" if diverged_train[0]["label_live_spoof"] == "live" else "live"
+    _write_e7d_siw_fixture(repo, "EXT-F3", diverged_train, [dict(r) for r in dev])
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    with pytest.raises(e7g.E7Error, match="DIFFER"):
+        e7g.load_siw_shared_source_authority(repo)
+
+
+def test_shared_authority_counts_exact(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    authority = e7g.load_siw_shared_source_authority(repo)
+    assert authority["train_count"] == 2
+    assert authority["dev_count"] == 1
+    assert authority["row_count"] == 3
+
+
+def test_shared_authority_provenance_binds_both_fold_identities(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    authority = e7g.load_siw_shared_source_authority(repo)
+    assert set(authority["e7d_fold_package_identities"]) == {"EXT-F2", "EXT-F3"}
+
+
+def test_m3a_identity_fold_order_independent(tmp_path, monkeypatch):
+    tmp_a = tmp_path / "a"
+    tmp_a.mkdir()
+    tmp_b = tmp_path / "b"
+    tmp_b.mkdir()
+    repo_f2_first = _build_full_fixture(tmp_a, monkeypatch)
+    result_f2 = e7g.materialize_m3a_input_package(repo_f2_first, "EXT-F2", authorize=True)
+
+    repo_f3_first = _build_full_fixture(tmp_b, monkeypatch)
+    result_f3 = e7g.materialize_m3a_input_package(repo_f3_first, "EXT-F3", authorize=True)
+
+    assert result_f2["m3a_input_package_identity"] == result_f3["m3a_input_package_identity"]
+
+
+def test_f2_materialize_first_then_f3_validates(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    validation = e7g.validate_m3a_input_package(repo, "EXT-F3")
+    assert validation["status"] == "VALID"
+
+
+def test_f3_materialize_first_then_f2_validates(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F3", authorize=True)
+    validation = e7g.validate_m3a_input_package(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+
+
+def test_validate_m3a_rejects_when_current_fold_authority_diverges_from_binding(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    # E7-D data for EXT-F3 changes AFTER materialization -- validating from EXT-F3 must now
+    # detect the divergence rather than merely trusting the binding file's own stored rows.
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F3"
+    body = json.loads((fold_root / "source_train.json").read_text(encoding="utf-8"))
+    body["rows"][0]["label_live_spoof"] = ("spoof" if body["rows"][0]["label_live_spoof"] == "live"
+                                           else "live")
+    (fold_root / "source_train.json").write_text(json.dumps(body), encoding="utf-8")
+    validation = e7g.validate_m3a_input_package(repo, "EXT-F3")
+    assert validation["status"] == "INVALID"
+    assert any("does not exactly equal" in p or "DIFFER" in p for p in validation["problems"])
+
+
+def test_m3a_identity_binds_label_live_spoof():
+    rows_a = [{"source_video_id": "v", "frame_index": 0, "project_split": "source_train",
+              "label_live_spoof": "live", "crop_sha256": "c" * 64, "base_prior_sha256": "p" * 64}]
+    rows_b = [{**rows_a[0], "label_live_spoof": "spoof"}]
+    identity_a = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg", rows=rows_a)
+    identity_b = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg", rows=rows_b)
+    assert identity_a != identity_b
+
+
+def test_m3a_identity_binds_base_prior_sha():
+    rows_a = [{"source_video_id": "v", "frame_index": 0, "project_split": "source_train",
+              "label_live_spoof": "live", "crop_sha256": "c" * 64, "base_prior_sha256": "p" * 64}]
+    rows_b = [{**rows_a[0], "base_prior_sha256": "q" * 64}]
+    identity_a = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg", rows=rows_a)
+    identity_b = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg", rows=rows_b)
+    assert identity_a != identity_b
+
+
+def test_m3a_identity_binds_config_hash():
+    rows = [{"source_video_id": "v", "frame_index": 0, "project_split": "source_train",
+            "label_live_spoof": "live", "crop_sha256": "c" * 64, "base_prior_sha256": "p" * 64}]
+    identity_a = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg-1", rows=rows)
+    identity_b = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg-2", rows=rows)
+    assert identity_a != identity_b
+
+
+def test_m3a_identity_binds_shared_authority_identity():
+    rows = [{"source_video_id": "v", "frame_index": 0, "project_split": "source_train",
+            "label_live_spoof": "live", "crop_sha256": "c" * 64, "base_prior_sha256": "p" * 64}]
+    identity_a = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="s" * 64, m3a_config_identity="cfg", rows=rows)
+    identity_b = e7g.compute_m3a_input_package_identity(
+        shared_authority_identity="t" * 64, m3a_config_identity="cfg", rows=rows)
+    assert identity_a != identity_b
+
+
+def test_m3a_binding_rows_carry_required_fields(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    binding_path = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / e7g.M3A_INPUT_BINDING_FILENAME
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    required = {"sample_id", "source_video_id", "frame_index", "project_split", "label_live_spoof",
+               "crop_relative_path", "crop_sha256", "base_prior_relative_path", "base_prior_sha256",
+               "preprocessing_config_hash", "detector_model_sha256"}
+    for row in binding["rows"]:
+        assert required <= set(row)
+
+
+def test_m3a_binding_never_fabricates_fields(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    binding_path = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / e7g.M3A_INPUT_BINDING_FILENAME
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    from prism_fas.data.package.manifests import read_manifest
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    priors_index = {r["sample_id"]: r for r in read_manifest(root / "manifests" / "priors_index.parquet")}
+    for row in binding["rows"]:
+        prior = priors_index[row["sample_id"]]
+        assert row["base_prior_sha256"] == prior["prior_sha256"]
+        assert row["base_prior_relative_path"] == prior["prior_relative_path"]
+
+
+# --- GAP 1: candidate validated BEFORE the terminal marker is ever written ----------------
+
+def _make_candidate_prior_material(repo: Path, *, row_count: int = 1,
+                                   corrupt_crop_sha: bool = False, corrupt_prior_sha: bool = False,
+                                   missing_prior_key: bool = False,
+                                   missing_prior_file: bool = False) -> tuple[list[dict], str]:
+    """Real crop bytes + real `.npz` prior files on disk (full M3B schema
+    unless deliberately corrupted), WITHOUT ever writing
+    SIW_SOURCE_PRIOR_PACKAGE.json -- the exact pre-write state
+    `validate_source_prior_candidate` must operate against."""
+    import numpy as np
+
+    crop_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    crop_root.mkdir(parents=True, exist_ok=True)
+    prior_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    prior_root.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    for i in range(row_count):
+        crop_path = crop_root / f"crop_{i}.jpg"
+        crop_path.write_bytes(f"fake-crop-bytes-{i}".encode("utf-8"))
+        real_crop_sha = e7g.cc.sha256_file(crop_path)
+        prior_path = prior_root / f"prior_{i}.npz"
+        if not missing_prior_file:
+            arrays = dict(parsing_labels=np.zeros((224, 224), dtype="uint8"),
+                         pose_ypr=np.zeros((3,), dtype="float32"),
+                         visibility=np.zeros((9,), dtype="float16"),
+                         bbox=np.zeros((4,), dtype="float32"),
+                         landmarks=np.zeros((5, 2), dtype="float32"),
+                         crop_box=np.zeros((4,), dtype="float32"))
+            if missing_prior_key:
+                del arrays["parsing_labels"]
+            np.savez(prior_path, **arrays)
+        real_prior_sha = e7g.cc.sha256_file(prior_path) if prior_path.is_file() else "0" * 64
+        rows.append({
+            "source_video_id": f"siw_video_{i}", "frame_index": i, "status": "success",
+            "source_crop_relative_path": f"crop_{i}.jpg",
+            "source_crop_sha256": ("0" * 64) if corrupt_crop_sha else real_crop_sha,
+            "prior_relative_path": f"prior_{i}.npz",
+            "prior_sha256": ("0" * 64) if corrupt_prior_sha else real_prior_sha,
+        })
+    package_identity = e7g.compute_siw_source_prior_package_identity(rows)
+    return rows, package_identity
+
+
+def test_candidate_validation_before_marker_write(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, package_identity = _make_candidate_prior_material(repo, row_count=1)
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, package_identity)
+    assert result["status"] == "VALID"
+    assert not package_path.exists()  # candidate validation itself never writes
+
+
+def test_corrupt_or_missing_prior_before_commit_leaves_no_marker(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, package_identity = _make_candidate_prior_material(repo, row_count=1, missing_prior_file=True)
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, package_identity)
+    assert result["status"] == "INVALID"
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+
+
+def test_bad_crop_sha_before_commit_leaves_no_marker(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, package_identity = _make_candidate_prior_material(repo, row_count=1, corrupt_crop_sha=True)
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, package_identity)
+    assert result["status"] == "INVALID"
+    assert result["bad_crop_hashes"] == 1
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+
+
+def test_bad_prior_sha_before_commit_leaves_no_marker(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, package_identity = _make_candidate_prior_material(repo, row_count=1, corrupt_prior_sha=True)
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, package_identity)
+    assert result["status"] == "INVALID"
+    assert result["bad_prior_hashes"] == 1
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+
+
+def test_missing_required_prior_key_before_commit_leaves_no_marker(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, package_identity = _make_candidate_prior_material(repo, row_count=1, missing_prior_key=True)
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, package_identity)
+    assert result["status"] == "INVALID"
+    assert any("missing required keys" in p for p in result["problems"])
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+
+
+def test_identity_mismatch_before_commit_leaves_no_marker(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    rows, _real_identity = _make_candidate_prior_material(repo, row_count=1)
+    result = e7g.validate_source_prior_candidate(repo, "EXT-F2", rows, "0" * 64)  # wrong identity
+    assert result["status"] == "INVALID"
+    assert result["package_identity_match"] is False
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert not package_path.exists()
+
+
+def test_successful_candidate_validation_marker_is_final_write(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    package_path = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+
+    def fake_build_m3b_package(input_package, output_package, model_config, *, weight_root, resume,
+                               package_id):
+        output_package.mkdir(parents=True, exist_ok=True)
+        return {"failures": [], "lock": {"content_identity_sha256": "x"}}
+
+    def fake_validate_package(pr, **kwargs):
+        return {"passed": True, "errors": [], "checks": [], "counts": {}, "package_id": "x",
+               "target_isolation": {"passed": True}}
+
+    def fake_finalize_lock(pr, report):
+        return {"status": "validated"}
+
+    fake_rows, fake_identity = ([{"source_video_id": "v", "frame_index": 0, "status": "success",
+                                 "source_crop_relative_path": "x.jpg", "source_crop_sha256": "a" * 64,
+                                 "prior_relative_path": "p.npz", "prior_sha256": "b" * 64}], "z" * 64)
+
+    monkeypatch.setattr(e7g, "_gpu_prior_generation_capability",
+                        lambda repo: {"capable": True, "cuda_available": True,
+                                     "weight_root": str(repo / "model_cache"), "problems": []})
+    monkeypatch.setattr("prism_fas.data.package.m3b.build_m3b_package", fake_build_m3b_package)
+    monkeypatch.setattr("prism_fas.data.package.validator.validate_package", fake_validate_package)
+    monkeypatch.setattr("prism_fas.data.package.builder.finalize_lock", fake_finalize_lock)
+    monkeypatch.setattr(e7g, "_derive_siw_source_prior_rows", lambda repo_arg: fake_rows)
+    monkeypatch.setattr(e7g, "compute_siw_source_prior_package_identity", lambda rows: fake_identity)
+    monkeypatch.setattr(e7g, "validate_source_prior_candidate",
+                        lambda repo, fold_id, rows, identity: {"status": "VALID", "problems": []})
+    # The optional post-write validation step re-reads the just-written marker; its own
+    # correctness is covered by the dedicated validate_source_priors tests, so it is mocked
+    # here to isolate what this test actually checks: write ordering and write content.
+    monkeypatch.setattr(e7g, "validate_source_priors",
+                        lambda repo, fold_id: {"status": "VALID", "recomputed_package_identity": fake_identity})
+
+    assert not package_path.exists()
+    result = e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    assert package_path.is_file()
+    body = json.loads(package_path.read_text(encoding="utf-8"))
+    assert body["package_identity"] == fake_identity
+    assert body["rows"] == fake_rows
+    assert result["validation"]["status"] == "VALID"
