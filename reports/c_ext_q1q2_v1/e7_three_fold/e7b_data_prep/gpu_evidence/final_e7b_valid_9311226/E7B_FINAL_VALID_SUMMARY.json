@@ -1,0 +1,44 @@
+{
+  "runtime_commit": "9311226c1a24953c5aa598332b3caa74b5a4a03c",
+  "E7B_STATUS": "CLOSED_VALID",
+  "siw_source": {
+    "status": "VALID",
+    "problems": 0,
+    "canonical_video_count": 1700,
+    "planned_frame_count": 6800,
+    "successful_crop_count": 6776,
+    "failure_count": 24,
+    "package_identity": "0f7811b0960d0dd2be7c732aef4107af9c3476eb9b6b9932b4fe32c7a126bb4f",
+    "population_identity": "d05dafb814a98baebd7a5cd004ca0eb92ba798c13a8a6c5b6c90b1919e365c79",
+    "split_identity": "b492a5d4d86537016012d5357bc5c4410f77e36409082831ef6703168ee096a1"
+  },
+  "msu_target": {
+    "status": "VALID",
+    "problems": 0,
+    "canonical_video_count": 280,
+    "planned_frame_count": 1120,
+    "successful_crop_count": 1120,
+    "failure_count": 0,
+    "package_identity": "8f77c81915a6d42dbd792a723e249483eea5d43d7ff46c45a6e0a1f8629cb6ad",
+    "label_free": true
+  },
+  "casia_target": {
+    "status": "VALID",
+    "problems": 0,
+    "canonical_video_count": 600,
+    "planned_frame_count": 2400,
+    "successful_crop_count": 2399,
+    "failure_count": 1,
+    "package_identity": "5996873998daa290498728b4dbd52ab3f91d2ad357e244b7516485f4ec72b457",
+    "label_free": true
+  },
+  "preprocessing_config_hash": "48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959",
+  "detector_model_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+  "target_access": false,
+  "target_label_access": false,
+  "training_performed": false,
+  "rendering_performed": false,
+  "gpat_fitting_performed": false,
+  "llm_api_calls": 0,
+  "next_stage": "PER_FOLD_GPAT_PREPARATION"
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "ext-q1q2-e7b-validate-v1",
+  "siw_source_package": {
+    "status": "VALID",
+    "problems": [],
+    "population_identity": "d05dafb814a98baebd7a5cd004ca0eb92ba798c13a8a6c5b6c90b1919e365c79",
+    "split_identity": "b492a5d4d86537016012d5357bc5c4410f77e36409082831ef6703168ee096a1",
+    "package_identity": "0f7811b0960d0dd2be7c732aef4107af9c3476eb9b6b9932b4fe32c7a126bb4f"
+  },
+  "msu_mfsd_target_package": {
+    "status": "VALID",
+    "problems": [],
+    "planned_frame_count": 1120,
+    "package_identity": "8f77c81915a6d42dbd792a723e249483eea5d43d7ff46c45a6e0a1f8629cb6ad"
+  },
+  "casia_fasd_target_package": {
+    "status": "VALID",
+    "problems": [],
+    "planned_frame_count": 2400,
+    "package_identity": "5996873998daa290498728b4dbd52ab3f91d2ad357e244b7516485f4ec72b457"
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}
