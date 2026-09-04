@@ -1984,9 +1984,10 @@ class _FakeTrainer:
                "source_isolation": {"source_dev_opened": False, "target_test_opened": False}}
 
 
-_FIXED_IMPLEMENTATION_PROVENANCE = {"repository_head_commit": "deadbeef" * 5,
-                                    "implementation_commit": "cafef00d" * 5,
-                                    "implementation_module_sha256": "ee" * 32}
+_FAKE_IMPLEMENTATION_MODULE_BYTES = b"fake-implementation-module-bytes-for-tests"
+_FIXED_IMPLEMENTATION_PROVENANCE = {
+    "repository_head_commit": "deadbeef" * 5, "implementation_commit": "cafef00d" * 5,
+    "implementation_module_sha256": e7g.cc.sha256_bytes(_FAKE_IMPLEMENTATION_MODULE_BYTES)}
 
 
 def _patch_gpat_capable(monkeypatch, repo):
@@ -1998,6 +1999,12 @@ def _patch_gpat_capable(monkeypatch, repo):
     # a real commit to exist in the test repo.
     monkeypatch.setattr(e7g, "resolve_implementation_commit_provenance",
                         lambda repo_arg: dict(_FIXED_IMPLEMENTATION_PROVENANCE))
+    # The terminal-lock validator's OWN provenance self-check independently `git show`s
+    # lock.implementation_commit -- mocked at its own dedicated seam so it doesn't require a
+    # real git commit to exist in the fake tmp_path repo, but still exercises the real
+    # byte-comparison logic against bytes that hash to `implementation_module_sha256` above.
+    monkeypatch.setattr(e7g, "_git_show_module_bytes",
+                        lambda repo_arg, commit, relative_path: _FAKE_IMPLEMENTATION_MODULE_BYTES)
 
 
 def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
@@ -2018,7 +2025,8 @@ def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
         return {"package_identity": package_identity,
                "recipe_bank_identity": e7g.FROZEN_M7_BANK["bank_content_identity_sha256"],
                "pair_plan_identity": pair_plan_identity, "config_hash": effective["effective_config_hash"],
-               "architecture_hash": "arch", "adaface_weight_sha256": "ada"}
+               "architecture_hash": "arch",
+               "adaface_weight_sha256": e7g.FROZEN_PRIOR_MODELS["identity"]["weight_sha256"]}
 
     from prism_fas.synthesis.gpat_checkpoint import CheckpointError, STRICT_IDENTITY_FIELDS
     from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
@@ -2027,9 +2035,14 @@ def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
     monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _FakeTrainer)
     monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
                         lambda config: type("A", (), {"architecture_hash": lambda self: "arch"})())
+    # The terminal-lock validator now anchors the expected AdaFace SHA from the frozen
+    # effective-config value directly (never from resolved weight bytes), so these mocks only
+    # need to keep `prepare_gpat`'s OWN production-path computation self-consistent with that
+    # same real frozen value -- never a placeholder that would never match the frozen config.
     monkeypatch.setattr("prism_fas.synthesis.quality_models.resolve_weight",
                         lambda weight_root, role: Path(weight_root) / "identity.bin")
-    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file",
+                        lambda path: e7g.FROZEN_PRIOR_MODELS["identity"]["weight_sha256"])
     monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
                         lambda path: {"identity": real_identity(),
                                      "schema_version": GPAT_CHECKPOINT_SCHEMA_VERSION})
@@ -2040,7 +2053,8 @@ def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
                      if f in expected_identity and identity.get(f) != expected_identity[f]]
         if mismatched:
             raise CheckpointError(f"refusing to resume: identity mismatch on {mismatched}")
-        return {"identity": identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}]}
+        return {"identity": identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}],
+               "global_step": 1, "best_metrics": {"validation_total_loss": 0.1}}
 
     monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint", fake_load_checkpoint)
 
@@ -2462,6 +2476,210 @@ def test_terminal_lock_rejects_last_checkpoint_identity_drift(tmp_path, monkeypa
     validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
     assert validation["status"] == "INVALID"
     assert any("last checkpoint FAILED strict identity load" in p for p in validation["problems"])
+
+
+# =========================================================================== #
+# TECHNICAL_TERMINAL_LOCK_MODEL_IDENTITY_ANCHOR_GAP fix -- the expected
+# checkpoint identity (architecture_hash/adaface_weight_sha256) is derived
+# from CURRENT FROZEN AUTHORITIES, never merely echoed from the lock.
+# =========================================================================== #
+
+def test_terminal_lock_rejects_architecture_hash_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["architecture_hash"] = "drifted-architecture-hash"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("architecture_hash" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_adaface_sha_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["adaface_weight_sha256"] = "drifted-adaface-sha"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("AdaFace" in p for p in validation["problems"])
+
+
+def test_checkpoint_expected_identity_uses_current_authorities(tmp_path, monkeypatch):
+    """Proves the validator anchors the expected checkpoint identity from
+    CURRENT authorities, not the lock's own fields: even a lock AND both
+    checkpoints that are corrupted to agree with EACH OTHER (a
+    self-consistent snapshot) must still be rejected, because the frozen
+    architecture (mocked `build_gpat_model` -> "arch") and the frozen
+    repository AdaFace SHA never change to match the corruption."""
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["architecture_hash"] = "SELF-CONSISTENT-WRONG"
+    lock["adaface_weight_sha256"] = "SELF-CONSISTENT-WRONG"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    corrupted_identity = {"package_identity": lock["package_identity"],
+                          "recipe_bank_identity": lock["m7_recipe_bank_identity"],
+                          "pair_plan_identity": lock["pair_plan_identity"],
+                          "config_hash": lock["effective_config_hash"],
+                          "architecture_hash": "SELF-CONSISTENT-WRONG",
+                          "adaface_weight_sha256": "SELF-CONSISTENT-WRONG"}
+
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, STRICT_IDENTITY_FIELDS
+    from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
+                        lambda path: {"identity": corrupted_identity,
+                                     "schema_version": GPAT_CHECKPOINT_SCHEMA_VERSION})
+
+    def self_consistent_load_checkpoint(path, *, expected_identity):
+        mismatched = [f for f in STRICT_IDENTITY_FIELDS
+                     if f in expected_identity and corrupted_identity.get(f) != expected_identity[f]]
+        if mismatched:
+            raise CheckpointError(f"refusing to resume: identity mismatch on {mismatched}")
+        return {"identity": corrupted_identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}],
+               "global_step": 1, "best_metrics": {"validation_total_loss": 0.1}}
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint", self_consistent_load_checkpoint)
+
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("architecture_hash" in p or "AdaFace" in p or "FAILED strict identity load" in p
+              for p in validation["problems"])
+
+
+# --- execution-metadata anchor checks -------------------------------------------------------
+
+def test_terminal_lock_rejects_seed_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["seed"] = lock["seed"] + 1
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("seed" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_device_noncuda(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["device"] = "cpu"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("device" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_global_step_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["global_step"] = lock["global_step"] + 1000
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("global_step" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_epoch_count_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["epochs_completed"] = lock["epochs_completed"] + 1000
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("epochs_completed" in p for p in validation["problems"])
+
+
+def test_terminal_lock_rejects_best_metrics_drift(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["best_metrics"] = {"validation_total_loss": 999.9}
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("best_metrics" in p for p in validation["problems"])
+
+
+# --- provenance lock self-check ---------------------------------------------------------------
+
+def test_terminal_lock_implementation_commit_module_sha_verified(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+
+
+def test_terminal_lock_implementation_provenance_corruption_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["implementation_module_sha256"] = "0" * 64
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("implementation_module_sha256" in p for p in validation["problems"])
+
+
+def test_terminal_lock_missing_implementation_provenance_fields_detected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    del lock["implementation_commit"]
+    del lock["implementation_module_sha256"]
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("implementation_commit is missing" in p for p in validation["problems"])
+    assert any("implementation_module_sha256 is missing" in p for p in validation["problems"])
+
+
+def test_resolve_implementation_commit_provenance_gate_unchanged(monkeypatch, tmp_path):
+    """The pre-fit production gate itself must remain untouched by this
+    turn's fix -- still requires the env var, still fails closed."""
+    repo = _base_repo(tmp_path)
+    monkeypatch.delenv("PRISM_E7_IMPLEMENTATION_COMMIT", raising=False)
+    with pytest.raises(e7g.E7Error, match="PRISM_E7_IMPLEMENTATION_COMMIT is not set"):
+        e7g.resolve_implementation_commit_provenance(repo)
 
 
 # --- GAP 4: post-fit validation before the terminal marker ---------------------------------

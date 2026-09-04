@@ -2265,13 +2265,33 @@ def _history_is_finite(history: list[dict[str, Any]]) -> bool:
     return True
 
 
-def _checkpoint_expected_identity(lock: dict[str, Any]) -> dict[str, str | None]:
-    return {"package_identity": lock.get("package_identity"),
-           "recipe_bank_identity": lock.get("m7_recipe_bank_identity"),
-           "pair_plan_identity": lock.get("pair_plan_identity"),
-           "config_hash": lock.get("effective_config_hash"),
-           "architecture_hash": lock.get("architecture_hash"),
-           "adaface_weight_sha256": lock.get("adaface_weight_sha256")}
+def _current_checkpoint_expected_identity(*, package_identity: str | None, pair_plan_identity: str | None,
+                                          config_hash: str | None, architecture_hash: str | None,
+                                          adaface_weight_sha256: str | None) -> dict[str, str | None]:
+    """Builds the checkpoint identity a terminal-lock validation must load
+    against, entirely from INDEPENDENTLY-DERIVED CURRENT authorities --
+    NEVER from the lock's own recorded fields (that would let a
+    corrupted/replaced lock+checkpoint pair remain self-consistent and
+    pass validation undetected)."""
+    return {"package_identity": package_identity,
+           "recipe_bank_identity": FROZEN_M7_BANK["bank_content_identity_sha256"],
+           "pair_plan_identity": pair_plan_identity, "config_hash": config_hash,
+           "architecture_hash": architecture_hash, "adaface_weight_sha256": adaface_weight_sha256}
+
+
+def _git_show_module_bytes(repo: Path, commit: str, relative_path: str) -> bytes:
+    """`git show <commit>:<relative_path>` -- a small, dedicated, mockable
+    seam used ONLY by the terminal-lock provenance self-check below. The
+    production pre-fit gate `resolve_implementation_commit_provenance()`
+    has its own independent inline `git show` call and is intentionally
+    left untouched by this helper."""
+    import subprocess
+
+    try:
+        return subprocess.check_output(["git", "show", f"{commit}:{relative_path}"], cwd=repo,
+                                       stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as exc:
+        raise E7Error(str(exc.stderr)) from exc
 
 
 def validate_gpat_fit_lock(repo: Path, fold_id: str) -> dict[str, Any]:
@@ -2317,6 +2337,7 @@ def validate_gpat_fit_lock(repo: Path, fold_id: str) -> dict[str, Any]:
                         f"lock.pair_plan_identity {lock.get('pair_plan_identity')!r}")
 
     # 5-7: effective config recomputes exactly (base config SHA + effective config hash).
+    effective: dict[str, Any] | None = None
     try:
         effective = build_effective_gpat_config(repo, fold_id)
         if effective["base_config_sha256"] != lock.get("base_config_sha256"):
@@ -2334,12 +2355,61 @@ def validate_gpat_fit_lock(repo: Path, fold_id: str) -> dict[str, Any]:
                         f"frozen M7 bank identity "
                         f"{FROZEN_M7_BANK['bank_content_identity_sha256']!r}")
 
+    # ARCHITECTURE / ADAFACE CURRENT-STATE ANCHOR (residual gap fix): the expected checkpoint
+    # identity must be derived from CURRENT FROZEN AUTHORITIES, never merely echoed from the
+    # lock's own recorded architecture_hash/adaface_weight_sha256 -- otherwise a corrupted or
+    # replaced lock+checkpoint pair could remain self-consistent and pass validation.
+    architecture_hash_current: str | None = None
+    adaface_weight_sha256_current: str | None = None
+    if effective is not None:
+        from prism_fas.synthesis.gpat_model import build_gpat_model
+
+        try:
+            architecture_hash_current = build_gpat_model(effective["effective_config"]).architecture_hash()
+        except Exception as exc:  # noqa: BLE001 -- any failure to build the model is itself a hard failure
+            problems.append(f"current architecture_hash could not be recomputed: {exc}")
+        if architecture_hash_current is not None and architecture_hash_current != lock.get("architecture_hash"):
+            problems.append(f"current architecture_hash {architecture_hash_current!r} != "
+                            f"lock.architecture_hash {lock.get('architecture_hash')!r}")
+
+        # The frozen AdaFace SHA is anchored from the CURRENT effective GPAT config's own
+        # declared identity_model.weight_sha256 -- never from the lock. Reading the weight
+        # BYTES (which requires the pinned file to be present) is never required for this
+        # read-only validation to reach a verdict; it is only an OPTIONAL additional check
+        # below, when the file happens to be resolvable locally.
+        adaface_weight_sha256_current = (effective["effective_config"].get("identity_model") or {}
+                                         ).get("weight_sha256")
+        if adaface_weight_sha256_current != FROZEN_PRIOR_MODELS["identity"]["weight_sha256"]:
+            problems.append(f"current effective_config.identity_model.weight_sha256 "
+                            f"{adaface_weight_sha256_current!r} != the frozen AdaFace SHA already "
+                            f"declared by the repository "
+                            f"{FROZEN_PRIOR_MODELS['identity']['weight_sha256']!r}")
+        if adaface_weight_sha256_current != lock.get("adaface_weight_sha256"):
+            problems.append(f"current AdaFace weight SHA {adaface_weight_sha256_current!r} != "
+                            f"lock.adaface_weight_sha256 {lock.get('adaface_weight_sha256')!r}")
+        try:
+            from prism_fas.synthesis.quality_models import resolve_weight
+            from prism_fas.synthesis.quality_models import sha256_file as quality_sha256_file
+
+            weight_path = resolve_weight(_resolve_weight_root(repo), "identity", verify=False)
+            on_disk_sha256 = quality_sha256_file(weight_path)
+            if on_disk_sha256 != FROZEN_PRIOR_MODELS["identity"]["weight_sha256"]:
+                problems.append(f"locally resolvable AdaFace weight file SHA256 {on_disk_sha256!r} "
+                                f"!= frozen {FROZEN_PRIOR_MODELS['identity']['weight_sha256']!r}")
+        except Exception:  # noqa: BLE001 -- the weight file need not be present for this validator
+            pass  # anchoring from the frozen config identity above is sufficient on its own
+
     # 9-12: BOTH best.pt and last.pt exist, their SHA matches the lock, their schema is correct,
-    # and BOTH strictly identity-verify against the full expected package/bank/pair-plan/config/
-    # architecture/AdaFace identity (never only best.pt).
+    # and BOTH strictly identity-verify against the FULL expected identity -- built entirely from
+    # the independently-derived CURRENT package/pair-plan/config/architecture/AdaFace values
+    # above, never from the lock's own fields (never only best.pt).
     best_path = gpat_best_checkpoint_path(repo, fold_id)
     last_path = gpat_last_checkpoint_path(repo, fold_id)
-    expected_identity = _checkpoint_expected_identity(lock)
+    expected_identity = _current_checkpoint_expected_identity(
+        package_identity=input_validation.get("recomputed_package_identity"),
+        pair_plan_identity=pair_validation.get("recomputed_pair_plan_identity"),
+        config_hash=effective["effective_config_hash"] if effective is not None else None,
+        architecture_hash=architecture_hash_current, adaface_weight_sha256=adaface_weight_sha256_current)
     checkpoint_payloads: dict[str, dict[str, Any]] = {}
     for name, path, sha_field in (("best", best_path, "best_checkpoint_sha256"),
                                   ("last", last_path, "last_checkpoint_sha256")):
@@ -2355,17 +2425,75 @@ def validate_gpat_fit_lock(repo: Path, fold_id: str) -> dict[str, Any]:
         try:
             checkpoint_payloads[name] = load_checkpoint(path, expected_identity=expected_identity)
         except CheckpointError as exc:
-            problems.append(f"{name} checkpoint FAILED strict identity load: {exc}")
+            problems.append(f"{name} checkpoint FAILED strict identity load against CURRENT "
+                            f"authorities: {exc}")
 
-    # 13: record_set_hashes remain consistent between the lock and both checkpoints.
+    # 13: record_set_hashes remain consistent between the lock and both checkpoints, and between
+    # the two checkpoints themselves.
     for name, payload in checkpoint_payloads.items():
         if payload.get("record_set_hashes") != lock.get("record_set_hashes"):
             problems.append(f"{name} checkpoint record_set_hashes != lock.record_set_hashes")
+    if "best" in checkpoint_payloads and "last" in checkpoint_payloads and \
+            checkpoint_payloads["best"].get("record_set_hashes") != checkpoint_payloads["last"].get("record_set_hashes"):
+        problems.append("best checkpoint record_set_hashes != last checkpoint record_set_hashes")
 
     # 14: history contains only finite numeric metrics, in both checkpoints.
     for name, payload in checkpoint_payloads.items():
         if not _history_is_finite(payload.get("history") or []):
             problems.append(f"{name} checkpoint history contains a non-finite numeric value")
+
+    # ANCHOR TERMINAL LOCK EXECUTION METADATA (validation-only; never changes training behavior).
+    if lock.get("seed") != GPAT_FIT_SEED:
+        problems.append(f"lock.seed {lock.get('seed')!r} != frozen GPAT_FIT_SEED {GPAT_FIT_SEED!r}")
+    if effective is not None:
+        effective_config = effective["effective_config"]
+        if lock.get("seed") != effective_config.get("seed"):
+            problems.append(f"lock.seed {lock.get('seed')!r} != effective_config.seed "
+                            f"{effective_config.get('seed')!r}")
+        if lock.get("epochs_requested") != effective_config.get("epochs"):
+            problems.append(f"lock.epochs_requested {lock.get('epochs_requested')!r} != "
+                            f"effective_config.epochs {effective_config.get('epochs')!r}")
+    device = lock.get("device")
+    if not (isinstance(device, str) and device.startswith("cuda")):
+        problems.append(f"lock.device {device!r} is not 'cuda' or a 'cuda*' variant")
+    if "last" in checkpoint_payloads:
+        last_payload = checkpoint_payloads["last"]
+        if lock.get("global_step") != last_payload.get("global_step"):
+            problems.append(f"lock.global_step {lock.get('global_step')!r} != last checkpoint "
+                            f"global_step {last_payload.get('global_step')!r}")
+        last_history_len = len(last_payload.get("history") or [])
+        if lock.get("epochs_completed") != last_history_len:
+            problems.append(f"lock.epochs_completed {lock.get('epochs_completed')!r} != "
+                            f"len(last checkpoint history) {last_history_len!r}")
+        if lock.get("best_metrics") != last_payload.get("best_metrics"):
+            problems.append("lock.best_metrics != last checkpoint best_metrics")
+
+    # PROVENANCE LOCK SELF-CHECK: proves the lock's declared implementation_commit/module-SHA
+    # pair is a real, immutable Git commit/module mapping -- WITHOUT requiring
+    # $PRISM_E7_IMPLEMENTATION_COMMIT and WITHOUT comparing against the CURRENTLY-running module
+    # file (a LATER validator-only hardening pass must never invalidate an EARLIER, scientifically
+    # valid checkpoint whose lock was written against an older module revision). The
+    # pre-fit production gate `resolve_implementation_commit_provenance()` is untouched.
+    implementation_commit = lock.get("implementation_commit")
+    implementation_module_sha256 = lock.get("implementation_module_sha256")
+    if not implementation_commit:
+        problems.append("lock.implementation_commit is missing")
+    if not implementation_module_sha256:
+        problems.append("lock.implementation_module_sha256 is missing")
+    if implementation_commit and implementation_module_sha256:
+        module_relative = "src/prism_fas/evaluation/c_ext_e7_gpat_bank.py"
+        try:
+            committed_bytes = _git_show_module_bytes(repo, implementation_commit, module_relative)
+        except E7Error as exc:
+            problems.append(f"could not read {module_relative!r} at lock.implementation_commit "
+                            f"{implementation_commit!r}: {exc}")
+        else:
+            committed_sha256 = cc.sha256_bytes(committed_bytes)
+            if committed_sha256 != implementation_module_sha256:
+                problems.append(f"lock.implementation_module_sha256 "
+                                f"{implementation_module_sha256!r} != sha256 of {module_relative!r} "
+                                f"at lock.implementation_commit {implementation_commit!r} "
+                                f"({committed_sha256!r})")
 
     return {"schema_version": f"{SCHEMA_PREFIX}-gpat-fit-lock-validate-v1", "fold_id": fold_id,
            "status": "INVALID" if problems else "VALID", "problems": problems,
