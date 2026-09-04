@@ -533,6 +533,103 @@ def _verify_scrfd_model_sha256(cfg: Any) -> str:
     return observed
 
 
+def _resolve_e7b_detector(cfg: Any, injected_detector: Any = None) -> tuple[Any, str]:
+    """Resolves the ACTUAL detector object to hand to `run_preprocessing`.
+
+    `run_preprocessing` does NOT lazily instantiate a detector -- it calls
+    `detector.detect(...)` directly, so passing `detector=None` (the old
+    behavior whenever `detector is None and smoke`) raised an unrouted,
+    unpersisted exception for every single planned frame: a false-green
+    package (planned=N, success=0, failure=0, rows=[]) that still exited 0.
+
+    If `injected_detector` is given (unit tests only), it is used as-is and
+    the caller need not supply real GPU model bytes; the recorded
+    `detector_model_sha256` in that case is the FROZEN constant (tests never
+    claim to have verified real bytes -- this matches every existing test's
+    expectation).
+
+    Otherwise -- for BOTH the scientific build AND smoke, with no exception
+    for smoke -- this verifies the real on-disk SCRFD model bytes match
+    `FROZEN_SCRFD_MODEL_SHA256` (fail closed on mismatch, before any crop is
+    written) and instantiates the real `prism_fas.data.preprocess_m2.
+    SCRFDDetector` with the frozen `scrfd_input_size`, using
+    `SCRFDDetector`'s own default execution provider -- never a different
+    provider merely because this runs on a GPU host.
+    """
+    if injected_detector is not None:
+        return injected_detector, FROZEN_SCRFD_MODEL_SHA256
+
+    from prism_fas.data.preprocess_m2 import SCRFDDetector, resolve_detector_path
+
+    detector_model_sha256 = _verify_scrfd_model_sha256(cfg)
+    resolved_path = resolve_detector_path(cfg.scrfd_model_path)
+    detector = SCRFDDetector(resolved_path, cfg.scrfd_input_size)
+    return detector, detector_model_sha256
+
+
+def _fail_closed_on_unrouted_failure(result: Any, *, kind: str) -> None:
+    """`run_preprocessing`'s generic outer exception handler tallies any
+    UNEXPECTED implementation exception (never a typed detector/decode/crop
+    failure) as `unrouted_processing_failure` in `failures_by_code`, WITHOUT
+    persisting a `PreprocessingFailureRecord` for it. E7-B must never accept
+    that as a valid scientific failure row -- it is an engineering bug."""
+    if result is None:
+        return
+    unrouted = result.failures_by_code.get("unrouted_processing_failure", 0)
+    if unrouted:
+        raise E7BError(
+            f"UNROUTED_PROCESSING_FAILURE for {kind}: {unrouted} planned frame(s) hit an unexpected, "
+            "unclassified implementation exception (unrouted_processing_failure) inside "
+            "run_preprocessing() -- this is never persisted as a PreprocessingFailureRecord, so it is "
+            "an ENGINEERING failure, never a valid scientific failure row. FAIL CLOSED. "
+            f"failures_by_code={result.failures_by_code!r}")
+
+
+def _enforce_strict_terminal_accounting(*, kind: str, active_video_count: int, rows: list[dict[str, Any]],
+                                        successful: int, failed: int, result: Any = None) -> None:
+    """Before any package manifest may be written (scientific OR smoke):
+    every planned frame must have reached a persisted terminal state
+    (success or failure) -- never fewer, never more. This is the strict,
+    row-level accounting check that would have caught the false-green
+    package (planned=8, success=0, failure=0, rows=0) independently of
+    whether `run_preprocessing`'s own return value looked clean."""
+    expected_planned = active_video_count * 4
+    problems = []
+    if len(rows) != expected_planned:
+        problems.append(f"persisted rows={len(rows)} != expected_planned={expected_planned} "
+                        f"({active_video_count} active canonical video(s) x 4)")
+    if successful + failed != expected_planned:
+        problems.append(f"successful_crop_count({successful}) + failure_count({failed}) != "
+                        f"expected_planned={expected_planned}")
+    if successful != sum(1 for r in rows if r.get("status") == "success"):
+        problems.append("successful_crop_count does not match the number of rows actually marked success")
+    if failed != sum(1 for r in rows if r.get("status") == "failure"):
+        problems.append("failure_count does not match the number of rows actually marked failure")
+    if not problems:
+        return
+    accounting = ""
+    if result is not None:
+        accounting = (f" run_preprocessing accounting: canonical_records_attempted="
+                     f"{result.canonical_records_attempted}, samples_selected={result.samples_selected}, "
+                     f"samples_successful={result.samples_successful}, samples_failed={result.samples_failed}, "
+                     f"frames_read={result.frames_read}, detector_calls={result.detector_calls}, "
+                     f"crops_written={result.crops_written}, failures_by_code={result.failures_by_code!r}, "
+                     f"manifest_counts={result.manifest_counts!r}.")
+    raise E7BError(f"STRICT_TERMINAL_ACCOUNTING_FAILED for {kind}: " + "; ".join(problems) +
+                   " -- refusing to write/overwrite a final package manifest (SMOKE or FROZEN). "
+                   "FAIL CLOSED." + accounting)
+
+
+def _run_execution_result_summary(result: Any) -> dict[str, Any] | None:
+    if result is None:
+        return None
+    return {"canonical_records_attempted": result.canonical_records_attempted,
+           "samples_selected": result.samples_selected, "samples_successful": result.samples_successful,
+           "samples_failed": result.samples_failed, "frames_read": result.frames_read,
+           "detector_calls": result.detector_calls, "crops_written": result.crops_written,
+           "failures_by_code": result.failures_by_code, "manifest_counts": result.manifest_counts}
+
+
 def _build_e7b_run_context(repo: Path, cfg: Any, *, dataset: str, dataset_role: str, package_root: str,
                            detector_model_sha256: str, run_id: str, dry_run: bool = False,
                            source_metadata_policy: str = "required") -> Any:
@@ -669,8 +766,7 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
     cfg = _m2_config(repo)
     if cfg is None:
         raise E7BError(f"missing {M2_CONFIG_PATH}")
-    detector_model_sha256 = FROZEN_SCRFD_MODEL_SHA256 if (detector is not None or smoke) else \
-        _verify_scrfd_model_sha256(cfg)
+    resolved_detector, detector_model_sha256 = _resolve_e7b_detector(cfg, detector)
 
     plan = plan_siw_source_build(repo)
     refs = _siw_source_refs_from_e7a(repo)
@@ -704,6 +800,7 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
     from prism_fas.data.m2_runner import run_preprocessing
     from prism_fas.data.manifests.converters import MissingCanonicalMetadataError
 
+    result = None
     if canonical_records:
         # HISTORICAL NOTE (see E7B_SIW_SOURCE_SUBJECT_ID_STRUCTURAL_GAP.json,
         # preserved as diagnostic evidence, and its resolution in
@@ -721,8 +818,8 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
         # would indicate a real data-integrity problem, never something
         # E7-B should silently route around.
         try:
-            run_preprocessing(context, canonical_records, detector=detector,
-                              media_reader_factory=media_reader_factory)
+            result = run_preprocessing(context, canonical_records, detector=resolved_detector,
+                                       media_reader_factory=media_reader_factory)
         except MissingCanonicalMetadataError as exc:
             raise E7BError(
                 "UNEXPECTED_SOURCE_METADATA_GAP: build_source_frame_record() "
@@ -736,11 +833,14 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
                 "misrouting through dataset_role='target'. "
                 f"Underlying error: {exc}"
             ) from exc
+        _fail_closed_on_unrouted_failure(result, kind="SiW source")
 
     refs_by_video = {r["video_id"]: r for r in refs}
     rows = _assemble_siw_source_rows(context, refs_by_video)
     successful = sum(1 for r in rows if r["status"] == "success")
     failed = sum(1 for r in rows if r["status"] == "failure")
+    _enforce_strict_terminal_accounting(kind="SiW source", active_video_count=len(refs), rows=rows,
+                                        successful=successful, failed=failed, result=result)
 
     body = {
         "schema_version": f"{SCHEMA_PREFIX}-siw-source-package-v1",
@@ -749,6 +849,7 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
         "split_identity": plan["split_identity"], "canonical_video_count": len(refs),
         "planned_frame_count": len(refs) * 4, "successful_crop_count": successful, "failure_count": failed,
         "rows": rows, "smoke": smoke, "target_labels_opened": False, "status": "FROZEN" if not smoke else "SMOKE",
+        "last_run_accounting": _run_execution_result_summary(result),
     }
     if not smoke:
         _write_package_manifest_atomic(package_manifest_path, body)
@@ -757,6 +858,7 @@ def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
         package_manifest_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
 
     return {"resumed": False, "path": str(package_manifest_path), "body": body,
+           "run_execution_result": _run_execution_result_summary(result),
            "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
            "training_performed": False, "gpat_fitting_performed": False}
 
@@ -926,8 +1028,7 @@ def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, smoke_root
     if cfg is None:
         raise E7BError(f"missing {M2_CONFIG_PATH}")
     plan = plan_target_build(repo, dataset=dataset)
-    detector_model_sha256 = FROZEN_SCRFD_MODEL_SHA256 if (detector is not None or smoke) else \
-        _verify_scrfd_model_sha256(cfg)
+    resolved_detector, detector_model_sha256 = _resolve_e7b_detector(cfg, detector)
 
     active_root = smoke_root if smoke else package_root
     manifest_path = repo / active_root / "TARGET_PACKAGE.json"
@@ -954,12 +1055,17 @@ def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, smoke_root
 
     from prism_fas.data.m2_runner import run_preprocessing
 
+    result = None
     if pending_records:
-        run_preprocessing(context, pending_records, detector=detector, media_reader_factory=media_reader_factory)
+        result = run_preprocessing(context, pending_records, detector=resolved_detector,
+                                   media_reader_factory=media_reader_factory)
+        _fail_closed_on_unrouted_failure(result, kind=f"{dataset} target")
 
     rows = _assemble_target_rows(context)
     successful = sum(1 for r in rows if r["status"] == "success")
     failed = sum(1 for r in rows if r["status"] == "failure")
+    _enforce_strict_terminal_accounting(kind=f"{dataset} target", active_video_count=len(all_records),
+                                        rows=rows, successful=successful, failed=failed, result=result)
 
     body = {
         "schema_version": f"{SCHEMA_PREFIX}-target-package-v1",
@@ -969,6 +1075,7 @@ def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, smoke_root
         "canonical_video_count": len(all_records), "planned_frame_count": len(all_records) * 4,
         "successful_crop_count": successful, "failure_count": failed, "rows": rows, "label_free": True,
         "smoke": smoke, "status": "FROZEN" if not smoke else "SMOKE",
+        "last_run_accounting": _run_execution_result_summary(result),
     }
     if not smoke:
         _write_package_manifest_atomic(manifest_path, body)
@@ -976,9 +1083,10 @@ def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, smoke_root
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
 
-    return {"resumed": False, "path": str(manifest_path), "body": body, "target_access": False,
-           "llm_api_calls": 0, "rendering_performed": False, "training_performed": False,
-           "gpat_fitting_performed": False}
+    return {"resumed": False, "path": str(manifest_path), "body": body,
+           "run_execution_result": _run_execution_result_summary(result),
+           "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
+           "training_performed": False, "gpat_fitting_performed": False}
 
 
 def e7b_build_target_msu(repo: Path, *, authorize: bool = False, detector: Any = None,

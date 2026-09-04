@@ -1,0 +1,34 @@
+{
+  "schema_version": "ext-q1q2-e7b-smoke-false-green-technical-diagnosis-v1",
+  "BASE_COMMIT": "6751638ff3514d4f852415adc32aa55026b8d460",
+  "GPU_PREFLIGHT_PASS": true,
+  "FALSE_GREEN_DETECTED": true,
+  "evidence_root": "reports/c_ext_q1q2_v1/e7_three_fold/e7b_data_prep/gpu_evidence/smoke_6751638_false_green/",
+  "observed": {
+    "siw": {"planned": 8, "success": 0, "failure": 0, "rows": 0, "exit": 0,
+           "note": "canonical_video_count=2, package_identity/population_identity/split_identity all correctly resolved; only rows/success/failure were wrong. detector_model_sha256 in the emitted package was the FROZEN constant, NOT a value actually verified against on-disk bytes (the smoke-bypass shortcut)."},
+    "msu": {"planned": 8, "success": 0, "failure": 0, "rows": 0, "exit": 0},
+    "casia": {"planned": 8, "success": 0, "failure": 0, "rows": 0, "exit": 0}
+  },
+  "root_cause": {
+    "detector_none_passed_to_run_preprocessing": true,
+    "smoke_real_model_not_instantiated": true,
+    "run_result_was_ignored": true,
+    "unrouted_failure_not_persisted": true,
+    "explanation": "e7b_build_siw_source()/_e7b_build_target() computed detector_model_sha256 = FROZEN_SCRFD_MODEL_SHA256 whenever (detector is not None or smoke), WITHOUT ever verifying real on-disk model bytes or instantiating a real detector object in the smoke=True + detector=None case (the exact shape production CLI smoke commands use). `detector=None` was then passed straight into the frozen `run_preprocessing()`, which does not lazily construct a detector -- it calls `detector.detect(frame.image)` directly. `None.detect(...)` raised an AttributeError that is not any of run_preprocessing's typed exception classes (DetectorInferenceError, etc.), so it fell through to the generic outer `except Exception` handler, which tallies it as `unrouted_processing_failure` in the RunExecutionResult's `failures_by_code` WITHOUT calling `route_preprocessing_failure` -- so no PreprocessingFailureRecord, no source_frames/source_crops/target_crops row, nothing was ever persisted to any manifest parquet for any of the 8 planned frames. E7-B then discarded the returned RunExecutionResult entirely and read back the (empty) manifest parquet files to assemble `rows=[]`, wrote a package body with `successful_crop_count=0, failure_count=0, rows=[]`, and returned normally -- CLI exit 0."
+  },
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "SCIENTIFIC_DATA_FAILURE": false,
+  "TECHNICAL_EXECUTION_FAILURE": true,
+  "fix_summary": {
+    "real_detector_instantiation": "_resolve_e7b_detector(cfg, injected_detector) -- if no detector is injected, ALWAYS (smoke included) verifies the real on-disk SCRFD model SHA256 against FROZEN_SCRFD_MODEL_SHA256 (fail closed on mismatch, before instantiation) and constructs the real prism_fas.data.preprocess_m2.SCRFDDetector with the frozen input_size and its own default execution provider (never a different provider). Applied to all three scientific builders and all three smoke wrappers -- they share the same builder functions.",
+    "run_execution_result_captured": "Both e7b_build_siw_source and _e7b_build_target now capture `result = run_preprocessing(...)` and expose it via `_run_execution_result_summary()` in both the returned CLI dict (`run_execution_result`) and the persisted package body (`last_run_accounting`).",
+    "unrouted_failure_fails_closed": "_fail_closed_on_unrouted_failure(result, kind=...) raises E7BError (naming the count and full failures_by_code) whenever result.failures_by_code contains 'unrouted_processing_failure' -- an unexpected implementation exception is never accepted as a valid scientific failure row.",
+    "strict_terminal_accounting": "_enforce_strict_terminal_accounting(...) runs BEFORE any package manifest (SMOKE or FROZEN) may be written: requires len(rows) == active_video_count*4, successful_crop_count + failure_count == that same expected_planned, and that successful_crop_count/failure_count actually match the rows. Any violation raises E7BError and no manifest is written -- this independently catches the false-green shape (planned=8, rows=0) even if a future bug produced a 'clean-looking' RunExecutionResult."
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

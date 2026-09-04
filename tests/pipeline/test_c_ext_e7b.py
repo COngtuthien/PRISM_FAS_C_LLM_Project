@@ -999,3 +999,212 @@ def test_7be02d6_bindings_module_still_importable_and_constants_unchanged():
         "48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959"
     assert e7b.FROZEN_SCRFD_MODEL_SHA256 == \
         "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+
+
+# =========================================================================== #
+# 6751638 FALSE-GREEN SMOKE FIX -- production CLI smoke commands returned
+# exit 0 with planned=8/success=0/failure=0/rows=[] because `detector=None`
+# was passed straight into the frozen `run_preprocessing()`, which does not
+# lazily instantiate a detector. `None.detect(...)` raised an
+# AttributeError, caught by run_preprocessing's generic outer handler and
+# tallied as an UNPERSISTED `unrouted_processing_failure` -- while E7-B
+# discarded the returned RunExecutionResult and read back an (empty)
+# manifest. Fixed via `_resolve_e7b_detector` (real SCRFDDetector whenever no
+# detector is injected, smoke included), `_fail_closed_on_unrouted_failure`,
+# and `_enforce_strict_terminal_accounting` (both required before any
+# package manifest write).
+# =========================================================================== #
+
+class _BrokenDetector:
+    """`.detect()` raises a plain, UNTYPED exception -- not
+    DetectorInferenceError -- so the frozen run_preprocessing() cannot route
+    it as a typed failure and must fall through to its generic outer
+    handler, tallying `unrouted_processing_failure`."""
+
+    name = "broken"
+
+    def detect(self, image):
+        raise RuntimeError("boom -- not a DetectorInferenceError")
+
+
+# --- 1/2: detector=None (smoke AND full builder) constructs the real SCRFD -
+
+def test_resolve_e7b_detector_constructs_real_scrfd_when_none_injected(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    cfg = e7b._m2_config(repo)
+    stand_in_model = tmp_path / "stand_in_scrfd.onnx"
+    stand_in_model.write_bytes(b"stand-in-bytes")
+
+    constructed = {}
+
+    class _FakeSCRFDDetector:
+        def __init__(self, path, input_size):
+            constructed["path"] = path
+            constructed["input_size"] = input_size
+
+    monkeypatch.setattr(e7b.cc, "sha256_file", lambda p: e7b.FROZEN_SCRFD_MODEL_SHA256)
+    monkeypatch.setattr("prism_fas.data.preprocess_m2.resolve_detector_path", lambda declared: stand_in_model)
+    monkeypatch.setattr("prism_fas.data.preprocess_m2.SCRFDDetector", _FakeSCRFDDetector)
+
+    detector, sha256 = e7b._resolve_e7b_detector(cfg, None)
+    assert isinstance(detector, _FakeSCRFDDetector)
+    assert sha256 == e7b.FROZEN_SCRFD_MODEL_SHA256
+    assert constructed["path"] == stand_in_model
+    assert constructed["input_size"] == cfg.scrfd_input_size  # exact frozen input size, never invented
+
+
+def test_full_builder_and_smoke_share_the_same_no_injection_detector_path(tmp_path, monkeypatch):
+    """Proves items 1 AND 2 in one assertion: `_resolve_e7b_detector` is the
+    SAME function `e7b_build_siw_source`/`_e7b_build_target` call for BOTH
+    smoke=True and smoke=False whenever `detector` is None -- there is no
+    separate smoke-only bypass branch left in the source."""
+    source = Path(e7b.__file__).read_text(encoding="utf-8")
+    assert "FROZEN_SCRFD_MODEL_SHA256 if (detector is not None or smoke)" not in source
+    assert source.count("_resolve_e7b_detector(cfg, detector)") == 2  # SiW source + target builder
+
+
+# --- 3: actual model SHA mismatch fails before processing ------------------
+
+def test_scrfd_sha_mismatch_fails_before_any_instantiation(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    cfg = e7b._m2_config(repo)
+    wrong_model = tmp_path / "wrong_scrfd.onnx"
+    wrong_model.write_bytes(b"definitely-not-the-real-model")
+
+    instantiated = []
+
+    class _FakeSCRFDDetector:
+        def __init__(self, path, input_size):
+            instantiated.append(path)
+
+    monkeypatch.setattr("prism_fas.data.preprocess_m2.resolve_detector_path", lambda declared: wrong_model)
+    monkeypatch.setattr("prism_fas.data.preprocess_m2.SCRFDDetector", _FakeSCRFDDetector)
+
+    with pytest.raises(e7b.E7BError, match="FAIL CLOSED"):
+        e7b._resolve_e7b_detector(cfg, None)
+    assert instantiated == []  # never reached instantiation
+
+
+# --- 4: smoke does NOT bypass the SHA check (real absence of weights on
+# this laptop is the ground truth -- no need to fake it) --------------------
+
+def test_smoke_does_not_bypass_sha_verification_when_no_detector_injected(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records", lambda repo_, *, dataset, raw_root: records)
+    with pytest.raises(e7b.E7BError, match="SCRFD model not present"):
+        e7b.e7b_smoke_target_msu(repo, limit_videos=1)  # no detector injected
+
+
+# --- 5: injected MockFaceDetector still works for unit tests ---------------
+
+def test_injected_mock_detector_bypasses_real_model_requirement(tmp_path):
+    repo = _full_fixture(tmp_path)
+    cfg = e7b._m2_config(repo)
+    fake = MockFaceDetector(_SUCCESS_DETECTIONS)
+    detector, sha256 = e7b._resolve_e7b_detector(cfg, fake)
+    assert detector is fake
+    assert sha256 == e7b.FROZEN_SCRFD_MODEL_SHA256
+
+
+# --- 6/13: RunExecutionResult is captured and exposed -----------------------
+
+def test_run_execution_result_captured_and_exposed(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(2, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records", lambda repo_, *, dataset, raw_root: records)
+    result = e7b.e7b_smoke_target_msu(repo, limit_videos=2, detector=MockFaceDetector(_SUCCESS_DETECTIONS),
+                                      media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    summary = result["run_execution_result"]
+    assert summary is not None
+    for key in ("canonical_records_attempted", "samples_selected", "samples_successful", "samples_failed",
+               "frames_read", "detector_calls", "crops_written", "failures_by_code", "manifest_counts"):
+        assert key in summary
+    assert summary["samples_selected"] == 8
+    assert summary["detector_calls"] > 0
+    assert summary["frames_read"] > 0
+    assert result["body"]["last_run_accounting"] == summary  # also persisted into the package body
+
+
+# --- 7: unrouted_processing_failure fails closed ----------------------------
+
+def test_unrouted_processing_failure_fails_closed(tmp_path):
+    fake_result = type("FakeResult", (), {"failures_by_code": {"unrouted_processing_failure": 3}})()
+    with pytest.raises(e7b.E7BError, match="UNROUTED_PROCESSING_FAILURE"):
+        e7b._fail_closed_on_unrouted_failure(fake_result, kind="test kind")
+
+
+def test_unrouted_processing_failure_fails_closed_end_to_end(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records", lambda repo_, *, dataset, raw_root: records)
+    with pytest.raises(e7b.E7BError, match="UNROUTED_PROCESSING_FAILURE"):
+        e7b.e7b_smoke_target_msu(repo, limit_videos=1, detector=_BrokenDetector(),
+                                 media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    # no package written on this hard failure
+    assert not (repo / e7b.E7B_MSU_SMOKE_ROOT / "TARGET_PACKAGE.json").is_file()
+
+
+# --- 8/9/10/12: strict terminal accounting ----------------------------------
+
+def test_strict_accounting_rejects_zero_rows_for_nonzero_planned():
+    with pytest.raises(e7b.E7BError, match="STRICT_TERMINAL_ACCOUNTING_FAILED"):
+        e7b._enforce_strict_terminal_accounting(kind="k", active_video_count=2, rows=[],
+                                                successful=0, failed=0)
+
+
+def test_strict_accounting_rejects_incomplete_terminal_rows():
+    rows = [{"status": "success"}] * 3 + [{"status": "failure"}] * 2  # 5 of 8 expected
+    with pytest.raises(e7b.E7BError, match="STRICT_TERMINAL_ACCOUNTING_FAILED"):
+        e7b._enforce_strict_terminal_accounting(kind="k", active_video_count=2, rows=rows,
+                                                successful=3, failed=2)
+
+
+def test_strict_accounting_accepts_exactly_eight_terminal_rows():
+    rows = [{"status": "success"}] * 3 + [{"status": "failure"}] * 5
+    e7b._enforce_strict_terminal_accounting(kind="k", active_video_count=2, rows=rows,
+                                            successful=3, failed=5)  # does not raise
+
+
+def test_strict_accounting_rejects_mismatched_success_failure_counters():
+    rows = [{"status": "success"}] * 8
+    with pytest.raises(e7b.E7BError, match="STRICT_TERMINAL_ACCOUNTING_FAILED"):
+        # claims 4/4 but all 8 rows are actually "success"
+        e7b._enforce_strict_terminal_accounting(kind="k", active_video_count=2, rows=rows,
+                                                successful=4, failed=4)
+
+
+# --- 11: all-eight-no_face-failures is a VALID outcome if all eight are
+# persisted (already exercised for SiW by
+# test_siw_source_smoke_all_failures_completes_and_retains_source_labels;
+# this covers the target side end-to-end through the real fixed pipeline) --
+
+def test_all_eight_no_face_failures_is_valid_when_fully_persisted(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(2, "casia_fasd")
+    monkeypatch.setattr(e7b, "_target_canonical_records", lambda repo_, *, dataset, raw_root: records)
+    result = e7b.e7b_smoke_target_casia(repo, limit_videos=2, detector=MockFaceDetector([]),
+                                        media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    body = result["body"]
+    assert body["successful_crop_count"] == 0
+    assert body["failure_count"] == 8
+    assert len(body["rows"]) == 8
+    assert all(r["status"] == "failure" for r in body["rows"])
+
+
+# --- 26: 6751638 false-green evidence + diagnosis preserved ----------------
+
+def test_6751638_false_green_evidence_and_diagnosis_preserved():
+    evidence_root = REPO / "reports/c_ext_q1q2_v1/e7_three_fold/e7b_data_prep/gpu_evidence/smoke_6751638_false_green"
+    assert evidence_root.is_dir()
+    assert (evidence_root / "e7b_smoke_siw.out").is_file()
+    assert (evidence_root / "e7b_preflight_6751638.json").is_file()
+
+    diagnosis = REPO / e7b.E7B_REPORT_DIR / "E7B_SMOKE_FALSE_GREEN_TECHNICAL_DIAGNOSIS.json"
+    assert diagnosis.is_file()
+    body = json.loads(diagnosis.read_text(encoding="utf-8"))
+    assert body["BASE_COMMIT"] == "6751638ff3514d4f852415adc32aa55026b8d460"
+    assert body["FALSE_GREEN_DETECTED"] is True
+    assert body["SCIENTIFIC_PROTOCOL_CHANGED"] is False
+    assert body["TECHNICAL_EXECUTION_FAILURE"] is True
+    assert body["root_cause"]["detector_none_passed_to_run_preprocessing"] is True
