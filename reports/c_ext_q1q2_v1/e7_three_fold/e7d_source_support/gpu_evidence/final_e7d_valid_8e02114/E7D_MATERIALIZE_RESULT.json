@@ -1,0 +1,95 @@
+{
+  "EXT-F1": {
+    "resumed": false,
+    "status": "MATERIALIZED",
+    "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/data/processed/c_ext_q1q2_v1/e7d_source_support/EXT-F1/SOURCE_SUPPORT_PACKAGE.json",
+    "body": {
+      "schema_version": "ext-q1q2-e7d-source-support-package-v1",
+      "fold_id": "EXT-F1",
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2",
+      "package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "m3b_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "siw_package_identity": null,
+      "train_row_count": 1440,
+      "dev_row_count": 2079,
+      "live_train_row_count": 280,
+      "live_dev_row_count": 400,
+      "siw_success_total": null,
+      "siw_failure_total": null,
+      "target_labels_opened": false,
+      "target_image_bytes_opened": false,
+      "status": "MATERIALIZED"
+    },
+    "target_access": false,
+    "llm_api_calls": 0,
+    "rendering_performed": false,
+    "training_performed": false,
+    "gpat_fitting_performed": false
+  },
+  "EXT-F2": {
+    "resumed": false,
+    "status": "MATERIALIZED",
+    "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/data/processed/c_ext_q1q2_v1/e7d_source_support/EXT-F2/SOURCE_SUPPORT_PACKAGE.json",
+    "body": {
+      "schema_version": "ext-q1q2-e7d-source-support-package-v1",
+      "fold_id": "EXT-F2",
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD",
+      "package_identity": "b617dc8ee6b0827ef5c0be3072563bb0013d1c87c7982527a6b16a5b75dde6a0",
+      "m3b_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "siw_package_identity": "0f7811b0960d0dd2be7c732aef4107af9c3476eb9b6b9932b4fe32c7a126bb4f",
+      "train_row_count": 6386,
+      "dev_row_count": 2789,
+      "live_train_row_count": 2672,
+      "live_dev_row_count": 868,
+      "siw_success_total": 6776,
+      "siw_failure_total": 24,
+      "target_labels_opened": false,
+      "target_image_bytes_opened": false,
+      "status": "MATERIALIZED"
+    },
+    "target_access": false,
+    "llm_api_calls": 0,
+    "rendering_performed": false,
+    "training_performed": false,
+    "gpat_fitting_performed": false
+  },
+  "EXT-F3": {
+    "resumed": false,
+    "status": "MATERIALIZED",
+    "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/data/processed/c_ext_q1q2_v1/e7d_source_support/EXT-F3/SOURCE_SUPPORT_PACKAGE.json",
+    "body": {
+      "schema_version": "ext-q1q2-e7d-source-support-package-v1",
+      "fold_id": "EXT-F3",
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD",
+      "package_identity": "508a9bd002d22571534d9609a7b301065a8d752b9625f7b500ae27b199ec8955",
+      "m3b_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+      "siw_package_identity": "0f7811b0960d0dd2be7c732aef4107af9c3476eb9b6b9932b4fe32c7a126bb4f",
+      "train_row_count": 5906,
+      "dev_row_count": 1990,
+      "live_train_row_count": 2632,
+      "live_dev_row_count": 788,
+      "siw_success_total": 6776,
+      "siw_failure_total": 24,
+      "target_labels_opened": false,
+      "target_image_bytes_opened": false,
+      "status": "MATERIALIZED"
+    },
+    "target_access": false,
+    "llm_api_calls": 0,
+    "rendering_performed": false,
+    "training_performed": false,
+    "gpat_fitting_performed": false
+  }
+}
