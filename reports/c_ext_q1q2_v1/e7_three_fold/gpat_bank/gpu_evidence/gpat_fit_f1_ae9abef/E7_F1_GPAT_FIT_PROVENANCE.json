@@ -1,0 +1,19 @@
+{
+  "schema_version": "e7-f1-gpat-fit-provenance-v1",
+  "fold_id": "EXT-F1",
+  "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+  "implementation_commit": "ae9abef62f86002132c6b2d716f58301910510df",
+  "implementation_module_sha256": "7742bc25cb65bd3327e353739edf68a7a6b70f7a6312f521d5768ebcdef59081",
+  "gpat_fit_lock_sha256": "98e841e393c9c28a185413e2234b0ff7dfb4658edd7a7d8a22ed0dc9fd8df4e0",
+  "gpat_input_package_lock_sha256": "e64e5d44136975c4d2e0a1eebec381525a3891e4a4bd4bfd589f97607374b574",
+  "pair_plan_lock_sha256": "7e73bc17a696ef1186531910124dd1cc9b863dd5a7f747581bc937b13b0bc2e5",
+  "effective_gpat_config_sha256": "62cea00bda24c844268e4b02025fdb5754dd00e099a818b71f21f819aa75fd34",
+  "best_checkpoint_sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f",
+  "last_checkpoint_sha256": "af9ffe708c4aa6fff4b8f7f0fe2d3eb2125342ba9022fbab3055f1316c3bf83f",
+  "package_identity": "47d5ddfd3a389b0fb517e2a437e728b52c70f7c3d55caa3556c4a217efdb8979",
+  "pair_plan_identity": "e932e2907b689fb0aaae089accd3b869281b76d7a8741d5d1b17ac6225207576",
+  "effective_config_hash": "ccdfcb2aab4201f72f49ead4061185b5e5c31d3c6e33163bc703d89e7941c2b1",
+  "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+  "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+  "m7_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+}

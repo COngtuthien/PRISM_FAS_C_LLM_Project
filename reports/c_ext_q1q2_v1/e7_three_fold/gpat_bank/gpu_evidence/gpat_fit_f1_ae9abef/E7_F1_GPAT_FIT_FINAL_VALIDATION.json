@@ -1,0 +1,144 @@
+{
+  "schema_version": "e7-f1-gpat-fit-final-validation-v1",
+  "fit_lock_validation": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-gpat-fit-lock-validate-v1",
+    "fold_id": "EXT-F1",
+    "status": "VALID",
+    "problems": [],
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "global_validation": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-validate-v1",
+    "folds": {
+      "EXT-F1": {
+        "gpat_checkpoint_present": true,
+        "gpat_fit_lock_status": "VALID",
+        "banks": {
+          "G-RND": "NOT_MATERIALIZED",
+          "G-DET": "NOT_MATERIALIZED",
+          "G-LLM": "NOT_MATERIALIZED",
+          "G-LLM-SHUFFLE-A": "NOT_MATERIALIZED"
+        }
+      },
+      "EXT-F2": {
+        "gpat_checkpoint_present": false,
+        "gpat_fit_lock_status": "NOT_MATERIALIZED",
+        "banks": {
+          "G-RND": "NOT_MATERIALIZED",
+          "G-DET": "NOT_MATERIALIZED",
+          "G-LLM": "NOT_MATERIALIZED",
+          "G-LLM-SHUFFLE-A": "NOT_MATERIALIZED"
+        }
+      },
+      "EXT-F3": {
+        "gpat_checkpoint_present": false,
+        "gpat_fit_lock_status": "NOT_MATERIALIZED",
+        "banks": {
+          "G-RND": "NOT_MATERIALIZED",
+          "G-DET": "NOT_MATERIALIZED",
+          "G-LLM": "NOT_MATERIALIZED",
+          "G-LLM-SHUFFLE-A": "NOT_MATERIALIZED"
+        }
+      }
+    },
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "post_fit_preflight": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-preflight-v2",
+    "E7D_BINDING_MATCH": true,
+    "F1_SOURCE_SUPPORT_VALID": true,
+    "F2_SOURCE_SUPPORT_VALID": true,
+    "F3_SOURCE_SUPPORT_VALID": true,
+    "F1_GPAT_INPUT_COMPATIBLE": true,
+    "F2_GPAT_INPUT_COMPATIBLE": true,
+    "F3_GPAT_INPUT_COMPATIBLE": true,
+    "F1_PRIOR_GENERATION_PRIMITIVE_RESOLVED": "NOT_APPLICABLE_EXISTING_PRIORS",
+    "F2_PRIOR_GENERATION_PRIMITIVE_RESOLVED": true,
+    "F3_PRIOR_GENERATION_PRIMITIVE_RESOLVED": true,
+    "F1_SOURCE_PRIORS_MATERIALIZED": true,
+    "F2_SOURCE_PRIORS_MATERIALIZED": true,
+    "F3_SOURCE_PRIORS_MATERIALIZED": true,
+    "F1_SOURCE_PRIORS_READY": true,
+    "F2_SOURCE_PRIORS_READY": true,
+    "F3_SOURCE_PRIORS_READY": true,
+    "F1_TARGET_FIREWALL_ACTIVE": true,
+    "F2_TARGET_FIREWALL_ACTIVE": true,
+    "F3_TARGET_FIREWALL_ACTIVE": true,
+    "GPAT_SCIENTIFIC_PRIMITIVES_REUSED": true,
+    "PAIRING_SCIENTIFIC_RULES_REUSED": true,
+    "QUALITY_GATE_REUSED": true,
+    "MATCHED_BANK_LOGIC_REUSED": true,
+    "F1_SHUFFLE_STATUS": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+    "F2_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+    "F3_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+    "RECIPE_BANKS_BOUND": true,
+    "READY_FOR_GPU_GPAT_FIT": true,
+    "READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION": false,
+    "F1_GPAT_FITTED": true,
+    "F2_GPAT_FITTED": false,
+    "F3_GPAT_FITTED": false,
+    "E7_READY_FOR_TRAINING": false,
+    "TARGET_LABEL_ACCESS": false,
+    "TARGET_IMAGE_ACCESS": false,
+    "TRAINING_PERFORMED": false,
+    "RENDERING_PERFORMED": false,
+    "GPAT_FITTING_PERFORMED": false,
+    "LLM_API_CALLS": 0,
+    "per_fold_compatibility_detail": {
+      "EXT-F1": "COMPATIBLE",
+      "EXT-F2": "COMPATIBLE",
+      "EXT-F3": "COMPATIBLE"
+    }
+  },
+  "best_checkpoint_summary": {
+    "schema_version": "m8-gpat-ckpt-v1",
+    "epoch": 13,
+    "global_step": 784,
+    "best_metrics": {
+      "validation_total_loss": 0.047065124447856634,
+      "validation_identity_cosine": 0.9997521213122776,
+      "epoch": 13,
+      "global_step": 784
+    },
+    "identity": {
+      "package_identity": "47d5ddfd3a389b0fb517e2a437e728b52c70f7c3d55caa3556c4a217efdb8979",
+      "recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "pair_plan_identity": "e932e2907b689fb0aaae089accd3b869281b76d7a8741d5d1b17ac6225207576",
+      "config_hash": "ccdfcb2aab4201f72f49ead4061185b5e5c31d3c6e33163bc703d89e7941c2b1",
+      "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+      "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    },
+    "sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f",
+    "git_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+    "torch_version": "2.13.0+cu129",
+    "rng_state_present": true,
+    "resume_lineage": []
+  },
+  "last_checkpoint_summary": {
+    "schema_version": "m8-gpat-ckpt-v1",
+    "epoch": 14,
+    "global_step": 840,
+    "best_metrics": {
+      "validation_total_loss": 0.047065124447856634,
+      "validation_identity_cosine": 0.9997521213122776,
+      "epoch": 13,
+      "global_step": 784,
+      "sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f"
+    },
+    "identity": {
+      "package_identity": "47d5ddfd3a389b0fb517e2a437e728b52c70f7c3d55caa3556c4a217efdb8979",
+      "recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "pair_plan_identity": "e932e2907b689fb0aaae089accd3b869281b76d7a8741d5d1b17ac6225207576",
+      "config_hash": "ccdfcb2aab4201f72f49ead4061185b5e5c31d3c6e33163bc703d89e7941c2b1",
+      "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+      "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    },
+    "sha256": "af9ffe708c4aa6fff4b8f7f0fe2d3eb2125342ba9022fbab3055f1316c3bf83f",
+    "git_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+    "torch_version": "2.13.0+cu129",
+    "rng_state_present": true,
+    "resume_lineage": []
+  }
+}

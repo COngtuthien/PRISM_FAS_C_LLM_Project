@@ -1,0 +1,51 @@
+{
+  "schema_version": "e7-f1-gpat-fit-closure-v1",
+  "GPAT_FIT_STATUS": "CLOSED_VALID",
+  "fold_id": "EXT-F1",
+  "run_id": "gpat_fit_ext_f1_ccdfcb2aab42",
+  "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+  "implementation_commit": "ae9abef62f86002132c6b2d716f58301910510df",
+  "implementation_module_sha256": "7742bc25cb65bd3327e353739edf68a7a6b70f7a6312f521d5768ebcdef59081",
+  "package_identity": "47d5ddfd3a389b0fb517e2a437e728b52c70f7c3d55caa3556c4a217efdb8979",
+  "pair_plan_identity": "e932e2907b689fb0aaae089accd3b869281b76d7a8741d5d1b17ac6225207576",
+  "effective_config_hash": "ccdfcb2aab4201f72f49ead4061185b5e5c31d3c6e33163bc703d89e7941c2b1",
+  "best_checkpoint_sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f",
+  "last_checkpoint_sha256": "af9ffe708c4aa6fff4b8f7f0fe2d3eb2125342ba9022fbab3055f1316c3bf83f",
+  "epochs_requested": 15,
+  "epochs_completed": 15,
+  "global_step": 840,
+  "stop_reason": "completed_all_epochs",
+  "best_metrics": {
+    "epoch": 13,
+    "global_step": 784,
+    "sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f",
+    "validation_identity_cosine": 0.9997521213122776,
+    "validation_total_loss": 0.047065124447856634
+  },
+  "source_isolation": {
+    "distinct_paths": 1951,
+    "manifests_opened": [
+      "manifests/source_train.parquet"
+    ],
+    "path_prefixes": [
+      "images",
+      "manifests",
+      "priors"
+    ],
+    "raw_dataset_path_opened": false,
+    "source_dev_opened": false,
+    "source_train_opened": true,
+    "target_label_artifact_opened": false,
+    "target_test_opened": false,
+    "total_opens": 1951
+  },
+  "F1_GPAT_FITTED": true,
+  "F2_GPAT_FITTED": false,
+  "F3_GPAT_FITTED": false,
+  "E7_READY_FOR_TRAINING": false,
+  "TARGET_LABEL_ACCESS": false,
+  "TARGET_IMAGE_ACCESS": false,
+  "RENDERING_PERFORMED": false,
+  "DETECTOR_TRAINING_PERFORMED": false,
+  "LLM_API_CALLS": 0
+}

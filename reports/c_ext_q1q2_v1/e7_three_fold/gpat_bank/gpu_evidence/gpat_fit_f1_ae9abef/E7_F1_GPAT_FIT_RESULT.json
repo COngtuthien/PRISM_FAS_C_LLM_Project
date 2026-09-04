@@ -1,0 +1,71 @@
+{
+  "EXT-F1": {
+    "resumed": false,
+    "status": "FITTED",
+    "run_id": "gpat_fit_ext_f1_ccdfcb2aab42",
+    "lock": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-gpat-fit-lock-v1",
+      "fold_id": "EXT-F1",
+      "status": "VALID",
+      "run_id": "gpat_fit_ext_f1_ccdfcb2aab42",
+      "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+      "implementation_commit": "ae9abef62f86002132c6b2d716f58301910510df",
+      "implementation_module_sha256": "7742bc25cb65bd3327e353739edf68a7a6b70f7a6312f521d5768ebcdef59081",
+      "base_config_sha256": "d38f9489861cb16d83c8e1725fc935103e393a99ba8b08ab35605cb7216fe0d6",
+      "effective_config_hash": "ccdfcb2aab4201f72f49ead4061185b5e5c31d3c6e33163bc703d89e7941c2b1",
+      "package_identity": "47d5ddfd3a389b0fb517e2a437e728b52c70f7c3d55caa3556c4a217efdb8979",
+      "pair_plan_identity": "e932e2907b689fb0aaae089accd3b869281b76d7a8741d5d1b17ac6225207576",
+      "m7_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+      "best_checkpoint_relative_path": "runs/c_ext_q1q2_v1/e7_gpat_bank/EXT-F1/gpat_fit/checkpoints/best.pt",
+      "best_checkpoint_sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f",
+      "last_checkpoint_relative_path": "runs/c_ext_q1q2_v1/e7_gpat_bank/EXT-F1/gpat_fit/checkpoints/last.pt",
+      "last_checkpoint_sha256": "af9ffe708c4aa6fff4b8f7f0fe2d3eb2125342ba9022fbab3055f1316c3bf83f",
+      "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+      "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+      "seed": 20260806,
+      "device": "cuda",
+      "epochs_requested": 15,
+      "epochs_completed": 15,
+      "global_step": 840,
+      "stop_reason": "completed_all_epochs",
+      "best_metrics": {
+        "validation_total_loss": 0.047065124447856634,
+        "validation_identity_cosine": 0.9997521213122776,
+        "epoch": 13,
+        "global_step": 784,
+        "sha256": "50cfc683a38d23846214d97b75bcacae2535a5039068b2c40586d9a5f2b8e34f"
+      },
+      "record_set_hashes": {
+        "train_live_source_record_id": "cde387cb9342741cf36191145e1d1e804adb30ed7472940dfac2fa85e245c558",
+        "train_spoof_source_record_id": "9aa4fd56867a1bfeb0c427138c3832ab332a418efb36b8589e99cbe687c1f2da",
+        "validation_live_source_record_id": "60ef302466a47b0d7a36e7ea94508aa30f0ffdc645a9baca47cf828bde53b827",
+        "validation_spoof_source_record_id": "dde077e3befeb9fcb4e861aa9720675325502937e242ed9e89fe6d50766d5702"
+      },
+      "source_isolation": {
+        "source_train_opened": true,
+        "source_dev_opened": false,
+        "target_test_opened": false,
+        "target_label_artifact_opened": false,
+        "raw_dataset_path_opened": false,
+        "manifests_opened": [
+          "manifests/source_train.parquet"
+        ],
+        "distinct_paths": 1951,
+        "total_opens": 1951,
+        "path_prefixes": [
+          "images",
+          "manifests",
+          "priors"
+        ]
+      },
+      "TARGET_LABEL_ACCESS": false,
+      "TARGET_IMAGE_ACCESS": false,
+      "RENDERING_PERFORMED": false,
+      "DETECTOR_TRAINING_PERFORMED": false,
+      "LLM_API_CALLS": 0
+    },
+    "target_access": false,
+    "llm_api_calls": 0,
+    "gpat_fitting_performed": true
+  }
+}
