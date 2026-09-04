@@ -1,0 +1,147 @@
+{
+  "resumed": false,
+  "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/runs/c_ext_q1q2_v1/e7b_smoke/casia_target/TARGET_PACKAGE.json",
+  "body": {
+    "schema_version": "ext-q1q2-e7b-target-package-v1",
+    "dataset": "casia_fasd",
+    "package_identity": "5996873998daa290498728b4dbd52ab3f91d2ad357e244b7516485f4ec72b457",
+    "preprocessing_config_hash": "48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959",
+    "detector_model_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "canonical_video_count": 2,
+    "planned_frame_count": 8,
+    "successful_crop_count": 8,
+    "failure_count": 0,
+    "rows": [
+      {
+        "canonical_video_id": "test_s1v2",
+        "frame_index": 6,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/34183970a342cb9c4aa6c8c6.jpg",
+        "crop_sha256": "53a8f1c8fd6f18dcce7a7dab7b2908660846f93030eaea063ed33522eda6be9f",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v2",
+        "frame_index": 126,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/4469e6b58912aac66ff9c572.jpg",
+        "crop_sha256": "bff783e3e14646dc373b3adf277c75e24b7e63c1b1db6854e7f7cf5d65836d66",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v1",
+        "frame_index": 8,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/757d346a29c6015cf6cf11ba.jpg",
+        "crop_sha256": "8a9418caaaeebc39b7daeeaf60f5e1190825ccf0f166e1d9ba877a780d0b076c",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v2",
+        "frame_index": 86,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/8ce522772d5873b8c257886d.jpg",
+        "crop_sha256": "e9f3c7bf8ea49a768d4bda9782d75dff7f1bfc5b585e7987f61c59a038078409",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v1",
+        "frame_index": 152,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/9579b5ec2ec840cb1bacc821.jpg",
+        "crop_sha256": "bb3334fc5cfd4a7d0a6371b229de2d9a0f145b52d280c36c2065c23205f75a21",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v1",
+        "frame_index": 56,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/99da5bc38750167f3a082df5.jpg",
+        "crop_sha256": "e293159d4ca5d9bfcb8c34875f8fd5ab7e05e5dbe4916ca8e9253db3945bab4b",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v2",
+        "frame_index": 46,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/eff04abc9112b4c67769b91a.jpg",
+        "crop_sha256": "d7648b92f8f5f5710e42092ddfb7b8685c75f5ca5edface8a57eb6e255f53ad5",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "test_s1v1",
+        "frame_index": 104,
+        "timestamp_ms": null,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/casia_fasd/ff6f74dccd7870a032daed07.jpg",
+        "crop_sha256": "af07bc4272b1ec4ef950101f485773d1070522badf4a2eb7b85a0cb5133cce2f",
+        "failure_reason": null,
+        "status": "success"
+      }
+    ],
+    "label_free": true,
+    "smoke": true,
+    "status": "SMOKE",
+    "last_run_accounting": {
+      "canonical_records_attempted": 2,
+      "samples_selected": 8,
+      "samples_successful": 8,
+      "samples_failed": 0,
+      "frames_read": 8,
+      "detector_calls": 8,
+      "crops_written": 8,
+      "failures_by_code": {},
+      "manifest_counts": {
+        "source_frames": 0,
+        "source_crops": 0,
+        "target_frames": 8,
+        "target_crops": 8,
+        "preprocessing_failures": 0
+      }
+    }
+  },
+  "run_execution_result": {
+    "canonical_records_attempted": 2,
+    "samples_selected": 8,
+    "samples_successful": 8,
+    "samples_failed": 0,
+    "frames_read": 8,
+    "detector_calls": 8,
+    "crops_written": 8,
+    "failures_by_code": {},
+    "manifest_counts": {
+      "source_frames": 0,
+      "source_crops": 0,
+      "target_frames": 8,
+      "target_crops": 8,
+      "preprocessing_failures": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

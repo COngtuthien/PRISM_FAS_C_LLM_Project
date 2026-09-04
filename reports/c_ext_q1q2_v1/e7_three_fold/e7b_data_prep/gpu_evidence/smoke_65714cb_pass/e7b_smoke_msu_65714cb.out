@@ -1,0 +1,147 @@
+{
+  "resumed": false,
+  "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/runs/c_ext_q1q2_v1/e7b_smoke/msu_target/TARGET_PACKAGE.json",
+  "body": {
+    "schema_version": "ext-q1q2-e7b-target-package-v1",
+    "dataset": "msu_mfsd",
+    "package_identity": "8f77c81915a6d42dbd792a723e249483eea5d43d7ff46c45a6e0a1f8629cb6ad",
+    "preprocessing_config_hash": "48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959",
+    "detector_model_sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "canonical_video_count": 2,
+    "planned_frame_count": 8,
+    "successful_crop_count": 8,
+    "failure_count": 0,
+    "rows": [
+      {
+        "canonical_video_id": "attack_client001_android_SD_iphone_video_scene01",
+        "frame_index": 194,
+        "timestamp_ms": 6471.229259259259,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/01bd4c466f8eb417ec69898f.jpg",
+        "crop_sha256": "a633a915e9ca5764235715eb93f44a697cae505a942ce4f00e748e2563db131a",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_iphone_video_scene01",
+        "frame_index": 105,
+        "timestamp_ms": 3502.4694444444444,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/046e06d2ed27e128b744ae90.jpg",
+        "crop_sha256": "386db7ca32a634b1d2f15ef6db8e67555326f328d5b7732077a1e42d7a061e39",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_ipad_video_scene01",
+        "frame_index": 194,
+        "timestamp_ms": 6475.411037037037,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/09e2f155659367b6c397e638.jpg",
+        "crop_sha256": "2279b4875d54c8c9b4f8ab30e858985299a480799b904fe137c665ff7a4e4b16",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_ipad_video_scene01",
+        "frame_index": 284,
+        "timestamp_ms": 9479.467703703704,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/757f1663def38270c7d780c5.jpg",
+        "crop_sha256": "d980fcefd604548d2ba5dc77b53595a6a239975b13e1e2a29c10781f10a82789",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_iphone_video_scene01",
+        "frame_index": 284,
+        "timestamp_ms": 9473.345925925927,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/7e8e7083ad6e03a193bab483.jpg",
+        "crop_sha256": "ba71ea6786384ad8849dc0ca655c37b4d4ef07212e8e3c62a9a50491af0a339e",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_iphone_video_scene01",
+        "frame_index": 15,
+        "timestamp_ms": 500.3527777777778,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/c025ca462db4ecf35518c989.jpg",
+        "crop_sha256": "4427a730e4a9f561c7f7e6e78f0ec04f4142b9b00a66fbaa1f4cb1b785f72383",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_ipad_video_scene01",
+        "frame_index": 105,
+        "timestamp_ms": 3504.7327777777778,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/d5be8e64e439d4b62261dcdc.jpg",
+        "crop_sha256": "25153616e0c01fbcfab1e881ee760eea128ecb06674d4ef1eccfeafbdb648645",
+        "failure_reason": null,
+        "status": "success"
+      },
+      {
+        "canonical_video_id": "attack_client001_android_SD_ipad_video_scene01",
+        "frame_index": 15,
+        "timestamp_ms": 500.6761111111111,
+        "frame_extraction_status": "success",
+        "face_detection_status": "success",
+        "crop_relative_path": "crops/msu_mfsd/dece1c3d8a96f8f27cc44cbb.jpg",
+        "crop_sha256": "74b770c85fea1a878381cf4be1a72f65d3ad7435d0e831edd6e37d5c18e36f50",
+        "failure_reason": null,
+        "status": "success"
+      }
+    ],
+    "label_free": true,
+    "smoke": true,
+    "status": "SMOKE",
+    "last_run_accounting": {
+      "canonical_records_attempted": 2,
+      "samples_selected": 8,
+      "samples_successful": 8,
+      "samples_failed": 0,
+      "frames_read": 8,
+      "detector_calls": 8,
+      "crops_written": 8,
+      "failures_by_code": {},
+      "manifest_counts": {
+        "source_frames": 0,
+        "source_crops": 0,
+        "target_frames": 8,
+        "target_crops": 8,
+        "preprocessing_failures": 0
+      }
+    }
+  },
+  "run_execution_result": {
+    "canonical_records_attempted": 2,
+    "samples_selected": 8,
+    "samples_successful": 8,
+    "samples_failed": 0,
+    "frames_read": 8,
+    "detector_calls": 8,
+    "crops_written": 8,
+    "failures_by_code": {},
+    "manifest_counts": {
+      "source_frames": 0,
+      "source_crops": 0,
+      "target_frames": 8,
+      "target_crops": 8,
+      "preprocessing_failures": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

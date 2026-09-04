@@ -1,0 +1,29 @@
+{
+  "commit": "65714cb897042840fa27dbbd69f5e72bba9ef25d",
+  "siw_source": {
+    "source_frame_count": 8,
+    "source_crop_count": 8,
+    "all_frame_subject_id_null": true,
+    "all_crop_subject_id_null": true,
+    "labels": [
+      "live"
+    ]
+  },
+  "targets": {
+    "msu_target": {
+      "target_crop_count": 8,
+      "forbidden_fields_found": [],
+      "target_label_free": true
+    },
+    "casia_target": {
+      "target_crop_count": 8,
+      "forbidden_fields_found": [],
+      "target_label_free": true
+    }
+  },
+  "target_access": false,
+  "training_performed": false,
+  "rendering_performed": false,
+  "gpat_fitting_performed": false,
+  "llm_api_calls": 0
+}
