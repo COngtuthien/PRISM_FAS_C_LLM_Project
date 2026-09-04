@@ -1,0 +1,31 @@
+{
+  "schema_version": "ext-q1q2-e7b-downstream-contract-v1",
+  "EXT-F1": {
+    "ready": false,
+    "requires": [
+      "M3B source (CASIA+MSU)",
+      "frozen SiW target"
+    ]
+  },
+  "EXT-F2": {
+    "ready": false,
+    "requires": [
+      "CASIA M3B source",
+      "processed SiW source package",
+      "new MSU label-free target package"
+    ]
+  },
+  "EXT-F3": {
+    "ready": false,
+    "requires": [
+      "MSU M3B source",
+      "SAME processed SiW source package",
+      "new CASIA label-free target package"
+    ]
+  },
+  "E7_READY_FOR_PER_FOLD_GPAT_PREPARATION": false,
+  "explicitly_not_e7_ready_for_training": true,
+  "reason_not_training_ready": "GPAT support/candidate generation still has to occur after this",
+  "target_access": false,
+  "llm_api_calls": 0
+}

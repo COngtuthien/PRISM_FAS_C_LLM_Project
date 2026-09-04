@@ -1,0 +1,33 @@
+{
+  "schema_version": "ext-q1q2-e7b-dataset-binding-v1",
+  "m3b_package_root": "data/packages/prism_data_v1_m3b",
+  "m3b_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m3b_package_identity_status": "RESOLVED",
+  "siw_target_package_root": "data/processed/prism_target_eval_v2",
+  "siw_target_package_identity": "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8",
+  "siw_target_package_identity_status": "RESOLVED",
+  "raw_data_roots": {
+    "casia_fasd": "data/raw/casia_fasd",
+    "msu_mfsd": "data/raw/msu_mfsd",
+    "siw_mv2": "data/raw/siw_mv2/SiW-Mv2"
+  },
+  "raw_data_present_locally": {
+    "casia_fasd": false,
+    "msu_mfsd": false,
+    "siw_mv2": false
+  },
+  "adapter_implementation_paths": {
+    "casia_fasd": "prism_fas.data.adapters.adapters.CasiaFasdAdapter",
+    "msu_mfsd": "prism_fas.data.adapters.adapters.MsuMfsdAdapter",
+    "siw_mv2": "prism_fas.data.adapters.adapters.SiWMv2Adapter",
+    "preprocessing_runner": "prism_fas.data.preprocess_m2"
+  },
+  "canonical_video_counts": {
+    "casia_fasd": 600,
+    "msu_mfsd": 280
+  },
+  "canonical_video_counts_source": "reports/preflight/DERIVED_DATA_PREPARATION.json",
+  "canonical_video_counts_note": "derived from real, frozen M2 preprocessing evidence (record_counts BEFORE any train/dev split, whole raw dataset) -- never hardcoded, never derived from a desired target count",
+  "target_access": false,
+  "llm_api_calls": 0
+}

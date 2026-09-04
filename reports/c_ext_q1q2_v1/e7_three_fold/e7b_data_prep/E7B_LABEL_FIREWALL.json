@@ -1,0 +1,27 @@
+{
+  "schema_version": "ext-q1q2-e7b-label-firewall-v1",
+  "forbidden_target_label_paths": [
+    "data/evaluation_only/prism_target_v2_labels"
+  ],
+  "forbidden_target_label_paths_present_locally": {
+    "data/evaluation_only/prism_target_v2_labels": true
+  },
+  "permitted_target_preprocessing_knowledge": [
+    "dataset identity",
+    "canonical video identity",
+    "frame identity",
+    "path",
+    "crop output",
+    "failure state"
+  ],
+  "forbidden_target_preprocessing_knowledge": [
+    "evaluation live/spoof labels",
+    "attack labels",
+    "test metrics",
+    "target logits",
+    "target outcomes"
+  ],
+  "evaluation_labels_accessed_only_by": "a LATER scoring/evaluation phase, never E7-B",
+  "target_access": false,
+  "llm_api_calls": 0
+}

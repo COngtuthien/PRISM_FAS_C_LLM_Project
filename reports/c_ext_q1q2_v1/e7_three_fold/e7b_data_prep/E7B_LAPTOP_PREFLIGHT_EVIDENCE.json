@@ -1,0 +1,50 @@
+{
+  "note": "real, read-only laptop-side --e7b-preflight result; honestly FALSE where this laptop lacks bytes (M3B source_train.parquet, SiW/MSU/CASIA raw roots)",
+  "preflight_result": {
+    "schema_version": "ext-q1q2-e7b-preflight-v1",
+    "BASE_E7A_COMMIT_MATCH": true,
+    "E7A_MATERIALIZATION_VALID": true,
+    "E7A_F1_SHA_MATCH": true,
+    "E7A_F2_SHA_MATCH": true,
+    "E7A_F3_SHA_MATCH": true,
+    "M3B_SOURCE_TRAIN_PRESENT": false,
+    "M3B_SOURCE_DEV_PRESENT": true,
+    "M3B_COUNTS_MATCH": false,
+    "SIW_RAW_ROOT_PRESENT": false,
+    "SIW_POPULATION_IDENTITY_MATCH": true,
+    "SIW_SPLIT_IDENTITY_MATCH": true,
+    "SOURCE_PREPROCESSING_POLICY_RESOLVED": true,
+    "TARGET_PREPROCESSING_POLICY_RESOLVED": true,
+    "F1_TARGET_SIW_PACKAGE_PRESENT": true,
+    "F1_TARGET_SIW_IDENTITY_MATCH": true,
+    "F2_TARGET_MSU_RAW_PRESENT": false,
+    "F3_TARGET_CASIA_RAW_PRESENT": false,
+    "TARGET_LABEL_FIREWALL_ACTIVE": true,
+    "e7a_hashes": {
+      "EXT-F1": {
+        "present": true,
+        "match": true,
+        "observed": "95d88fded73940ac120bb58e128d2143e44dec0c0b300588291cab6d52453529",
+        "expected": "95d88fded73940ac120bb58e128d2143e44dec0c0b300588291cab6d52453529"
+      },
+      "EXT-F2": {
+        "present": true,
+        "match": true,
+        "observed": "1c239012bfc99197796dcfab4fb401131ff9515fc78f6ebbc4733f753cccea56",
+        "expected": "1c239012bfc99197796dcfab4fb401131ff9515fc78f6ebbc4733f753cccea56"
+      },
+      "EXT-F3": {
+        "present": true,
+        "match": true,
+        "observed": "b379ab711199d800abd15decbc4a0a1eaa8a88ef5620889c8f72f331666ebec3",
+        "expected": "b379ab711199d800abd15decbc4a0a1eaa8a88ef5620889c8f72f331666ebec3"
+      }
+    },
+    "TRAINING_PERFORMED": false,
+    "RENDERING_PERFORMED": false,
+    "GPAT_FITTING_PERFORMED": false,
+    "LLM_API_CALLS": 0,
+    "TARGET_LABEL_ACCESS": false,
+    "E7B_PREFLIGHT_PASS": false
+  }
+}

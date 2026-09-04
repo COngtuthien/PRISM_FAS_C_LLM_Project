@@ -1,0 +1,39 @@
+{
+  "schema_version": "ext-q1q2-e7b-source-sampling-resolution-v1",
+  "status": "RESOLVED",
+  "resolved_from": "configs/data/preprocess_m2.yaml",
+  "cross_checked_against_real_m3b_build": {
+    "casia_fasd_records": 600,
+    "casia_fasd_successful_crops": 2399,
+    "casia_fasd_failures": 1,
+    "msu_mfsd_records": 280,
+    "msu_mfsd_successful_crops": 1120,
+    "msu_mfsd_failures": 0,
+    "total_crops": 3519,
+    "m3b_source_train_plus_source_dev": 3519,
+    "counts_match": true,
+    "evidence_path": "reports/preflight/DERIVED_DATA_PREPARATION.json"
+  },
+  "sampling": {
+    "strategy": "uniform",
+    "frames_per_video": 4,
+    "start_exclusion_fraction": 0.05,
+    "end_exclusion_fraction": 0.05,
+    "minimum_valid_frames": 1,
+    "sampling_version": "uniform-v1"
+  },
+  "detector": {
+    "name": "scrfd",
+    "model_variant": "scrfd_10g_bnkps",
+    "declared_path": "D:/AI on IOT/Anti_spoofing/model_cache/face_detectors/scrfd_10g_bnkps.onnx",
+    "resolved_path": "D:/AI on IOT/Anti_spoofing/model_cache/face_detectors/scrfd_10g_bnkps.onnx",
+    "resolved_path_present_locally": false,
+    "sha256_observed_this_host": null,
+    "sha256_from_frozen_evidence": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "input_size": 320,
+    "detection_threshold": 0.5
+  },
+  "never_a_new_source_sampling_policy": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

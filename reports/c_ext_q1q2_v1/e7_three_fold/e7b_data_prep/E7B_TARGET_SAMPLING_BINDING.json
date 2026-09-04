@@ -1,0 +1,31 @@
+{
+  "schema_version": "ext-q1q2-e7b-target-sampling-binding-v1",
+  "status": "RESOLVED",
+  "resolved_from": "configs/data/preprocess_m2.yaml",
+  "canonical_video_definition": {
+    "siw_mv2": "one raw video file (Live/*.{avi,mov,mp4}, Spoof/<family>/*.{avi,mov,mp4})",
+    "msu_mfsd": "one raw video file (scene01/{real,attack}/*.{mov,mp4})",
+    "casia_fasd": "one (subject_id, video_id) group of PNG frame sequences (configs/data/casia_fasd.yaml: group_by='subject_id:video_id')"
+  },
+  "sampling": {
+    "strategy": "uniform",
+    "frames_per_video": 4,
+    "start_exclusion_fraction": 0.05,
+    "end_exclusion_fraction": 0.05,
+    "minimum_valid_frames": 1,
+    "sampling_version": "uniform-v1"
+  },
+  "detector": {
+    "name": "scrfd",
+    "model_variant": "scrfd_10g_bnkps",
+    "declared_path": "D:/AI on IOT/Anti_spoofing/model_cache/face_detectors/scrfd_10g_bnkps.onnx",
+    "resolved_path": "D:/AI on IOT/Anti_spoofing/model_cache/face_detectors/scrfd_10g_bnkps.onnx",
+    "resolved_path_present_locally": false,
+    "sha256_observed_this_host": null,
+    "sha256_from_frozen_evidence": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "input_size": 320,
+    "detection_threshold": 0.5
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}
