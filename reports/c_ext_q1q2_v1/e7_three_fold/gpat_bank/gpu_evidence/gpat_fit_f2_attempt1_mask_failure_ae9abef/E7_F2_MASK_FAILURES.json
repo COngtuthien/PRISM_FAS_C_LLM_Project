@@ -1,0 +1,42 @@
+{
+  "fold": "EXT-F2",
+  "pair_rows_checked": 10688,
+  "failure_count": 2,
+  "failures": [
+    {
+      "partition": "train",
+      "role": "live",
+      "pair_id": "gpatpair_2b9ec8906da81639a7e3",
+      "live_sample_id": "extsrce6f52da34a17b88e0eddd19ba7c05ad7",
+      "live_dataset": "siw_mv2",
+      "live_source_record_id": "Live_849",
+      "spoof_sample_id": "extsrc57420e25a0be70cb1c2c6591bef4bf87",
+      "spoof_dataset": "siw_mv2",
+      "recipe_id": "R-000125",
+      "requested_regions": [
+        "forehead",
+        "left_cheek",
+        "right_cheek"
+      ],
+      "error_type": "MaskBuildError",
+      "error": "region 'right_cheek' produced an empty mask"
+    },
+    {
+      "partition": "train",
+      "role": "live",
+      "pair_id": "gpatpair_6bc2646a34bc65e6d441",
+      "live_sample_id": "extsrce6f52da34a17b88e0eddd19ba7c05ad7",
+      "live_dataset": "siw_mv2",
+      "live_source_record_id": "Live_849",
+      "spoof_sample_id": "2f86350b79b1c2c4d9f7f6a0",
+      "spoof_dataset": "casia_fasd",
+      "recipe_id": "R-000096",
+      "requested_regions": [
+        "left_cheek",
+        "right_cheek"
+      ],
+      "error_type": "MaskBuildError",
+      "error": "region 'right_cheek' produced an empty mask"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/evaluation/c_ext_e7_gpat_bank.py", line 3212, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/evaluation/c_ext_e7_gpat_bank.py", line 3182, in main
+    results[f] = prepare_gpat(repo, f, authorize=args.authorize)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/evaluation/c_ext_e7_gpat_bank.py", line 2650, in prepare_gpat
+    fit_result = trainer.fit(run_id=run_id, progress=lambda event: None, resume=resume)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/gpat_trainer.py", line 254, in fit
+    metrics = self.train_step([self.train_pairs[index] for index in indices], scheduler)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/gpat_trainer.py", line 148, in train_step
+    batch = self._batch(pairs)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/gpat_trainer.py", line 134, in _batch
+    return build_batch(self.store, pairs, self.bank, self.identity_model, device=self.device)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/m8_pipeline.py", line 155, in build_batch
+    support = store.cached_mask(pair["live_sample_id"], "live", graph,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/m8_pipeline.py", line 130, in cached_mask
+    result = self.mask_builder(sample_id).build(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/src/prism_fas/synthesis/masks.py", line 218, in build
+    if not mask.any(): raise MaskBuildError(f"region {name!r} produced an empty mask")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+prism_fas.synthesis.contracts.MaskBuildError: region 'right_cheek' produced an empty mask

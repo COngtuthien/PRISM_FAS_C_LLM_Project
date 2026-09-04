@@ -1,0 +1,36 @@
+{
+  "schema_version": "e7-f2-gpat-attempt1-technical-failure-v1",
+  "fold_id": "EXT-F2",
+  "status": "ABORTED_TECHNICAL_MASK_COMPATIBILITY_FAILURE",
+  "bug_class": "TECHNICAL_SINGLE_SAMPLE_EMPTY_CHEEK_FALLBACK_EDGE_CASE",
+  "implementation_commit": "ae9abef62f86002132c6b2d716f58301910510df",
+  "failing_sample_id": "extsrce6f52da34a17b88e0eddd19ba7c05ad7",
+  "failing_source_record_id": "Live_849",
+  "failing_dataset": "siw_mv2",
+  "failure_region": "right_cheek",
+  "pair_rows_audited": 10688,
+  "pair_mask_failures": 2,
+  "source_rows_audited": {
+    "EXT-F1": 1440,
+    "EXT-F2": 6386
+  },
+  "canonical_region_failures": {
+    "EXT-F1": 0,
+    "EXT-F2": 1
+  },
+  "distinct_failure_samples": {
+    "EXT-F1": 0,
+    "EXT-F2": 1
+  },
+  "partial_best_checkpoint_present": false,
+  "partial_last_checkpoint_present": false,
+  "terminal_gpat_fit_lock_present": false,
+  "effective_gpat_config_present": true,
+  "effective_gpat_config_sha256": "f4f3a0f98b3312f8bb81ec35e31e7ab1d2c5aeefb92f9e51192bee31d4e3fa14",
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "SCIENTIFIC_FAILURE": false,
+  "TARGET_LABEL_ACCESS": false,
+  "TARGET_IMAGE_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "rerun_performed": false
+}
