@@ -1,0 +1,22 @@
+{
+  "schema_version": "ext-q1q2-e7d-identity-policy-v1",
+  "algorithm": "sha256(canonical_json(material)) where material = {fold_id, sorted source_domains, m3b_package_identity, siw_package_identity, siw_split_identity, sorted row_material tuples, schema_version}; row_material tuples are (dataset, project_split, source_video_id, frame_index, crop_sha256, label_live_spoof, status) -- content/identity derived fields ONLY",
+  "absolute_paths_excluded": true,
+  "excluded_from_identity": [
+    "repo root",
+    "any absolute filesystem path",
+    "crop_relative_path string itself (crop_sha256 stands in for it)",
+    "wall-clock timestamps",
+    "hostnames"
+  ],
+  "included_in_identity": [
+    "fold_id",
+    "source_domains",
+    "component package identities",
+    "per-row dataset/project_split/source_video_id/frame_index/crop_sha256/label_live_spoof/status"
+  ],
+  "deterministic": true,
+  "rerun_same_inputs_same_identity": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

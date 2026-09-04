@@ -1,0 +1,34 @@
+{
+  "schema_version": "ext-q1q2-e7d-join-contract-v1",
+  "m3b_source": {
+    "authority": "E7-A's own frozen source_train_references/source_dev_references rows with reference_kind=='m3b_processed_sample' -- reused verbatim, never a fresh M3B parquet scan (E7-A already resolved the exact per-fold subset)",
+    "fields_inherited_from_e7a_ref": [
+      "dataset",
+      "project_split",
+      "sample_id",
+      "source_record_id",
+      "subject_id",
+      "label_live_spoof",
+      "image_relative_path",
+      "crop_sha256"
+    ],
+    "crop_resolution": "data/packages/prism_data_v1_m3b/<image_relative_path>"
+  },
+  "siw_source": {
+    "authority": "E7-B's SIW_SOURCE_PACKAGE.json rows, INDEPENDENTLY re-joined (not merely trusted) against E7-A's own siw_raw_video references via e7b._siw_source_refs_from_e7a(repo) -- the SAME frozen, F2/F3-cross-checked ref list E7-B itself uses",
+    "join_key": "source_video_id (E7-B row) == video_id (E7-A siw_raw_video reference)",
+    "steps": [
+      "1. read source_video_id from each E7-B SIW_SOURCE_PACKAGE.json row",
+      "2. look up the authoritative E7-A siw_raw_video reference by video_id -- FAIL CLOSED (E7DError) if the video_id is unknown",
+      "3. inherit project_split (train/dev), label_live_spoof (live/spoof), spoof_family from the E7-A reference (authoritative), never from the E7-B row's own embedded copy alone",
+      "4. keep only rows with status == 'success' for crop support manifests",
+      "5. for GPAT live support, additionally keep only label_live_spoof == 'live'",
+      "6. preserve frame_index, crop_relative_path, crop_sha256, failure_reason from the E7-B row verbatim",
+      "7. resolve the crop under data/processed/c_ext_q1q2_v1/e7b/siw_source_v1/m2_run/<crop_relative_path> (NEVER siw_source_v1/<crop_relative_path> directly)",
+      "8. no subject_id needed; never sample a replacement frame for any terminal failure"
+    ],
+    "crop_resolution": "data/processed/c_ext_q1q2_v1/e7b/siw_source_v1/m2_run/<crop_relative_path>"
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

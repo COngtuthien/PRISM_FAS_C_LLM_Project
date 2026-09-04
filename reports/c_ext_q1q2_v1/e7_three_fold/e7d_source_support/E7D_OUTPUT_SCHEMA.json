@@ -1,0 +1,47 @@
+{
+  "schema_version": "ext-q1q2-e7d-output-schema-v1",
+  "row_fields": [
+    "fold_id",
+    "dataset",
+    "project_split",
+    "label_live_spoof",
+    "spoof_family",
+    "source_video_id",
+    "frame_index",
+    "crop_relative_path",
+    "crop_sha256",
+    "source_package_kind",
+    "source_package_identity",
+    "status",
+    "subject_id",
+    "failure_reason",
+    "sample_id (M3B rows only)"
+  ],
+  "nullable_fields": [
+    "spoof_family",
+    "frame_index",
+    "subject_id",
+    "failure_reason"
+  ],
+  "subject_id_policy": "never fabricated for SiW (always null); preserved verbatim where M3B provides one, nullable otherwise",
+  "crop_path_semantics": {
+    "crop_storage_root_kind": {
+      "M3B_PROCESSED_SAMPLE": "data/packages/prism_data_v1_m3b",
+      "E7B_SIW_SOURCE_CROP": "data/processed/c_ext_q1q2_v1/e7b/siw_source_v1/m2_run"
+    },
+    "resolution_rule": "repo / crop_storage_root_kind[row.source_package_kind] / row.crop_relative_path -- the ONE explicit contract; never siw_source_v1/<crop_relative_path> directly"
+  },
+  "manifest_files_per_fold": [
+    "source_train.json",
+    "source_dev.json",
+    "source_live_train.json",
+    "source_live_dev.json",
+    "SOURCE_SUPPORT_PACKAGE.json"
+  ],
+  "optional_manifest_files": [
+    "terminal_failures.json"
+  ],
+  "format_note": "JSON metadata manifests (a `rows` array), not `.parquet` -- an explicit TECHNICAL implementation choice (JSON is explicitly permitted by this milestone's own instructions; no pyarrow schema dependency; matches every other E7-B/E7-C planning artifact's format in this codebase). No crop image bytes are ever copied into this namespace.",
+  "target_access": false,
+  "llm_api_calls": 0
+}

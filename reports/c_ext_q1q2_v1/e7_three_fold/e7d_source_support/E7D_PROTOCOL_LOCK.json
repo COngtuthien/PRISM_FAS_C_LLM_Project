@@ -1,0 +1,61 @@
+{
+  "schema_version": "ext-q1q2-e7d-protocol-lock-v1",
+  "folds": {
+    "EXT-F1": {
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2"
+    },
+    "EXT-F2": {
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD"
+    },
+    "EXT-F3": {
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD"
+    }
+  },
+  "objective": "materialize deterministic crop-level SOURCE reference manifests per fold; reference-only, never copies crop image bytes",
+  "never_performs": [
+    "GPAT fitting",
+    "synthetic candidate rendering",
+    "PhysicsRoute",
+    "GPATRoute",
+    "quality gate evaluation",
+    "matched bank construction",
+    "detector training",
+    "target scoring",
+    "target label access",
+    "LLM calls"
+  ],
+  "row_schema_fields": [
+    "fold_id",
+    "dataset",
+    "project_split",
+    "label_live_spoof",
+    "spoof_family",
+    "source_video_id",
+    "frame_index",
+    "crop_relative_path",
+    "crop_sha256",
+    "source_package_kind",
+    "source_package_identity",
+    "status",
+    "subject_id",
+    "failure_reason"
+  ],
+  "no_subject_id_fabrication_for_siw": true,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}
