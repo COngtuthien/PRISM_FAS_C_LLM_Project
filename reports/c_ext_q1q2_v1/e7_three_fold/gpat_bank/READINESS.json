@@ -1,6 +1,10 @@
 {
-  "schema_version": "ext-q1q2-e7-gpat-bank-readiness-v1",
-  "READY_FOR_GPU_GPAT_FIT": true,
+  "schema_version": "ext-q1q2-e7-gpat-bank-readiness-v2",
+  "READY_FOR_GPU_GPAT_FIT": false,
+  "READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION": true,
+  "F1_SOURCE_PRIORS_MATERIALIZED": true,
+  "F2_SOURCE_PRIORS_MATERIALIZED": false,
+  "F3_SOURCE_PRIORS_MATERIALIZED": false,
   "E7_READY_FOR_TRAINING": false,
   "reason": "no GPAT checkpoint fitted, no synthetic candidate bank exists, F2/F3 Shuffle feasibility unresolved, no matched-bank/integrity lock has run",
   "F1_SHUFFLE_STATUS": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",

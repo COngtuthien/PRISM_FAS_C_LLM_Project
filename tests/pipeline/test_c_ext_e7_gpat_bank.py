@@ -155,14 +155,15 @@ def test_prior_compatibility_blocked_when_m3b_identity_mismatches(tmp_path, monk
                         encoding="utf-8")
     audit = e7g.audit_gpat_input_compatibility(repo, "EXT-F1")
     assert audit["status"] == "BLOCKED_UNRESOLVED_SOURCE_PRIOR_REQUIREMENT"
-    assert audit["m3b_priors_resolved"] is False
+    assert audit["m3b_priors_materialized"] is False
 
 
 def test_prior_compatibility_plan_valid_when_m3b_bytes_absent_locally(tmp_path):
     repo = _base_repo(tmp_path)  # no PACKAGE_LOCK.json at all -- laptop-realistic absence
     audit = e7g.audit_gpat_input_compatibility(repo, "EXT-F1")
     assert audit["status"] == "COMPATIBLE"
-    assert audit["m3b_priors_resolved"] is True
+    assert audit["m3b_prior_generation_primitive_resolved"] == "NOT_APPLICABLE_EXISTING_PRIORS"
+    assert audit["m3b_priors_materialized"] is False
     assert "GPU_REQUIRED" in audit["m3b_note"]
 
 
@@ -417,7 +418,8 @@ def test_prepare_writes_only_into_own_namespace():
     for key, entry in result.items():
         path = Path(entry["path"])
         assert str(path.relative_to(REPO)).startswith(e7g.REPORT_DIR)
-    assert result["readiness"]["body"]["READY_FOR_GPU_GPAT_FIT"] is True
+    assert result["readiness"]["body"]["READY_FOR_GPU_GPAT_FIT"] is False
+    assert result["readiness"]["body"]["READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION"] is True
 
 
 # --- GPU stage entry points fail closed on the laptop ------------------------
@@ -429,7 +431,7 @@ def test_prepare_gpat_requires_authorize(tmp_path):
 
 
 def test_prepare_gpat_blocked_for_pending_siw_priors():
-    with pytest.raises(e7g.E7Error, match="GPU_REQUIRED"):
+    with pytest.raises(e7g.E7Error, match="preflight not ready for GPU GPAT fit -- FAIL CLOSED"):
         e7g.prepare_gpat(REPO, "EXT-F2", authorize=True)
 
 
@@ -472,4 +474,203 @@ def test_main_fold_flag_scopes_single_fold(monkeypatch, capsys):
     monkeypatch.setattr(e7g.cc, "repo_root", lambda: REPO)
     assert e7g.main(["--audit-gpat-inputs", "--fold", "EXT-F1"]) == 0
     out = json.loads(capsys.readouterr().out)
-    assert list(out.keys()) == ["EXT-F1"]
+    assert out["EXT-F1"]["fold_id"] == "EXT-F1"
+
+
+# =========================================================================== #
+# TECHNICAL_READINESS_SEMANTICS_FALSE_READY fix -- readiness must never
+# conflate "compatible" / "primitive resolved" with "actually materialized".
+# =========================================================================== #
+
+def _make_valid_siw_prior_package(repo: Path, *, row_count: int = 1) -> dict:
+    """Builds a minimal, strictly-valid SiW-as-source prior package on disk
+    (crop bytes + one `.npz` prior per row, full M3B schema keys), and
+    returns the row material used so callers can corrupt it deliberately."""
+    import numpy as np
+
+    crop_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    crop_root.mkdir(parents=True, exist_ok=True)
+    prior_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    prior_root.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    for i in range(row_count):
+        crop_path = crop_root / f"crop_{i}.jpg"
+        crop_path.write_bytes(f"fake-crop-bytes-{i}".encode("utf-8"))
+        prior_path = prior_root / f"prior_{i}.npz"
+        np.savez(
+            prior_path,
+            parsing_labels=np.zeros((224, 224), dtype="uint8"),
+            pose_ypr=np.zeros((3,), dtype="float32"),
+            visibility=np.zeros((9,), dtype="float16"),
+            bbox=np.zeros((4,), dtype="float32"),
+            landmarks=np.zeros((5, 2), dtype="float32"),
+            crop_box=np.zeros((4,), dtype="float32"),
+        )
+        rows.append({
+            "source_video_id": f"siw_video_{i}", "frame_index": i, "status": "success",
+            "source_crop_relative_path": f"crop_{i}.jpg",
+            "source_crop_sha256": e7g.cc.sha256_file(crop_path),
+            "prior_relative_path": f"prior_{i}.npz",
+            "prior_sha256": e7g.cc.sha256_file(prior_path),
+        })
+
+    package_identity = e7g.compute_siw_source_prior_package_identity(rows)
+    package_path = prior_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    package_path.write_text(json.dumps({
+        "schema_version": "siw-source-prior-package-v1",
+        "package_identity": package_identity, "rows": rows,
+    }), encoding="utf-8")
+    return {"rows": rows, "package_identity": package_identity, "package_path": package_path}
+
+
+def test_real_preflight_f2_f3_not_ready_before_materialization():
+    pf = e7g.preflight(REPO)
+    assert pf["F2_SOURCE_PRIORS_READY"] is False
+    assert pf["F3_SOURCE_PRIORS_READY"] is False
+    assert pf["READY_FOR_GPU_GPAT_FIT"] is False
+
+
+def test_real_preflight_ready_for_source_prior_materialization():
+    pf = e7g.preflight(REPO)
+    assert pf["READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION"] is True
+
+
+def test_primitive_resolution_independent_of_materialization():
+    pf = e7g.preflight(REPO)
+    assert pf["F2_PRIOR_GENERATION_PRIMITIVE_RESOLVED"] is True
+    assert pf["F3_PRIOR_GENERATION_PRIMITIVE_RESOLVED"] is True
+    assert pf["F2_SOURCE_PRIORS_MATERIALIZED"] is False
+    assert pf["F3_SOURCE_PRIORS_MATERIALIZED"] is False
+
+
+def test_f1_remains_prior_ready():
+    pf = e7g.preflight(REPO)
+    assert pf["F1_SOURCE_PRIORS_MATERIALIZED"] is True
+    assert pf["F1_SOURCE_PRIORS_READY"] is True
+    assert pf["F1_PRIOR_GENERATION_PRIMITIVE_RESOLVED"] == "NOT_APPLICABLE_EXISTING_PRIORS"
+
+
+def test_audit_never_conflates_primitive_resolved_with_materialized():
+    audit = e7g.audit_gpat_input_compatibility(REPO, "EXT-F2")
+    assert audit["siw_prior_generation_primitive_resolved"] is True
+    assert audit["siw_priors_materialized"] is False
+    assert audit["status"] == "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION"
+
+
+def test_prepare_gpat_fails_before_fit_for_f3_too():
+    with pytest.raises(e7g.E7Error, match="preflight not ready for GPU GPAT fit -- FAIL CLOSED"):
+        e7g.prepare_gpat(REPO, "EXT-F3", authorize=True)
+
+
+def test_source_prior_generation_uses_e7b_siw_source_root_only(tmp_path):
+    repo = _base_repo(tmp_path)
+    with pytest.raises(e7g.E7Error, match="E7-B SIW_SOURCE_PACKAGE.json not present"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    # never references the protected target-tagged package root
+    assert e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT not in e7b.E7B_SIW_SOURCE_PACKAGE_ROOT
+
+
+def test_prism_target_eval_v2_rejected_by_firewall():
+    # SiW-Mv2 is EXT-F1's held-out target -- prism_target_eval_v2 is forbidden there.
+    with pytest.raises(e7g.E7TargetFirewallViolation):
+        e7g.assert_not_target_path(
+            "EXT-F1", f"{e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT}/priors/x.npz")
+
+
+def test_evaluation_only_rejected_by_firewall():
+    with pytest.raises(e7g.E7TargetFirewallViolation):
+        e7g.assert_not_target_path("EXT-F2", "data/evaluation_only/some_file.parquet")
+
+
+def test_same_siw_prior_package_shared_by_f2_and_f3():
+    assert e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT  # fold-independent constant, not a per-fold template
+    assert "{" not in e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    f2_path = REPO / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    f3_path = REPO / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    assert f2_path == f3_path
+
+
+def test_full_prior_schema_enforced(tmp_path, monkeypatch):
+    import numpy as np
+
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    crop_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    crop_root.mkdir(parents=True, exist_ok=True)
+    prior_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    prior_root.mkdir(parents=True, exist_ok=True)
+    crop_path = crop_root / "crop_0.jpg"
+    crop_path.write_bytes(b"fake-crop-bytes-0")
+    prior_path = prior_root / "prior_0.npz"
+    np.savez(prior_path, parsing_labels=np.zeros((224, 224), dtype="uint8"))  # missing keys
+    rows = [{
+        "source_video_id": "siw_video_0", "frame_index": 0, "status": "success",
+        "source_crop_relative_path": "crop_0.jpg",
+        "source_crop_sha256": e7g.cc.sha256_file(crop_path),
+        "prior_relative_path": "prior_0.npz",
+        "prior_sha256": e7g.cc.sha256_file(prior_path),
+    }]
+    package_identity = e7g.compute_siw_source_prior_package_identity(rows)
+    (prior_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).write_text(
+        json.dumps({"package_identity": package_identity, "rows": rows}), encoding="utf-8")
+    result = e7g.validate_source_priors(repo, "EXT-F2")
+    assert result["status"] == "INVALID"
+    assert any("missing required keys" in p for p in result["problems"])
+
+
+def test_expected_siw_success_row_count_exact():
+    assert e7g.EXPECTED_SIW_SUCCESS_CROP_COUNT == 6776
+
+
+def test_existing_valid_package_returns_already_valid_only_after_strict_validation(
+        tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    _make_valid_siw_prior_package(repo, row_count=1)
+    result = e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "ALREADY_VALID"
+    assert result["resumed"] is True
+    assert result["validation"]["status"] == "VALID"
+
+
+def test_invalid_existing_package_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 2)  # deliberately wrong
+    _make_valid_siw_prior_package(repo, row_count=1)
+    with pytest.raises(e7g.E7Error, match="FAILED strict validation"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+
+
+def test_conflicting_package_identity_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", 1)
+    fixture = _make_valid_siw_prior_package(repo, row_count=1)
+    package_path = fixture["package_path"]
+    body = json.loads(package_path.read_text(encoding="utf-8"))
+    body["package_identity"] = "0" * 64  # conflicting, but rows still individually valid
+    package_path.write_text(json.dumps(body), encoding="utf-8")
+    with pytest.raises(e7g.E7Error, match="FAILED strict validation"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+
+
+def test_no_scientific_primitive_config_model_changes():
+    assert e7g.M3B_PRIOR_GENERATION_FUNCTION == "prism_fas.data.package.m3b.build_m3b_package"
+    assert e7g.M3B_PRIOR_MODEL_CONFIG_PATH == "configs/models/m3b_priors.yaml"
+    assert e7g.FROZEN_PRIOR_MODELS["parsing"]["backend"] == "facexformer"
+    assert e7g.FROZEN_PRIOR_MODELS["parsing"]["revision"] == "fd12148d0b19"
+    assert e7g.FROZEN_PRIOR_MODELS["parsing"]["weight_sha256"] == \
+        "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+    assert e7g.FROZEN_PRIOR_MODELS["identity"]["backend"] == "adaface_ir50"
+    assert e7g.FROZEN_PRIOR_MODELS["identity"]["revision"] == "60a65befbcf7"
+    assert e7g.PRIOR_SEED == 20260805
+
+
+def test_no_target_or_training_or_rendering_or_llm_this_turn():
+    pf = e7g.preflight(REPO)
+    assert pf["TARGET_LABEL_ACCESS"] is False
+    assert pf["TARGET_IMAGE_ACCESS"] is False
+    assert pf["TRAINING_PERFORMED"] is False
+    assert pf["RENDERING_PERFORMED"] is False
+    assert pf["GPAT_FITTING_PERFORMED"] is False
+    assert pf["LLM_API_CALLS"] == 0

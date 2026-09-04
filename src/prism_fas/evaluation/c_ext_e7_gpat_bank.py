@@ -106,6 +106,15 @@ PRIOR_SCHEMA_VERSION = "m3b-priors-v1"
 PRIOR_SEED = 20260805
 FROZEN_M3B_PACKAGE_IDENTITY = e7b.FROZEN_M3B_PACKAGE_IDENTITY  # reused verbatim, never redeclared
 
+#: The SiW-as-source prior package this module materializes (GPU-only, not
+#: executed this turn). F2 and F3 share this EXACT same package -- the SiW
+#: source crop population is identical for both folds -- so prior
+#: generation runs at most ONCE, never per-fold.
+SIW_SOURCE_PRIOR_PACKAGE_ROOT = f"{DATA_ROOT}/siw_source_priors_v1"
+SIW_SOURCE_PRIOR_PACKAGE_FILENAME = "SIW_SOURCE_PRIOR_PACKAGE.json"
+EXPECTED_SIW_SUCCESS_CROP_COUNT = FROZEN_SIW_CROP_ACCOUNTING["success"]  # == 6776
+REQUIRED_PRIOR_KEYS = ("parsing_labels", "pose_ypr", "visibility", "bbox", "landmarks", "crop_box")
+
 #: The ONLY existing on-disk SiW prior material (`prism_target_eval_v2`) is
 #: architecturally bound as F1's held-out TARGET-feature package (real,
 #: validated M3B-schema priors, but every row `project_split==target_test`,
@@ -297,74 +306,106 @@ def audit_gpat_input_compatibility(repo: Path, fold_id: str) -> dict[str, Any]:
     """Determines, from real repository evidence only, whether this fold's
     GPAT-fitting input (crops + priors in the exact schema SampleStore/
     RegionMaskBuilder require) can be produced WITHOUT any new scientific
-    choice. Never fabricates a positive result."""
+    choice. Never fabricates a positive result.
+
+    Reports FOUR distinct, never-conflated dimensions per source:
+    (1) COMPATIBLE vs BLOCKED (is there any unresolved scientific gap at all)
+    (2) prior_generation_primitive_resolved (is the exact frozen code path/
+        config/model/seed known -- always independent of whether it has
+        been RUN)
+    (3) priors_materialized (does a real, on-disk, validated prior package
+        actually exist RIGHT NOW)
+    (4) the overall `status`, which is COMPATIBLE only once EVERY required
+        source's priors are materialized -- never merely "the primitive is
+        known".
+    """
     if fold_id not in FOLD_IDS:
         raise E7Error(f"unknown fold_id {fold_id!r}")
     m3b_domains = [d for d in FOLD_SOURCE_DOMAINS[fold_id] if d != "SiW-Mv2"]
     siw_in_fold = "SiW-Mv2" in FOLD_SOURCE_DOMAINS[fold_id]
 
     m3b_lock_path = repo / e7b.CASIA_MSU_PACKAGE_ROOT / "PACKAGE_LOCK.json"
-    m3b_priors_resolved = False
+    m3b_primitive_resolved = None
+    m3b_priors_materialized = None
     m3b_note = "no M3B source domain in this fold"
     if m3b_domains:
+        # M3B priors already exist as a frozen, previously-completed build --
+        # no fresh generation is ever needed for M3B; "primitive resolved" is
+        # therefore NOT_APPLICABLE_EXISTING_PRIORS rather than a pending step.
+        m3b_primitive_resolved = "NOT_APPLICABLE_EXISTING_PRIORS"
         if m3b_lock_path.is_file():
             m3b_lock = cc.read_json(m3b_lock_path)
-            m3b_priors_resolved = (m3b_lock.get("content_identity_sha256") == FROZEN_M3B_PACKAGE_IDENTITY
-                                   and m3b_lock.get("status") == "validated")
+            m3b_priors_materialized = (
+                m3b_lock.get("content_identity_sha256") == FROZEN_M3B_PACKAGE_IDENTITY
+                and m3b_lock.get("status") == "validated")
             m3b_note = ("frozen, already-validated M3B package with full priors "
                        "(parsing_labels/pose_ypr/visibility/bbox/landmarks/crop_box) -- "
-                       "package_identity verified locally" if m3b_priors_resolved else
-                       "local PACKAGE_LOCK.json present but identity/status does not match the "
-                       "frozen pin -- FAIL CLOSED")
+                       "package_identity verified locally, MATERIALIZED" if m3b_priors_materialized
+                       else "local PACKAGE_LOCK.json present but identity/status does not match "
+                       "the frozen pin -- FAIL CLOSED")
         else:
-            # identity is still verifiable via E7-A's own frozen references (which embed
-            # prior_relative_path/prior_sha256 per row) even when the M3B bytes are absent
-            # locally -- this is a PLAN_VALID/GPU_REQUIRED state, not a compatibility gap.
-            m3b_priors_resolved = True
-            m3b_note = ("M3B PACKAGE_LOCK.json not present on this laptop; prior schema/identity "
-                       "is nonetheless resolvable from E7-A's own frozen m3b_processed_sample "
-                       "references (each embeds prior_relative_path + prior_sha256) -- "
-                       "GPU_REQUIRED for the actual bytes, not a scientific compatibility gap")
+            m3b_priors_materialized = False
+            m3b_note = ("M3B PACKAGE_LOCK.json not present on this laptop -- NOT MATERIALIZED "
+                       "locally. Prior schema/identity is nonetheless resolvable from E7-A's own "
+                       "frozen m3b_processed_sample references (each embeds prior_relative_path + "
+                       "prior_sha256), so this is GPU_REQUIRED for the actual bytes, never a "
+                       "scientific compatibility gap")
 
-    siw_status = "NOT_APPLICABLE"
     siw_note = "no SiW source domain in this fold"
-    siw_priors_resolved = None
+    siw_primitive_resolved = None
+    siw_priors_materialized = None
     if siw_in_fold:
         siw_source_package_present = (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT /
                                       "SIW_SOURCE_PACKAGE.json").is_file()
-        # The only existing SiW prior material lives under the PROTECTED target-feature
-        # package (prism_target_eval_v2); it is NEVER read here. SiW-as-source priors must be
-        # generated by re-invoking the SAME frozen build_m3b_package() primitive against
-        # E7-B's own SiW-as-source crop package -- a real, already-twice-proven-reusable,
-        # policy-neutral primitive, applied to a role (SiW-as-source) it has not yet been run
-        # for. This is the SAME resolution pattern already established for E7-B's own SiW
-        # source build (one frozen policy, applied to a new authorized role).
-        siw_priors_resolved = True
-        siw_status = "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION"
-        siw_note = (
-            "SiW-as-source priors do not exist yet (E7-B's own SIW_SOURCE_PACKAGE_ROOT has no "
-            f"prior-generation step; present_locally={siw_source_package_present}). The REQUIRED "
-            f"prior-generation primitive IS fully frozen and reusable ({M3B_PRIOR_GENERATION_FUNCTION}, "
-            f"FaceXFormer rev {FROZEN_PRIOR_MODELS['parsing']['revision']} sha256 "
-            f"{FROZEN_PRIOR_MODELS['parsing']['weight_sha256'][:16]}..., AdaFace rev "
-            f"{FROZEN_PRIOR_MODELS['identity']['revision']}, config {M3B_PRIOR_MODEL_CONFIG_PATH}, "
-            f"seed {PRIOR_SEED}) and MUST be invoked (on GPU) against E7-B's own SiW-as-source crop "
-            "package -- NEVER against the protected target-tagged prism_target_eval_v2 package. "
-            "This is GPU_REQUIRED, not a new scientific choice, and not BLOCKED."
-        )
+        # The frozen prior-generation PRIMITIVE is fully resolved regardless of whether it has
+        # been invoked yet -- this is independent of materialization.
+        siw_primitive_resolved = True
+        prior_package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+        siw_priors_materialized = False
+        if prior_package_path.is_file():
+            prior_validation = validate_source_priors(repo, fold_id)
+            siw_priors_materialized = prior_validation["status"] == "VALID"
+        if siw_priors_materialized:
+            siw_note = ("SiW-as-source priors ARE materialized and strictly validated at "
+                       f"{SIW_SOURCE_PRIOR_PACKAGE_ROOT} (shared verbatim by F2/F3).")
+        else:
+            # The only existing SiW prior material lives under the PROTECTED target-feature
+            # package (prism_target_eval_v2); it is NEVER read here. SiW-as-source priors must be
+            # generated by re-invoking the SAME frozen build_m3b_package() primitive against
+            # E7-B's own SiW-as-source crop package -- a real, already-twice-proven-reusable,
+            # policy-neutral primitive, applied to a role (SiW-as-source) it has not yet been run
+            # for. This is the SAME resolution pattern already established for E7-B's own SiW
+            # source build (one frozen policy, applied to a new authorized role).
+            siw_note = (
+                "SiW-as-source priors do NOT exist yet (E7-B's own SIW_SOURCE_PACKAGE_ROOT has no "
+                f"prior-generation step; siw_source_package_present_locally="
+                f"{siw_source_package_present}). NOT MATERIALIZED. The REQUIRED prior-generation "
+                f"primitive IS fully frozen and reusable ({M3B_PRIOR_GENERATION_FUNCTION}, "
+                f"FaceXFormer rev {FROZEN_PRIOR_MODELS['parsing']['revision']} sha256 "
+                f"{FROZEN_PRIOR_MODELS['parsing']['weight_sha256'][:16]}..., AdaFace rev "
+                f"{FROZEN_PRIOR_MODELS['identity']['revision']}, config {M3B_PRIOR_MODEL_CONFIG_PATH}, "
+                f"seed {PRIOR_SEED}) and MUST be invoked (on GPU, via "
+                "`--prepare-source-priors --fold EXT-F2/F3 --authorize`) against E7-B's own "
+                "SiW-as-source crop package -- NEVER against the protected target-tagged "
+                "prism_target_eval_v2 package. This is GPU_REQUIRED, NOT a new scientific choice, "
+                "and NOT scientifically blocked -- but it is also NOT yet ready to fit GPAT."
+            )
 
-    if m3b_domains and not m3b_priors_resolved:
+    m3b_blocked = bool(m3b_domains) and m3b_lock_path.is_file() and not m3b_priors_materialized
+    if m3b_blocked:
         status = "BLOCKED_UNRESOLVED_SOURCE_PRIOR_REQUIREMENT"
-    elif siw_in_fold and not siw_priors_resolved:
-        status = "BLOCKED_UNRESOLVED_SOURCE_PRIOR_REQUIREMENT"
+    elif siw_in_fold and not siw_priors_materialized:
+        status = "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION"
     else:
-        status = "COMPATIBLE" if not siw_in_fold else siw_status
+        status = "COMPATIBLE"
 
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-gpat-input-compatibility-v1", "fold_id": fold_id,
+        "schema_version": f"{SCHEMA_PREFIX}-gpat-input-compatibility-v2", "fold_id": fold_id,
         "status": status,
-        "m3b_priors_resolved": m3b_priors_resolved if m3b_domains else None, "m3b_note": m3b_note,
-        "siw_priors_resolved": siw_priors_resolved, "siw_note": siw_note,
+        "m3b_prior_generation_primitive_resolved": m3b_primitive_resolved,
+        "m3b_priors_materialized": m3b_priors_materialized, "m3b_note": m3b_note,
+        "siw_prior_generation_primitive_resolved": siw_primitive_resolved,
+        "siw_priors_materialized": siw_priors_materialized, "siw_note": siw_note,
         "sample_store_mask_builder_note": (
             "prism_fas.synthesis.m8_pipeline.SampleStore.mask_builder() hard-indexes "
             "arrays['parsing_labels']/arrays['crop_box'] (no .get fallback) -- any prior lacking "
@@ -403,12 +444,178 @@ def build_prior_binding(repo: Path) -> dict[str, Any]:
         "input_crop_sha_binding": "prior generation for a SiW-as-source row must be keyed on "
                                   "E7-B's own crop_sha256 for that row (never recomputed from a "
                                   "different crop, never a replacement/resampled frame)",
+        "siw_source_prior_package_root": SIW_SOURCE_PRIOR_PACKAGE_ROOT,
+        "siw_source_prior_package_shared_by_f2_f3": True,
+        "expected_siw_success_crop_count": EXPECTED_SIW_SUCCESS_CROP_COUNT,
         "target_access": False, "llm_api_calls": 0,
     }
 
 
 def write_prior_binding(repo: Path) -> dict[str, Any]:
     return _write(repo, "GPAT_PRIOR_BINDING.json", build_prior_binding(repo))
+
+
+# --------------------------------------------------------------------------- #
+# TASK D.2 -- SiW-as-source prior package: identity + strict read-only
+# validator + GPU-stage generation entry point. Shared verbatim by F2/F3
+# (identical underlying SiW source crop population).
+# --------------------------------------------------------------------------- #
+
+def compute_siw_source_prior_package_identity(rows: list[dict[str, Any]]) -> str:
+    """Deterministic identity over CANONICAL METADATA only -- never an
+    absolute machine path. Binds: E7-B SiW source package identity, E7-A
+    split identity, the frozen prior-generation primitive/config/model/seed
+    identities, and the sorted per-row (source_video_id, frame_index,
+    source_crop_sha256, prior_sha256) material."""
+    row_material = sorted(
+        (r.get("source_video_id"), r.get("frame_index"), r.get("source_crop_sha256"),
+         r.get("prior_sha256")) for r in rows)
+    material = {
+        "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
+        "e7a_siw_split_identity": e7c.FROZEN_E7B["siw_split_identity"],
+        "prior_generation_function": M3B_PRIOR_GENERATION_FUNCTION,
+        "prior_config_path": M3B_PRIOR_MODEL_CONFIG_PATH, "prior_models": FROZEN_PRIOR_MODELS,
+        "prior_seed": PRIOR_SEED, "prior_schema_version": PRIOR_SCHEMA_VERSION,
+        "row_material": row_material,
+    }
+    return cc.sha256_bytes(cc.canonical_json_bytes(material))
+
+
+def validate_source_priors(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only validator for the shared SiW-as-source prior
+    package. F2 and F3 both validate the exact SAME on-disk package. Never
+    alters package bytes."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
+               "status": "NOT_APPLICABLE"}
+    package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    if not package_path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
+               "status": "NOT_MATERIALIZED"}
+
+    problems: list[str] = []
+    body = cc.read_json(package_path)
+    rows = body.get("rows", [])
+    if len(rows) != EXPECTED_SIW_SUCCESS_CROP_COUNT:
+        problems.append(f"row_count {len(rows)} != expected {EXPECTED_SIW_SUCCESS_CROP_COUNT}")
+
+    seen_keys: set[Any] = set()
+    crop_rows_verified = 0
+    missing_crops = missing_priors = bad_crop_hashes = bad_prior_hashes = 0
+    for row in rows:
+        if row.get("status") != "success":
+            problems.append(f"row {row.get('source_video_id')!r} is not status=='success' -- "
+                            "terminal failures must never enter the prior package")
+        key = (row.get("source_video_id"), row.get("frame_index"))
+        if key in seen_keys:
+            problems.append(f"duplicate source crop/frame key {key!r}")
+        seen_keys.add(key)
+
+        crop_relative_path = row.get("source_crop_relative_path")
+        for kind, root, rel, sha_field in (
+            ("source crop", repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run", crop_relative_path,
+             row.get("source_crop_sha256")),
+            ("prior file", repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT, row.get("prior_relative_path"),
+             row.get("prior_sha256")),
+        ):
+            if not rel:
+                problems.append(f"row {key!r}: missing {kind} reference")
+                continue
+            try:
+                assert_not_target_path(fold_id, f"{root.relative_to(repo).as_posix()}/{rel}")
+            except E7TargetFirewallViolation as exc:
+                problems.append(str(exc))
+            path = root / rel
+            if not path.is_file():
+                problems.append(f"{kind} missing on disk: {rel!r}")
+                if kind == "source crop":
+                    missing_crops += 1
+                else:
+                    missing_priors += 1
+                continue
+            if cc.sha256_file(path) != sha_field:
+                problems.append(f"{kind} SHA256 mismatch: {rel!r}")
+                if kind == "source crop":
+                    bad_crop_hashes += 1
+                else:
+                    bad_prior_hashes += 1
+                continue
+            if kind == "source crop":
+                crop_rows_verified += 1
+            else:
+                import numpy as np
+
+                try:
+                    with np.load(path, allow_pickle=False) as handle:
+                        keys = set(handle.files)
+                except Exception as exc:  # noqa: BLE001 -- any unreadable prior is a hard failure
+                    problems.append(f"prior file unreadable: {rel!r} ({exc})")
+                    continue
+                missing_keys = set(REQUIRED_PRIOR_KEYS) - keys
+                if missing_keys:
+                    problems.append(f"prior file {rel!r} missing required keys: {sorted(missing_keys)}")
+
+    recomputed_identity = compute_siw_source_prior_package_identity(rows)
+    identity_match = recomputed_identity == body.get("package_identity")
+    if not identity_match:
+        problems.append(f"recomputed package_identity {recomputed_identity!r} != recorded "
+                        f"{body.get('package_identity')!r}")
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-source-priors-validate-v1", "fold_id": fold_id,
+        "status": "INVALID" if problems else "VALID", "problems": problems,
+        "row_count": len(rows), "expected_row_count": EXPECTED_SIW_SUCCESS_CROP_COUNT,
+        "crop_rows_verified": crop_rows_verified, "missing_crops": missing_crops,
+        "bad_crop_hashes": bad_crop_hashes, "missing_prior_files": missing_priors,
+        "bad_prior_hashes": bad_prior_hashes, "package_identity": body.get("package_identity"),
+        "recomputed_package_identity": recomputed_identity, "package_identity_match": identity_match,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def prepare_source_priors(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
+    """`--prepare-source-priors --fold EXT-F2/F3 --authorize`: materializes
+    the SHARED SiW-as-source prior package (GPU stage; NOT executed on the
+    laptop). F2 and F3 converge on the exact same on-disk package -- prior
+    generation runs at most once, never per-fold."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        raise E7Error(f"{fold_id} has no SiW source domain -- source-prior generation is "
+                      "NOT_APPLICABLE for this fold")
+    if not authorize:
+        raise E7Error(f"source-prior generation for {fold_id} requires --authorize; refusing to run")
+
+    package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
+    if package_path.is_file():
+        existing = cc.read_json(package_path)
+        validation = validate_source_priors(repo, fold_id)
+        if validation["status"] != "VALID":
+            raise E7Error(f"{fold_id}: existing SiW source-prior package FAILED strict "
+                          f"validation -- FAIL CLOSED, never silently rewritten: "
+                          f"{validation['problems']!r}")
+        if existing.get("package_identity") != validation["recomputed_package_identity"]:
+            raise E7Conflict(f"{fold_id}: existing SiW source-prior package_identity "
+                             f"{existing.get('package_identity')!r} disagrees with the freshly "
+                             f"recomputed {validation['recomputed_package_identity']!r} -- FAIL "
+                             "CLOSED, never overwritten")
+        return {"resumed": True, "status": "ALREADY_VALID", "path": str(package_path),
+               "package_identity": existing.get("package_identity"), "validation": validation,
+               "target_access": False, "llm_api_calls": 0}
+
+    siw_package_path = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "SIW_SOURCE_PACKAGE.json"
+    if not siw_package_path.is_file():
+        raise E7Error(f"{fold_id}: E7-B SIW_SOURCE_PACKAGE.json not present -- GPU_REQUIRED, "
+                      "cannot generate source priors without the frozen source crop package")
+
+    # Real GPU execution (FaceXFormer parsing + AdaFace identity inference via the frozen
+    # build_m3b_package() primitive, applied to E7-B's own SiW-as-source crops) is intentionally
+    # NOT invoked here -- reaching this point on the laptop this turn never happens (the
+    # SIW_SOURCE_PACKAGE.json check above always fails first on a non-GPU host).
+    raise E7Error(f"{fold_id}: reached the real GPU source-prior-generation boundary on a "
+                  "non-GPU host -- refusing to proceed")
 
 
 # --------------------------------------------------------------------------- #
@@ -680,20 +887,61 @@ def write_target_firewall(repo: Path) -> dict[str, Any]:
 # TASK M -- execution plan + readiness + strict read-only preflight
 # --------------------------------------------------------------------------- #
 
+def _source_priors_materialized_per_fold(compatibility: dict[str, dict[str, Any]]) -> dict[str, bool]:
+    """A fold's source priors are MATERIALIZED only when every source it
+    actually has (M3B and/or SiW) is independently materialized -- `None`
+    means "no such source in this fold" and is treated as trivially
+    satisfied, never as a missing requirement."""
+    out = {}
+    for fold_id, audit in compatibility.items():
+        m3b_ok = audit["m3b_priors_materialized"] in (True, None)
+        siw_ok = audit["siw_priors_materialized"] in (True, None)
+        out[fold_id] = m3b_ok and siw_ok
+    return out
+
+
+def _prior_generation_primitive_resolved_per_fold(compatibility: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Per fold, reports the ACTIONABLE primitive-resolution status: SiW's
+    (if this fold has a SiW source) since that is the one requiring a new
+    GPU invocation; otherwise M3B's (NOT_APPLICABLE_EXISTING_PRIORS, since
+    M3B priors already exist and no fresh generation is ever needed)."""
+    out = {}
+    for fold_id, audit in compatibility.items():
+        if audit["siw_prior_generation_primitive_resolved"] is not None:
+            out[fold_id] = audit["siw_prior_generation_primitive_resolved"]
+        else:
+            out[fold_id] = audit["m3b_prior_generation_primitive_resolved"]
+    return out
+
+
 def build_execution_plan(repo: Path) -> dict[str, Any]:
     compatibility = {fold_id: audit_gpat_input_compatibility(repo, fold_id) for fold_id in FOLD_IDS}
     shuffle = build_shuffle_feasibility_policy(repo)
-    ready_for_gpu_gpat_fit = {
-        fold_id: compatibility[fold_id]["status"] in ("COMPATIBLE", "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION")
+    gpat_input_compatible = {fold_id: compatibility[fold_id]["status"] in
+                             ("COMPATIBLE", "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION")
+                             for fold_id in FOLD_IDS}
+    source_priors_materialized = _source_priors_materialized_per_fold(compatibility)
+    # READY_FOR_GPU_GPAT_FIT is LITERAL: every source input GPATTrainer.fit would actually open
+    # must already exist and validate -- never merely "the fold is not scientifically blocked".
+    ready_for_gpu_gpat_fit = {fold_id: gpat_input_compatible[fold_id] and source_priors_materialized[fold_id]
+                              for fold_id in FOLD_IDS}
+    ready_for_gpu_source_prior_materialization = {
+        fold_id: gpat_input_compatible[fold_id] and not source_priors_materialized[fold_id]
         for fold_id in FOLD_IDS
     }
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-execution-plan-v1",
+        "schema_version": f"{SCHEMA_PREFIX}-execution-plan-v2",
         "per_fold_compatibility": {f: compatibility[f]["status"] for f in FOLD_IDS},
         "per_fold_shuffle_status": {f: shuffle["folds"][f]["status"] for f in FOLD_IDS},
+        "per_fold_source_priors_materialized": source_priors_materialized,
         "ready_for_gpu_gpat_fit": ready_for_gpu_gpat_fit,
-        "next_gpu_stages": ["prior generation for SiW-as-source rows (F2/F3)",
-                            "per-fold GPAT pair-plan construction", "per-fold GPAT fitting",
+        "ready_for_gpu_source_prior_materialization": ready_for_gpu_source_prior_materialization,
+        "next_gpu_stages": ["A. source prior materialization (--prepare-source-priors, SiW-as-"
+                            "source rows for F2/F3 -- shared package, generated at most once)",
+                            "B. strict prior validation (--validate-source-priors)",
+                            "C. GPAT-input package/adapter materialization",
+                            "D. GPAT pair-plan materialization/validation",
+                            "E. GPATTrainer.fit (only after A-D succeed)",
                             "source-only quality calibration",
                             "per-fold/per-arm candidate generation (Physics+GPAT)",
                             "quality-gate evaluation", "F2/F3 Shuffle-A independent feasibility",
@@ -729,15 +977,19 @@ def preflight(repo: Path) -> dict[str, Any]:
     gpat_input_compatible = {fold_id: compatibility[fold_id]["status"] in
                              ("COMPATIBLE", "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION")
                              for fold_id in FOLD_IDS}
-    source_priors_ready = {fold_id: compatibility[fold_id]["status"] == "COMPATIBLE" or
-                           (compatibility[fold_id]["status"] == "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION")
-                           for fold_id in FOLD_IDS}
+    source_priors_materialized = _source_priors_materialized_per_fold(compatibility)
+    # READY means LITERALLY usable by GPATTrainer.fit right now -- identical to materialized.
+    source_priors_ready = dict(source_priors_materialized)
+    prior_generation_primitive_resolved = _prior_generation_primitive_resolved_per_fold(compatibility)
     target_firewall_active = {fold_id: True for fold_id in FOLD_IDS}
 
-    ready_for_gpu_gpat_fit = all(gpat_input_compatible.values())
+    ready_for_gpu_gpat_fit = all(gpat_input_compatible[f] and source_priors_materialized[f]
+                                for f in FOLD_IDS)
+    ready_for_gpu_source_prior_materialization = any(
+        gpat_input_compatible[f] and not source_priors_materialized[f] for f in FOLD_IDS)
 
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-preflight-v1",
+        "schema_version": f"{SCHEMA_PREFIX}-preflight-v2",
         "E7D_BINDING_MATCH": e7d_binding["E7D_BINDING_MATCH"] if e7d_binding["evidence_present"]
                             else False,
         "F1_SOURCE_SUPPORT_VALID": source_support_valid["EXT-F1"],
@@ -746,6 +998,12 @@ def preflight(repo: Path) -> dict[str, Any]:
         "F1_GPAT_INPUT_COMPATIBLE": gpat_input_compatible["EXT-F1"],
         "F2_GPAT_INPUT_COMPATIBLE": gpat_input_compatible["EXT-F2"],
         "F3_GPAT_INPUT_COMPATIBLE": gpat_input_compatible["EXT-F3"],
+        "F1_PRIOR_GENERATION_PRIMITIVE_RESOLVED": prior_generation_primitive_resolved["EXT-F1"],
+        "F2_PRIOR_GENERATION_PRIMITIVE_RESOLVED": prior_generation_primitive_resolved["EXT-F2"],
+        "F3_PRIOR_GENERATION_PRIMITIVE_RESOLVED": prior_generation_primitive_resolved["EXT-F3"],
+        "F1_SOURCE_PRIORS_MATERIALIZED": source_priors_materialized["EXT-F1"],
+        "F2_SOURCE_PRIORS_MATERIALIZED": source_priors_materialized["EXT-F2"],
+        "F3_SOURCE_PRIORS_MATERIALIZED": source_priors_materialized["EXT-F3"],
         "F1_SOURCE_PRIORS_READY": source_priors_ready["EXT-F1"],
         "F2_SOURCE_PRIORS_READY": source_priors_ready["EXT-F2"],
         "F3_SOURCE_PRIORS_READY": source_priors_ready["EXT-F3"],
@@ -760,7 +1018,10 @@ def preflight(repo: Path) -> dict[str, Any]:
         "F2_SHUFFLE_STATUS": shuffle["folds"]["EXT-F2"]["status"],
         "F3_SHUFFLE_STATUS": shuffle["folds"]["EXT-F3"]["status"],
         "RECIPE_BANKS_BOUND": recipe_binding["all_required_banks_bound"],
+        # LITERAL meaning: all source inputs GPATTrainer.fit would open already exist and
+        # validate -- never "the workflow knows how to create priors first".
         "READY_FOR_GPU_GPAT_FIT": ready_for_gpu_gpat_fit,
+        "READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION": ready_for_gpu_source_prior_materialization,
         "E7_READY_FOR_TRAINING": False,
         "TARGET_LABEL_ACCESS": False, "TARGET_IMAGE_ACCESS": False,
         "TRAINING_PERFORMED": False, "RENDERING_PERFORMED": False,
@@ -773,8 +1034,12 @@ def build_readiness(repo: Path) -> dict[str, Any]:
     pf = preflight(repo)
     execution_plan = build_execution_plan(repo)
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-readiness-v1",
+        "schema_version": f"{SCHEMA_PREFIX}-readiness-v2",
         "READY_FOR_GPU_GPAT_FIT": pf["READY_FOR_GPU_GPAT_FIT"],
+        "READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION": pf["READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION"],
+        "F1_SOURCE_PRIORS_MATERIALIZED": pf["F1_SOURCE_PRIORS_MATERIALIZED"],
+        "F2_SOURCE_PRIORS_MATERIALIZED": pf["F2_SOURCE_PRIORS_MATERIALIZED"],
+        "F3_SOURCE_PRIORS_MATERIALIZED": pf["F3_SOURCE_PRIORS_MATERIALIZED"],
         "E7_READY_FOR_TRAINING": False, "reason": execution_plan["reason"],
         "F1_SHUFFLE_STATUS": pf["F1_SHUFFLE_STATUS"], "F2_SHUFFLE_STATUS": pf["F2_SHUFFLE_STATUS"],
         "F3_SHUFFLE_STATUS": pf["F3_SHUFFLE_STATUS"],
@@ -901,6 +1166,11 @@ def main(argv: list[str] | None = None) -> int:
                                                  "unless an authorized GPU stage is explicitly run)")
     parser.add_argument("--preflight", action="store_true", help="Read-only. Writes nothing.")
     parser.add_argument("--audit-gpat-inputs", action="store_true", help="Read-only compatibility audit.")
+    parser.add_argument("--prepare-source-priors", action="store_true",
+                        help="Requires --authorize --fold EXT-F2/F3. GPU stage A: materializes the "
+                             "shared SiW-as-source prior package (mechanical prerequisite to GPAT fit).")
+    parser.add_argument("--validate-source-priors", action="store_true",
+                        help="Read-only. Strictly validates the shared SiW-as-source prior package.")
     parser.add_argument("--prepare-gpat", action="store_true", help="Requires --authorize. GPU stage.")
     parser.add_argument("--generate-and-match", action="store_true",
                         help="Requires --authorize. GPU stage.")
@@ -918,6 +1188,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.audit_gpat_inputs:
         print(json.dumps({f: audit_gpat_input_compatibility(repo, f) for f in folds}, indent=2,
                         default=str))
+        return 0
+    if args.prepare_source_priors:
+        results = {}
+        for f in folds:
+            try:
+                results[f] = prepare_source_priors(repo, f, authorize=args.authorize)
+            except E7Error as error:
+                results[f] = {"error": str(error)}
+        print(json.dumps(results, indent=2, default=str))
+        return 0 if all("error" not in r for r in results.values()) else 1
+    if args.validate_source_priors:
+        print(json.dumps({f: validate_source_priors(repo, f) for f in folds}, indent=2, default=str))
         return 0
     if args.prepare_gpat:
         results = {}
@@ -945,7 +1227,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"readiness": result["readiness"]["body"]}, indent=2, default=str))
         return 0
 
-    print("Pass --preflight, --audit-gpat-inputs, --prepare-gpat --authorize [--fold ...], "
+    print("Pass --preflight, --audit-gpat-inputs, "
+         "--prepare-source-priors --authorize --fold EXT-F2/F3, --validate-source-priors, "
+         "--prepare-gpat --authorize [--fold ...], "
          "--generate-and-match --authorize [--fold ...], --validate, or --prepare.")
     return 1
 

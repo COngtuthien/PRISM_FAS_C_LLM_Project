@@ -21,6 +21,9 @@
   "protected_package_never_read_for_source": true,
   "output_prior_identity_rule": "sha256 of the merged prior .npz content, recorded per-row as prior_sha256 -- identical convention to M3B's own prior_sha256 field (frozen, never redefined)",
   "input_crop_sha_binding": "prior generation for a SiW-as-source row must be keyed on E7-B's own crop_sha256 for that row (never recomputed from a different crop, never a replacement/resampled frame)",
+  "siw_source_prior_package_root": "data/processed/c_ext_q1q2_v1/e7_gpat_bank/siw_source_priors_v1",
+  "siw_source_prior_package_shared_by_f2_f3": true,
+  "expected_siw_success_crop_count": 6776,
   "target_access": false,
   "llm_api_calls": 0
 }

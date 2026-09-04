@@ -1,5 +1,5 @@
 {
-  "schema_version": "ext-q1q2-e7-gpat-bank-execution-plan-v1",
+  "schema_version": "ext-q1q2-e7-gpat-bank-execution-plan-v2",
   "per_fold_compatibility": {
     "EXT-F1": "COMPATIBLE",
     "EXT-F2": "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION",
@@ -10,15 +10,27 @@
     "EXT-F2": "PENDING_FEASIBILITY_PREFLIGHT",
     "EXT-F3": "PENDING_FEASIBILITY_PREFLIGHT"
   },
+  "per_fold_source_priors_materialized": {
+    "EXT-F1": true,
+    "EXT-F2": false,
+    "EXT-F3": false
+  },
   "ready_for_gpu_gpat_fit": {
     "EXT-F1": true,
+    "EXT-F2": false,
+    "EXT-F3": false
+  },
+  "ready_for_gpu_source_prior_materialization": {
+    "EXT-F1": false,
     "EXT-F2": true,
     "EXT-F3": true
   },
   "next_gpu_stages": [
-    "prior generation for SiW-as-source rows (F2/F3)",
-    "per-fold GPAT pair-plan construction",
-    "per-fold GPAT fitting",
+    "A. source prior materialization (--prepare-source-priors, SiW-as-source rows for F2/F3 -- shared package, generated at most once)",
+    "B. strict prior validation (--validate-source-priors)",
+    "C. GPAT-input package/adapter materialization",
+    "D. GPAT pair-plan materialization/validation",
+    "E. GPATTrainer.fit (only after A-D succeed)",
     "source-only quality calibration",
     "per-fold/per-arm candidate generation (Physics+GPAT)",
     "quality-gate evaluation",
