@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from prism_fas.evaluation import c_ext_e7b_data_prep as e7b
+from prism_fas.evaluation import c_ext_e7d_source_support as e7d
 from prism_fas.evaluation import c_ext_e7_gpat_bank as e7g
 
 REPO = Path(__file__).resolve().parents[2]
@@ -674,3 +675,537 @@ def test_no_target_or_training_or_rendering_or_llm_this_turn():
     assert pf["RENDERING_PERFORMED"] is False
     assert pf["GPAT_FITTING_PERFORMED"] is False
     assert pf["LLM_API_CALLS"] == 0
+
+
+# =========================================================================== #
+# TECHNICAL_GPU_SOURCE_PRIOR_EXECUTION_AND_M3A_ADAPTER_GAP fix -- real M3A
+# input-package adapter + real (gated) build_m3b_package invocation.
+# =========================================================================== #
+
+_TRAIN_FIXTURE = [
+    {"video_id": "siwv1", "frame_index": 0, "label_live_spoof": "live",
+     "crop_relative_path": "crops/x/siwv1_0.jpg"},
+    {"video_id": "siwv2", "frame_index": 0, "label_live_spoof": "spoof",
+     "crop_relative_path": "crops/x/siwv2_0.jpg"},
+]
+_DEV_FIXTURE = [
+    {"video_id": "siwv3", "frame_index": 0, "label_live_spoof": "live",
+     "crop_relative_path": "crops/x/siwv3_0.jpg"},
+]
+
+
+def _write_siw_m2_fixture(repo: Path, rows: list[dict], *, corrupt_sha_for: str | None = None) -> None:
+    """Writes real, decodable crop JPEG bytes plus a real M2
+    source_crops.parquet at E7-B's own SiW source m2_run root -- the
+    schema `build_priors`/`prior_payload` genuinely require."""
+    import cv2
+    import numpy as np
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    crop_rows = []
+    for index, r in enumerate(rows):
+        crop_path = m2_root / r["crop_relative_path"]
+        crop_path.parent.mkdir(parents=True, exist_ok=True)
+        image = (index * 37 % 256) * np.ones((64, 64, 3), dtype="uint8")
+        cv2.imwrite(str(crop_path), image)
+        r["crop_sha256"] = e7g.cc.sha256_file(crop_path)
+        crop_rows.append({
+            "sample_id": f"m2_{r['video_id']}_{r['frame_index']}", "dataset": "siw_mv2",
+            "video_id": r["video_id"], "source_record_id": r["video_id"],
+            "source_media_type": "video", "requested_frame_index": r["frame_index"],
+            "actual_frame_index": r["frame_index"], "timestamp_ms": 0.0,
+            "frame_width": 640, "frame_height": 480,
+            "bbox_x1": 10.0, "bbox_y1": 10.0, "bbox_x2": 50.0, "bbox_y2": 50.0,
+            "detection_score": 0.99, "detected_face_count": 1,
+            "crop_x1": 0, "crop_y1": 0, "crop_x2": 64, "crop_y2": 64,
+            "requested_crop_padding": 0.25, "effective_crop_padding": 0.25,
+            "crop_width": 64, "crop_height": 64,
+            "landmark_0_x": 20.0, "landmark_0_y": 20.0, "landmark_1_x": 30.0, "landmark_1_y": 20.0,
+            "landmark_2_x": 25.0, "landmark_2_y": 30.0, "landmark_3_x": 20.0, "landmark_3_y": 40.0,
+            "landmark_4_x": 30.0, "landmark_4_y": 40.0,
+            "crop_relative_path": r["crop_relative_path"],
+            "crop_sha256": ("0" * 64) if r["video_id"] == corrupt_sha_for else r["crop_sha256"],
+            "detector_name": "scrfd", "detector_model_sha256": "d" * 64,
+            "detector_provider": "CPUExecutionProvider", "detector_input_size": 640,
+            "detector_threshold": 0.5, "preprocessing_version": "v1",
+            "preprocessing_config_hash": "c" * 64, "status": "success",
+        })
+    manifests_dir = m2_root / "manifests"
+    manifests_dir.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.Table.from_pylist(crop_rows), manifests_dir / "source_crops.parquet")
+    (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT).mkdir(parents=True, exist_ok=True)
+    (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "SIW_SOURCE_PACKAGE.json").write_text("{}", encoding="utf-8")
+    # The frozen M3A package config is a real, small, read-only file -- copied verbatim into
+    # the fake repo rather than re-derived, so tests exercise the SAME config bytes.
+    config_dest = repo / e7g.M3A_PACKAGE_CONFIG_PATH
+    config_dest.parent.mkdir(parents=True, exist_ok=True)
+    config_dest.write_text((REPO / e7g.M3A_PACKAGE_CONFIG_PATH).read_text(encoding="utf-8"),
+                           encoding="utf-8")
+
+
+def _e7d_siw_row(fold_id: str, r: dict, *, status: str = "success") -> dict:
+    return {"fold_id": fold_id, "dataset": "SiW-Mv2", "project_split": "source_train",
+           "label_live_spoof": r["label_live_spoof"], "spoof_family": None,
+           "source_video_id": r["video_id"], "frame_index": r["frame_index"],
+           "crop_relative_path": r.get("crop_relative_path"), "crop_sha256": r.get("crop_sha256"),
+           "source_package_kind": e7d.SIW_SOURCE_PACKAGE_KIND,
+           "source_package_identity": e7g.e7c.FROZEN_E7B["siw_source_package_identity"],
+           "status": status, "subject_id": None,
+           "failure_reason": None if status == "success" else "detector_failed"}
+
+
+def _write_e7d_siw_fixture(repo: Path, fold_id: str, train_rows: list[dict], dev_rows: list[dict],
+                           *, crop_path_override: str | None = None) -> None:
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / fold_id
+    fold_root.mkdir(parents=True, exist_ok=True)
+    train_e7d = [_e7d_siw_row(fold_id, r) for r in train_rows]
+    dev_e7d = [_e7d_siw_row(fold_id, r) for r in dev_rows]
+    if crop_path_override is not None and train_e7d:
+        train_e7d[0]["crop_relative_path"] = crop_path_override
+    (fold_root / "source_train.json").write_text(json.dumps({"rows": train_e7d}), encoding="utf-8")
+    (fold_root / "source_dev.json").write_text(json.dumps({"rows": dev_e7d}), encoding="utf-8")
+
+
+def _patch_expected_counts(monkeypatch, *, train: int, dev: int, total: int,
+                           live_train: int, spoof_train: int, live_dev: int, spoof_dev: int) -> None:
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_TRAIN_SUCCESS_COUNT", train)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_DEV_SUCCESS_COUNT", dev)
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", total)
+    monkeypatch.setattr(e7g, "FROZEN_SIW_CROP_ACCOUNTING", {
+        **e7g.FROZEN_SIW_CROP_ACCOUNTING, "live_train_success": live_train,
+        "spoof_train_success": spoof_train, "live_dev_success": live_dev, "spoof_dev_success": spoof_dev})
+
+
+def _build_full_fixture(tmp_path: Path, monkeypatch, fold_id: str = "EXT-F2") -> Path:
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev)
+    _write_e7d_siw_fixture(repo, fold_id, train, dev)
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    return repo
+
+
+def test_m3a_input_materialization_not_a_stub(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    result = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    assert (repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / "PACKAGE_LOCK.json").is_file()
+
+
+def test_m3a_project_split_authority_is_e7d_e7a(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    from prism_fas.data.package.manifests import read_manifest
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    train_ids = {r["sample_id"] for r in read_manifest(root / "manifests" / "source_train.parquet")}
+    dev_ids = {r["sample_id"] for r in read_manifest(root / "manifests" / "source_dev.parquet")}
+    samples = {r["sample_id"]: r for r in read_manifest(root / "manifests" / "samples.parquet")}
+    assert all(samples[sid]["project_split"] == "source_train" for sid in train_ids)
+    assert all(samples[sid]["project_split"] == "source_dev" for sid in dev_ids)
+    assert len(train_ids) == 2 and len(dev_ids) == 1
+
+
+def test_m3a_official_split_placeholder_preserved(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    from prism_fas.data.package.manifests import read_manifest
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    for name in ("source_train", "source_dev"):
+        for row in read_manifest(root / "manifests" / f"{name}.parquet"):
+            assert row["official_split"] == e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER
+
+
+def test_no_legacy_project_split_misuse(tmp_path, monkeypatch):
+    from prism_fas.data.package.config import project_split as legacy_project_split
+
+    with pytest.raises(ValueError):
+        legacy_project_split("source", e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER)
+    # ...and yet the real adapter succeeds, proving it never calls the legacy function.
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    result = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+
+
+def test_m3a_counts_exact(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    validation = e7g.validate_m3a_input_package(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+    assert validation["total_samples"] == 3
+    assert validation["train_rows"] == 2
+    assert validation["dev_rows"] == 1
+
+
+def test_m3a_live_spoof_counts_exact(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    from prism_fas.data.package.manifests import read_manifest
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    train_rows = read_manifest(root / "manifests" / "source_train.parquet")
+    dev_rows = read_manifest(root / "manifests" / "source_dev.parquet")
+    assert sum(1 for r in train_rows if r["label_live_spoof"] == "live") == 1
+    assert sum(1 for r in train_rows if r["label_live_spoof"] == "spoof") == 1
+    assert sum(1 for r in dev_rows if r["label_live_spoof"] == "live") == 1
+    assert sum(1 for r in dev_rows if r["label_live_spoof"] == "spoof") == 0
+
+
+def test_terminal_failures_never_enter_m3a_package(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev)
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F2"
+    fold_root.mkdir(parents=True, exist_ok=True)
+    train_e7d = [_e7d_siw_row("EXT-F2", r) for r in train]
+    dev_e7d = [_e7d_siw_row("EXT-F2", r) for r in dev]
+    # E7-D's OWN source_train.json/source_dev.json never contain a failure row -- terminal
+    # failures live only in terminal_failures.json, which this adapter never reads.
+    (fold_root / "source_train.json").write_text(json.dumps({"rows": train_e7d}), encoding="utf-8")
+    (fold_root / "source_dev.json").write_text(json.dumps({"rows": dev_e7d}), encoding="utf-8")
+    (fold_root / "terminal_failures.json").write_text(
+        json.dumps({"rows": [_e7d_siw_row("EXT-F2", {"video_id": "siwfail", "frame_index": 0,
+                                                      "label_live_spoof": "spoof"}, status="failure")]}),
+        encoding="utf-8")
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    result = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    validation = e7g.validate_m3a_input_package(repo, "EXT-F2")
+    assert validation["total_samples"] == 3  # the failure row never entered
+
+
+def test_m3a_no_subject_id_fabrication(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    from prism_fas.data.package.manifests import read_manifest
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    for name in ("source_train", "source_dev"):
+        for row in read_manifest(root / "manifests" / f"{name}.parquet"):
+            assert row["subject_id"] is None
+
+
+def test_m3a_crop_sha_verified(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev, corrupt_sha_for="siwv1")
+    _write_e7d_siw_fixture(repo, "EXT-F2", train, dev)
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    with pytest.raises(e7g.E7Error, match="disagrees with the real M2 crop manifest"):
+        e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+
+
+def test_m3a_full_base_prior_schema(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    from prism_fas.data.package.manifests import read_manifest
+    from prism_fas.data.package.priors import PRIOR_ARRAYS, load_prior, validate_prior_arrays
+
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    for row in read_manifest(root / "manifests" / "samples.parquet"):
+        arrays = load_prior(root / row["prior_relative_path"])
+        validate_prior_arrays(arrays)  # never raises for a well-formed base prior
+        assert set(PRIOR_ARRAYS) <= set(arrays)
+
+
+def test_m3a_target_package_never_used(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev)
+    _write_e7d_siw_fixture(repo, "EXT-F2",
+                           train, dev,
+                           crop_path_override=f"../../../{e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT}/x.jpg")
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    with pytest.raises(e7g.E7Error):
+        e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+
+
+def test_m3a_evaluation_only_never_opened(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    train = [dict(r) for r in _TRAIN_FIXTURE]
+    dev = [dict(r) for r in _DEV_FIXTURE]
+    _write_siw_m2_fixture(repo, train + dev)
+    _write_e7d_siw_fixture(repo, "EXT-F2", train, dev,
+                           crop_path_override="../../../../data/evaluation_only/x.jpg")
+    _patch_expected_counts(monkeypatch, train=2, dev=1, total=3, live_train=1, spoof_train=1,
+                           live_dev=1, spoof_dev=0)
+    with pytest.raises(e7g.E7Error):
+        e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+
+
+def test_m3a_validator_is_read_only(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    root = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    before = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+    e7g.validate_m3a_input_package(repo, "EXT-F2")
+    after = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+    assert before == after
+
+
+def test_m3a_existing_valid_package_already_valid(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    first = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert first["status"] == "MATERIALIZED"
+    lock_path = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / "PACKAGE_LOCK.json"
+    mtime_before = lock_path.stat().st_mtime_ns
+    second = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert second["status"] == "ALREADY_VALID"
+    assert second["resumed"] is True
+    assert lock_path.stat().st_mtime_ns == mtime_before
+
+
+def test_m3a_interrupted_partial_never_already_valid(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    lock_path = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / "PACKAGE_LOCK.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["status"] = "building"  # simulate a crash before finalize_lock ran
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    result = e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    assert result["status"] != "ALREADY_VALID"
+
+
+def test_m3a_invalid_existing_package_fails_closed(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+    binding_path = repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / e7g.M3A_INPUT_BINDING_FILENAME
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    binding["m3a_input_package_identity"] = "0" * 64
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    with pytest.raises(e7g.E7Error, match="FAILED strict validation"):
+        e7g.materialize_m3a_input_package(repo, "EXT-F2", authorize=True)
+
+
+def test_m3a_f1_not_applicable(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    with pytest.raises(e7g.E7Error, match="NOT_APPLICABLE"):
+        e7g.materialize_m3a_input_package(repo, "EXT-F1", authorize=True)
+
+
+# --- outer prepare_source_priors transaction (GPU boundary real, not a stub) -------------
+
+def test_prepare_source_priors_not_unconditional_stub(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    with pytest.raises(e7g.E7Error, match="GPU_REQUIRED"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    # by the time it fails, the M3A input package IS materialized and strictly valid --
+    # proof this is no longer an unconditional stub raise.
+    assert (repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT / "PACKAGE_LOCK.json").is_file()
+    assert e7g.validate_m3a_input_package(repo, "EXT-F2")["status"] == "VALID"
+
+
+def test_gpu_capability_check_is_real_not_hardcoded(tmp_path):
+    repo = _base_repo(tmp_path)
+    capability = e7g._gpu_prior_generation_capability(repo)
+    assert capability["capable"] is False
+    assert capability["cuda_available"] is False
+    assert any("cuda" in p.lower() for p in capability["problems"])
+    assert not any("non-gpu host" in p.lower() for p in capability["problems"])
+
+
+def test_build_m3b_package_invoked_only_after_m3a_validation(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    calls: list[dict] = []
+
+    def fake_build_m3b_package(input_package, output_package, model_config, *, weight_root, resume,
+                               package_id):
+        calls.append({"input_package": input_package, "output_package": output_package,
+                      "model_config": model_config, "weight_root": weight_root, "resume": resume,
+                      "package_id": package_id})
+        raise RuntimeError("intentionally stop right after the spy records the call")
+
+    monkeypatch.setattr(e7g, "_gpu_prior_generation_capability",
+                        lambda repo: {"capable": True, "cuda_available": True,
+                                     "weight_root": str(repo / "model_cache"), "problems": []})
+    monkeypatch.setattr("prism_fas.data.package.m3b.build_m3b_package", fake_build_m3b_package)
+    with pytest.raises(RuntimeError, match="intentionally stop"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    assert len(calls) == 1
+    # M3A input package was VALID before build_m3b_package was ever called.
+    assert e7g.validate_m3a_input_package(repo, "EXT-F2")["status"] == "VALID"
+    assert calls[0]["input_package"] == repo / e7g.SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    assert calls[0]["output_package"] == repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+
+
+def test_frozen_model_config_seed_passed_exactly_to_build_m3b_package(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    calls: list[dict] = []
+
+    def fake_build_m3b_package(input_package, output_package, model_config, *, weight_root, resume,
+                               package_id):
+        calls.append({"model_config": model_config, "package_id": package_id})
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(e7g, "_gpu_prior_generation_capability",
+                        lambda repo: {"capable": True, "cuda_available": True,
+                                     "weight_root": str(repo / "model_cache"), "problems": []})
+    monkeypatch.setattr("prism_fas.data.package.m3b.build_m3b_package", fake_build_m3b_package)
+    with pytest.raises(RuntimeError):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    assert calls[0]["model_config"] == repo / e7g.M3B_PRIOR_MODEL_CONFIG_PATH
+    assert calls[0]["package_id"] == e7g.SIW_SOURCE_PRIOR_M3B_PACKAGE_ID
+    assert calls[0]["package_id"] != e7b.FROZEN_M3B_PACKAGE_IDENTITY  # never claims the frozen id
+
+
+def test_siw_source_prior_package_written_last(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    order: list[str] = []
+    output_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+
+    def fake_build_m3b_package(input_package, output_package, model_config, *, weight_root, resume,
+                               package_id):
+        order.append("build_m3b_package")
+        assert not (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).exists()
+        output_package.mkdir(parents=True, exist_ok=True)
+        return {"failures": [], "lock": {"content_identity_sha256": "x"}}
+
+    from prism_fas.data.package.validator import validate_package as _orig_validate_package
+    from prism_fas.data.package.builder import finalize_lock as _orig_finalize_lock
+
+    def fake_validate_package(package_root, **kwargs):
+        if Path(package_root) != output_root:
+            return _orig_validate_package(package_root, **kwargs)  # the M3A package's own call
+        order.append("validate_package")
+        assert not (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).exists()
+        return {"passed": True, "errors": [], "checks": [], "counts": {}, "package_id": "x",
+               "target_isolation": {"passed": True}}
+
+    def fake_finalize_lock(package_root, report):
+        if Path(package_root) != output_root:
+            return _orig_finalize_lock(package_root, report)  # the M3A package's own call
+        order.append("finalize_lock")
+        assert not (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).exists()
+        return {"status": "validated"}
+
+    def fake_derive_rows(repo_arg):
+        order.append("derive_rows")
+        return []
+
+    def fake_write_source_prior(rows):
+        order.append("compute_identity")
+        return "y" * 64
+
+    monkeypatch.setattr(e7g, "_gpu_prior_generation_capability",
+                        lambda repo: {"capable": True, "cuda_available": True,
+                                     "weight_root": str(repo / "model_cache"), "problems": []})
+    monkeypatch.setattr("prism_fas.data.package.m3b.build_m3b_package", fake_build_m3b_package)
+    monkeypatch.setattr("prism_fas.data.package.validator.validate_package", fake_validate_package)
+    monkeypatch.setattr("prism_fas.data.package.builder.finalize_lock", fake_finalize_lock)
+    monkeypatch.setattr(e7g, "_derive_siw_source_prior_rows", fake_derive_rows)
+    monkeypatch.setattr(e7g, "compute_siw_source_prior_package_identity", fake_write_source_prior)
+    monkeypatch.setattr(e7g, "validate_source_priors",
+                        lambda repo, fold_id: {"status": "VALID", "recomputed_package_identity": "y" * 64})
+
+    result = e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    # build_m3b_package, THEN pre-finalize validate, THEN finalize_lock, THEN the post-finalize
+    # validate (mirroring cli/main.py's own pre/finalize_lock/report pattern), and only THEN
+    # is the shared prior package derived and its terminal marker written.
+    assert order == ["build_m3b_package", "validate_package", "finalize_lock", "validate_package",
+                     "derive_rows", "compute_identity"]
+    assert (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).is_file()
+
+
+def test_f3_after_f2_valid_no_second_model_inference(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    # F3 needs its own E7-D authoritative rows (shares the same underlying SiW population).
+    _write_e7d_siw_fixture(repo, "EXT-F3", [dict(r) for r in _TRAIN_FIXTURE], [dict(r) for r in _DEV_FIXTURE])
+    output_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    output_root.mkdir(parents=True, exist_ok=True)
+    (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).write_text(
+        json.dumps({"schema_version": "siw-source-prior-package-v1", "package_identity": "z" * 64,
+                   "rows": []}), encoding="utf-8")
+    monkeypatch.setattr(e7g, "validate_source_priors",
+                        lambda repo, fold_id: {"status": "VALID", "recomputed_package_identity": "z" * 64})
+    calls: list[str] = []
+    monkeypatch.setattr("prism_fas.data.package.m3b.build_m3b_package",
+                        lambda *a, **k: calls.append("called"))
+    result = e7g.prepare_source_priors(repo, "EXT-F3", authorize=True)
+    assert result["status"] == "ALREADY_VALID"
+    assert calls == []  # build_m3b_package (model inference) never called for F3
+
+
+def test_invalid_conflicting_existing_prior_package_fails_closed(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    output_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    output_root.mkdir(parents=True, exist_ok=True)
+    (output_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).write_text(
+        json.dumps({"schema_version": "siw-source-prior-package-v1", "package_identity": "bad",
+                   "rows": [{"source_video_id": "v", "frame_index": 0, "status": "success"}]}),
+        encoding="utf-8")
+    with pytest.raises(e7g.E7Error, match="FAILED strict"):
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+
+
+def test_prepare_source_priors_no_gpat_render_train_llm(tmp_path, monkeypatch):
+    repo = _build_full_fixture(tmp_path, monkeypatch)
+    try:
+        e7g.prepare_source_priors(repo, "EXT-F2", authorize=True)
+    except e7g.E7Error:
+        pass
+    pf = e7g.preflight(repo)
+    assert pf["GPAT_FITTING_PERFORMED"] is False
+    assert pf["RENDERING_PERFORMED"] is False
+    assert pf["TRAINING_PERFORMED"] is False
+    assert pf["LLM_API_CALLS"] == 0
+
+
+def test_synthesis_and_package_primitives_unchanged():
+    import subprocess
+
+    for relative in ("src/prism_fas/data/package/m3b.py", "src/prism_fas/data/package/builder.py",
+                     "src/prism_fas/data/package/priors.py", "src/prism_fas/data/package/model_priors.py",
+                     "src/prism_fas/data/package/manifests.py", "src/prism_fas/data/package/quality.py",
+                     "src/prism_fas/data/package/validator.py", "src/prism_fas/data/package/config.py",
+                     "src/prism_fas/data/package/shards.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD -- must remain unmodified"
+
+
+def test_e7abcd_modules_unchanged():
+    import subprocess
+
+    for relative in ("src/prism_fas/evaluation/c_ext_e7a_fold_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7b_data_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7c_gpat_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7d_source_support.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD -- must remain unmodified"
+
+
+# --- CLI: explicit --fold required for --prepare-source-priors ---------------------------
+
+def test_cli_prepare_source_priors_requires_explicit_fold(monkeypatch, tmp_path):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g.cc, "repo_root", lambda: repo)
+    assert e7g.main(["--prepare-source-priors", "--authorize"]) == 1
+
+
+def test_cli_prepare_source_priors_rejects_f1(monkeypatch, tmp_path):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g.cc, "repo_root", lambda: repo)
+    assert e7g.main(["--prepare-source-priors", "--authorize", "--fold", "EXT-F1"]) == 1
+
+
+def test_cli_prepare_source_priors_accepts_f2(monkeypatch, tmp_path, capsys):
+    repo = _base_repo(tmp_path)
+    monkeypatch.setattr(e7g.cc, "repo_root", lambda: repo)
+    assert e7g.main(["--prepare-source-priors", "--authorize", "--fold", "EXT-F2"]) == 1
+    out = json.loads(capsys.readouterr().out)
+    assert "EXT-F2" in out

@@ -115,6 +115,34 @@ SIW_SOURCE_PRIOR_PACKAGE_FILENAME = "SIW_SOURCE_PRIOR_PACKAGE.json"
 EXPECTED_SIW_SUCCESS_CROP_COUNT = FROZEN_SIW_CROP_ACCOUNTING["success"]  # == 6776
 REQUIRED_PRIOR_KEYS = ("parsing_labels", "pose_ypr", "visibility", "bbox", "landmarks", "crop_box")
 
+#: TECHNICAL M3A-compatibility input package: `prism_fas.data.package.m3b.
+#: build_m3b_package` requires a VALIDATED M3A package (PACKAGE_LOCK.json
+#: status=="validated", manifests/{samples,source_train,source_dev}.parquet,
+#: base priors with bbox/landmarks/crop_box/quality_vector). E7-B's SiW
+#: source package is NOT an M3A package (it is E7-B's own frozen M2-crop
+#: namespace) -- this additive adapter materializes a real, validated M3A
+#: package FROM it, joined against E7-D/E7-A project_split authority
+#: (never the legacy `config.project_split()`, which rejects E7-B's
+#: `SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER`). This is a data-contract
+#: adapter, not a new scientific method: every array/manifest/shard/
+#: validation primitive it calls (`build_priors`, `write_manifest`,
+#: `build_lock`, `validate_package`, `finalize_lock`, `plan_shards`,
+#: `write_shard`) is reused verbatim from `prism_fas.data.package.*`.
+SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT = f"{DATA_ROOT}/siw_source_m3a_input_v1"
+#: Deliberately distinct from the canonical CASIA/MSU M3A `package_id_prefix`
+#: ("prism_data_v1_m3a") -- this package must never be mistaken for, or
+#: silently claim, the frozen scientific M3A package identity.
+SIW_SOURCE_M3A_INPUT_PACKAGE_ID = "prism_data_v1_m3a_ext_siw_source_v1"
+M3A_PACKAGE_CONFIG_PATH = "configs/data/package_m3a.yaml"
+#: Distinct from the frozen M3B `package_id` (`prism_data_v1_m3b`) for the
+#: same reason `m3b.py::_finalize` takes `package_id` as an input rather
+#: than a constant -- an ADDITIVE package must never silently claim the
+#: frozen identity.
+SIW_SOURCE_PRIOR_M3B_PACKAGE_ID = "prism_data_v1_m3b_ext_siw_source_v1"
+M3A_INPUT_BINDING_FILENAME = "E7_M3A_INPUT_BINDING.json"
+EXPECTED_SIW_TRAIN_SUCCESS_COUNT = FROZEN_SIW_CROP_ACCOUNTING["train_success"]  # == 5426
+EXPECTED_SIW_DEV_SUCCESS_COUNT = FROZEN_SIW_CROP_ACCOUNTING["dev_success"]  # == 1350
+
 #: The ONLY existing on-disk SiW prior material (`prism_target_eval_v2`) is
 #: architecturally bound as F1's held-out TARGET-feature package (real,
 #: validated M3B-schema priors, but every row `project_split==target_test`,
@@ -575,10 +603,489 @@ def validate_source_priors(repo: Path, fold_id: str) -> dict[str, Any]:
     }
 
 
+def _m3a_sample_id(source_video_id: Any, frame_index: Any) -> str:
+    """Deterministic sample_id for the M3A/M3B adapter namespace -- derived
+    from the real (source_video_id, frame_index) key, never fabricated or
+    random, and never containing the literal substring "siw"/"target" (the
+    same path-naming discipline this module's docstring already documents
+    for `SourceOnlyAudit` compatibility)."""
+    digest = cc.sha256_bytes(f"{source_video_id}:{frame_index}".encode("utf-8"))
+    return f"extsrc{digest[:32]}"
+
+
+def _resolve_weight_root(repo: Path) -> Path:
+    """Same frozen `model_cache` convention `prism.cli.main.priors_model_build`
+    resolves against (`$PRISM_MODEL_CACHE` or `model_cache`) -- anchored
+    under `repo` only when the resolved value is not already absolute."""
+    import os
+
+    raw = Path(os.environ.get("PRISM_MODEL_CACHE", "model_cache"))
+    return raw if raw.is_absolute() else repo / raw
+
+
+def _gpu_prior_generation_capability(repo: Path) -> dict[str, Any]:
+    """Real, non-fabricated host-capability check: CUDA availability AND
+    resolvable pinned FaceXFormer/AdaFace weights. Never a hardcoded
+    'non-GPU host' string -- this genuinely differs between a laptop and a
+    real GPU worker, and is re-evaluated every call."""
+    problems: list[str] = []
+    cuda_available = False
+    try:
+        import torch
+
+        cuda_available = bool(torch.cuda.is_available())
+    except Exception as exc:  # noqa: BLE001 -- any import/probe failure means NOT capable
+        problems.append(f"torch unavailable or unusable: {exc!r}")
+    if not cuda_available:
+        problems.append("torch.cuda.is_available() is False on this host")
+    weight_root = _resolve_weight_root(repo)
+    config_path = repo / M3B_PRIOR_MODEL_CONFIG_PATH
+    if not config_path.is_file():
+        problems.append(f"model config missing: {M3B_PRIOR_MODEL_CONFIG_PATH}")
+    else:
+        from prism_fas.data.package.model_priors import load_model_config, resolve_weight
+
+        try:
+            model_config = load_model_config(config_path)
+            resolve_weight(model_config, "parsing", weight_root)
+            resolve_weight(model_config, "identity", weight_root)
+        except Exception as exc:  # noqa: BLE001 -- any unresolved pinned weight means NOT capable
+            problems.append(f"pinned model weight unresolved under {weight_root}: {exc!r}")
+    return {"capable": not problems, "cuda_available": cuda_available,
+           "weight_root": str(weight_root), "problems": problems}
+
+
+def _load_e7d_authoritative_siw_rows(repo: Path, fold_id: str) -> tuple[list[dict], list[dict]]:
+    """E7-D's OWN authoritative source_train.json/source_dev.json (already
+    filtered to status=='success' at E7-D build time) -- the project_split
+    AUTHORITY this adapter uses, never the legacy `config.project_split()`."""
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / fold_id
+    train_path = fold_root / "source_train.json"
+    dev_path = fold_root / "source_dev.json"
+    if not train_path.is_file() or not dev_path.is_file():
+        raise E7Error(f"{fold_id}: E7-D source_train.json/source_dev.json not present -- E7-D "
+                      "authoritative source support is not materialized -- FAIL CLOSED")
+    train_rows = [r for r in cc.read_json(train_path)["rows"]
+                 if r.get("source_package_kind") == e7d.SIW_SOURCE_PACKAGE_KIND]
+    dev_rows = [r for r in cc.read_json(dev_path)["rows"]
+               if r.get("source_package_kind") == e7d.SIW_SOURCE_PACKAGE_KIND]
+    return train_rows, dev_rows
+
+
+def _load_siw_m2_crop_index(repo: Path) -> dict[tuple[Any, Any], dict[str, Any]]:
+    """Reads E7-B's own REAL, frozen M2 crop manifest (never recomputes a
+    detection/crop decision). Join key mirrors E7-B's own
+    `_assemble_siw_source_rows`: (video_id or source_record_id,
+    requested_frame_index)."""
+    from prism_fas.data.package.manifests import read_manifest
+
+    m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    crops_path = m2_root / "manifests" / "source_crops.parquet"
+    if not crops_path.is_file():
+        raise E7Error(f"E7-B SiW source m2_run/manifests/source_crops.parquet not present -- "
+                      "GPU_REQUIRED -- FAIL CLOSED")
+    index: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for row in read_manifest(crops_path):
+        key = (row.get("video_id") or row.get("source_record_id"), row.get("requested_frame_index"))
+        index[key] = row
+    return index
+
+
+def compute_m3a_input_package_identity(fold_id: str, *, e7d_package_identity: str | None,
+                                       rows: list[dict[str, Any]]) -> str:
+    """Deterministic identity over CANONICAL METADATA only -- no absolute
+    paths, no timestamps, no hostname. Binds E7-B SiW source package
+    identity, E7-D source support / E7-A split identity, the frozen M3A
+    package config identity, and the sorted per-row (source_video_id,
+    frame_index, project_split, crop_sha256, preprocessing_config_hash,
+    detector_model_sha256) material."""
+    row_material = sorted(
+        (r.get("source_video_id"), r.get("frame_index"), r.get("project_split"),
+         r.get("crop_sha256"), r.get("preprocessing_config_hash"), r.get("detector_model_sha256"))
+        for r in rows)
+    material = {
+        "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
+        "e7d_source_support_package_identity": e7d_package_identity,
+        "e7a_siw_split_identity": e7c.FROZEN_E7B["siw_split_identity"],
+        "m3a_input_package_id": SIW_SOURCE_M3A_INPUT_PACKAGE_ID,
+        "m3a_package_config_path": M3A_PACKAGE_CONFIG_PATH,
+        "row_material": row_material,
+    }
+    return cc.sha256_bytes(cc.canonical_json_bytes(material))
+
+
+def _m3a_package_config(repo: Path):
+    """Loads the frozen `configs/data/package_m3a.yaml` UNMODIFIED, with
+    ONLY `package_id_prefix` overridden to this adapter's own distinct id
+    (never the canonical CASIA/MSU M3A package_id) -- a data-contract
+    identity distinction, never a schema/scientific-value change."""
+    import yaml
+    from prism_fas.data.package.config import M3APackageConfig
+
+    raw = yaml.safe_load((repo / M3A_PACKAGE_CONFIG_PATH).read_text(encoding="utf-8"))
+    return M3APackageConfig.model_validate({**raw, "package_id_prefix": SIW_SOURCE_M3A_INPUT_PACKAGE_ID})
+
+
+def materialize_m3a_input_package(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
+    """Materializes (or resumes/validates) the E7-specific M3A-compatible
+    input package for SiW-as-source, shared verbatim by F2/F3. Reuses
+    `build_priors`/`write_manifest`/`build_lock`/`validate_package`/
+    `finalize_lock`/`plan_shards`/`write_shard` UNMODIFIED; the only new
+    code is row selection + the project_split assignment (from E7-D/E7-A
+    authority, never the legacy `config.project_split()`)."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        raise E7Error(f"{fold_id} has no SiW source domain -- M3A input materialization is "
+                      "NOT_APPLICABLE for this fold")
+    if not authorize:
+        raise E7Error(f"M3A input package materialization for {fold_id} requires --authorize")
+
+    from prism_fas.data.package import builder as m3a_builder
+    from prism_fas.data.package import validator as m3a_validator
+    from prism_fas.utils.core import atomic_json_write
+
+    package_root = repo / SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    lock_path = package_root / "PACKAGE_LOCK.json"
+    if lock_path.is_file():
+        existing_lock = cc.read_json(lock_path)
+        if existing_lock.get("status") == "validated":
+            validation = validate_m3a_input_package(repo, fold_id)
+            if validation["status"] != "VALID":
+                raise E7Error(f"{fold_id}: existing M3A input package FAILED strict validation "
+                              f"-- FAIL CLOSED, never silently rewritten: "
+                              f"{validation['problems']!r}")
+            return {"resumed": True, "status": "ALREADY_VALID", "path": str(package_root),
+                   "validation": validation, "target_access": False, "llm_api_calls": 0}
+        # status is still "building" (e.g. a crashed prior attempt) -- fall through and
+        # resume via build_priors()'s own reuse logic; NEVER report ALREADY_VALID for this.
+
+    siw_binding_path = repo / e7d.E7D_OUTPUT_ROOT / fold_id / "SOURCE_SUPPORT_PACKAGE.json"
+    e7d_package_identity = (cc.read_json(siw_binding_path).get("package_identity")
+                            if siw_binding_path.is_file() else None)
+
+    train_e7d, dev_e7d = _load_e7d_authoritative_siw_rows(repo, fold_id)
+    if len(train_e7d) != EXPECTED_SIW_TRAIN_SUCCESS_COUNT or len(dev_e7d) != EXPECTED_SIW_DEV_SUCCESS_COUNT:
+        raise E7Error(f"{fold_id}: E7-D authoritative SiW row counts train={len(train_e7d)} "
+                      f"dev={len(dev_e7d)} != expected train={EXPECTED_SIW_TRAIN_SUCCESS_COUNT} "
+                      f"dev={EXPECTED_SIW_DEV_SUCCESS_COUNT} -- FAIL CLOSED")
+    crop_index = _load_siw_m2_crop_index(repo)
+
+    samples: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    for project_split, e7d_rows in (("source_train", train_e7d), ("source_dev", dev_e7d)):
+        for row in e7d_rows:
+            key = (row.get("source_video_id"), row.get("frame_index"))
+            crop = crop_index.get(key)
+            if crop is None:
+                raise E7Error(f"{fold_id}: SiW crop for {key!r} not present in E7-B m2_run crop "
+                              "manifest -- FAIL CLOSED")
+            if crop.get("crop_relative_path") != row.get("crop_relative_path") or \
+                    crop.get("crop_sha256") != row.get("crop_sha256"):
+                raise E7Error(f"{fold_id}: E7-D authoritative row for {key!r} disagrees with the "
+                              "real M2 crop manifest -- FAIL CLOSED")
+            candidate_ref = f"{e7b.E7B_SIW_SOURCE_PACKAGE_ROOT}/m2_run/{crop['crop_relative_path']}"
+            assert_not_target_path(fold_id, candidate_ref)
+            crop_path = m2_root / crop["crop_relative_path"]
+            if not crop_path.is_file():
+                raise E7Error(f"{fold_id}: SiW crop missing on disk: "
+                              f"{crop['crop_relative_path']!r} -- FAIL CLOSED")
+            if cc.sha256_file(crop_path) != crop["crop_sha256"]:
+                raise E7Error(f"{fold_id}: SiW crop SHA256 mismatch on disk: "
+                              f"{crop['crop_relative_path']!r} -- FAIL CLOSED")
+            sample_id = _m3a_sample_id(*key)
+            if sample_id in seen_ids:
+                raise E7Error(f"{fold_id}: duplicate derived sample_id for {key!r} -- FAIL CLOSED")
+            seen_ids.add(sample_id)
+            samples.append({**crop, "sample_id": sample_id, "dataset": "siw_mv2",
+                            "dataset_role": "source",
+                            "official_split": e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER,
+                            "subject_id": None, "label_live_spoof": row.get("label_live_spoof"),
+                            "_e7_project_split": project_split,
+                            "_e7_source_video_id": key[0], "_e7_frame_index": key[1]})
+
+    config = _m3a_package_config(repo)
+    package_root.mkdir(parents=True, exist_ok=True)
+    prior_rows, stats = m3a_builder.build_priors(samples, input_root=m2_root, package_root=package_root,
+                                                 config=config, resume=True)
+    priors = {row["sample_id"]: row for row in prior_rows}
+    metadata = {"package_schema_version": config.package_schema_version,
+               "prior_schema_version": prior_rows[0]["prior_schema_version"] if prior_rows else None,
+               "quality_schema_version": prior_rows[0]["quality_schema_version"] if prior_rows else None,
+               "package_config_hash": config.config_hash}
+    from prism_fas.data.package.manifests import MANIFEST_SCHEMAS, write_manifest
+    from prism_fas.data.package.priors import load_prior, validate_prior_arrays
+    from prism_fas.data.package.quality import QUALITY_NAMES
+    from prism_fas.data.package.shards import plan_shards, write_shard
+
+    sample_rows: list[dict[str, Any]] = []
+    source_rows: dict[str, list[dict[str, Any]]] = {"source_train": [], "source_dev": []}
+    binding_rows: list[dict[str, Any]] = []
+    for sample in samples:
+        sample_id = sample["sample_id"]
+        prior = priors[sample_id]
+        arrays = load_prior(package_root / prior["prior_relative_path"])
+        validate_prior_arrays(arrays)
+        metrics = {name: float(value) for name, value in zip(QUALITY_NAMES, arrays["quality_vector"].tolist())}
+        row = _e7_sample_row(sample, prior, metrics, config)
+        sample_rows.append(row)
+        image = package_root / row["image_relative_path"]
+        m3a_builder._link_or_copy(m2_root / sample["crop_relative_path"], image)
+        if cc.sha256_file(image) != sample["crop_sha256"]:
+            raise E7Error(f"{fold_id}: packaged image SHA changed for {sample_id} -- FAIL CLOSED")
+        stats.images_linked += 1
+        stats.per_dataset[sample["dataset"]] = stats.per_dataset.get(sample["dataset"], 0) + 1
+        stats.per_split[row["project_split"]] = stats.per_split.get(row["project_split"], 0) + 1
+        common = {"sample_id": sample_id, "dataset": sample["dataset"],
+                 "source_record_id": sample["source_record_id"], "project_split": row["project_split"],
+                 "image_relative_path": row["image_relative_path"],
+                 "prior_relative_path": prior["prior_relative_path"], "crop_sha256": sample["crop_sha256"],
+                 "prior_sha256": prior["prior_sha256"], "package_schema_version": config.package_schema_version}
+        source_rows[row["project_split"]].append({**common, "subject_id": None,
+                                                   "official_split": sample["official_split"],
+                                                   "label_live_spoof": sample["label_live_spoof"]})
+        binding_rows.append({"sample_id": sample_id, "source_video_id": sample["_e7_source_video_id"],
+                             "frame_index": sample["_e7_frame_index"],
+                             "crop_relative_path": sample["crop_relative_path"],
+                             "crop_sha256": sample["crop_sha256"],
+                             "preprocessing_config_hash": sample["preprocessing_config_hash"],
+                             "detector_model_sha256": sample["detector_model_sha256"],
+                             "project_split": row["project_split"]})
+
+    hashes = {}
+    hashes["samples"] = write_manifest(package_root / "manifests" / "samples.parquet", sample_rows,
+                                       MANIFEST_SCHEMAS["samples"], metadata)
+    for name in ("source_train", "source_dev"):
+        hashes[name] = write_manifest(package_root / "manifests" / f"{name}.parquet", source_rows[name],
+                                      MANIFEST_SCHEMAS[name], metadata)
+    hashes["target_test_features"] = write_manifest(package_root / "manifests" / "target_test_features.parquet",
+                                                     [], MANIFEST_SCHEMAS["target_test_features"], metadata)
+    hashes["priors_index"] = write_manifest(package_root / "manifests" / "priors_index.parquet", prior_rows,
+                                            MANIFEST_SCHEMAS["priors_index"], metadata)
+    sizes = {row["sample_id"]: row["prior_bytes"] + (package_root / row["image_relative_path"]).stat().st_size
+            for row in sample_rows}
+    shard_rows: list[dict[str, Any]] = []
+    for split in ("source_train", "source_dev"):
+        rows = [row for row in sample_rows if row["project_split"] == split]
+        if not rows:
+            continue
+        lookup = {row["sample_id"]: row for row in rows}
+        for number, group in enumerate(plan_shards([r["sample_id"] for r in rows], sizes,
+                                                    max_samples=config.shard_max_samples,
+                                                    max_bytes=config.shard_max_bytes)):
+            entries = []
+            for sample_id in group:
+                row = lookup[sample_id]
+                entries.append((sample_id, (package_root / row["image_relative_path"]).read_bytes(),
+                               (package_root / row["prior_relative_path"]).read_bytes(),
+                               m3a_builder._shard_metadata(row, source_rows, split)))
+            summary = write_shard(package_root / "shards" / f"{split}-{number:05d}.tar", entries)
+            shard_rows.append({**summary, "split": split, "package_schema_version": config.package_schema_version})
+    hashes["shards_index"] = write_manifest(package_root / "manifests" / "shards_index.parquet", shard_rows,
+                                            MANIFEST_SCHEMAS["shards_index"], metadata, sort_key="shard_filename")
+
+    m3a_builder.build_lock(m2_root, package_root, config, sample_rows, shard_rows, hashes, stats)
+    pre = m3a_validator.validate_package(package_root, require_validated_status=False)
+    if not pre["passed"]:
+        raise E7Error(f"{fold_id}: M3A input package structural validation FAILED before "
+                      f"finalize -- FAIL CLOSED: {pre['errors']!r}")
+    m3a_builder.finalize_lock(package_root, pre)
+    report = m3a_validator.validate_package(package_root)
+    if not report["passed"]:
+        raise E7Error(f"{fold_id}: M3A input package FAILED final validation -- FAIL CLOSED: "
+                      f"{report['errors']!r}")
+
+    m3a_input_package_identity = compute_m3a_input_package_identity(
+        fold_id, e7d_package_identity=e7d_package_identity, rows=binding_rows)
+    lock = cc.read_json(lock_path)
+    atomic_json_write(package_root / M3A_INPUT_BINDING_FILENAME, {
+        "schema_version": f"{SCHEMA_PREFIX}-m3a-input-binding-v1", "fold_id": fold_id,
+        "m3a_input_package_identity": m3a_input_package_identity,
+        "e7b_siw_source_package_identity": e7c.FROZEN_E7B["siw_source_package_identity"],
+        "e7d_source_support_package_identity": e7d_package_identity,
+        "package_lock_content_identity": lock.get("content_identity_sha256"),
+        "official_split_placeholder": e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER,
+        "rows": binding_rows})
+    return {"resumed": False, "status": "MATERIALIZED", "path": str(package_root),
+           "m3a_input_package_identity": m3a_input_package_identity,
+           "target_access": False, "llm_api_calls": 0}
+
+
+def _e7_sample_row(sample: dict[str, Any], prior: dict[str, Any], metrics: dict[str, float], config) -> dict[str, Any]:
+    """Mirrors `prism_fas.data.package.builder._sample_row` field-for-field,
+    with ONE change: `project_split` comes from E7-D/E7-A authority
+    (`sample["_e7_project_split"]`), never `config.project_split()` (which
+    rejects E7-B's `SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER`)."""
+    from prism_fas.data.package.priors import prior_schema_version
+    from prism_fas.data.package.quality import quality_schema_version
+    from prism_fas.data.package.config import DEFERRED_PRIOR_STATUS
+
+    return {"sample_id": sample["sample_id"], "dataset": sample["dataset"],
+           "dataset_role": sample["dataset_role"], "project_split": sample["_e7_project_split"],
+           "source_record_id": sample["source_record_id"],
+           "requested_frame_index": sample["requested_frame_index"],
+           "actual_frame_index": sample["actual_frame_index"],
+           "image_relative_path": f"images/{sample['sample_id']}{config.image_extension}",
+           "crop_sha256": sample["crop_sha256"], "prior_relative_path": prior["prior_relative_path"],
+           "prior_sha256": prior["prior_sha256"], "prior_bytes": prior["prior_bytes"],
+           "source_media_type": sample["source_media_type"], "image_format": config.image_format,
+           "frame_width": sample["frame_width"], "frame_height": sample["frame_height"],
+           "crop_width": sample["crop_width"], "crop_height": sample["crop_height"],
+           "detection_score": sample["detection_score"],
+           "detected_face_count": sample["detected_face_count"], **metrics,
+           "quality_schema_version": quality_schema_version(), "prior_schema_version": prior_schema_version(),
+           "package_schema_version": config.package_schema_version,
+           "preprocessing_version": sample["preprocessing_version"],
+           "preprocessing_config_hash": sample["preprocessing_config_hash"],
+           "detector_model_sha256": sample["detector_model_sha256"], **dict(DEFERRED_PRIOR_STATUS)}
+
+
+def validate_m3a_input_package(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only validator for the shared E7-specific M3A input
+    package. Reuses the real `validate_package()` structural validator
+    unmodified, then adds the project-specific checks the user's spec
+    enumerates. Never writes."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if "SiW-Mv2" not in FOLD_SOURCE_DOMAINS[fold_id]:
+        return {"schema_version": f"{SCHEMA_PREFIX}-m3a-input-validate-v1", "fold_id": fold_id,
+               "status": "NOT_APPLICABLE"}
+    from prism_fas.data.package import validator as m3a_validator
+    from prism_fas.data.package.manifests import read_manifest
+
+    package_root = repo / SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    binding_path = package_root / M3A_INPUT_BINDING_FILENAME
+    if not (package_root / "PACKAGE_LOCK.json").is_file() or not binding_path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-m3a-input-validate-v1", "fold_id": fold_id,
+               "status": "NOT_MATERIALIZED"}
+
+    problems: list[str] = []
+    structural = m3a_validator.validate_package(package_root, require_validated_status=True)
+    if not structural["passed"]:
+        problems.append(f"structural validate_package() failed: {structural['errors']!r}")
+
+    binding = cc.read_json(binding_path)
+    rows = binding.get("rows", [])
+    samples = read_manifest(package_root / "manifests" / "samples.parquet")
+    train_rows = read_manifest(package_root / "manifests" / "source_train.parquet")
+    dev_rows = read_manifest(package_root / "manifests" / "source_dev.parquet")
+    target_rows = read_manifest(package_root / "manifests" / "target_test_features.parquet")
+
+    if len(samples) != EXPECTED_SIW_SUCCESS_CROP_COUNT:
+        problems.append(f"total samples {len(samples)} != expected {EXPECTED_SIW_SUCCESS_CROP_COUNT}")
+    if len(train_rows) != EXPECTED_SIW_TRAIN_SUCCESS_COUNT:
+        problems.append(f"source_train rows {len(train_rows)} != expected "
+                        f"{EXPECTED_SIW_TRAIN_SUCCESS_COUNT}")
+    if len(dev_rows) != EXPECTED_SIW_DEV_SUCCESS_COUNT:
+        problems.append(f"source_dev rows {len(dev_rows)} != expected {EXPECTED_SIW_DEV_SUCCESS_COUNT}")
+    if target_rows:
+        problems.append(f"target_test_features has {len(target_rows)} rows -- SiW-as-source must "
+                        "carry ZERO target_test rows")
+    if any(row["project_split"] == "target_test" for row in samples):
+        problems.append("a samples.parquet row is assigned project_split=='target_test'")
+
+    for split_rows, split_name in ((train_rows, "source_train"), (dev_rows, "source_dev")):
+        for row in split_rows:
+            if row.get("subject_id") is not None:
+                problems.append(f"{split_name} row {row['sample_id']!r} has a non-null subject_id "
+                                "-- SiW subject_id must never be fabricated")
+            if row.get("official_split") != e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER:
+                problems.append(f"{split_name} row {row['sample_id']!r} official_split "
+                                f"{row.get('official_split')!r} != frozen placeholder")
+
+    live_train = sum(1 for r in train_rows if r["label_live_spoof"] == "live")
+    spoof_train = sum(1 for r in train_rows if r["label_live_spoof"] == "spoof")
+    live_dev = sum(1 for r in dev_rows if r["label_live_spoof"] == "live")
+    spoof_dev = sum(1 for r in dev_rows if r["label_live_spoof"] == "spoof")
+    expected = FROZEN_SIW_CROP_ACCOUNTING
+    if (live_train, spoof_train, live_dev, spoof_dev) != (
+            expected["live_train_success"], expected["spoof_train_success"],
+            expected["live_dev_success"], expected["spoof_dev_success"]):
+        problems.append(f"live/spoof counts (train_live={live_train}, train_spoof={spoof_train}, "
+                        f"dev_live={live_dev}, dev_spoof={spoof_dev}) do not match the frozen "
+                        f"E7-D accounting")
+
+    seen_keys: set[Any] = set()
+    m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    for row in rows:
+        key = (row.get("source_video_id"), row.get("frame_index"))
+        if key in seen_keys:
+            problems.append(f"duplicate source_video_id/frame_index key {key!r} in binding rows")
+        seen_keys.add(key)
+        rel = row.get("crop_relative_path")
+        try:
+            assert_not_target_path(fold_id, f"{e7b.E7B_SIW_SOURCE_PACKAGE_ROOT}/m2_run/{rel}")
+        except E7TargetFirewallViolation as exc:
+            problems.append(str(exc))
+        crop_path = m2_root / rel if rel else None
+        if crop_path is None or not crop_path.is_file():
+            problems.append(f"binding row {key!r}: source crop missing on disk: {rel!r}")
+        elif cc.sha256_file(crop_path) != row.get("crop_sha256"):
+            problems.append(f"binding row {key!r}: source crop SHA256 mismatch: {rel!r}")
+
+    recomputed_identity = compute_m3a_input_package_identity(
+        fold_id, e7d_package_identity=binding.get("e7d_source_support_package_identity"), rows=rows)
+    identity_match = recomputed_identity == binding.get("m3a_input_package_identity")
+    if not identity_match:
+        problems.append(f"recomputed m3a_input_package_identity {recomputed_identity!r} != "
+                        f"recorded {binding.get('m3a_input_package_identity')!r}")
+
+    return {"schema_version": f"{SCHEMA_PREFIX}-m3a-input-validate-v1", "fold_id": fold_id,
+           "status": "INVALID" if problems else "VALID", "problems": problems,
+           "total_samples": len(samples), "train_rows": len(train_rows), "dev_rows": len(dev_rows),
+           "m3a_input_package_identity": binding.get("m3a_input_package_identity"),
+           "recomputed_m3a_input_package_identity": recomputed_identity,
+           "identity_match": identity_match, "target_access": False, "llm_api_calls": 0}
+
+
+def _derive_siw_source_prior_rows(repo: Path) -> list[dict[str, Any]]:
+    """Derives the shared SIW_SOURCE_PRIOR_PACKAGE.json row schema FROM the
+    real, already-validated M3B output manifests -- source of truth is the
+    actual M3B `samples.parquet`/`priors_index.parquet`, cross-referenced
+    back to the M3A input package's own source_video_id/frame_index binding
+    (`E7_M3A_INPUT_BINDING.json`). Never fabricates hashes/counts."""
+    from prism_fas.data.package.manifests import read_manifest
+
+    m3a_root = repo / SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    m3b_root = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    binding = cc.read_json(m3a_root / M3A_INPUT_BINDING_FILENAME)
+    key_by_sample_id = {row["sample_id"]: row for row in binding["rows"]}
+    priors_index = {row["sample_id"]: row for row in read_manifest(m3b_root / "manifests" / "priors_index.parquet")}
+    samples = read_manifest(m3b_root / "manifests" / "samples.parquet")
+
+    rows = []
+    for sample in samples:
+        sample_id = sample["sample_id"]
+        binding_row = key_by_sample_id.get(sample_id)
+        if binding_row is None:
+            raise E7Error(f"M3B output sample {sample_id!r} has no M3A input binding entry -- "
+                          "FAIL CLOSED")
+        prior = priors_index.get(sample_id)
+        if prior is None:
+            raise E7Error(f"M3B output sample {sample_id!r} missing from priors_index.parquet -- "
+                          "FAIL CLOSED")
+        if sample["crop_sha256"] != binding_row["crop_sha256"]:
+            raise E7Error(f"M3B output sample {sample_id!r} crop_sha256 disagrees with its M3A "
+                          "input binding -- FAIL CLOSED")
+        rows.append({"source_video_id": binding_row["source_video_id"],
+                    "frame_index": binding_row["frame_index"],
+                    "source_crop_relative_path": binding_row["crop_relative_path"],
+                    "source_crop_sha256": sample["crop_sha256"],
+                    "prior_relative_path": sample["prior_relative_path"],
+                    "prior_sha256": sample["prior_sha256"], "status": "success"})
+    return rows
+
+
 def prepare_source_priors(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
-    """`--prepare-source-priors --fold EXT-F2/F3 --authorize`: materializes
-    the SHARED SiW-as-source prior package (GPU stage; NOT executed on the
-    laptop). F2 and F3 converge on the exact same on-disk package -- prior
+    """`--prepare-source-priors --fold EXT-F2/F3 --authorize`: REAL
+    transactional materialization of the SHARED SiW-as-source prior
+    package. Order: (1) E7-B/E7-D input authority, (2) M3A-compatible input
+    package materialize+validate, (3) real GPU-capability gate, (4) real
+    `build_m3b_package`, (5) validate the M3B output, (6) derive E7
+    source-prior rows FROM the validated M3B output, (7) strict-validate,
+    (8) write SIW_SOURCE_PRIOR_PACKAGE.json LAST as the terminal commit
+    marker. F2 and F3 converge on the exact same on-disk package -- prior
     generation runs at most once, never per-fold."""
     if fold_id not in FOLD_IDS:
         raise E7Error(f"unknown fold_id {fold_id!r}")
@@ -588,6 +1095,8 @@ def prepare_source_priors(repo: Path, fold_id: str, *, authorize: bool = False) 
     if not authorize:
         raise E7Error(f"source-prior generation for {fold_id} requires --authorize; refusing to run")
 
+    # Terminal marker already present -- strict validate first, never trust a matching
+    # top-level identity alone.
     package_path = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT / SIW_SOURCE_PRIOR_PACKAGE_FILENAME
     if package_path.is_file():
         existing = cc.read_json(package_path)
@@ -605,17 +1114,66 @@ def prepare_source_priors(repo: Path, fold_id: str, *, authorize: bool = False) 
                "package_identity": existing.get("package_identity"), "validation": validation,
                "target_access": False, "llm_api_calls": 0}
 
+    # Step 1: E7-B/E7-D input authority.
     siw_package_path = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "SIW_SOURCE_PACKAGE.json"
     if not siw_package_path.is_file():
         raise E7Error(f"{fold_id}: E7-B SIW_SOURCE_PACKAGE.json not present -- GPU_REQUIRED, "
                       "cannot generate source priors without the frozen source crop package")
 
-    # Real GPU execution (FaceXFormer parsing + AdaFace identity inference via the frozen
-    # build_m3b_package() primitive, applied to E7-B's own SiW-as-source crops) is intentionally
-    # NOT invoked here -- reaching this point on the laptop this turn never happens (the
-    # SIW_SOURCE_PACKAGE.json check above always fails first on a non-GPU host).
-    raise E7Error(f"{fold_id}: reached the real GPU source-prior-generation boundary on a "
-                  "non-GPU host -- refusing to proceed")
+    # Step 2: materialize/validate the E7-specific M3A-compatible input package. This step is
+    # CPU-only (base geometric priors from already-computed M2 crop metadata) and runs for real.
+    m3a_result = materialize_m3a_input_package(repo, fold_id, authorize=True)
+    if m3a_result["status"] not in ("ALREADY_VALID", "MATERIALIZED"):
+        raise E7Error(f"{fold_id}: M3A input package materialization did not reach a valid "
+                      f"state -- FAIL CLOSED: {m3a_result!r}")
+
+    # Step 3: real GPU-capability gate -- CUDA + resolvable pinned weights, never a hardcoded
+    # "non-GPU host" stub raise.
+    capability = _gpu_prior_generation_capability(repo)
+    if not capability["capable"]:
+        raise E7Error(f"{fold_id}: GPU_REQUIRED for real FaceXFormer/AdaFace inference -- this "
+                      f"host is not capable: {capability['problems']!r}. The M3A-compatible "
+                      "input package IS materialized and strictly validated; only "
+                      "model-dependent prior inference (build_m3b_package) remains, and it must "
+                      "run on a GPU host with the pinned weights resolvable under "
+                      f"{capability['weight_root']!r}.")
+
+    # Steps 4-8: real GPU inference + derivation + terminal marker. Written for correctness;
+    # unreachable on this laptop (the capability gate above always fails first here).
+    from prism_fas.data.package import builder as m3a_builder
+    from prism_fas.data.package import validator as m3a_validator
+    from prism_fas.data.package.m3b import build_m3b_package
+    from prism_fas.utils.core import atomic_json_write
+
+    m3a_root = repo / SIW_SOURCE_M3A_INPUT_PACKAGE_ROOT
+    output_root = repo / SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    build_result = build_m3b_package(m3a_root, output_root, repo / M3B_PRIOR_MODEL_CONFIG_PATH,
+                                     weight_root=Path(capability["weight_root"]), resume=True,
+                                     package_id=SIW_SOURCE_PRIOR_M3B_PACKAGE_ID)
+    if build_result["failures"]:
+        raise E7Error(f"{fold_id}: build_m3b_package reported {len(build_result['failures'])} "
+                      "unresolved model-prior failures -- FAIL CLOSED")
+    pre = m3a_validator.validate_package(output_root, require_validated_status=False, parent_package=m3a_root)
+    if not pre["passed"]:
+        raise E7Error(f"{fold_id}: M3B output structural validation FAILED -- FAIL CLOSED: "
+                      f"{pre['errors']!r}")
+    m3a_builder.finalize_lock(output_root, pre)
+    report = m3a_validator.validate_package(output_root, parent_package=m3a_root)
+    if not report["passed"]:
+        raise E7Error(f"{fold_id}: M3B output FAILED final validation -- FAIL CLOSED: "
+                      f"{report['errors']!r}")
+
+    rows = _derive_siw_source_prior_rows(repo)
+    package_identity = compute_siw_source_prior_package_identity(rows)
+    atomic_json_write(package_path, {"schema_version": "siw-source-prior-package-v1",
+                                     "package_identity": package_identity, "rows": rows})
+    validation = validate_source_priors(repo, fold_id)
+    if validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: freshly-written SiW source-prior package FAILED strict "
+                      f"validation immediately after write -- {validation['problems']!r}")
+    return {"resumed": False, "status": "MATERIALIZED", "path": str(package_path),
+           "package_identity": package_identity, "validation": validation,
+           "target_access": False, "llm_api_calls": 0}
 
 
 # --------------------------------------------------------------------------- #
@@ -1190,14 +1748,21 @@ def main(argv: list[str] | None = None) -> int:
                         default=str))
         return 0
     if args.prepare_source_priors:
-        results = {}
-        for f in folds:
-            try:
-                results[f] = prepare_source_priors(repo, f, authorize=args.authorize)
-            except E7Error as error:
-                results[f] = {"error": str(error)}
-        print(json.dumps(results, indent=2, default=str))
-        return 0 if all("error" not in r for r in results.values()) else 1
+        # NEVER defaults to all folds: F1 has no SiW source, and running this against every
+        # fold implicitly hides that this is a single shared-package operation. --fold EXT-F2
+        # or --fold EXT-F3 is REQUIRED; fail closed otherwise.
+        if args.fold not in ("EXT-F2", "EXT-F3"):
+            print(json.dumps({"error": "--prepare-source-priors requires an explicit "
+                             "--fold EXT-F2 or --fold EXT-F3 -- refusing to default to all "
+                             "folds"}, indent=2))
+            return 1
+        try:
+            result = prepare_source_priors(repo, args.fold, authorize=args.authorize)
+            print(json.dumps({args.fold: result}, indent=2, default=str))
+            return 0
+        except E7Error as error:
+            print(json.dumps({args.fold: {"error": str(error)}}, indent=2, default=str))
+            return 1
     if args.validate_source_priors:
         print(json.dumps({f: validate_source_priors(repo, f) for f in folds}, indent=2, default=str))
         return 0
