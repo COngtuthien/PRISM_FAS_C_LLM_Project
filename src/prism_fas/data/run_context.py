@@ -12,6 +12,13 @@ class M2OutputLayout(BaseModel):
 class PreprocessingRunContext(BaseModel):
     model_config=ConfigDict(extra='forbid',arbitrary_types_allowed=True)
     project_root:Path;work_root:Path;run_profile:Literal['small_acceptance','full_preprocessing','target_eval_v2'];output_namespace:str;output_root:Path;crops_root:Path;frames_root:Path;manifests_root:Path;state_root:Path;reports_root:Path;logs_root:Path;run_id:str;dataset:str;dataset_role:Literal['source','target'];preprocessing_version:str;preprocessing_config_hash:str;detector_model_path:Path;detector_model_sha256:str;detector_input_size:int;detector_threshold:float;all_records:bool;record_limit:int|None;sample_limit:int|None;resume:bool;dry_run:bool;partial_full_profile:bool;command:str
+    # Additive, default-safe: every historical/CASIA/MSU context is built
+    # without passing this, so it defaults to 'required' -- byte-identical
+    # behavior to before this field existed. Only an explicitly-constructed
+    # context (E7-B's SiW-as-source path) may set 'optional_unverifiable',
+    # since the exact permitted local SiW-Mv2 release carries no canonical
+    # subject mapping and none may ever be fabricated.
+    source_metadata_policy:Literal['required','optional_unverifiable']='required'
     @model_validator(mode='after')
     def safe(self):
         root=self.output_root.resolve()

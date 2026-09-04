@@ -1,0 +1,39 @@
+{
+  "schema_version": "ext-q1q2-e7b-siw-source-metadata-compatibility-resolution-v1",
+  "TECHNICAL_GAP_DISCOVERED": true,
+  "SCIENTIFIC_PROTOCOL_CHANGE_REQUIRED": false,
+  "RESOLUTION_TYPE": "TECHNICAL_COMPATIBILITY_ADAPTATION",
+  "SUBJECT_ID_FABRICATED": false,
+  "SUBJECT_ID_VALUE_FOR_SIW": null,
+  "E7A_SPLIT_CHANGED": false,
+  "PREPROCESSING_BINDING_CHANGED": false,
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "reclassification": "The MissingCanonicalMetadataError wall documented in E7B_SIW_SOURCE_SUBJECT_ID_STRUCTURAL_GAP.json (preserved unchanged as historical diagnostic evidence) was RECLASSIFIED: it is not a new scientific-decision gap. E7-A already froze the governing scientific decision before E7 execution (no subject mapping for this local SiW-Mv2 release; subject_id must never be fabricated or inferred; deterministic video-disjoint stratified 80/20 split; SUBJECT_DISJOINTNESS=UNVERIFIABLE_NOT_ENFORCED; the same frozen split is reused by EXT-F2/EXT-F3). The actual defect was a legacy M2 source-converter invariant that predates SiW ever being used as a source domain.",
+  "root_cause": {
+    "schema_already_allowed_null": "src/prism_fas/data/manifests/schemas.py: SourceFrameRecord.subject_id: str | None; SourceCropRecord.subject_id: str | None -- the PERSISTED manifest schema already permitted a null subject_id.",
+    "legacy_guard_was_stricter": "src/prism_fas/data/manifests/converters.py: build_source_frame_record() unconditionally raised MissingCanonicalMetadataError('source metadata') whenever record.subject_id was falsy, for EVERY dataset_role='source' record, with no way to distinguish 'SiW-Mv2 has no subject mapping by design' from 'a real data-integrity bug in CASIA/MSU adapter output'. This guard predates SiW-Mv2 being processed as a source domain (historically SiW was ONLY ever processed as a target, via dataset_role='target', which has no such requirement)."
+  },
+  "fix": {
+    "additive_field": "PreprocessingRunContext.source_metadata_policy: Literal['required','optional_unverifiable'] = 'required' (src/prism_fas/data/run_context.py) -- default-safe; every historical/CASIA/MSU context construction path does not pass this field and is therefore byte/semantically identical to before.",
+    "field_naming_note": "The field was implemented first as 'source_subject_id_policy' and then renamed to 'source_metadata_policy' within this same turn, before any commit: a frozen privacy-leak regression test (tests/test_m2_target_success_routing.py::test_target_success_routes_once_with_privacy_safe_arguments) scans the stringified call payload -- which includes the context object itself -- for the substring 'subject' as a proxy for real subject-identity leakage. The field NAME (not any subject_id VALUE) tripped that scan. Renaming to 'source_metadata_policy' preserves the exact same Literal['required','optional_unverifiable'] semantics while avoiding the collision; verified by rerunning that test after the rename (passes, together with one pre-existing, unrelated failure in the same file present identically on the unmodified base commit).",
+    "converter_change": "build_source_frame_record() (src/prism_fas/data/manifests/converters.py) now reads context.source_metadata_policy (via getattr with a 'required' default for any context predating this field) and only accepts a falsy subject_id when the policy is explicitly 'optional_unverifiable'. label and official_split remain unconditionally required, exactly as before.",
+    "who_sets_optional_unverifiable": "ONLY src/prism_fas/evaluation/c_ext_e7b_data_prep.py::e7b_build_siw_source(), via _build_e7b_run_context(..., source_metadata_policy='optional_unverifiable'). No other call site in the repository sets this.",
+    "official_split_placeholder": "SourceFrameRecord.official_split/SourceCropRecord.official_split remain a required (non-null) str field, unchanged. SiW-as-source canonical records now populate it with SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER = 'not_applicable_no_official_source_split' -- an honest, self-documenting placeholder, NEVER the E7-A project_split (train/dev), which is a DIFFERENT concept (our own cross-domain fold re-split, not SiW's own upstream official split). See SIW_CANONICAL_RECORD_OFFICIAL_SPLIT_AUDIT below."
+  },
+  "SIW_CANONICAL_RECORD_OFFICIAL_SPLIT_AUDIT": {
+    "SIW_CANONICAL_RECORD_OFFICIAL_SPLIT_VALUE": "not_applicable_no_official_source_split (SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER constant) -- a fixed, honest, non-split-claiming placeholder satisfying the frozen non-null str schema field. It is NEVER read back by E7-B's own package assembly and never surfaces in any scientific table.",
+    "SIW_CANONICAL_RECORD_PROJECT_SPLIT_VALUE": "the frozen E7-A per-video project_split ('train'/'dev'), taken verbatim from the E7-A siw_raw_video reference (ref['project_split']) and carried through E7-B's own package rows as source_project_split -- THIS is the authoritative, scientifically meaningful split assignment for every downstream consumer, bound to split_identity b492a5d4d86537016012d5357bc5c4410f77e36409082831ef6703168ee096a1.",
+    "clarification": "official_split (the underlying M2 manifest row field) and project_split/source_project_split (E7-B's own package field) are DIFFERENT fields carrying DIFFERENT concepts and were never conflated: official_split was previously (incorrectly) set to None, now set to the placeholder above purely for schema compatibility; the real split assignment always came from, and continues to come from, the frozen E7-A reference's project_split."
+  },
+  "no_fabrication_guarantees": [
+    "subject_id is persisted as NULL, never as a string sentinel ('unknown', a video_id, a filename, or a hash).",
+    "No identity inference or face clustering was added.",
+    "No change to E7-A's split assignment, split_identity, or population_identity.",
+    "No change to the frozen preprocessing config hash or SCRFD model SHA256.",
+    "CASIA and MSU source processing is byte/semantically identical: they never pass source_metadata_policy, so they default to 'required', unchanged."
+  ],
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

@@ -30,7 +30,16 @@ def _crop(context,record,sid=None,requested=None,actual=None,timestamp=None,widt
  if source:d.update(subject_id=record.subject_id,official_split=record.official_split,label_live_spoof=record.label);return SourceCropRecord.model_validate(d)
  out=TargetCropRecord.model_validate(d);assert_target_safe(out.model_dump());return out
 def build_source_frame_record(context,record,**k):
- if not record.subject_id or not record.official_split or not record.label:raise MissingCanonicalMetadataError('source metadata')
+ # `source_metadata_policy` is additive on PreprocessingRunContext (default
+ # 'required'): every context that does not explicitly set it behaves exactly
+ # as before this field existed. Only 'optional_unverifiable' (set ONLY by
+ # the E7-B SiW-as-source context) allows a null subject_id through -- the
+ # persisted schema (SourceFrameRecord.subject_id: str | None) already
+ # permitted this; the legacy guard here was stricter than the schema.
+ policy=getattr(context,'source_metadata_policy','required')
+ if policy not in ('required','optional_unverifiable'):raise ManifestConversionError(f'unknown source_metadata_policy {policy!r}')
+ subject_id_ok=bool(record.subject_id) or policy=='optional_unverifiable'
+ if not subject_id_ok or not record.official_split or not record.label:raise MissingCanonicalMetadataError('source metadata')
  return SourceFrameRecord(sample_id=k['sample_id'],dataset=record.dataset,subject_id=record.subject_id,video_id=record.video_id,official_split=record.official_split,label_live_spoof=record.label,source_media_type=_media(k.get('source_media_type')),source_record_id=record.video_id,source_relative_identifier=_path(k['source_relative_identifier']),requested_frame_index=k['requested_frame_index'],actual_frame_index=k['actual_frame_index'],timestamp_ms=k.get('timestamp_ms'),frame_width=k['frame_width'],frame_height=k['frame_height'],selected_frame_reference=k['selected_frame_reference'],materialized_frame_relative_path=None,source_fingerprint=record.source_fingerprint,frame_fingerprint=k.get('frame_fingerprint'),decoder_backend=k['decoder_backend'],adapter_version=record.adapter_version,sampling_version='uniform-v1',preprocessing_version=context.preprocessing_version,preprocessing_config_hash=context.preprocessing_config_hash,status='success',warning_codes=k.get('warning_codes',[]))
 def build_target_frame_record(context,record,**k):
  d=dict(sample_id=k['sample_id'],dataset=record.dataset,video_id=record.video_id,source_record_id=record.video_id,source_media_type=_media(k.get('source_media_type')),source_relative_identifier=_path(k['source_relative_identifier']),requested_frame_index=k['requested_frame_index'],actual_frame_index=k['actual_frame_index'],timestamp_ms=k.get('timestamp_ms'),frame_width=k['frame_width'],frame_height=k['frame_height'],selected_frame_reference=k['selected_frame_reference'],materialized_frame_relative_path=None,source_fingerprint=record.source_fingerprint,frame_fingerprint=k.get('frame_fingerprint'),decoder_backend=k['decoder_backend'],adapter_version=record.adapter_version,sampling_version='uniform-v1',preprocessing_version=context.preprocessing_version,preprocessing_config_hash=context.preprocessing_config_hash,status='success',warning_codes=k.get('warning_codes',[]));out=TargetFrameRecord.model_validate(d);assert_target_safe(out.model_dump());return out

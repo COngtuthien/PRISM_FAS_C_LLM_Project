@@ -44,6 +44,13 @@ E7B_SIW_SOURCE_PACKAGE_ROOT = f"{E7B_PROCESSED_ROOT}/siw_source_v1"
 E7B_MSU_TARGET_PACKAGE_ROOT = f"{E7B_PROCESSED_ROOT}/msu_target_v1"
 E7B_CASIA_TARGET_PACKAGE_ROOT = f"{E7B_PROCESSED_ROOT}/casia_target_v1"
 
+#: Engineering-only smoke namespace: clearly non-scientific, never the final
+#: package namespace, never a package lock, never enters a scientific table.
+E7B_SMOKE_ROOT = "runs/c_ext_q1q2_v1/e7b_smoke"
+E7B_SIW_SMOKE_ROOT = f"{E7B_SMOKE_ROOT}/siw_source"
+E7B_MSU_SMOKE_ROOT = f"{E7B_SMOKE_ROOT}/msu_target"
+E7B_CASIA_SMOKE_ROOT = f"{E7B_SMOKE_ROOT}/casia_target"
+
 E7A_MATERIALIZATION_DIR = "reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1"
 E7A_BASE_COMMIT = "6c77633aa331253cabfb54b70ca2846c2f3466b4"
 E7A_FROZEN_SHA256 = {
@@ -74,6 +81,22 @@ FROZEN_M3B_PACKAGE_IDENTITY = "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de559
 
 #: Target label firewall: never opened by this module.
 TARGET_LABEL_PATHS = ("data/evaluation_only/prism_target_v2_labels",)
+
+#: `SourceFrameRecord.official_split`/`SourceCropRecord.official_split` are
+#: frozen, required (non-null) `str` fields -- they carry a DATASET'S OWN
+#: upstream canonical split (e.g. CASIA/MSU's own train/test protocol split,
+#: `record.official_split` from the real adapter). SiW-Mv2 has no such
+#: upstream split concept when used as a SOURCE domain (its own
+#: `official_split` in `configs/data/siw_mv2_target_v2.yaml` is
+#: `"target_test"`, meaningful only for the P3 held-out TARGET role, not for
+#: this source usage). The E7-A `project_split` (train/dev) is a DIFFERENT
+#: concept -- our own re-split for cross-domain fold construction -- and
+#: must never be written into `official_split`, which would misrepresent it
+#: as SiW's own upstream split. This placeholder satisfies the frozen
+#: non-null `str` schema honestly: it is never treated as a real split by
+#: any downstream code (E7-B's own package rows use `source_project_split`,
+#: read from the E7-A reference directly, never from this field).
+SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER = "not_applicable_no_official_source_split"
 
 RESOLVED, UNRESOLVED, NOT_APPLICABLE = "RESOLVED", "UNRESOLVED", "NOT_APPLICABLE"
 
@@ -460,11 +483,13 @@ def plan_siw_source_build(repo: Path) -> dict[str, Any]:
     the CONTRACT (uniform_indices formula, output schema) that the real
     GPU build must follow, and is used both by the preflight and by tests.
     """
-    from prism_fas.data.preprocess_m2 import sample_id as compute_sample_id
-
     binding = build_preprocessing_binding(repo)
     if binding["status"] != RESOLVED:
         raise E7BError(f"preprocessing binding unresolved: {binding.get('reason')}")
+    if binding["frozen_evidence_config_hash"] is not None and not binding["config_hash_matches_frozen_evidence"]:
+        raise E7BError(f"preprocessing config_hash {binding['config_hash']!r} does not match the frozen "
+                       f"M2 evidence {binding['frozen_evidence_config_hash']!r} -- FAIL CLOSED, refusing "
+                       "to build with a drifted config identity")
     refs = _siw_source_refs_from_e7a(repo)
     if not refs:
         raise E7BError("no SiW source references found in E7-A EXT-F2/EXT-F3 materializations")
@@ -487,50 +512,298 @@ def plan_siw_source_build(repo: Path) -> dict[str, Any]:
     }
 
 
-def e7b_build_siw_source(repo: Path, *, authorize: bool = False) -> dict[str, Any]:
-    """`--e7b-build-siw-source --authorize`. Re-runs the preflight
-    internally before any write. Real per-frame face detection/crop
-    requires GPU decode of the raw videos -- this laptop never has them, so
-    this call FAILS CLOSED here by construction (SIW_RAW_ROOT_PRESENT is
-    always False on the laptop), exactly like every other GPU-only builder
-    in this project. The orchestration itself (resume-safety, atomic write,
-    conflict detection, output schema) is real and tmp_path-tested.
+# --------------------------------------------------------------------------- #
+# real production-pipeline orchestration (reuses prism_fas.data.* verbatim --
+# never a second scientific implementation)
+# --------------------------------------------------------------------------- #
+
+def _verify_scrfd_model_sha256(cfg: Any) -> str:
+    """HARD FAIL before writing a single scientific crop. Never substitutes
+    another model, never changes provider/config for performance."""
+    from prism_fas.data.preprocess_m2 import resolve_detector_path
+
+    resolved_path = resolve_detector_path(cfg.scrfd_model_path)
+    if not resolved_path.is_file():
+        raise E7BError(f"SCRFD model not present at resolved path {resolved_path} -- refusing to run "
+                       "without the frozen detector")
+    observed = cc.sha256_file(resolved_path)
+    if observed != FROZEN_SCRFD_MODEL_SHA256:
+        raise E7BError(f"SCRFD model SHA256 {observed} != frozen {FROZEN_SCRFD_MODEL_SHA256} -- FAIL "
+                       "CLOSED before writing any scientific crop")
+    return observed
+
+
+def _build_e7b_run_context(repo: Path, cfg: Any, *, dataset: str, dataset_role: str, package_root: str,
+                           detector_model_sha256: str, run_id: str, dry_run: bool = False,
+                           source_metadata_policy: str = "required") -> Any:
+    """The ONE context constructor for E7-B's own additive namespace.
+
+    `build_preprocessing_run_context` (the frozen production helper) always
+    binds `dataset_role='target' if dataset=='siw_mv2' else 'source'` -- the
+    historical assumption this milestone amends. `PreprocessingRunContext`
+    itself has NO such restriction for `run_profile='small_acceptance'`
+    (only `full_preprocessing`/`target_eval_v2` carry extra role/dataset
+    constraints in its own frozen validator), so this constructs the SAME
+    frozen `PreprocessingRunContext`/`M2OutputLayout` directly, with an
+    explicit role, entirely inside E7-B's own namespace -- never touching
+    the frozen `full_preprocessing`/`m2a`/`target_eval_v2` physical trees.
+
+    `source_metadata_policy` defaults to 'required' -- the frozen,
+    historical, byte-identical behavior for every context except the one
+    E7-B SiW-as-source builder explicitly passes 'optional_unverifiable' to
+    (see `build_source_frame_record` in `prism_fas.data.manifests.converters`).
+    """
+    from prism_fas.data.run_context import M2OutputLayout, PreprocessingRunContext
+    from prism_fas.data.preprocess_m2 import resolve_detector_path
+
+    root = (repo / package_root / "m2_run").resolve()
+    layout = M2OutputLayout.from_root(root)
+    return PreprocessingRunContext(
+        project_root=repo, work_root=repo / package_root, run_profile="small_acceptance",
+        output_namespace="small_acceptance", output_root=layout.output_root, crops_root=layout.crops_root,
+        frames_root=layout.frames_root, manifests_root=layout.manifests_root, state_root=layout.state_root,
+        reports_root=layout.reports_root, logs_root=layout.logs_root, run_id=run_id, dataset=dataset,
+        dataset_role=dataset_role, preprocessing_version=cfg.preprocessing_version,
+        preprocessing_config_hash=cfg.config_hash, detector_model_path=resolve_detector_path(cfg.scrfd_model_path),
+        detector_model_sha256=detector_model_sha256, detector_input_size=cfg.scrfd_input_size,
+        detector_threshold=cfg.detection_threshold, all_records=True, record_limit=None, sample_limit=None,
+        resume=True, dry_run=dry_run, partial_full_profile=False, command="c_ext_e7b_data_prep",
+        source_metadata_policy=source_metadata_policy)
+
+
+def _siw_canonical_records(repo: Path, refs: list[dict[str, Any]]) -> list[Any]:
+    """Builds `CanonicalVideoRecord`s DIRECTLY from E7-A's own frozen
+    `siw_raw_video` references -- the input authority per this milestone --
+    never re-derived from a fresh adapter scan (whose own opaque video-id
+    scheme does not match E7-A's filename-stem video_id). `subject_id` is
+    always None."""
+    from prism_fas.data.schemas.records import CanonicalVideoRecord
+    from prism_fas.utils.core import sha256_file
+
+    records = []
+    for ref in refs:
+        source_path = repo / SIW_RAW_ROOT / ref["relative_path"]
+        records.append(CanonicalVideoRecord(
+            dataset="siw_mv2", subject_id=None, video_id=ref["video_id"], source_path=source_path,
+            official_split=SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER, label=ref["label_live_spoof"],
+            adapter_version="1.0", source_fingerprint=sha256_file(source_path),
+            metadata_provenance="E7-A frozen siw_raw_video reference"))
+    return records
+
+
+def _read_manifest_rows(context: Any, *, kind: str) -> list[dict[str, Any]]:
+    import pyarrow.parquet as pq
+
+    path = context.manifests_root / f"{kind}.parquet"
+    if not path.is_file():
+        return []
+    return pq.read_table(path).to_pylist()
+
+
+def _resume_completed_video_ids(package_manifest_path: Path, *, planned_per_video: int) -> set[str]:
+    """E7-B's OWN, additive resume-skip layer: a video is skipped only if
+    its LAST written package manifest already has `planned_per_video`
+    definitive (success or terminal-failure) rows for it -- and every
+    successful crop's sha256 still verifies on disk. A missing/corrupt crop
+    for an otherwise-"complete" video is an explicit integrity error, never
+    silently repaired or re-sampled into a different frame.
+    """
+    if not package_manifest_path.is_file():
+        return set()
+    body = json.loads(package_manifest_path.read_text(encoding="utf-8"))
+    by_video: dict[str, list[dict[str, Any]]] = {}
+    for row in body.get("rows", []):
+        by_video.setdefault(row["source_video_id"], []).append(row)
+    complete: set[str] = set()
+    package_root = package_manifest_path.parent
+    for video_id, rows in by_video.items():
+        if len(rows) != planned_per_video:
+            continue
+        for row in rows:
+            if row["status"] != "success":
+                continue
+            crop_path = package_root / row["crop_relative_path"]
+            if not crop_path.is_file():
+                raise E7BError(f"{video_id}: previously-successful crop {row['crop_relative_path']!r} is "
+                               "missing on resume -- integrity error, refusing to silently re-sample")
+            if cc.sha256_file(crop_path) != row["crop_sha256"]:
+                raise E7BError(f"{video_id}: on-disk crop {row['crop_relative_path']!r} sha256 no longer "
+                               "matches the recorded manifest value -- corrupt crop, integrity error, "
+                               "refusing to silently repair or re-sample")
+        complete.add(video_id)
+    return complete
+
+
+def _write_package_manifest_atomic(package_manifest_path: Path, body: dict[str, Any]) -> None:
+    package_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = package_manifest_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
+    tmp_path.replace(package_manifest_path)
+
+
+def e7b_build_siw_source(repo: Path, *, authorize: bool = False,
+                         detector: Any = None, media_reader_factory: Any = None,
+                         limit_videos: int | None = None, smoke: bool = False) -> dict[str, Any]:
+    """`--e7b-build-siw-source --authorize`. Builds the ONE canonical shared
+    SiW-source package (F2 and F3 both reuse it). Reuses
+    `prism_fas.data.m2_runner.run_preprocessing`/`PreprocessingRunContext`/
+    `ManifestRepository` VERBATIM for frame sampling, SCRFD detection, crop,
+    encode and hashing -- this function only resolves canonical records
+    from E7-A, verifies the model binding, drives the resume-skip layer,
+    and assembles the final package manifest from what the frozen pipeline
+    actually wrote.
+
+    `detector`/`media_reader_factory` are the SAME injection points
+    `run_preprocessing` itself exposes; production leaves them `None` (the
+    real `SCRFDDetector` + real video/image decoders are used); tests inject
+    fakes. `smoke=True` writes under `runs/.../e7b_smoke/` instead of the
+    final package namespace and never touches `E7B_SIW_SOURCE_PACKAGE_ROOT`.
     """
     if not authorize:
         raise E7BError("--e7b-build-siw-source requires --authorize; refusing to run")
-    preflight = e7b_preflight(repo)
-    if not preflight["E7B_PREFLIGHT_PASS"]:
-        raise E7BError(f"E7-B preflight did not pass: {preflight}")
-    if not preflight["SIW_RAW_ROOT_PRESENT"]:
-        raise E7BError(f"{SIW_RAW_ROOT} is not present on this host -- cannot decode real video frames; "
-                       "refusing to fabricate crops")
+    if not smoke:
+        preflight = e7b_preflight(repo)
+        if not preflight["E7B_PREFLIGHT_PASS"]:
+            raise E7BError(f"E7-B preflight did not pass: {preflight}")
+
+    cfg = _m2_config(repo)
+    if cfg is None:
+        raise E7BError(f"missing {M2_CONFIG_PATH}")
+    detector_model_sha256 = FROZEN_SCRFD_MODEL_SHA256 if (detector is not None or smoke) else \
+        _verify_scrfd_model_sha256(cfg)
 
     plan = plan_siw_source_build(repo)
-    out_dir = repo / E7B_SIW_SOURCE_PACKAGE_ROOT
-    manifest_path = out_dir / "SIW_SOURCE_PACKAGE.json"
-    if manifest_path.is_file():
-        existing = cc.read_json(manifest_path)
-        if existing.get("package_identity") == plan["package_identity"]:
-            return {"resumed": True, "path": str(manifest_path), "target_access": False, "llm_api_calls": 0,
-                   "rendering_performed": False, "training_performed": False, "gpat_fitting_performed": False}
-        raise E7BConflict(f"existing SIW_SOURCE_PACKAGE.json package_identity "
-                          f"{existing.get('package_identity')} disagrees with the freshly planned "
-                          f"{plan['package_identity']!r} -- FAIL CLOSED, never overwritten")
+    refs = _siw_source_refs_from_e7a(repo)
+    if limit_videos is not None:
+        refs = refs[:limit_videos]
 
-    # Real per-video preprocessing (SCRFD detect -> crop -> encode) happens
-    # HERE on the GPU host, using prism_fas.data.preprocess_m2's
-    # uniform_indices/crop_face/SCRFDDetector/sample_id verbatim, over every
-    # video in `plan["video_ids"]`, inheriting each video's own
-    # project_split/label/spoof_family/population_identity/split_identity
-    # from its E7-A siw_raw_video reference. Never reached on this laptop
-    # (SIW_RAW_ROOT_PRESENT is always False here).
-    raise E7BError("SiW raw video bytes are not present on this host -- real face detection/crop cannot "
-                   "run here; this is the expected laptop outcome")
+    package_root = E7B_SIW_SMOKE_ROOT if smoke else E7B_SIW_SOURCE_PACKAGE_ROOT
+    package_manifest_path = repo / package_root / "SIW_SOURCE_PACKAGE.json"
+
+    if not smoke and package_manifest_path.is_file():
+        existing = cc.read_json(package_manifest_path)
+        if existing.get("package_identity") == plan["package_identity"] and limit_videos is None:
+            return {"resumed": True, "path": str(package_manifest_path), "target_access": False,
+                   "llm_api_calls": 0, "rendering_performed": False, "training_performed": False,
+                   "gpat_fitting_performed": False}
+        if existing.get("package_identity") not in (plan["package_identity"], None) and limit_videos is None:
+            raise E7BConflict(f"existing SIW_SOURCE_PACKAGE.json package_identity "
+                              f"{existing.get('package_identity')} disagrees with the freshly planned "
+                              f"{plan['package_identity']!r} -- FAIL CLOSED, never overwritten")
+
+    completed_video_ids = (set() if smoke else
+                           _resume_completed_video_ids(package_manifest_path, planned_per_video=4))
+    pending_refs = [r for r in refs if r["video_id"] not in completed_video_ids]
+
+    context = _build_e7b_run_context(repo, cfg, dataset="siw_mv2", dataset_role="source",
+                                     package_root=package_root, detector_model_sha256=detector_model_sha256,
+                                     run_id=f"e7b-siw-source{'-smoke' if smoke else ''}",
+                                     source_metadata_policy="optional_unverifiable")
+    canonical_records = _siw_canonical_records(repo, pending_refs)
+
+    from prism_fas.data.m2_runner import run_preprocessing
+    from prism_fas.data.manifests.converters import MissingCanonicalMetadataError
+
+    if canonical_records:
+        # HISTORICAL NOTE (see E7B_SIW_SOURCE_SUBJECT_ID_STRUCTURAL_GAP.json,
+        # preserved as diagnostic evidence, and its resolution in
+        # E7B_SIW_SOURCE_METADATA_COMPATIBILITY_RESOLUTION.json): this call
+        # used to ALWAYS raise MissingCanonicalMetadataError on the first
+        # successfully-detected SiW face, because the legacy
+        # `build_source_frame_record` guard was stricter than the actual
+        # persisted schema (`SourceFrameRecord.subject_id: str | None`
+        # already permitted null). That legacy guard is now
+        # `source_metadata_policy`-aware, and this context passes
+        # 'optional_unverifiable' above -- a genuine subject_id=None SiW
+        # source crop is expected to succeed. This try/except remains as a
+        # defensive fail-closed guard only: it would still fire if
+        # `record.official_split` or `record.label` were ever falsy, which
+        # would indicate a real data-integrity problem, never something
+        # E7-B should silently route around.
+        try:
+            run_preprocessing(context, canonical_records, detector=detector,
+                              media_reader_factory=media_reader_factory)
+        except MissingCanonicalMetadataError as exc:
+            raise E7BError(
+                "UNEXPECTED_SOURCE_METADATA_GAP: build_source_frame_record() "
+                "(prism_fas/data/manifests/converters.py) refused a SiW "
+                "source record even under source_metadata_policy="
+                "'optional_unverifiable' -- this means record.official_split "
+                "or record.label was falsy, which is a genuine "
+                "data-integrity problem (E7-A reference missing a label, or "
+                "the official_split placeholder was not applied), never "
+                "something to route around by fabricating a value or "
+                "misrouting through dataset_role='target'. "
+                f"Underlying error: {exc}"
+            ) from exc
+
+    refs_by_video = {r["video_id"]: r for r in refs}
+    rows = _assemble_siw_source_rows(context, refs_by_video)
+    successful = sum(1 for r in rows if r["status"] == "success")
+    failed = sum(1 for r in rows if r["status"] == "failure")
+
+    body = {
+        "schema_version": f"{SCHEMA_PREFIX}-siw-source-package-v1",
+        "package_identity": plan["package_identity"], "preprocessing_config_hash": plan["preprocessing_config_hash"],
+        "detector_model_sha256": detector_model_sha256, "population_identity": plan["population_identity"],
+        "split_identity": plan["split_identity"], "canonical_video_count": len(refs),
+        "planned_frame_count": len(refs) * 4, "successful_crop_count": successful, "failure_count": failed,
+        "rows": rows, "smoke": smoke, "target_labels_opened": False, "status": "FROZEN" if not smoke else "SMOKE",
+    }
+    if not smoke:
+        _write_package_manifest_atomic(package_manifest_path, body)
+    else:
+        package_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        package_manifest_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
+
+    return {"resumed": False, "path": str(package_manifest_path), "body": body,
+           "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
+           "training_performed": False, "gpat_fitting_performed": False}
+
+
+def _assemble_siw_source_rows(context: Any, refs_by_video: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reads back exactly what the frozen `run_preprocessing`/
+    `ManifestRepository` wrote and re-labels each row with its E7-A source
+    identity. Never recomputes a detection/crop decision itself."""
+    success_rows = _read_manifest_rows(context, kind="source_crops")
+    failure_rows = _read_manifest_rows(context, kind="preprocessing_failures")
+    rows: list[dict[str, Any]] = []
+    for row in success_rows:
+        ref = refs_by_video.get(row.get("video_id") or row.get("source_record_id"))
+        rows.append({
+            "source_video_id": row.get("video_id") or row.get("source_record_id"),
+            "source_project_split": ref["project_split"] if ref else None,
+            "frame_index": row.get("requested_frame_index"), "timestamp_ms": row.get("timestamp_ms"),
+            "selected_frame_reference": row.get("selected_frame_reference"),
+            "source_relative_identifier": row.get("source_record_id"),
+            "crop_relative_path": row.get("crop_relative_path"), "crop_sha256": row.get("crop_sha256"),
+            "detector_status": "success", "failure_reason": None, "status": "success",
+            "label_live_spoof": ref["label_live_spoof"] if ref else None,
+            "spoof_family": ref.get("spoof_family") if ref else None,
+        })
+    for row in failure_rows:
+        video_id = row.get("source_record_id")
+        ref = refs_by_video.get(video_id)
+        rows.append({
+            "source_video_id": video_id, "source_project_split": ref["project_split"] if ref else None,
+            "frame_index": row.get("requested_frame_index"), "timestamp_ms": None,
+            "selected_frame_reference": None, "source_relative_identifier": row.get("source_record_id"),
+            "crop_relative_path": None, "crop_sha256": None, "detector_status": "failure",
+            "failure_reason": row.get("error_code"), "status": "failure",
+            "label_live_spoof": ref["label_live_spoof"] if ref else None,
+            "spoof_family": ref.get("spoof_family") if ref else None,
+        })
+    return rows
 
 
 # --------------------------------------------------------------------------- #
-# TASK D/E -- MSU/CASIA target builders (real orchestration; NOT run this turn)
+# TASK D/E -- MSU/CASIA target builders (real orchestration)
 # --------------------------------------------------------------------------- #
+
+EXPECTED_SIW_SOURCE_CANONICAL_VIDEO_COUNT = 1700
+EXPECTED_SIW_SOURCE_PLANNED_FRAME_COUNT = 6800
+EXPECTED_TARGET_CANONICAL_VIDEO_COUNT = {"msu_mfsd": 280, "casia_fasd": 600}
+EXPECTED_TARGET_PLANNED_FRAME_COUNT = {"msu_mfsd": 1120, "casia_fasd": 2400}
 
 def _target_package_identity(*, dataset: str, canonical_video_count: int,
                              preprocessing_config_hash: str) -> str:
@@ -545,6 +818,10 @@ def plan_target_build(repo: Path, *, dataset: str) -> dict[str, Any]:
     binding = build_preprocessing_binding(repo)
     if binding["status"] != RESOLVED:
         raise E7BError(f"preprocessing binding unresolved: {binding.get('reason')}")
+    if binding["frozen_evidence_config_hash"] is not None and not binding["config_hash_matches_frozen_evidence"]:
+        raise E7BError(f"preprocessing config_hash {binding['config_hash']!r} does not match the frozen "
+                       f"M2 evidence {binding['frozen_evidence_config_hash']!r} -- FAIL CLOSED, refusing "
+                       "to build with a drifted config identity")
     dataset_binding = build_dataset_binding(repo)
     canonical_count = dataset_binding["canonical_video_counts"].get(dataset)
     if canonical_count in (None, UNRESOLVED):
@@ -566,42 +843,184 @@ def plan_target_build(repo: Path, *, dataset: str) -> dict[str, Any]:
     }
 
 
-def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, raw_root: str,
-                      authorize: bool) -> dict[str, Any]:
+def _target_canonical_records(repo: Path, *, dataset: str, raw_root: str) -> list[Any]:
+    """Uses the REAL, frozen production adapter (`adapter_for`) to resolve
+    canonical video/sequence records from the real raw dataset -- never a
+    second inventory scan. For CASIA-FASD this naturally yields one record
+    per (subject_id, video_id) canonical sequence, per
+    `configs/data/casia_fasd.yaml`'s own `group_by` rule."""
+    import yaml as _yaml
+
+    from prism_fas.config.models import DatasetDefinition
+    from prism_fas.data.adapters import adapter_for
+
+    dfn = DatasetDefinition.model_validate(
+        _yaml.safe_load((repo / "configs/data" / f"{dataset}.yaml").read_text(encoding="utf-8")))
+    return adapter_for(dfn, repo / raw_root).records()
+
+
+def _resume_completed_target_ids(package_manifest_path: Path, *, planned_per_video: int) -> set[str]:
+    if not package_manifest_path.is_file():
+        return set()
+    body = json.loads(package_manifest_path.read_text(encoding="utf-8"))
+    by_video: dict[str, list[dict[str, Any]]] = {}
+    for row in body.get("rows", []):
+        by_video.setdefault(row["canonical_video_id"], []).append(row)
+    complete: set[str] = set()
+    package_root = package_manifest_path.parent
+    for video_id, rows in by_video.items():
+        if len(rows) != planned_per_video:
+            continue
+        for row in rows:
+            if row["status"] != "success":
+                continue
+            crop_path = package_root / row["crop_relative_path"]
+            if not crop_path.is_file():
+                raise E7BError(f"{video_id}: previously-successful crop is missing on resume -- "
+                               "integrity error, refusing to silently re-sample")
+            if cc.sha256_file(crop_path) != row["crop_sha256"]:
+                raise E7BError(f"{video_id}: on-disk crop sha256 no longer matches the recorded manifest "
+                               "value -- corrupt crop, integrity error, refusing to silently repair")
+        complete.add(video_id)
+    return complete
+
+
+def _assemble_target_rows(context: Any) -> list[dict[str, Any]]:
+    """Label-free by construction: reads back ONLY `target_crops`/
+    `preprocessing_failures` (never `source_*`), and `route_target_success`'s
+    own `assert_target_safe` firewall already rejects any label-bearing
+    field before this ever sees a row. `video_id` is present on the frozen
+    target-crop record itself (`route_target_success`'s own consistency
+    check requires it), so it is read back verbatim, never re-derived."""
+    success_rows = _read_manifest_rows(context, kind="target_crops")
+    failure_rows = _read_manifest_rows(context, kind="preprocessing_failures")
+    rows: list[dict[str, Any]] = []
+    for row in success_rows:
+        rows.append({
+            "canonical_video_id": row.get("video_id"), "frame_index": row.get("requested_frame_index"),
+            "timestamp_ms": row.get("timestamp_ms"), "frame_extraction_status": "success",
+            "face_detection_status": "success", "crop_relative_path": row.get("crop_relative_path"),
+            "crop_sha256": row.get("crop_sha256"), "failure_reason": None, "status": "success",
+        })
+    for row in failure_rows:
+        rows.append({
+            "canonical_video_id": row.get("source_record_id"), "frame_index": row.get("requested_frame_index"),
+            "timestamp_ms": None, "frame_extraction_status": "failure", "face_detection_status": "failure",
+            "crop_relative_path": None, "crop_sha256": None, "failure_reason": row.get("error_code"),
+            "status": "failure",
+        })
+    return rows
+
+
+def _e7b_build_target(repo: Path, *, dataset: str, package_root: str, smoke_root: str, raw_root: str,
+                      authorize: bool, detector: Any = None, media_reader_factory: Any = None,
+                      limit_videos: int | None = None, smoke: bool = False) -> dict[str, Any]:
     if not authorize:
         raise E7BError(f"target build for {dataset} requires --authorize; refusing to run")
-    preflight = e7b_preflight(repo)
-    plan = plan_target_build(repo, dataset=dataset)
+    if not smoke:
+        preflight = e7b_preflight(repo)
+        if not preflight["E7B_PREFLIGHT_PASS"]:
+            raise E7BError(f"E7-B preflight did not pass: {preflight}")
 
-    raw_present = (repo / raw_root).is_dir()
-    out_dir = repo / package_root
-    manifest_path = out_dir / "TARGET_PACKAGE.json"
-    if manifest_path.is_file():
+    cfg = _m2_config(repo)
+    if cfg is None:
+        raise E7BError(f"missing {M2_CONFIG_PATH}")
+    plan = plan_target_build(repo, dataset=dataset)
+    detector_model_sha256 = FROZEN_SCRFD_MODEL_SHA256 if (detector is not None or smoke) else \
+        _verify_scrfd_model_sha256(cfg)
+
+    active_root = smoke_root if smoke else package_root
+    manifest_path = repo / active_root / "TARGET_PACKAGE.json"
+
+    if not smoke and manifest_path.is_file():
         existing = cc.read_json(manifest_path)
-        if existing.get("package_identity") == plan["package_identity"]:
+        if existing.get("package_identity") == plan["package_identity"] and limit_videos is None:
             return {"resumed": True, "path": str(manifest_path), "target_access": False, "llm_api_calls": 0,
                    "rendering_performed": False, "training_performed": False, "gpat_fitting_performed": False}
-        raise E7BConflict(f"existing TARGET_PACKAGE.json for {dataset} package_identity "
-                          f"{existing.get('package_identity')} disagrees with the freshly planned "
-                          f"{plan['package_identity']!r} -- FAIL CLOSED, never overwritten")
-    if not raw_present:
-        raise E7BError(f"{raw_root} is not present on this host -- cannot decode real frames; refusing "
-                       "to fabricate crops (this is the expected laptop outcome)")
+        if existing.get("package_identity") not in (plan["package_identity"], None) and limit_videos is None:
+            raise E7BConflict(f"existing TARGET_PACKAGE.json for {dataset} package_identity "
+                              f"{existing.get('package_identity')} disagrees with the freshly planned "
+                              f"{plan['package_identity']!r} -- FAIL CLOSED, never overwritten")
 
-    # Real per-video/per-sequence preprocessing happens HERE on the GPU
-    # host: uniform_indices/crop_face/SCRFDDetector/sample_id, label-free,
-    # never opening any TARGET_LABEL_PATHS. Never reached on this laptop.
-    raise E7BError(f"{dataset} raw bytes are not present on this host; real preprocessing cannot run here")
+    all_records = _target_canonical_records(repo, dataset=dataset, raw_root=raw_root)
+    if limit_videos is not None:
+        all_records = all_records[:limit_videos]
+    completed_ids = set() if smoke else _resume_completed_target_ids(manifest_path, planned_per_video=4)
+    pending_records = [r for r in all_records if r.video_id not in completed_ids]
+
+    context = _build_e7b_run_context(repo, cfg, dataset=dataset, dataset_role="target",
+                                     package_root=active_root, detector_model_sha256=detector_model_sha256,
+                                     run_id=f"e7b-target-{dataset}{'-smoke' if smoke else ''}")
+
+    from prism_fas.data.m2_runner import run_preprocessing
+
+    if pending_records:
+        run_preprocessing(context, pending_records, detector=detector, media_reader_factory=media_reader_factory)
+
+    rows = _assemble_target_rows(context)
+    successful = sum(1 for r in rows if r["status"] == "success")
+    failed = sum(1 for r in rows if r["status"] == "failure")
+
+    body = {
+        "schema_version": f"{SCHEMA_PREFIX}-target-package-v1",
+        "dataset": dataset, "package_identity": plan["package_identity"],
+        "preprocessing_config_hash": plan["preprocessing_config_hash"],
+        "detector_model_sha256": detector_model_sha256,
+        "canonical_video_count": len(all_records), "planned_frame_count": len(all_records) * 4,
+        "successful_crop_count": successful, "failure_count": failed, "rows": rows, "label_free": True,
+        "smoke": smoke, "status": "FROZEN" if not smoke else "SMOKE",
+    }
+    if not smoke:
+        _write_package_manifest_atomic(manifest_path, body)
+    else:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(body, indent=2, default=str), encoding="utf-8")
+
+    return {"resumed": False, "path": str(manifest_path), "body": body, "target_access": False,
+           "llm_api_calls": 0, "rendering_performed": False, "training_performed": False,
+           "gpat_fitting_performed": False}
 
 
-def e7b_build_target_msu(repo: Path, *, authorize: bool = False) -> dict[str, Any]:
+def e7b_build_target_msu(repo: Path, *, authorize: bool = False, detector: Any = None,
+                         media_reader_factory: Any = None, limit_videos: int | None = None,
+                         smoke: bool = False) -> dict[str, Any]:
     return _e7b_build_target(repo, dataset="msu_mfsd", package_root=E7B_MSU_TARGET_PACKAGE_ROOT,
-                             raw_root=MSU_RAW_ROOT, authorize=authorize)
+                             smoke_root=E7B_MSU_SMOKE_ROOT, raw_root=MSU_RAW_ROOT, authorize=authorize,
+                             detector=detector, media_reader_factory=media_reader_factory,
+                             limit_videos=limit_videos, smoke=smoke)
 
 
-def e7b_build_target_casia(repo: Path, *, authorize: bool = False) -> dict[str, Any]:
+def e7b_build_target_casia(repo: Path, *, authorize: bool = False, detector: Any = None,
+                           media_reader_factory: Any = None, limit_videos: int | None = None,
+                           smoke: bool = False) -> dict[str, Any]:
     return _e7b_build_target(repo, dataset="casia_fasd", package_root=E7B_CASIA_TARGET_PACKAGE_ROOT,
-                             raw_root=CASIA_RAW_ROOT, authorize=authorize)
+                             smoke_root=E7B_CASIA_SMOKE_ROOT, raw_root=CASIA_RAW_ROOT, authorize=authorize,
+                             detector=detector, media_reader_factory=media_reader_factory,
+                             limit_videos=limit_videos, smoke=smoke)
+
+
+def e7b_smoke_siw_source(repo: Path, *, limit_videos: int = 2, detector: Any = None,
+                         media_reader_factory: Any = None) -> dict[str, Any]:
+    """Engineering-only smoke: writes ONLY under `E7B_SIW_SMOKE_ROOT`, never
+    the final package namespace, never a package lock. Uses the SAME
+    production preprocessing primitives."""
+    return e7b_build_siw_source(repo, authorize=True, detector=detector,
+                                media_reader_factory=media_reader_factory, limit_videos=limit_videos,
+                                smoke=True)
+
+
+def e7b_smoke_target_msu(repo: Path, *, limit_videos: int = 2, detector: Any = None,
+                         media_reader_factory: Any = None) -> dict[str, Any]:
+    return e7b_build_target_msu(repo, authorize=True, detector=detector,
+                                media_reader_factory=media_reader_factory, limit_videos=limit_videos,
+                                smoke=True)
+
+
+def e7b_smoke_target_casia(repo: Path, *, limit_videos: int = 2, detector: Any = None,
+                           media_reader_factory: Any = None) -> dict[str, Any]:
+    return e7b_build_target_casia(repo, authorize=True, detector=detector,
+                                  media_reader_factory=media_reader_factory, limit_videos=limit_videos,
+                                  smoke=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -629,34 +1048,72 @@ def write_f1_target_reuse_binding(repo: Path) -> dict[str, Any]:
 # TASK G -- validator
 # --------------------------------------------------------------------------- #
 
+def _crop_resolves(package_root: Path, relative_path: str | None, expected_sha256: str | None) -> bool:
+    if not relative_path or not expected_sha256:
+        return False
+    crop_path = package_root / relative_path
+    return crop_path.is_file() and cc.sha256_file(crop_path) == expected_sha256
+
+
 def e7b_validate(repo: Path) -> dict[str, Any]:
     """`--e7b-validate`: read-only. Truthfully distinguishes NOT_BUILT /
     PARTIAL / VALID / INVALID for each of the SiW-source package and the
-    MSU/CASIA target packages."""
+    MSU/CASIA target packages against the FULL package contract: exact
+    canonical/planned counts, successful+failure==planned, no unknown
+    video, no train/dev parent overlap, exact population/split identity,
+    exact config hash, exact SCRFD SHA256, no subject_id anywhere in SiW
+    rows, every successful crop hash resolves on disk, failures preserved.
+    An empty `rows` array is NEVER considered VALID."""
     results: dict[str, Any] = {}
+    binding = build_preprocessing_binding(repo)
+    frozen_config_hash = binding.get("config_hash") if binding.get("status") == RESOLVED else None
 
     siw_manifest = repo / E7B_SIW_SOURCE_PACKAGE_ROOT / "SIW_SOURCE_PACKAGE.json"
     if not siw_manifest.is_file():
         results["siw_source_package"] = {"status": "NOT_BUILT"}
     else:
         body = cc.read_json(siw_manifest)
+        package_root = siw_manifest.parent
         problems = []
+        rows = body.get("rows", [])
         refs = _siw_source_refs_from_e7a(repo)
         known_ids = {(r["video_id"], r["project_split"]) for r in refs}
-        for row in body.get("rows", []):
-            if row.get("subject_id") is not None:
+        for row in rows:
+            if "subject_id" in row and row.get("subject_id") is not None:
                 problems.append(f"row for {row.get('source_video_id')} carries a subject_id")
             key = (row.get("source_video_id"), row.get("source_project_split"))
             if key not in known_ids:
                 problems.append(f"row references unknown SiW video/split {key}")
-        train_ids = {r.get("source_video_id") for r in body.get("rows", [])
-                    if r.get("source_project_split") == "train"}
-        dev_ids = {r.get("source_video_id") for r in body.get("rows", [])
-                  if r.get("source_project_split") == "dev"}
+            if row.get("status") == "success" and not _crop_resolves(
+                    package_root, row.get("crop_relative_path"), row.get("crop_sha256")):
+                problems.append(f"{row.get('source_video_id')}/{row.get('frame_index')}: "
+                                "successful crop does not resolve on disk")
+            if row.get("status") == "failure" and not row.get("failure_reason"):
+                problems.append(f"{row.get('source_video_id')}/{row.get('frame_index')}: "
+                                "failure row missing failure_reason")
+        train_ids = {r.get("source_video_id") for r in rows if r.get("source_project_split") == "train"}
+        dev_ids = {r.get("source_video_id") for r in rows if r.get("source_project_split") == "dev"}
         if train_ids & dev_ids:
             problems.append("a parent SiW video appears in both train and dev outputs")
+        if body.get("canonical_video_count") != EXPECTED_SIW_SOURCE_CANONICAL_VIDEO_COUNT:
+            problems.append(f"canonical_video_count {body.get('canonical_video_count')} != "
+                            f"expected {EXPECTED_SIW_SOURCE_CANONICAL_VIDEO_COUNT}")
+        if body.get("planned_frame_count") != EXPECTED_SIW_SOURCE_PLANNED_FRAME_COUNT:
+            problems.append(f"planned_frame_count {body.get('planned_frame_count')} != "
+                            f"expected {EXPECTED_SIW_SOURCE_PLANNED_FRAME_COUNT}")
+        if (body.get("successful_crop_count", 0) + body.get("failure_count", 0)) != len(rows) or \
+                len(rows) != body.get("planned_frame_count"):
+            problems.append("successful_crop_count + failure_count does not equal planned_frame_count")
+        if refs and body.get("population_identity") != refs[0]["population_identity"]:
+            problems.append("population_identity does not match E7-A frozen reference")
+        if refs and body.get("split_identity") != refs[0]["split_identity"]:
+            problems.append("split_identity does not match E7-A frozen reference")
+        if frozen_config_hash and body.get("preprocessing_config_hash") != frozen_config_hash:
+            problems.append("preprocessing_config_hash does not match the frozen M2 config")
+        if body.get("detector_model_sha256") != FROZEN_SCRFD_MODEL_SHA256:
+            problems.append("detector_model_sha256 does not match the frozen SCRFD model")
         results["siw_source_package"] = {
-            "status": "INVALID" if problems else ("PARTIAL" if not body.get("rows") else "VALID"),
+            "status": "INVALID" if problems else ("PARTIAL" if not rows else "VALID"),
             "problems": problems, "population_identity": body.get("population_identity"),
             "split_identity": body.get("split_identity"), "package_identity": body.get("package_identity"),
         }
@@ -668,6 +1125,7 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
             results[f"{dataset}_target_package"] = {"status": "NOT_BUILT"}
             continue
         body = cc.read_json(manifest)
+        package_root = manifest.parent
         problems = []
         planned = body.get("planned_frame_count")
         rows = body.get("rows", [])
@@ -675,13 +1133,35 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
         for row in rows:
             by_video.setdefault(row.get("canonical_video_id"), []).append(row)
         for video_id, video_rows in by_video.items():
-            planned_for_video = [r for r in video_rows if r.get("status") in ("planned", "success", "failure")]
-            if len(planned_for_video) != 4:
-                problems.append(f"{video_id}: {len(planned_for_video)} planned frames, expected 4")
+            if len(video_rows) != 4:
+                problems.append(f"{video_id}: {len(video_rows)} planned frames, expected 4")
         for row in rows:
-            for forbidden_field in ("label", "attack_label", "is_spoof", "ground_truth"):
+            for forbidden_field in ("label", "label_live_spoof", "attack_label", "spoof_family",
+                                    "is_spoof", "ground_truth", "subject_id"):
                 if forbidden_field in row:
                     problems.append(f"row carries forbidden label field {forbidden_field!r}")
+            if row.get("status") == "success" and not _crop_resolves(
+                    package_root, row.get("crop_relative_path"), row.get("crop_sha256")):
+                problems.append(f"{row.get('canonical_video_id')}/{row.get('frame_index')}: "
+                                "successful crop does not resolve on disk")
+            if row.get("status") == "failure" and not row.get("failure_reason"):
+                problems.append(f"{row.get('canonical_video_id')}/{row.get('frame_index')}: "
+                                "failure row missing failure_reason")
+        if body.get("canonical_video_count") != EXPECTED_TARGET_CANONICAL_VIDEO_COUNT[dataset]:
+            problems.append(f"canonical_video_count {body.get('canonical_video_count')} != "
+                            f"expected {EXPECTED_TARGET_CANONICAL_VIDEO_COUNT[dataset]}")
+        if planned != EXPECTED_TARGET_PLANNED_FRAME_COUNT[dataset]:
+            problems.append(f"planned_frame_count {planned} != "
+                            f"expected {EXPECTED_TARGET_PLANNED_FRAME_COUNT[dataset]}")
+        if (body.get("successful_crop_count", 0) + body.get("failure_count", 0)) != len(rows) or \
+                len(rows) != planned:
+            problems.append("successful_crop_count + failure_count does not equal planned_frame_count")
+        if frozen_config_hash and body.get("preprocessing_config_hash") != frozen_config_hash:
+            problems.append("preprocessing_config_hash does not match the frozen M2 config")
+        if body.get("detector_model_sha256") != FROZEN_SCRFD_MODEL_SHA256:
+            problems.append("detector_model_sha256 does not match the frozen SCRFD model")
+        if not body.get("label_free"):
+            problems.append("package does not declare label_free=True")
         results[f"{dataset}_target_package"] = {
             "status": "INVALID" if problems else ("PARTIAL" if not rows else "VALID"),
             "problems": problems, "planned_frame_count": planned,
@@ -761,6 +1241,17 @@ def main(argv: list[str] | None = None) -> int:
                         help="Requires --authorize. Builds the label-free CASIA-FASD target package "
                              "for EXT-F3.")
     parser.add_argument("--e7b-validate", action="store_true", help="Read-only.")
+    parser.add_argument("--e7b-smoke-siw-source", action="store_true",
+                        help="Engineering-only smoke. Writes ONLY under "
+                             f"{E7B_SIW_SMOKE_ROOT!r}. Never the final scientific package.")
+    parser.add_argument("--e7b-smoke-target-msu", action="store_true",
+                        help="Engineering-only smoke. Writes ONLY under "
+                             f"{E7B_MSU_SMOKE_ROOT!r}. Never the final scientific package.")
+    parser.add_argument("--e7b-smoke-target-casia", action="store_true",
+                        help="Engineering-only smoke. Writes ONLY under "
+                             f"{E7B_CASIA_SMOKE_ROOT!r}. Never the final scientific package.")
+    parser.add_argument("--limit-videos", type=int, default=2,
+                        help="Smoke mode only: number of videos to process (default 2).")
     parser.add_argument("--authorize", action="store_true", help="Required alongside any --e7b-build-*.")
     parser.add_argument("--prepare", action="store_true",
                         help="Writes every additive E7-B binding/contract artifact.")
@@ -797,6 +1288,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.e7b_validate:
         print(json.dumps(e7b_validate(repo), indent=2, default=str))
         return 0
+    if args.e7b_smoke_siw_source:
+        try:
+            result = e7b_smoke_siw_source(repo, limit_videos=args.limit_videos)
+        except E7BError as error:
+            print(f"E7-B SiW source smoke refused: {error}")
+            return 1
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+    if args.e7b_smoke_target_msu:
+        try:
+            result = e7b_smoke_target_msu(repo, limit_videos=args.limit_videos)
+        except E7BError as error:
+            print(f"E7-B MSU target smoke refused: {error}")
+            return 1
+        print(json.dumps(result, indent=2, default=str))
+        return 0
+    if args.e7b_smoke_target_casia:
+        try:
+            result = e7b_smoke_target_casia(repo, limit_videos=args.limit_videos)
+        except E7BError as error:
+            print(f"E7-B CASIA target smoke refused: {error}")
+            return 1
+        print(json.dumps(result, indent=2, default=str))
+        return 0
     if args.prepare:
         result = prepare_e7b(repo)
         print(json.dumps({"downstream_contract": result["downstream_contract"]["body"]}, indent=2,
@@ -804,7 +1319,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Pass --e7b-preflight (read-only), --e7b-build-siw-source/--e7b-build-target-msu/"
-         "--e7b-build-target-casia --authorize, --e7b-validate (read-only), or --prepare.")
+         "--e7b-build-target-casia --authorize, --e7b-validate (read-only), "
+         "--e7b-smoke-siw-source/--e7b-smoke-target-msu/--e7b-smoke-target-casia "
+         "[--limit-videos N] (engineering-only), or --prepare.")
     return 1
 
 

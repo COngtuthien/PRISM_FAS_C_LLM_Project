@@ -1,0 +1,23 @@
+{
+  "schema_version": "ext-q1q2-e7b-siw-source-subject-id-structural-gap-v1",
+  "TECHNICAL_FINDING": true,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "SUBJECT_ID_FABRICATED": false,
+  "ROLE_MISROUTED": false,
+  "summary": "The frozen production converter `build_source_frame_record` (src/prism_fas/data/manifests/converters.py) hard-requires `record.subject_id`, `record.official_split` and `record.label` to all be truthy for ANY canonical record processed with `dataset_role='source'`: `if not record.subject_id or not record.official_split or not record.label: raise MissingCanonicalMetadataError('source metadata')`. SiW-Mv2, by the E7-A local-only amendment (E7A_SIW_LOCAL_ONLY_AMENDMENT.json), legitimately carries no subject_id in this exact local release, and no subject_id is ever fabricated to satisfy this. Therefore a real call into the frozen `run_preprocessing(context, canonical_records, ...)` with `dataset_role='source'` for SiW-as-source canonical records reaches the real production pipeline (frame sampling, real/injected SCRFD detection) and raises `MissingCanonicalMetadataError` the FIRST time a face is successfully detected (i.e. the first time `route_source_success` would fire) -- never at the start, and never for frames that fail detection (those route through `route_preprocessing_failure`, which has no such requirement).",
+  "affected_function": "src/prism_fas/evaluation/c_ext_e7b_data_prep.py::e7b_build_siw_source",
+  "affected_frozen_function": "src/prism_fas/data/manifests/converters.py::build_source_frame_record",
+  "why_not_resolved_by_e7b": [
+    "Fabricating a subject_id would violate the explicit, repeated instruction never to invent SiW subject metadata (established across the E7-A local-only amendment).",
+    "Relaxing/patching the frozen converter's requirement would be a silent science/production-code change outside E7-B's remit.",
+    "Misrouting SiW-as-source through dataset_role='target' would apply the target label firewall (assert_target_safe) to a legitimately label-bearing SOURCE sample, and would misrepresent the sample's scientific role in the manifests (target_frames/target_crops instead of source_frames/source_crops)."
+  ],
+  "e7b_behavior": "e7b_build_siw_source() (and its --e7b-smoke-siw-source engineering wrapper) now performs the REAL orchestration -- resolves canonical records from the frozen E7-A references, builds a real PreprocessingRunContext, and calls the real prism_fas.data.m2_runner.run_preprocessing() -- and, on catching MissingCanonicalMetadataError from that real call, re-raises it as an informative E7BError naming this exact structural conflict. This is a CONDITIONAL, INFORMED failure reached only after a genuine attempt at the real frozen pipeline (proven in tests via a call-counting fake detector), never the previous unconditional placeholder raise.",
+  "consequence_for_gpu_execution": "On the real GPU host, e7b_build_siw_source(authorize=True) (non-smoke) will still fail preflight first if raw bytes/M3B/etc. are not fully present. Once preflight passes and it reaches the real SCRFD detector, it is expected to hit this SAME wall on the first successfully-detected SiW face, UNLESS every one of the 1700*4=6800 planned SiW frames fails detection (astronomically unlikely). This is NOT a smoke-vs-scientific distinction -- it will reproduce identically in --e7b-smoke-siw-source on the GPU host.",
+  "requires": "NEEDS_SCIENTIFIC_DECISION: how SiW-Mv2 (no legitimate subject_id) should satisfy or bypass the frozen source-role converter's subject_id/official_split/label requirement. Candidate resolutions (none applied by this milestone; all require explicit user authorization): (a) amend build_source_frame_record to make subject_id optional for datasets whose adapter contract declares no subject mapping, (b) introduce a distinct, explicitly-named dataset_role (e.g. 'source_no_subject') with its own converter/schema, (c) accept a placeholder subject_id value with an explicit, documented, non-scientific meaning (e.g. 'UNKNOWN') if and only if the user authorizes that this does not constitute fabrication for scientific purposes.",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

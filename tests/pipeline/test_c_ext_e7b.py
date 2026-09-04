@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from prism_fas.evaluation import c_ext_e7b_data_prep as e7b
@@ -59,7 +60,8 @@ def _siw_ref(video_id: str, split: str, *, population_identity: str = "pop-1",
             split_identity: str = "split-1", label: str = "live", family=None) -> dict:
     return {"video_id": video_id, "project_split": split, "reference_kind": "siw_raw_video",
            "label_live_spoof": label, "spoof_family": family, "extension": "avi",
-           "population_identity": population_identity, "split_identity": split_identity}
+           "population_identity": population_identity, "split_identity": split_identity,
+           "relative_path": f"{video_id}.avi"}
 
 
 def _m3b_ref(dataset: str, sample_id: str) -> dict:
@@ -219,13 +221,23 @@ def test_target_failures_never_replaced_by_construction():
 
 def test_target_package_has_no_label_fields(tmp_path):
     repo = _full_fixture(tmp_path)
+    config_hash = e7b.build_preprocessing_binding(repo)["config_hash"]
+    rows = [{"canonical_video_id": f"v{i // 4}", "frame_index": i % 4, "status": "failure",
+            "failure_reason": "no_face"} for i in range(e7b.EXPECTED_TARGET_PLANNED_FRAME_COUNT["msu_mfsd"])]
     (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT).mkdir(parents=True, exist_ok=True)
     (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT / "TARGET_PACKAGE.json").write_text(json.dumps({
-        "package_identity": "x", "planned_frame_count": 8,
-        "rows": [{"canonical_video_id": f"v{i//4}", "status": "success"} for i in range(8)],
+        "package_identity": "x", "preprocessing_config_hash": config_hash,
+        "detector_model_sha256": e7b.FROZEN_SCRFD_MODEL_SHA256,
+        "canonical_video_count": e7b.EXPECTED_TARGET_CANONICAL_VIDEO_COUNT["msu_mfsd"],
+        "planned_frame_count": e7b.EXPECTED_TARGET_PLANNED_FRAME_COUNT["msu_mfsd"],
+        "successful_crop_count": 0, "failure_count": len(rows), "label_free": True, "rows": rows,
     }), encoding="utf-8")
     validation = e7b.e7b_validate(repo)
     assert validation["msu_mfsd_target_package"]["status"] == "VALID"
+    assert not any("forbidden label field" in p for p in validation["msu_mfsd_target_package"]["problems"])
+    for row in rows:
+        for forbidden in ("label", "label_live_spoof", "spoof_family", "subject_id"):
+            assert forbidden not in row
 
 
 def test_target_label_filesystem_paths_never_opened(tmp_path):
@@ -420,3 +432,570 @@ def test_main_build_without_authorize_fails(monkeypatch, tmp_path):
     repo = _full_fixture(tmp_path)
     monkeypatch.setattr(e7b.cc, "repo_root", lambda: repo)
     assert e7b.main(["--e7b-build-siw-source"]) == 1
+
+
+# =========================================================================== #
+# REAL BUILDER EXECUTION -- E7-B additive milestone fixing the previous
+# unconditional-terminal-raise stub. Laptop tests inject the SAME
+# `detector`/`media_reader_factory` seams `run_preprocessing` itself exposes
+# (tiny synthetic frames, `MockFaceDetector`) to prove REAL orchestration
+# through the frozen production pipeline -- never a second scientific
+# implementation, never fake GPU execution claimed as real.
+# =========================================================================== #
+
+from prism_fas.data.media import FrameResult  # noqa: E402
+from prism_fas.data.preprocess_m2 import Detection, MockFaceDetector  # noqa: E402
+from prism_fas.data.schemas.records import CanonicalVideoRecord  # noqa: E402
+
+_FAKE_IMAGE = np.full((60, 60, 3), 128, dtype=np.uint8)
+_SUCCESS_DETECTIONS = [Detection(bbox=(5.0, 5.0, 55.0, 55.0), score=0.99,
+                                 landmarks=[(15.0, 15.0), (45.0, 15.0), (30.0, 30.0),
+                                           (18.0, 45.0), (42.0, 45.0)])]
+
+
+class _FakeReader:
+    """Stands in for `OpenCVVideoDecoder`/`ImageSequenceReader` -- exactly
+    the injection point `run_preprocessing` itself exposes via
+    `media_reader_factory`. Never opens or decodes a real file."""
+
+    def __init__(self, frame_count: int, image: np.ndarray) -> None:
+        self._frame_count = frame_count
+        self._image = image
+
+    def frame_count(self) -> int:
+        return self._frame_count
+
+    def read_frame(self, index: int) -> FrameResult:
+        return FrameResult(index, index, float(index) * 40.0, self._image.shape[1],
+                           self._image.shape[0], self._image, "fake")
+
+    def close(self) -> None:
+        pass
+
+
+class _CountingDetector:
+    """Proves `detector.detect` was genuinely invoked (real orchestration
+    reached the processing loop), not that a stub raised immediately."""
+
+    name = "counting-mock"
+
+    def __init__(self, detections: list) -> None:
+        self._detections = detections
+        self.call_count = 0
+
+    def detect(self, image: np.ndarray) -> list:
+        self.call_count += 1
+        return self._detections
+
+
+def _write_siw_raw_bytes(repo: Path, refs: list[dict]) -> None:
+    for ref in refs:
+        path = repo / e7b.SIW_RAW_ROOT / ref["relative_path"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"fake-siw-video-bytes-{ref['video_id']}".encode())
+
+
+def _siw_smoke_fixture(tmp_path: Path, refs: list[dict]) -> Path:
+    repo = _base_repo(tmp_path)
+    _e7a_fold_fixture(repo, "EXT-F1")
+    _e7a_fold_fixture(repo, "EXT-F2", siw_refs=refs, m3b_refs=[_m3b_ref("casia_fasd", "c-0")])
+    _e7a_fold_fixture(repo, "EXT-F3", siw_refs=refs, m3b_refs=[_m3b_ref("msu_mfsd", "m-0")])
+    _real_m2_config_fixture(repo)
+    _frozen_m2_evidence_fixture(repo)
+    _write_siw_raw_bytes(repo, refs)
+    return repo
+
+
+def _fake_target_records(n: int, dataset: str) -> list[CanonicalVideoRecord]:
+    return [CanonicalVideoRecord(
+        dataset=dataset, subject_id=f"s{i}", video_id=f"{dataset}-video-{i}",
+        source_path=Path(f"/nonexistent/{dataset}/{i}.mov"), official_split=None,
+        label="live" if i % 2 == 0 else "spoof", capture_metadata={}, adapter_version="1.0",
+        source_fingerprint=f"fp-{dataset}-{i}", metadata_provenance="test-fixture")
+        for i in range(n)]
+
+
+# --- 1: fully satisfied SiW builder reaches the real processing loop -------
+
+def test_siw_source_smoke_reaches_successful_source_routing(tmp_path):
+    """Post-compatibility-fix: a genuine face detection on a subject_id=None
+    SiW source record now succeeds all the way through
+    `route_source_success`, not just to the old STRUCTURAL_SCIENTIFIC_POLICY_
+    GAP wall."""
+    refs = [_siw_ref("Live_0", "train"), _siw_ref("Live_1", "dev")]
+    repo = _siw_smoke_fixture(tmp_path, refs)
+    detector = _CountingDetector(_SUCCESS_DETECTIONS)
+    result = e7b.e7b_smoke_siw_source(repo, limit_videos=2, detector=detector,
+                                      media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert detector.call_count >= 1
+    body = result["body"]
+    assert body["successful_crop_count"] == 8
+    assert body["failure_count"] == 0
+    for row in body["rows"]:
+        assert row["status"] == "success"
+        assert row["crop_relative_path"]
+        assert row["crop_sha256"]
+
+
+# --- 2/3: fully satisfied MSU/CASIA target builders reach the loop and complete
+
+def test_msu_target_smoke_full_success_produces_verifiable_crops(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(2, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records",
+                        lambda repo_, *, dataset, raw_root: records)
+    detector = MockFaceDetector(_SUCCESS_DETECTIONS)
+    result = e7b.e7b_smoke_target_msu(repo, limit_videos=2, detector=detector,
+                                      media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    body = result["body"]
+    assert body["dataset"] == "msu_mfsd"
+    assert body["canonical_video_count"] == 2
+    assert body["planned_frame_count"] == 8
+    assert body["successful_crop_count"] == 8
+    assert body["failure_count"] == 0
+    assert body["label_free"] is True
+    package_root = Path(result["path"]).parent / "m2_run"
+    for row in body["rows"]:
+        assert row["status"] == "success"
+        crop_path = package_root / row["crop_relative_path"]
+        assert crop_path.is_file()
+        assert e7b.cc.sha256_file(crop_path) == row["crop_sha256"]
+        for forbidden in ("label", "label_live_spoof", "spoof_family", "subject_id", "attack_label"):
+            assert forbidden not in row
+    assert not (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT / "TARGET_PACKAGE.json").is_file()
+
+
+def test_casia_target_smoke_full_success_reaches_processing_loop(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "casia_fasd")
+    monkeypatch.setattr(e7b, "_target_canonical_records",
+                        lambda repo_, *, dataset, raw_root: records)
+    detector = _CountingDetector(_SUCCESS_DETECTIONS)
+    result = e7b.e7b_smoke_target_casia(repo, limit_videos=1, detector=detector,
+                                        media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert detector.call_count >= 1
+    assert result["body"]["successful_crop_count"] == 4
+    assert result["body"]["dataset"] == "casia_fasd"
+
+
+# --- 4: no unconditional terminal placeholder raise remains ----------------
+
+def test_no_unconditional_terminal_placeholder_raise_remains():
+    source = Path(e7b.__file__).read_text(encoding="utf-8")
+    for placeholder in ("real preprocessing happens", "NOT_IMPLEMENTED", "not yet implemented"):
+        assert placeholder not in source
+
+
+# --- 5/6/10/11: 4 deterministic samples/video; source split inherited;
+# failed face terminal; no replacement sampling (via an all-detection-miss
+# scenario, which never crosses the subject_id wall since no success is
+# ever routed) --------------------------------------------------------------
+
+def test_siw_source_smoke_all_failures_completes_and_retains_source_labels(tmp_path):
+    refs = [_siw_ref("Live_0", "train", label="live"),
+           _siw_ref("Spoof_0", "dev", label="spoof", family="print")]
+    repo = _siw_smoke_fixture(tmp_path, refs)
+    detector = MockFaceDetector([])  # no face ever found -> route_source_success never reached
+    result = e7b.e7b_smoke_siw_source(repo, limit_videos=2, detector=detector,
+                                      media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    body = result["body"]
+    assert body["smoke"] is True
+    assert body["canonical_video_count"] == 2
+    assert body["planned_frame_count"] == 8
+    assert body["successful_crop_count"] == 0
+    assert body["failure_count"] == 8
+    assert len(body["rows"]) == 8
+
+    by_video: dict[str, list[dict]] = {}
+    for row in body["rows"]:
+        by_video.setdefault(row["source_video_id"], []).append(row)
+        assert row["status"] == "failure"
+        assert row["failure_reason"]
+        assert row["crop_relative_path"] is None  # no replacement sampling -- no crop ever produced
+
+    assert set(by_video) == {"Live_0", "Spoof_0"}
+    for rows in by_video.values():
+        assert len(rows) == 4  # 4 deterministic samples/video, never more (no resampling)
+
+    live_row = next(r for r in body["rows"] if r["source_video_id"] == "Live_0")
+    assert live_row["label_live_spoof"] == "live"
+    assert live_row["source_project_split"] == "train"  # source split inherited exactly
+    spoof_row = next(r for r in body["rows"] if r["source_video_id"] == "Spoof_0")
+    assert spoof_row["label_live_spoof"] == "spoof"
+    assert spoof_row["spoof_family"] == "print"
+    assert spoof_row["source_project_split"] == "dev"
+
+
+# --- 19/20: smoke namespace separate from final package; smoke cannot mark
+# the final package ready -----------------------------------------------------
+
+def test_siw_smoke_writes_only_smoke_namespace_never_marks_final_ready(tmp_path):
+    refs = [_siw_ref("Live_0", "train"), _siw_ref("Spoof_0", "dev", label="spoof")]
+    repo = _siw_smoke_fixture(tmp_path, refs)
+    detector = MockFaceDetector([])
+    e7b.e7b_smoke_siw_source(repo, limit_videos=2, detector=detector,
+                             media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert (repo / e7b.E7B_SIW_SMOKE_ROOT / "SIW_SOURCE_PACKAGE.json").is_file()
+    assert not (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "SIW_SOURCE_PACKAGE.json").is_file()
+    validation = e7b.e7b_validate(repo)
+    assert validation["siw_source_package"]["status"] == "NOT_BUILT"
+
+
+def test_msu_smoke_writes_only_smoke_namespace_never_marks_final_ready(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records",
+                        lambda repo_, *, dataset, raw_root: records)
+    e7b.e7b_smoke_target_msu(repo, limit_videos=1, detector=MockFaceDetector(_SUCCESS_DETECTIONS),
+                             media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert (repo / e7b.E7B_MSU_SMOKE_ROOT / "TARGET_PACKAGE.json").is_file()
+    assert not (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT / "TARGET_PACKAGE.json").is_file()
+    validation = e7b.e7b_validate(repo)
+    assert validation["msu_mfsd_target_package"]["status"] == "NOT_BUILT"
+
+
+# --- 21: label firewall prevents target label path from ever being opened --
+
+def test_target_build_never_opens_target_label_path(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "msu_mfsd")
+    monkeypatch.setattr(e7b, "_target_canonical_records",
+                        lambda repo_, *, dataset, raw_root: records)
+    forbidden_marker = e7b.TARGET_LABEL_PATHS[0]
+    real_open = Path.open
+
+    def guarded_open(self, *a, **k):
+        if forbidden_marker in str(self):
+            raise AssertionError("target label path was opened during target build")
+        return real_open(self, *a, **k)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    result = e7b.e7b_smoke_target_msu(repo, limit_videos=1, detector=MockFaceDetector(_SUCCESS_DETECTIONS),
+                                      media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert result["body"]["successful_crop_count"] == 4
+
+
+# --- 13/14: detector model SHA mismatch / config identity mismatch fail closed
+
+def test_scrfd_model_sha_mismatch_fails_before_crop_write(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    cfg = e7b._m2_config(repo)
+    fake_model = tmp_path / "fake_scrfd.onnx"
+    fake_model.write_bytes(b"not-the-real-scrfd-model")
+    monkeypatch.setattr("prism_fas.data.preprocess_m2.resolve_detector_path", lambda declared: fake_model)
+    with pytest.raises(e7b.E7BError, match="FAIL CLOSED"):
+        e7b._verify_scrfd_model_sha256(cfg)
+
+
+def test_config_identity_mismatch_fails_closed_before_build(tmp_path):
+    repo = _full_fixture(tmp_path)
+    _frozen_m2_evidence_fixture(repo, config_hash="0" * 64)  # drifted evidence
+    with pytest.raises(e7b.E7BError, match="does not match the frozen"):
+        e7b.plan_siw_source_build(repo)
+    with pytest.raises(e7b.E7BError, match="does not match the frozen"):
+        e7b.plan_target_build(repo, dataset="msu_mfsd")
+
+
+# --- 15/16: resume skips completed valid outputs; resume detects corrupt crop
+
+def test_resume_completed_target_ids_skips_valid_and_flags_corrupt(tmp_path):
+    package_root = tmp_path / "pkg"
+    (package_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/v0_0.jpg"
+    crop_bytes = b"deterministic-crop-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)
+    crop_sha = e7b.cc.sha256_bytes(crop_bytes)
+    manifest = package_root / "TARGET_PACKAGE.json"
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": crop_sha}] + [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+
+    completed = e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+    assert completed == {"v0"}
+
+    (package_root / crop_rel).write_bytes(b"tampered-bytes")  # corrupt after the manifest recorded it
+    with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+
+
+def test_resume_completed_siw_video_ids_skips_valid_and_flags_corrupt(tmp_path):
+    package_root = tmp_path / "siwpkg"
+    (package_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/Live_0_0.jpg"
+    crop_bytes = b"deterministic-siw-crop-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)
+    crop_sha = e7b.cc.sha256_bytes(crop_bytes)
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": crop_sha}] + [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+
+    completed = e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+    assert completed == {"Live_0"}
+
+    (package_root / crop_rel).write_bytes(b"tampered-bytes")
+    with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+
+
+# --- 17: no duplicate rows (frozen ManifestRepository guarantee E7-B relies on)
+
+def test_manifest_repository_prevents_duplicate_rows(tmp_path):
+    from prism_fas.data.manifests.repository import ManifestRepository
+
+    repository = ManifestRepository(tmp_path / "manifests",
+                                     {"manifest_schema_version": "m2f1a-v1"}).initialize()
+    row = {"sample_id": "abc123", "dataset": "msu_mfsd", "canonical_video_id": "v0"}
+    repository._upsert("target_frames", dict(row))
+    repository._upsert("target_frames", dict(row))  # identical row, same key -> idempotent
+    assert len(repository.rows["target_frames"]) == 1
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        repository._upsert("target_frames", {**row, "canonical_video_id": "v1"})
+
+
+# --- 22: F2/F3 share exactly one SiW package (also covered structurally
+# above; this asserts the shared refs feed a SINGLE package_identity) -------
+
+def test_f2_f3_share_exactly_one_siw_package_identity(tmp_path):
+    refs = [_siw_ref("Live_0", "train"), _siw_ref("Live_1", "dev")]
+    repo = _siw_smoke_fixture(tmp_path, refs)
+    plan = e7b.plan_siw_source_build(repo)
+    assert plan["video_count"] == len(refs)
+    # both F2 and F3 resolve to the SAME refs (proven by
+    # `_siw_source_refs_from_e7a`'s own cross-check), so there is exactly
+    # ONE package_identity for the shared package.
+    refs_again = e7b._siw_source_refs_from_e7a(repo)
+    assert {r["video_id"] for r in refs_again} == {"Live_0", "Live_1"}
+
+
+# =========================================================================== #
+# SUBJECT_ID METADATA-COMPATIBILITY FIX -- `source_metadata_policy` on
+# `PreprocessingRunContext` (additive, default 'required'). CASIA/MSU/every
+# historical context is unaffected (they never pass this field); ONLY the
+# E7-B SiW-as-source context passes 'optional_unverifiable'. The persisted
+# `SourceFrameRecord.subject_id`/`SourceCropRecord.subject_id` schema fields
+# were ALREADY nullable (`str | None`) -- the legacy converter guard was
+# stricter than the actual schema; this is a technical compatibility fix,
+# not a scientific protocol change.
+# =========================================================================== #
+
+def _ctx(tmp_path, *, role="source", dataset="casia_fasd", policy="required"):
+    from prism_fas.data.run_context import M2OutputLayout, PreprocessingRunContext
+
+    layout = M2OutputLayout.from_root(tmp_path / "full_preprocessing")
+    return PreprocessingRunContext(
+        project_root=tmp_path, work_root=tmp_path, run_profile="full_preprocessing",
+        output_namespace="full_preprocessing", output_root=layout.output_root,
+        crops_root=layout.crops_root, frames_root=layout.frames_root,
+        manifests_root=layout.manifests_root, state_root=layout.state_root,
+        reports_root=layout.reports_root, logs_root=layout.logs_root, run_id="x",
+        dataset=dataset, dataset_role=role, preprocessing_version="m2-v1",
+        preprocessing_config_hash="h", detector_model_path=tmp_path / "m",
+        detector_model_sha256="a" * 64, detector_input_size=320, detector_threshold=.5,
+        all_records=False, record_limit=1, sample_limit=None, resume=False, dry_run=True,
+        partial_full_profile=True, command="x", source_metadata_policy=policy)
+
+
+def _canonical_source_record(tmp_path, *, dataset="casia_fasd", subject_id="1",
+                             official_split="train"):
+    return CanonicalVideoRecord(dataset=dataset, subject_id=subject_id, video_id="v",
+                                source_path=tmp_path / "x", official_split=official_split,
+                                label="live", adapter_version="1", source_fingerprint="f",
+                                metadata_provenance="test")
+
+
+_CONVERTER_KW = dict(sample_id="s", source_media_type="image_sequence",
+                     source_relative_identifier="x", requested_frame_index=0,
+                     actual_frame_index=0, frame_width=1, frame_height=1,
+                     selected_frame_reference="x", decoder_backend="x")
+
+
+def test_default_source_policy_still_rejects_null_subject_id(tmp_path):
+    from prism_fas.data.manifests.converters import (MissingCanonicalMetadataError,
+                                                      build_source_frame_record)
+
+    record = _canonical_source_record(tmp_path, subject_id=None)
+    with pytest.raises(MissingCanonicalMetadataError):
+        build_source_frame_record(_ctx(tmp_path, policy="required"), record, **_CONVERTER_KW)
+
+
+def test_casia_normal_source_behavior_unchanged(tmp_path):
+    from prism_fas.data.manifests.converters import build_source_frame_record
+
+    record = _canonical_source_record(tmp_path, dataset="casia_fasd", subject_id="s7")
+    result = build_source_frame_record(_ctx(tmp_path, dataset="casia_fasd", policy="required"),
+                                       record, **_CONVERTER_KW)
+    assert result.subject_id == "s7"
+    assert result.label_live_spoof == "live"
+
+
+def test_msu_normal_source_behavior_unchanged(tmp_path):
+    from prism_fas.data.manifests.converters import build_source_frame_record
+
+    record = _canonical_source_record(tmp_path, dataset="msu_mfsd", subject_id="client001")
+    result = build_source_frame_record(_ctx(tmp_path, dataset="msu_mfsd", policy="required"),
+                                       record, **_CONVERTER_KW)
+    assert result.subject_id == "client001"
+
+
+def test_e7b_optional_unverifiable_policy_accepts_null_subject_id(tmp_path):
+    from prism_fas.data.manifests.converters import build_source_frame_record
+
+    record = _canonical_source_record(tmp_path, dataset="siw_mv2", subject_id=None,
+                                      official_split=e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER)
+    result = build_source_frame_record(
+        _ctx(tmp_path, dataset="siw_mv2", policy="optional_unverifiable"), record, **_CONVERTER_KW)
+    assert result.subject_id is None
+    assert result.video_id != result.subject_id  # video_id never copied into subject_id
+
+
+def test_unknown_source_metadata_policy_rejected(tmp_path):
+    import pydantic
+
+    # PreprocessingRunContext's own frozen Literal type already fails closed
+    # on an unknown policy value at construction time; build_source_frame_
+    # record()'s own defensive check (ManifestConversionError) is a second,
+    # redundant fail-closed layer for a duck-typed/bypassed context.
+    with pytest.raises(pydantic.ValidationError):
+        _ctx(tmp_path, policy="not_a_real_policy")
+
+
+# --- STRUCTURAL TEST: real run_preprocessing()/route_source_success()/
+# ManifestRepository/converters/SourceFrameRecord/SourceCropRecord end-to-end
+# for a tiny one-video, four-planned-frame, subject_id=None SiW source case.
+# Reads the ACTUAL persisted parquet rows -- never mocks route_source_success
+# itself. -----------------------------------------------------------------
+
+def test_end_to_end_siw_source_manifest_rows_have_null_subject_id(tmp_path):
+    import pyarrow.parquet as pq
+
+    from prism_fas.data.m2_runner import run_preprocessing
+
+    repo = _full_fixture(tmp_path)
+    ref = _siw_ref("Live_0", "train")
+    _write_siw_raw_bytes(repo, [ref])
+    cfg = e7b._m2_config(repo)
+    context = e7b._build_e7b_run_context(
+        repo, cfg, dataset="siw_mv2", dataset_role="source",
+        package_root="runs/c_ext_q1q2_v1/e7b_smoke/_structural_test",
+        detector_model_sha256=e7b.FROZEN_SCRFD_MODEL_SHA256, run_id="structural-test",
+        source_metadata_policy="optional_unverifiable")
+    canonical_records = e7b._siw_canonical_records(repo, [ref])
+    assert canonical_records[0].subject_id is None
+    assert canonical_records[0].dataset == "siw_mv2"
+
+    result = run_preprocessing(context, canonical_records,
+                               detector=MockFaceDetector(_SUCCESS_DETECTIONS),
+                               media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    assert result.dataset_role == "source"  # route is still SOURCE, never target
+    assert result.samples_selected == 4
+    assert result.samples_successful == 4
+    assert result.samples_failed == 0
+    assert result.manifest_counts["source_frames"] == 4
+    assert result.manifest_counts["source_crops"] == 4
+    assert result.manifest_counts["preprocessing_failures"] == 0
+    assert result.manifest_counts["target_frames"] == 0
+    assert result.manifest_counts["target_crops"] == 0
+
+    frames = pq.read_table(context.manifests_root / "source_frames.parquet").to_pylist()
+    crops = pq.read_table(context.manifests_root / "source_crops.parquet").to_pylist()
+    assert len(frames) == 4
+    assert len(crops) == 4
+    assert all(row["subject_id"] is None for row in frames)  # NULL, never a sentinel
+    assert all(row["subject_id"] is None for row in crops)
+    assert all(row["video_id"] == "Live_0" for row in frames)  # video_id never in subject_id
+    assert all(row["official_split"] == e7b.SIW_SOURCE_OFFICIAL_SPLIT_PLACEHOLDER for row in frames)
+    assert all(row["label_live_spoof"] == "live" for row in frames)  # source label retained
+    for row in frames + crops:
+        assert row["subject_id"] not in ("unknown", "Live_0", "siw_mv2", "Live_0.avi")
+
+
+def test_diagnostic_gap_artifact_preserved_and_resolution_is_additive(tmp_path):
+    diagnostic = REPO / e7b.E7B_REPORT_DIR / "E7B_SIW_SOURCE_SUBJECT_ID_STRUCTURAL_GAP.json"
+    resolution = REPO / e7b.E7B_REPORT_DIR / "E7B_SIW_SOURCE_METADATA_COMPATIBILITY_RESOLUTION.json"
+    assert diagnostic.is_file()  # historical evidence, never rewritten to pretend the gap never existed
+    diagnostic_body = json.loads(diagnostic.read_text(encoding="utf-8"))
+    assert diagnostic_body["TECHNICAL_FINDING"] is True
+    assert resolution.is_file()  # additive resolution artifact
+    resolution_body = json.loads(resolution.read_text(encoding="utf-8"))
+    assert resolution_body["TECHNICAL_GAP_DISCOVERED"] is True
+    assert resolution_body["SCIENTIFIC_PROTOCOL_CHANGE_REQUIRED"] is False
+    assert resolution_body["SUBJECT_ID_FABRICATED"] is False
+    assert resolution_body["SUBJECT_ID_VALUE_FOR_SIW"] is None
+
+
+# --- 23/24: expected planned counts; validator rejects incomplete/empty ----
+
+def test_expected_planned_frame_counts_frozen():
+    assert e7b.EXPECTED_SIW_SOURCE_CANONICAL_VIDEO_COUNT == 1700
+    assert e7b.EXPECTED_SIW_SOURCE_PLANNED_FRAME_COUNT == 6800
+    assert e7b.EXPECTED_TARGET_CANONICAL_VIDEO_COUNT == {"msu_mfsd": 280, "casia_fasd": 600}
+    assert e7b.EXPECTED_TARGET_PLANNED_FRAME_COUNT == {"msu_mfsd": 1120, "casia_fasd": 2400}
+
+
+def test_validator_rejects_empty_rows_as_not_valid(tmp_path):
+    repo = _full_fixture(tmp_path)
+    (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT).mkdir(parents=True, exist_ok=True)
+    (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT / "TARGET_PACKAGE.json").write_text(
+        json.dumps({"package_identity": "x", "rows": []}), encoding="utf-8")
+    validation = e7b.e7b_validate(repo)
+    assert validation["msu_mfsd_target_package"]["status"] != "VALID"
+
+
+def test_validator_rejects_incomplete_planned_population(tmp_path):
+    repo = _full_fixture(tmp_path)
+    config_hash = e7b.build_preprocessing_binding(repo)["config_hash"]
+    rows = [{"canonical_video_id": "v0", "frame_index": i, "status": "failure",
+            "failure_reason": "no_face"} for i in range(4)]  # only 1 of 280 videos present
+    (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT).mkdir(parents=True, exist_ok=True)
+    (repo / e7b.E7B_MSU_TARGET_PACKAGE_ROOT / "TARGET_PACKAGE.json").write_text(json.dumps({
+        "package_identity": "x", "preprocessing_config_hash": config_hash,
+        "detector_model_sha256": e7b.FROZEN_SCRFD_MODEL_SHA256,
+        "canonical_video_count": e7b.EXPECTED_TARGET_CANONICAL_VIDEO_COUNT["msu_mfsd"],
+        "planned_frame_count": e7b.EXPECTED_TARGET_PLANNED_FRAME_COUNT["msu_mfsd"],
+        "successful_crop_count": 0, "failure_count": len(rows), "label_free": True, "rows": rows,
+    }), encoding="utf-8")
+    validation = e7b.e7b_validate(repo)
+    assert validation["msu_mfsd_target_package"]["status"] == "INVALID"
+
+
+# --- 12: crop SHA verified (end-to-end through the real pipeline) ----------
+
+def test_crop_sha256_verified_end_to_end(tmp_path, monkeypatch):
+    repo = _full_fixture(tmp_path)
+    records = _fake_target_records(1, "casia_fasd")
+    monkeypatch.setattr(e7b, "_target_canonical_records",
+                        lambda repo_, *, dataset, raw_root: records)
+    result = e7b.e7b_smoke_target_casia(repo, limit_videos=1, detector=MockFaceDetector(_SUCCESS_DETECTIONS),
+                                        media_reader_factory=lambda record: _FakeReader(6, _FAKE_IMAGE))
+    package_root = Path(result["path"]).parent / "m2_run"
+    for row in result["body"]["rows"]:
+        crop_path = package_root / row["crop_relative_path"]
+        assert e7b.cc.sha256_file(crop_path) == row["crop_sha256"]
+
+
+# --- 25-28: no training / no synthetic rendering / no GPAT fitting / no LLM
+# in the real-builder code path specifically ---------------------------------
+
+def test_real_builders_never_train_render_fit_gpat_or_call_llm():
+    source = Path(e7b.__file__).read_text(encoding="utf-8")
+    for forbidden in ("render_arm(", "train_detector(", "GPATRoute(", "build_gpat_model(",
+                      "openai", "google.generativeai", "GEMINI_API_KEY", "optimizer.step("):
+        assert forbidden not in source
+
+
+# --- 29/30: E7-A / prior 7be02d6 artifacts byte-identical after real-builder
+# additions (exercised for real against the committed repo, not a fixture) --
+
+def test_e7a_frozen_materializations_still_byte_identical_against_real_repo():
+    results = e7b.verify_e7a_frozen_hashes(REPO)
+    for fold_id, expected in e7b.E7A_FROZEN_SHA256.items():
+        assert results[fold_id]["observed"] == expected
+
+
+def test_7be02d6_bindings_module_still_importable_and_constants_unchanged():
+    assert e7b.E7A_BASE_COMMIT == "6c77633aa331253cabfb54b70ca2846c2f3466b4"
+    assert e7b.FROZEN_M2_PREPROCESSING_CONFIG_HASH == \
+        "48a120caa6041b3a03b4008642030665f084b5d722a62ca2c01a2a5aa5e0c959"
+    assert e7b.FROZEN_SCRFD_MODEL_SHA256 == \
+        "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
