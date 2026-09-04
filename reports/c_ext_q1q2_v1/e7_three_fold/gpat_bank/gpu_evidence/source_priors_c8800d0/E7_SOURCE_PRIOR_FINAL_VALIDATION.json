@@ -1,0 +1,679 @@
+{
+  "schema_version": "e7-source-prior-final-validation-v1",
+  "code_checkpoint": "c8800d0b911f085451719fd7867a0c1ca76d325b",
+  "EXT-F2": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-source-priors-validate-v1",
+    "fold_id": "EXT-F2",
+    "status": "VALID",
+    "problems": [],
+    "row_count": 6776,
+    "expected_row_count": 6776,
+    "crop_rows_verified": 6776,
+    "missing_crops": 0,
+    "bad_crop_hashes": 0,
+    "missing_prior_files": 0,
+    "bad_prior_hashes": 0,
+    "package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+    "recomputed_package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+    "package_identity_match": true,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "EXT-F3": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-source-priors-validate-v1",
+    "fold_id": "EXT-F3",
+    "status": "VALID",
+    "problems": [],
+    "row_count": 6776,
+    "expected_row_count": 6776,
+    "crop_rows_verified": 6776,
+    "missing_crops": 0,
+    "bad_crop_hashes": 0,
+    "missing_prior_files": 0,
+    "bad_prior_hashes": 0,
+    "package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+    "recomputed_package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+    "package_identity_match": true,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "M3A_EXT-F2": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-m3a-input-validate-v1",
+    "fold_id": "EXT-F2",
+    "status": "VALID",
+    "problems": [],
+    "total_samples": 6776,
+    "train_rows": 5426,
+    "dev_rows": 1350,
+    "m3a_input_package_identity": "840fb4286e7e146cbd0e6c68ac0cf817d648fdb43e9afa8db98da74939334eda",
+    "recomputed_m3a_input_package_identity": "840fb4286e7e146cbd0e6c68ac0cf817d648fdb43e9afa8db98da74939334eda",
+    "identity_match": true,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "M3A_EXT-F3": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-m3a-input-validate-v1",
+    "fold_id": "EXT-F3",
+    "status": "VALID",
+    "problems": [],
+    "total_samples": 6776,
+    "train_rows": 5426,
+    "dev_rows": 1350,
+    "m3a_input_package_identity": "840fb4286e7e146cbd0e6c68ac0cf817d648fdb43e9afa8db98da74939334eda",
+    "recomputed_m3a_input_package_identity": "840fb4286e7e146cbd0e6c68ac0cf817d648fdb43e9afa8db98da74939334eda",
+    "identity_match": true,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "M3B_STRUCTURAL_VALIDATION": {
+    "passed": true,
+    "errors": [],
+    "checks": [
+      {
+        "check_id": "lock.parses",
+        "category": "lock",
+        "description": "PACKAGE_LOCK parses",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.status",
+        "category": "lock",
+        "description": "status is validated",
+        "expected": "validated",
+        "actual": "validated",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.samples",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.source_train",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.source_dev",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.target_test_features",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.priors_index",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "manifest.shards_index",
+        "category": "manifests",
+        "description": "manifest present",
+        "expected": "True",
+        "actual": "True",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "schema.versions",
+        "category": "schema",
+        "description": "package schema versions agree",
+        "expected": "1",
+        "actual": "1",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "count.samples",
+        "category": "counts",
+        "description": "lock total matches samples manifest",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "identity.duplicates",
+        "category": "identity",
+        "description": "unique sample IDs",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "splits.disjoint",
+        "category": "splits",
+        "description": "split manifests are disjoint",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "splits.union",
+        "category": "splits",
+        "description": "split union equals samples manifest",
+        "expected": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "actual": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "splits.assignment.source_train",
+        "category": "splits",
+        "description": "samples project_split matches manifest",
+        "expected": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "actual": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "splits.assignment.source_dev",
+        "category": "splits",
+        "description": "samples project_split matches manifest",
+        "expected": "['extsrc007811a5749604f4c602fd4afb6a2730', 'extsrc007e4f2c96542c2952a5abd4aec69a49', 'extsrc0087d063ef446c3b86e1c44c9821c718', 'extsrc00a99e57cb81ad7977e693efd190e7a8', 'extsrc00b91c61dcf007e0a8ca2350",
+        "actual": "['extsrc007811a5749604f4c602fd4afb6a2730', 'extsrc007e4f2c96542c2952a5abd4aec69a49', 'extsrc0087d063ef446c3b86e1c44c9821c718', 'extsrc00a99e57cb81ad7977e693efd190e7a8', 'extsrc00b91c61dcf007e0a8ca2350",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "splits.assignment.target_test",
+        "category": "splits",
+        "description": "samples project_split matches manifest",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.images",
+        "category": "artifacts",
+        "description": "every image exists",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.priors",
+        "category": "artifacts",
+        "description": "every prior exists",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.image_sha",
+        "category": "artifacts",
+        "description": "image SHA matches manifest",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.prior_sha",
+        "category": "artifacts",
+        "description": "prior SHA matches manifest",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.npz",
+        "category": "artifacts",
+        "description": "priors load with allow_pickle=False and expected shapes",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.metrics",
+        "category": "artifacts",
+        "description": "quality metrics are finite",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.orphans",
+        "category": "artifacts",
+        "description": "no orphan images or priors",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.files",
+        "category": "shards",
+        "description": "shard files exist with matching SHA/size/rows",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.rows",
+        "category": "shards",
+        "description": "shard row counts reconcile with samples",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.triplets",
+        "category": "shards",
+        "description": "every shard member is a jpg+npz+json triplet",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.split_isolation",
+        "category": "shards",
+        "description": "no split mixed within a shard",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.membership.source_train",
+        "category": "shards",
+        "description": "shard IDs equal split manifest IDs",
+        "expected": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "actual": "['extsrc000ea5f734e26421fced46ba90604763', 'extsrc002949a73215a713c6dc708c660cab58', 'extsrc002979f33cbe2b03d6603d378c2cf948', 'extsrc0033181d9c2831a20dd825aa61960c26', 'extsrc004d8dddc7599e7e06b74fd7",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.membership.source_dev",
+        "category": "shards",
+        "description": "shard IDs equal split manifest IDs",
+        "expected": "['extsrc007811a5749604f4c602fd4afb6a2730', 'extsrc007e4f2c96542c2952a5abd4aec69a49', 'extsrc0087d063ef446c3b86e1c44c9821c718', 'extsrc00a99e57cb81ad7977e693efd190e7a8', 'extsrc00b91c61dcf007e0a8ca2350",
+        "actual": "['extsrc007811a5749604f4c602fd4afb6a2730', 'extsrc007e4f2c96542c2952a5abd4aec69a49', 'extsrc0087d063ef446c3b86e1c44c9821c718', 'extsrc00a99e57cb81ad7977e693efd190e7a8', 'extsrc00b91c61dcf007e0a8ca2350",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "shards.membership.target_test",
+        "category": "shards",
+        "description": "shard IDs equal split manifest IDs",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "target.leakage",
+        "category": "target_isolation",
+        "description": "no forbidden target metadata",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "target.fields",
+        "category": "target_isolation",
+        "description": "no forbidden target field names",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "target.tokens",
+        "category": "target_isolation",
+        "description": "no private target tokens in values",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "target.samples_manifest",
+        "category": "target_isolation",
+        "description": "samples manifest target rows pass leakage scan",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "paths.raw",
+        "category": "paths",
+        "description": "no raw or absolute paths in manifests",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.model_prior_failures",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "c7f2fe8b2ad0e61d52e9b47126b16222d5006048484780dc80cda2211dda920e",
+        "actual": "c7f2fe8b2ad0e61d52e9b47126b16222d5006048484780dc80cda2211dda920e",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.priors_index",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "1988ff681d1a72087b8f454d7bd46aa93ce8ae272092640113477bc9ef6d287c",
+        "actual": "1988ff681d1a72087b8f454d7bd46aa93ce8ae272092640113477bc9ef6d287c",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.samples",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "3b0d9d0edca04ad1992935d7be3ce46b18ae8e6b4a577927f0439ce73ca12d83",
+        "actual": "3b0d9d0edca04ad1992935d7be3ce46b18ae8e6b4a577927f0439ce73ca12d83",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.shards_index",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "a7f9eeb0766c5c7de5f3bd306afe45f99d9f8d74c3f4998af7ade0ad85386f4f",
+        "actual": "a7f9eeb0766c5c7de5f3bd306afe45f99d9f8d74c3f4998af7ade0ad85386f4f",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.source_dev",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "9ab06ef56f2dd3b5b866ac4ea1b8336b3a3afdccc76605733367d3fe2547e03e",
+        "actual": "9ab06ef56f2dd3b5b866ac4ea1b8336b3a3afdccc76605733367d3fe2547e03e",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.source_train",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "55a1ea971fc43978e6a37369c038dc8dc2e205bae16db9ed76164834c56b13b9",
+        "actual": "55a1ea971fc43978e6a37369c038dc8dc2e205bae16db9ed76164834c56b13b9",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "lock.hash.target_test_features",
+        "category": "lock",
+        "description": "lock manifest hash matches artifact",
+        "expected": "86d922972663723327e0b1352965a131746a556a4527e32dfe6582e429e376e9",
+        "actual": "86d922972663723327e0b1352965a131746a556a4527e32dfe6582e429e376e9",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "artifacts.legacy",
+        "category": "artifacts",
+        "description": "no M2A/legacy JSONL artifacts",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.parsing",
+        "category": "model_priors",
+        "description": "parsing prior for every sample",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.pose",
+        "category": "model_priors",
+        "description": "pose prior for every sample",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.visibility",
+        "category": "model_priors",
+        "description": "visibility prior for every sample",
+        "expected": "6776",
+        "actual": "6776",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.arrays",
+        "category": "model_priors",
+        "description": "prior arrays have expected shape/dtype",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.pose_finite",
+        "category": "model_priors",
+        "description": "pose values finite",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.visibility_range",
+        "category": "model_priors",
+        "description": "visibility within [0,1]",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.identity_count",
+        "category": "model_priors",
+        "description": "identity embeddings match applicable samples",
+        "expected": "2512",
+        "actual": "2512",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.identity_scope",
+        "category": "model_priors",
+        "description": "identity only on source_train live",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.identity_missing",
+        "category": "model_priors",
+        "description": "every applicable sample has an identity embedding",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.identity_valid",
+        "category": "model_priors",
+        "description": "identity embeddings valid shape/norm",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.target_identity",
+        "category": "target_isolation",
+        "description": "no identity embedding on target samples",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.model_pins",
+        "category": "model_priors",
+        "description": "parsing model SHA consistent across priors",
+        "expected": "1",
+        "actual": "1",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.failures",
+        "category": "model_priors",
+        "description": "no unresolved model prior failures",
+        "expected": "0",
+        "actual": "0",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.parent_identity",
+        "category": "lock",
+        "description": "parent content identity matches",
+        "expected": "320e935a20cd02065beba20ab804b48bec28a719f09e031be6241de4e262d21f",
+        "actual": "320e935a20cd02065beba20ab804b48bec28a719f09e031be6241de4e262d21f",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.parent_id",
+        "category": "lock",
+        "description": "parent package id matches",
+        "expected": "prism_data_v1_m3a_ext_siw_source_v1",
+        "actual": "prism_data_v1_m3a_ext_siw_source_v1",
+        "passed": true,
+        "severity": "error"
+      },
+      {
+        "check_id": "m3b.image_sha_stable",
+        "category": "lock",
+        "description": "image SHA unchanged from parent package",
+        "expected": "[]",
+        "actual": "[]",
+        "passed": true,
+        "severity": "error"
+      }
+    ],
+    "counts": {
+      "samples": 6776,
+      "source_train": 5426,
+      "source_dev": 1350,
+      "target_test": 0,
+      "images": 6776,
+      "priors": 6776,
+      "shards": 8,
+      "shard_json_entries": 6776
+    },
+    "package_id": "prism_data_v1_m3b_ext_siw_source_v1",
+    "parent_package_id": "prism_data_v1_m3a_ext_siw_source_v1",
+    "prior_counts": {
+      "parsing": 6776,
+      "pose": 6776,
+      "visibility": 6776,
+      "identity": 2512,
+      "identity_not_applicable": 4264
+    },
+    "model_revisions": {
+      "identity": "60a65befbcf7",
+      "parsing": "fd12148d0b19",
+      "pose": "fd12148d0b19",
+      "visibility": null
+    },
+    "target_isolation": {
+      "passed": true,
+      "matches": [],
+      "token_matches": []
+    }
+  },
+  "POST_PREFLIGHT": {
+    "schema_version": "ext-q1q2-e7-gpat-bank-preflight-v2",
+    "E7D_BINDING_MATCH": true,
+    "F1_SOURCE_SUPPORT_VALID": true,
+    "F2_SOURCE_SUPPORT_VALID": true,
+    "F3_SOURCE_SUPPORT_VALID": true,
+    "F1_GPAT_INPUT_COMPATIBLE": true,
+    "F2_GPAT_INPUT_COMPATIBLE": true,
+    "F3_GPAT_INPUT_COMPATIBLE": true,
+    "F1_PRIOR_GENERATION_PRIMITIVE_RESOLVED": "NOT_APPLICABLE_EXISTING_PRIORS",
+    "F2_PRIOR_GENERATION_PRIMITIVE_RESOLVED": true,
+    "F3_PRIOR_GENERATION_PRIMITIVE_RESOLVED": true,
+    "F1_SOURCE_PRIORS_MATERIALIZED": true,
+    "F2_SOURCE_PRIORS_MATERIALIZED": true,
+    "F3_SOURCE_PRIORS_MATERIALIZED": true,
+    "F1_SOURCE_PRIORS_READY": true,
+    "F2_SOURCE_PRIORS_READY": true,
+    "F3_SOURCE_PRIORS_READY": true,
+    "F1_TARGET_FIREWALL_ACTIVE": true,
+    "F2_TARGET_FIREWALL_ACTIVE": true,
+    "F3_TARGET_FIREWALL_ACTIVE": true,
+    "GPAT_SCIENTIFIC_PRIMITIVES_REUSED": true,
+    "PAIRING_SCIENTIFIC_RULES_REUSED": true,
+    "QUALITY_GATE_REUSED": true,
+    "MATCHED_BANK_LOGIC_REUSED": true,
+    "F1_SHUFFLE_STATUS": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+    "F2_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+    "F3_SHUFFLE_STATUS": "PENDING_FEASIBILITY_PREFLIGHT",
+    "RECIPE_BANKS_BOUND": true,
+    "READY_FOR_GPU_GPAT_FIT": true,
+    "READY_FOR_GPU_SOURCE_PRIOR_MATERIALIZATION": false,
+    "E7_READY_FOR_TRAINING": false,
+    "TARGET_LABEL_ACCESS": false,
+    "TARGET_IMAGE_ACCESS": false,
+    "TRAINING_PERFORMED": false,
+    "RENDERING_PERFORMED": false,
+    "GPAT_FITTING_PERFORMED": false,
+    "LLM_API_CALLS": 0,
+    "per_fold_compatibility_detail": {
+      "EXT-F1": "COMPATIBLE",
+      "EXT-F2": "COMPATIBLE",
+      "EXT-F3": "COMPATIBLE"
+    }
+  }
+}

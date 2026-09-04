@@ -1,0 +1,30 @@
+{
+  "schema_version": "e7-source-prior-provenance-v1",
+  "code_checkpoint": "c8800d0b911f085451719fd7867a0c1ca76d325b",
+  "module_sha256": "31899d8cfb4de02267594a3006e02260f43ca7b19326ee5e69c98f0130a4ab3a",
+  "source_prior_package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+  "source_prior_marker_sha256": "09cba12f709cea83088f4aeb65b9d08b47e4d110fa741fdfd341754dd2926dbc",
+  "m3a_package_lock_sha256": "abd00ddba57c0af0ac46b42f77f40bb01b2bde8af9f381065224b1063c9539fa",
+  "m3a_binding_sha256": "cdfe92caba17ebf454d5102fbea4bd15c0b288eb8138643fd2ccb79818cdc9d9",
+  "m3b_package_lock_sha256": "ca90fc63a1ff782cd7c2f42489a4b2b87deaff2d810a7a6643db2ecb3c58a283",
+  "siw_shared_source_authority_identity": "57a2351590d263e83b280671035baa74a8777313d5b33af15d2048fcda13444b",
+  "siw_shared_source_authority_rows": 6776,
+  "weights": {
+    "facexformer": {
+      "path_relative": "weights/face_geometry/ckpts/model.pt",
+      "sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+    },
+    "adaface": {
+      "path_relative": "weights/face_identity/pretrained_model/model.pt",
+      "sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    }
+  },
+  "backend_code": {
+    "weights/code/facexformer/network/__init__.py": "31b03a6fb9c51b9c56d6482604b6e4a97ee4638719f7c3e0c32764e90a6f6c29",
+    "weights/code/facexformer/network/models/__init__.py": "d107e7865cd12a2f2d55a2c36a499ec481230066466a478d68ec1088d70aa3fc",
+    "weights/code/facexformer/network/models/facexformer.py": "007076ec43c718858d75c755f940776c9f17bac07173b65316b38388db9f8d90",
+    "weights/code/facexformer/network/models/transformer.py": "df8ac36e5bd9d367837efc3012b9c2e675b75ab6983a2ea25e2a85dba6d0b237",
+    "weights/code/adaface/adaface_net.py": "b4db4eb0174a385fd29e5f616391b50d443f455990c8b88dcab1f8021af8ba4c"
+  },
+  "PRISM_MODEL_CACHE": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/weights"
+}

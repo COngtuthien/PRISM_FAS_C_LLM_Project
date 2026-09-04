@@ -1,0 +1,28 @@
+{
+  "EXT-F2": {
+    "resumed": false,
+    "status": "MATERIALIZED",
+    "path": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/data/processed/c_ext_q1q2_v1/e7_gpat_bank/siw_source_priors_v1/SIW_SOURCE_PRIOR_PACKAGE.json",
+    "package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+    "validation": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-source-priors-validate-v1",
+      "fold_id": "EXT-F2",
+      "status": "VALID",
+      "problems": [],
+      "row_count": 6776,
+      "expected_row_count": 6776,
+      "crop_rows_verified": 6776,
+      "missing_crops": 0,
+      "bad_crop_hashes": 0,
+      "missing_prior_files": 0,
+      "bad_prior_hashes": 0,
+      "package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+      "recomputed_package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+      "package_identity_match": true,
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "target_access": false,
+    "llm_api_calls": 0
+  }
+}
