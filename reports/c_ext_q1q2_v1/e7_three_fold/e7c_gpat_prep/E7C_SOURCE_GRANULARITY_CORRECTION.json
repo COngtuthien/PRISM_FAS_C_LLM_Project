@@ -1,0 +1,32 @@
+{
+  "schema_version": "ext-q1q2-e7c-source-granularity-correction-v1",
+  "TECHNICAL_ISSUE": "the original E7C_SOURCE_LIVE_POOL_PLAN.json summed SiW E7-A CANONICAL VIDEO reference counts together with M3B CROP ROW counts into a single source_train_rows/source_live_train_rows total for EXT-F2/EXT-F3 -- a mixed-granularity total that is not a valid GPAT support-pool row count (GPAT's SampleStore consumes crop/sample rows, never canonical-video refs).",
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "SOURCE_GRANULARITY_BUG_FIXED": true,
+  "fix": "build_source_live_pool_plan now returns two separate, explicitly-named, never-summed sections per fold: m3b_plan (CROP_ROW granularity, resolved locally) and siw_plan.video_level (CANONICAL_VIDEO granularity, resolved locally) + siw_plan.crop_level (CROP_ROW granularity, GPU_REQUIRED, never inferred by x4).",
+  "verified_video_level_counts": {
+    "EXT-F2": {
+      "granularity": "CANONICAL_VIDEO",
+      "siw_video_train_count": 1362,
+      "siw_video_dev_count": 338,
+      "siw_live_video_train_count": 628,
+      "siw_live_video_dev_count": 157,
+      "resolved_locally": true,
+      "note": "these are E7-A CANONICAL VIDEO reference counts, never crop/support rows"
+    },
+    "EXT-F3": {
+      "granularity": "CANONICAL_VIDEO",
+      "siw_video_train_count": 1362,
+      "siw_video_dev_count": 338,
+      "siw_live_video_train_count": 628,
+      "siw_live_video_dev_count": 157,
+      "resolved_locally": true,
+      "note": "these are E7-A CANONICAL VIDEO reference counts, never crop/support rows"
+    }
+  },
+  "f3_same_siw_video_split_as_f2": true,
+  "mixed_unit_totals_removed": true,
+  "no_4x_inference_for_live_crop_counts": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

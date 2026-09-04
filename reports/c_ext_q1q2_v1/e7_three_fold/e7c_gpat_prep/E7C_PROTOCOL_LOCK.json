@@ -1,0 +1,50 @@
+{
+  "schema_version": "ext-q1q2-e7c-protocol-lock-v1",
+  "folds": {
+    "EXT-F1": {
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2"
+    },
+    "EXT-F2": {
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD"
+    },
+    "EXT-F3": {
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD"
+    }
+  },
+  "conditions": [
+    "G-REALONLY",
+    "G-RND",
+    "G-DET",
+    "G-LLM",
+    "G-LLM-SHUFFLE-A"
+  ],
+  "synthetic_conditions": [
+    "G-RND",
+    "G-DET",
+    "G-LLM",
+    "G-LLM-SHUFFLE-A"
+  ],
+  "realonly_requires_no_synthetic_bank": true,
+  "target_isolation_rule": "the held-out target domain's image/crop/feature bytes may never enter GPAT support pool, GPAT fitting data, source-live support samples, quality calibration, candidate generation, synthetic candidate acceptance/calibration, source-dev calibration, or recipe-to-image routing inputs for that fold; the target package identity may appear in metadata only",
+  "target_labels_forbidden": true,
+  "sole_fold_authority": "E7-A materialization (reports/c_ext_q1q2_v1/e7_three_fold/e7a/materialization_v1/EXT-F{1,2,3}/FOLD_MATERIALIZATION.json)",
+  "f1_shuffle_frozen_block": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+  "f2_f3_shuffle_independent": true,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

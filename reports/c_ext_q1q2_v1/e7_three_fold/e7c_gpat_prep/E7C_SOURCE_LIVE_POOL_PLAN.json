@@ -1,0 +1,156 @@
+{
+  "schema_version": "ext-q1q2-e7c-source-live-pool-plan-all-v1",
+  "folds": {
+    "EXT-F1": {
+      "schema_version": "ext-q1q2-e7c-source-live-pool-plan-v2",
+      "fold_id": "EXT-F1",
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "m3b_plan": {
+        "granularity": "CROP_ROW",
+        "datasets": [
+          "CASIA-FASD",
+          "MSU-MFSD"
+        ],
+        "m3b_crop_train_rows": 1440,
+        "m3b_crop_dev_rows": 2079,
+        "m3b_live_crop_train_rows": 280,
+        "m3b_live_crop_dev_rows": 400,
+        "terminal_preprocessing_failures": 0,
+        "note": "every M3B reference IS a successful crop by construction"
+      },
+      "siw_plan": null,
+      "SOURCE_VIDEO_SPLIT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_BYTES_LOCAL": false,
+      "SOURCE_CROP_SUPPORT_MATERIALIZATION_STATUS": "LOCAL_M3B_ONLY_NO_SIW_JOIN_NEEDED",
+      "mixed_unit_total_never_computed": true,
+      "no_subject_id_required_for_siw": true,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F2": {
+      "schema_version": "ext-q1q2-e7c-source-live-pool-plan-v2",
+      "fold_id": "EXT-F2",
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "m3b_plan": {
+        "granularity": "CROP_ROW",
+        "datasets": [
+          "CASIA-FASD"
+        ],
+        "m3b_crop_train_rows": 960,
+        "m3b_crop_dev_rows": 1439,
+        "m3b_live_crop_train_rows": 160,
+        "m3b_live_crop_dev_rows": 240,
+        "terminal_preprocessing_failures": 0,
+        "note": "every M3B reference IS a successful crop by construction"
+      },
+      "siw_plan": {
+        "video_level": {
+          "granularity": "CANONICAL_VIDEO",
+          "siw_video_train_count": 1362,
+          "siw_video_dev_count": 338,
+          "siw_live_video_train_count": 628,
+          "siw_live_video_dev_count": 157,
+          "resolved_locally": true,
+          "note": "these are E7-A CANONICAL VIDEO reference counts, never crop/support rows"
+        },
+        "crop_level": {
+          "granularity": "CROP_ROW",
+          "siw_success_crop_total": 6776,
+          "siw_failure_total": 24,
+          "siw_planned_frame_total": 6800,
+          "siw_live_crop_train_rows": "GPU_REQUIRED",
+          "siw_live_crop_dev_rows": "GPU_REQUIRED",
+          "resolved_locally": false,
+          "note": "the whole-package aggregate (6776 success / 24 failure) is frozen GPU evidence and applies identically to F2/F3 (same shared SiW package/split), but the EXACT per-train/dev, per-live/spoof crop-row split is NOT inferred by multiplying video counts by 4 -- it requires the real GPU join described in gpu_crop_level_join_contract (source_video_id -> E7-A video ref -> project_split/label_live_spoof), never executed on this laptop"
+        },
+        "gpu_crop_level_join_contract": [
+          "1. read source_video_id from each E7-B SIW_SOURCE_PACKAGE.json row",
+          "2. join to the authoritative E7-A siw_raw_video reference by video_id",
+          "3. inherit project_split (train/dev), label_live_spoof (live/spoof), spoof_family",
+          "4. keep only rows with status == 'success'",
+          "5. for GPAT live support, additionally keep only label_live_spoof == 'live'",
+          "6. preserve crop_relative_path and crop_sha256 from the E7-B row verbatim",
+          "7. resolve the crop under siw_source_v1/m2_run/<crop_relative_path> (e7b._e7b_m2_output_root semantics) -- no subject_id needed, never sample a replacement frame for any of the 24 terminal failures"
+        ]
+      },
+      "SOURCE_VIDEO_SPLIT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_BYTES_LOCAL": false,
+      "SOURCE_CROP_SUPPORT_MATERIALIZATION_STATUS": "GPU_REQUIRED",
+      "mixed_unit_total_never_computed": true,
+      "no_subject_id_required_for_siw": true,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F3": {
+      "schema_version": "ext-q1q2-e7c-source-live-pool-plan-v2",
+      "fold_id": "EXT-F3",
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "m3b_plan": {
+        "granularity": "CROP_ROW",
+        "datasets": [
+          "MSU-MFSD"
+        ],
+        "m3b_crop_train_rows": 480,
+        "m3b_crop_dev_rows": 640,
+        "m3b_live_crop_train_rows": 120,
+        "m3b_live_crop_dev_rows": 160,
+        "terminal_preprocessing_failures": 0,
+        "note": "every M3B reference IS a successful crop by construction"
+      },
+      "siw_plan": {
+        "video_level": {
+          "granularity": "CANONICAL_VIDEO",
+          "siw_video_train_count": 1362,
+          "siw_video_dev_count": 338,
+          "siw_live_video_train_count": 628,
+          "siw_live_video_dev_count": 157,
+          "resolved_locally": true,
+          "note": "these are E7-A CANONICAL VIDEO reference counts, never crop/support rows"
+        },
+        "crop_level": {
+          "granularity": "CROP_ROW",
+          "siw_success_crop_total": 6776,
+          "siw_failure_total": 24,
+          "siw_planned_frame_total": 6800,
+          "siw_live_crop_train_rows": "GPU_REQUIRED",
+          "siw_live_crop_dev_rows": "GPU_REQUIRED",
+          "resolved_locally": false,
+          "note": "the whole-package aggregate (6776 success / 24 failure) is frozen GPU evidence and applies identically to F2/F3 (same shared SiW package/split), but the EXACT per-train/dev, per-live/spoof crop-row split is NOT inferred by multiplying video counts by 4 -- it requires the real GPU join described in gpu_crop_level_join_contract (source_video_id -> E7-A video ref -> project_split/label_live_spoof), never executed on this laptop"
+        },
+        "gpu_crop_level_join_contract": [
+          "1. read source_video_id from each E7-B SIW_SOURCE_PACKAGE.json row",
+          "2. join to the authoritative E7-A siw_raw_video reference by video_id",
+          "3. inherit project_split (train/dev), label_live_spoof (live/spoof), spoof_family",
+          "4. keep only rows with status == 'success'",
+          "5. for GPAT live support, additionally keep only label_live_spoof == 'live'",
+          "6. preserve crop_relative_path and crop_sha256 from the E7-B row verbatim",
+          "7. resolve the crop under siw_source_v1/m2_run/<crop_relative_path> (e7b._e7b_m2_output_root semantics) -- no subject_id needed, never sample a replacement frame for any of the 24 terminal failures"
+        ]
+      },
+      "SOURCE_VIDEO_SPLIT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_PLAN_VALID": true,
+      "SOURCE_CROP_SUPPORT_BYTES_LOCAL": false,
+      "SOURCE_CROP_SUPPORT_MATERIALIZATION_STATUS": "GPU_REQUIRED",
+      "mixed_unit_total_never_computed": true,
+      "no_subject_id_required_for_siw": true,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

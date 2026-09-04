@@ -1,0 +1,49 @@
+{
+  "schema_version": "ext-q1q2-e7c-e7a-fold-binding-all-v1",
+  "folds": {
+    "EXT-F1": {
+      "schema_version": "ext-q1q2-e7c-e7a-fold-binding-v1",
+      "fold_id": "EXT-F1",
+      "hash_present": true,
+      "hash_match": true,
+      "materialization_present": true,
+      "source_domains_match": true,
+      "target_domain_match": true,
+      "siw_population_identity_match": true,
+      "siw_split_identity_match": true,
+      "match": true,
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F2": {
+      "schema_version": "ext-q1q2-e7c-e7a-fold-binding-v1",
+      "fold_id": "EXT-F2",
+      "hash_present": true,
+      "hash_match": true,
+      "materialization_present": true,
+      "source_domains_match": true,
+      "target_domain_match": true,
+      "siw_population_identity_match": true,
+      "siw_split_identity_match": true,
+      "match": true,
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F3": {
+      "schema_version": "ext-q1q2-e7c-e7a-fold-binding-v1",
+      "fold_id": "EXT-F3",
+      "hash_present": true,
+      "hash_match": true,
+      "materialization_present": true,
+      "source_domains_match": true,
+      "target_domain_match": true,
+      "siw_population_identity_match": true,
+      "siw_split_identity_match": true,
+      "match": true,
+      "target_access": false,
+      "llm_api_calls": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

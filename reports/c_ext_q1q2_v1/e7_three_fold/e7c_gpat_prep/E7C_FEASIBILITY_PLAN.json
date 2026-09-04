@@ -1,0 +1,103 @@
+{
+  "schema_version": "ext-q1q2-e7c-feasibility-plan-all-v1",
+  "folds": {
+    "EXT-F1": {
+      "schema_version": "ext-q1q2-e7c-feasibility-plan-v1",
+      "fold_id": "EXT-F1",
+      "conditions": {
+        "G-REALONLY": "NOT_APPLICABLE",
+        "G-RND": "READY_FOR_GPAT_PREP",
+        "G-DET": "READY_FOR_GPAT_PREP",
+        "G-LLM": "READY_FOR_GPAT_PREP",
+        "G-LLM-SHUFFLE-A": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY"
+      },
+      "shuffle_basis": {
+        "E6_V2_STATUS": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+        "SHUFFLE_GPAT_MAX_FILLABLE": 512,
+        "SHUFFLE_PHYSICS_MAX_FILLABLE": 479,
+        "SHUFFLE_PHYSICS_REQUIRED": 512,
+        "SHUFFLE_PHYSICS_CASIA_AVAILABLE": 231,
+        "SHUFFLE_PHYSICS_CASIA_REQUIRED": 264,
+        "SHUFFLE_PHYSICS_CASIA_DEFICIT": 33,
+        "closure_identity": "2a7b95496bf25cbd5d17265188b9003ff17cf48abc7a500dde598738ec1a2a03"
+      },
+      "forbidden_rescue_actions": [
+        "lower bank size 512",
+        "change source-domain quotas",
+        "relax quality thresholds",
+        "modify q",
+        "resample candidates",
+        "rerender solely to obtain a passing bank",
+        "change matching policy"
+      ],
+      "no_parameter_changes_permitted": true,
+      "target_access": false,
+      "llm_api_calls": 0,
+      "rendering_performed": false,
+      "training_performed": false,
+      "gpat_fitting_performed": false
+    },
+    "EXT-F2": {
+      "schema_version": "ext-q1q2-e7c-feasibility-plan-v1",
+      "fold_id": "EXT-F2",
+      "conditions": {
+        "G-REALONLY": "NOT_APPLICABLE",
+        "G-RND": "READY_FOR_GPAT_PREP",
+        "G-DET": "READY_FOR_GPAT_PREP",
+        "G-LLM": "READY_FOR_GPAT_PREP",
+        "G-LLM-SHUFFLE-A": "PENDING_FEASIBILITY_PREFLIGHT"
+      },
+      "shuffle_basis": {
+        "reason": "EXT-F1's Physics infeasibility is a property of EXT-F1's OWN quality-pass source-domain composition; EXT-F2 draws from a different source-domain pair and must be independently rendered/measured/matched before any feasibility conclusion is drawn",
+        "ext_f1_result_does_not_predetermine_this_fold": true
+      },
+      "forbidden_rescue_actions": [
+        "lower bank size 512",
+        "change source-domain quotas",
+        "relax quality thresholds",
+        "modify q",
+        "resample candidates",
+        "rerender solely to obtain a passing bank",
+        "change matching policy"
+      ],
+      "no_parameter_changes_permitted": true,
+      "target_access": false,
+      "llm_api_calls": 0,
+      "rendering_performed": false,
+      "training_performed": false,
+      "gpat_fitting_performed": false
+    },
+    "EXT-F3": {
+      "schema_version": "ext-q1q2-e7c-feasibility-plan-v1",
+      "fold_id": "EXT-F3",
+      "conditions": {
+        "G-REALONLY": "NOT_APPLICABLE",
+        "G-RND": "READY_FOR_GPAT_PREP",
+        "G-DET": "READY_FOR_GPAT_PREP",
+        "G-LLM": "READY_FOR_GPAT_PREP",
+        "G-LLM-SHUFFLE-A": "PENDING_FEASIBILITY_PREFLIGHT"
+      },
+      "shuffle_basis": {
+        "reason": "EXT-F1's Physics infeasibility is a property of EXT-F1's OWN quality-pass source-domain composition; EXT-F3 draws from a different source-domain pair and must be independently rendered/measured/matched before any feasibility conclusion is drawn",
+        "ext_f1_result_does_not_predetermine_this_fold": true
+      },
+      "forbidden_rescue_actions": [
+        "lower bank size 512",
+        "change source-domain quotas",
+        "relax quality thresholds",
+        "modify q",
+        "resample candidates",
+        "rerender solely to obtain a passing bank",
+        "change matching policy"
+      ],
+      "no_parameter_changes_permitted": true,
+      "target_access": false,
+      "llm_api_calls": 0,
+      "rendering_performed": false,
+      "training_performed": false,
+      "gpat_fitting_performed": false
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

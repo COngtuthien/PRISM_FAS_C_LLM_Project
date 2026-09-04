@@ -1,0 +1,35 @@
+{
+  "schema_version": "ext-q1q2-e7c-recipe-identity-provenance-v1",
+  "TECHNICAL_ISSUE": "the original E7C_RECIPE_BANK_BINDING.json reported each arm's C3_BANK.json.bank_identity as an unqualified 'identity', which could be mistaken for the canonical scientific recipe-set identity (selected_set_identity) -- they are computed by different algorithms over different material.",
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "per_arm_identity_kinds": {
+    "RND": {
+      "observed_binding_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "observed_binding_identity_kind": "RECIPE_BANK_IDENTITY",
+      "selected_set_identity": "5ab2375b6ccf28fdee795d7eaebd295be18b2b3a579da03bb1ef3736b0d0e7e3"
+    },
+    "DET": {
+      "observed_binding_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "observed_binding_identity_kind": "RECIPE_BANK_IDENTITY",
+      "selected_set_identity": "89761485332b94e9b5fe2756054da2286b74eb2fbcf08bf1b166163a75c772d9"
+    },
+    "LLM": {
+      "observed_binding_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "observed_binding_identity_kind": "RECIPE_BANK_IDENTITY",
+      "selected_set_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326"
+    },
+    "LLM-SHUFFLE-A": {
+      "observed_binding_identity": "a9fe9897cf78d03a57c871b461dc2fef15282deacddd767d032495eaf02533cf",
+      "observed_binding_identity_kind": "CANONICAL_JSONL_CONTENT_HASH",
+      "selected_set_identity": null
+    }
+  },
+  "llm_equivalence": {
+    "canonical_selected_set_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+    "raw_content_identity": "7d4b56421c8e98928db980605befb6419b1851c59e64e09ae05649266326e1d0",
+    "equivalence_proven": true,
+    "equivalence_evidence_path": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_RECIPE_PAIR_LOCK.json"
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}
