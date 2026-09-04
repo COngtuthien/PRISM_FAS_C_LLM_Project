@@ -623,3 +623,364 @@ def test_main_materialize_without_authorize_fails(monkeypatch, tmp_path):
     repo = _base_repo(tmp_path)
     monkeypatch.setattr(e7d.cc, "repo_root", lambda: repo)
     assert e7d.main(["--e7d-materialize"]) == 1
+
+
+# =========================================================================== #
+# 2cac8ce PACKAGE TRANSACTION + VALIDATOR FIX -- materialize_fold() used to
+# report ALREADY_VALID from a matching top-level package_identity alone,
+# without validating the child manifests, and wrote SOURCE_SUPPORT_PACKAGE.
+# json BEFORE its child manifests (so a crash mid-write could leave an
+# incomplete package a rerun might mistake as valid). Fixed: child
+# manifests are written FIRST, SOURCE_SUPPORT_PACKAGE.json is the FINAL
+# commit marker, and a matching identity is validated in full via the new
+# strict validate_fold() before ALREADY_VALID may ever be reported.
+# TECHNICAL fix only -- no fold/dataset/join/firewall/identity-algorithm
+# change.
+# =========================================================================== #
+
+def _materialize_simple_f1(repo: Path, monkeypatch, *, sample_id: str = "c1") -> dict:
+    _patch_valid_input_binding(monkeypatch)
+    train = [_m3b_source_ref("CASIA-FASD", "live", sample_id)]
+    sha = _write_m3b_crop(repo, f"images/{sample_id}.jpg", b"crop-bytes-" + sample_id.encode())
+    train[0]["crop_sha256"] = sha
+    _write_materialization(repo, "EXT-F1", source_domains=("CASIA-FASD", "MSU-MFSD"),
+                           target_domain="SiW-Mv2", train_refs=train)
+    return e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+
+
+# --- 1: package manifest written last ----------------------------------------
+
+def test_package_manifest_written_last(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    write_order: list[str] = []
+    real_write = e7d._write_json_atomic
+
+    def _tracking_write(path, body):
+        write_order.append(path.name)
+        real_write(path, body)
+
+    _materialize_simple_f1(repo, monkeypatch)  # sets up input binding/materialization
+    monkeypatch.setattr(e7d, "_write_json_atomic", _tracking_write)
+    # remove the package produced above so a fresh, tracked write happens
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F1"
+    for f in fold_root.glob("*.json"):
+        f.unlink()
+    e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+    assert write_order[-1] == "SOURCE_SUPPORT_PACKAGE.json"
+    assert write_order.index("SOURCE_SUPPORT_PACKAGE.json") == len(write_order) - 1
+    assert "source_train.json" in write_order[:-1]
+    assert "source_dev.json" in write_order[:-1]
+
+
+# --- 2: crash/partial package cannot become ALREADY_VALID -------------------
+
+def test_partial_package_crash_cannot_become_already_valid(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    # simulate a crash: child manifests exist, but the FINAL marker never landed
+    (fold_root / "SOURCE_SUPPORT_PACKAGE.json").unlink()
+    rerun = e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+    assert rerun["status"] == "MATERIALIZED"
+    assert rerun.get("resumed", False) is False  # never falsely resumed as ALREADY_VALID
+
+
+# --- 3: existing same identity + missing child manifest => fail closed -----
+
+def test_existing_matching_identity_missing_child_manifest_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    (fold_root / "source_dev.json").unlink()
+    with pytest.raises(e7d.E7DError, match="FAILED strict validation"):
+        e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+
+
+# --- 4: existing same identity + wrong child row count => fail closed ------
+
+def test_existing_matching_identity_wrong_child_row_count_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    train_path = fold_root / "source_train.json"
+    body = json.loads(train_path.read_text())
+    body["rows"] = body["rows"] + [dict(body["rows"][0])]  # corrupt: duplicate a row
+    train_path.write_text(json.dumps(body), encoding="utf-8")
+    with pytest.raises(e7d.E7DError, match="FAILED strict validation"):
+        e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+
+
+# --- 5: existing same identity + missing crop => fail closed ----------------
+
+def test_existing_matching_identity_missing_crop_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _materialize_simple_f1(repo, monkeypatch)
+    (repo / e7b.CASIA_MSU_PACKAGE_ROOT / "images/c1.jpg").unlink()
+    # materialize_fold's own fresh re-read of the (now-missing) crop fails
+    # closed even before reaching the resume/ALREADY_VALID branch -- still a
+    # correct FAIL CLOSED outcome for "existing package + missing crop"
+    with pytest.raises(e7d.E7DError, match="crop missing on disk"):
+        e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+    # and the strict validator itself independently flags it too
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert validation["missing_crops"]
+
+
+# --- 6: existing same identity + crop SHA mismatch => fail closed ----------
+
+def test_existing_matching_identity_crop_sha_mismatch_fails_closed(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _materialize_simple_f1(repo, monkeypatch)
+    (repo / e7b.CASIA_MSU_PACKAGE_ROOT / "images/c1.jpg").write_bytes(b"tampered-bytes")
+    # materialize_fold's own fresh re-read detects the corrupted crop before
+    # reaching the resume/ALREADY_VALID branch -- still a correct FAIL CLOSED
+    with pytest.raises(e7d.E7DError, match="crop SHA256 mismatch"):
+        e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+    # and the strict validator itself independently flags it too
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert validation["bad_crop_hashes"]
+
+
+# --- 7: target-domain row => fail closed (validated directly) --------------
+
+def test_validate_fold_rejects_target_domain_row(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    train_path = fold_root / "source_train.json"
+    body = json.loads(train_path.read_text())
+    body["rows"][0]["dataset"] = "SiW-Mv2"  # F1's held-out target domain
+    train_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert validation["target_domain_absent"] is False
+    assert any("HELD-OUT TARGET" in p for p in validation["problems"])
+    with pytest.raises(e7d.E7DError, match="FAILED strict validation"):
+        e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+
+
+# --- 8: recomputed identity mismatch => fail closed --------------------------
+
+def test_validate_fold_rejects_recomputed_identity_mismatch(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    train_path = fold_root / "source_train.json"
+    body = json.loads(train_path.read_text())
+    body["rows"][0]["label_live_spoof"] = "spoof"  # tamper identity-relevant material
+    train_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert validation["package_identity_match"] is False
+    assert validation["recomputed_package_identity"] != validation["package_identity"]
+
+
+# --- 9: valid existing package => ALREADY_VALID -------------------------------
+
+def test_valid_existing_package_returns_already_valid_with_validation(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _materialize_simple_f1(repo, monkeypatch)
+    result = e7d.materialize_fold(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "ALREADY_VALID"
+    assert result["resumed"] is True
+    assert result["validation"]["status"] == "VALID"
+
+
+# --- 10: validator is read-only ----------------------------------------------
+
+def test_validator_is_read_only(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _materialize_simple_f1(repo, monkeypatch)
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F1"
+    before = {p: p.read_bytes() for p in fold_root.rglob("*") if p.is_file()}
+    before_crop = (repo / e7b.CASIA_MSU_PACKAGE_ROOT / "images/c1.jpg").read_bytes()
+    e7d.e7d_validate(repo)
+    e7d.validate_fold(repo, "EXT-F1")
+    after = {p: p.read_bytes() for p in fold_root.rglob("*") if p.is_file()}
+    after_crop = (repo / e7b.CASIA_MSU_PACKAGE_ROOT / "images/c1.jpg").read_bytes()
+    assert after == before
+    assert after_crop == before_crop
+
+
+# --- 11: validator verifies all crop hashes -----------------------------------
+
+def test_validator_verifies_all_crop_hashes(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _materialize_simple_f1(repo, monkeypatch)
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+    assert validation["crop_rows_verified"] == 1
+    assert validation["missing_crops"] == []
+    assert validation["bad_crop_hashes"] == []
+
+
+# --- 12: SiW validator uses m2_run root ---------------------------------------
+
+def test_siw_validator_uses_m2_run_root(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _patch_valid_input_binding(monkeypatch)
+    monkeypatch.setattr(e7d, "FROZEN_SIW", {"package_identity": "siw-id",
+                                            "population_identity": "pop-1", "split_identity": "split-1",
+                                            "planned_frame_count": 1, "successful_crop_count": 1,
+                                            "failure_count": 0})
+    train = [_siw_video_ref("Live_0", "train", "live", population_identity="pop-1",
+                            split_identity="split-1")]
+    _write_f2_f3_siw_materialization(repo, train)
+    sha = _write_siw_crop(repo, "crops/a.jpg", b"real-crop")
+    # decoy at the OLD wrong location -- must never be used
+    (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "crops").mkdir(parents=True, exist_ok=True)
+    (repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "crops/a.jpg").write_bytes(b"decoy")
+    _write_siw_package(repo, [{"source_video_id": "Live_0", "status": "success", "frame_index": 0,
+                              "crop_relative_path": "crops/a.jpg", "crop_sha256": sha}],
+                       package_identity="siw-id", population_identity="pop-1", split_identity="split-1")
+    e7d.materialize_fold(repo, "EXT-F2", authorize=True)
+    validation = e7d.validate_fold(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+    assert validation["crop_rows_verified"] == 1
+
+
+# --- 13: SiW 6776/24/6800 exact -----------------------------------------------
+
+def test_validator_rejects_wrong_siw_terminal_accounting(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _patch_valid_input_binding(monkeypatch)
+    monkeypatch.setattr(e7d, "FROZEN_SIW", {"package_identity": "siw-id",
+                                            "population_identity": "pop-1", "split_identity": "split-1",
+                                            "planned_frame_count": 1, "successful_crop_count": 1,
+                                            "failure_count": 0})
+    train = [_siw_video_ref("Live_0", "train", "live", population_identity="pop-1",
+                            split_identity="split-1")]
+    _write_f2_f3_siw_materialization(repo, train)
+    sha = _write_siw_crop(repo, "crops/a.jpg", b"real-crop")
+    _write_siw_package(repo, [{"source_video_id": "Live_0", "status": "success", "frame_index": 0,
+                              "crop_relative_path": "crops/a.jpg", "crop_sha256": sha}],
+                       package_identity="siw-id", population_identity="pop-1", split_identity="split-1")
+    result = e7d.materialize_fold(repo, "EXT-F2", authorize=True)
+    package_path = Path(result["path"])
+    body = json.loads(package_path.read_text())
+    body["siw_success_total"] = 999  # tamper terminal accounting
+    package_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F2")
+    assert validation["status"] == "INVALID"
+    assert any("siw_success_total" in p for p in validation["problems"])
+
+
+# --- 14: failure rows excluded from support manifests -------------------------
+
+def test_validator_rejects_failure_row_leaking_into_support_manifest(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    _patch_valid_input_binding(monkeypatch)
+    monkeypatch.setattr(e7d, "FROZEN_SIW", {"package_identity": "siw-id",
+                                            "population_identity": "pop-1", "split_identity": "split-1",
+                                            "planned_frame_count": 2, "successful_crop_count": 1,
+                                            "failure_count": 1})
+    train = [_siw_video_ref("Live_0", "train", "live", population_identity="pop-1",
+                            split_identity="split-1")]
+    _write_f2_f3_siw_materialization(repo, train)
+    sha = _write_siw_crop(repo, "crops/a.jpg", b"real-crop")
+    rows = [{"source_video_id": "Live_0", "status": "success", "frame_index": 0,
+            "crop_relative_path": "crops/a.jpg", "crop_sha256": sha},
+           {"source_video_id": "Live_0", "status": "failure", "frame_index": 1,
+            "failure_reason": "no_face"}]
+    _write_siw_package(repo, rows, package_identity="siw-id", population_identity="pop-1",
+                       split_identity="split-1")
+    result = e7d.materialize_fold(repo, "EXT-F2", authorize=True)
+    fold_root = Path(result["path"]).parent
+    train_path = fold_root / "source_train.json"
+    body = json.loads(train_path.read_text())
+    # leak the terminal failure row into the support manifest
+    body["rows"].append({"fold_id": "EXT-F2", "dataset": "SiW-Mv2", "project_split": "train",
+                         "label_live_spoof": "live", "spoof_family": None,
+                         "source_video_id": "Live_0", "frame_index": 1,
+                         "crop_relative_path": None, "crop_sha256": None,
+                         "source_package_kind": e7d.SIW_SOURCE_PACKAGE_KIND,
+                         "source_package_identity": "siw-id", "status": "failure",
+                         "subject_id": None, "failure_reason": "no_face"})
+    train_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F2")
+    assert validation["status"] == "INVALID"
+    assert any("support/live manifest" in p for p in validation["problems"])
+
+
+# --- 15: live manifests exact live subsets -----------------------------------
+
+def test_validator_rejects_live_manifest_not_a_subset(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    live_path = fold_root / "source_live_train.json"
+    body = json.loads(live_path.read_text())
+    body["rows"].append({"fold_id": "EXT-F1", "dataset": "CASIA-FASD", "project_split": "source_train",
+                         "label_live_spoof": "live", "spoof_family": None, "source_video_id": "phantom",
+                         "frame_index": None, "crop_relative_path": "images/phantom.jpg",
+                         "crop_sha256": "f" * 64, "source_package_kind": e7d.M3B_SOURCE_PACKAGE_KIND,
+                         "source_package_identity": "m3b-test-identity", "status": "success",
+                         "subject_id": None, "failure_reason": None, "sample_id": "phantom"})
+    live_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("not an exact subset" in p for p in validation["problems"])
+
+
+# --- 16: train/dev disjoint ----------------------------------------------------
+
+def test_validator_rejects_train_dev_overlap(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)
+    fold_root = Path(result["path"]).parent
+    train_rows = json.loads((fold_root / "source_train.json").read_text())["rows"]
+    dev_path = fold_root / "source_dev.json"
+    dev_body = json.loads(dev_path.read_text())
+    dev_body["rows"] = dev_body["rows"] + [dict(train_rows[0])]  # duplicate the same row into dev
+    dev_path.write_text(json.dumps(dev_body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["status"] == "INVALID"
+    assert any("train/dev overlap" in p for p in validation["problems"])
+
+
+# --- 17: target firewall fold-aware (validated) -------------------------------
+
+def test_validator_target_firewall_fold_aware(tmp_path, monkeypatch):
+    repo = _base_repo(tmp_path)
+    result = _materialize_simple_f1(repo, monkeypatch)  # EXT-F1: no SiW as source
+    fold_root = Path(result["path"]).parent
+    train_path = fold_root / "source_train.json"
+    body = json.loads(train_path.read_text())
+    # inject a row that resolves under the E7-B SiW SOURCE root -- forbidden
+    # for F1 specifically, since SiW is not an F1 source domain
+    body["rows"][0]["source_package_kind"] = e7d.SIW_SOURCE_PACKAGE_KIND
+    body["rows"][0]["crop_relative_path"] = "crops/a.jpg"
+    train_path.write_text(json.dumps(body), encoding="utf-8")
+    validation = e7d.validate_fold(repo, "EXT-F1")
+    assert validation["target_firewall_pass"] is False
+
+
+# --- 18: identity algorithm unchanged (regression pin) ------------------------
+
+def test_identity_algorithm_unchanged_regression_pin():
+    rows = [{"dataset": "CASIA-FASD", "project_split": "source_train", "source_video_id": "v1",
+            "frame_index": None, "crop_sha256": "a" * 64, "label_live_spoof": "live",
+            "status": "success"}]
+    identity = e7d.compute_package_identity(fold_id="EXT-F1", m3b_identity="m3b-id", rows=rows)
+    # pinned from this exact turn's implementation -- any change here would
+    # mean the identity ALGORITHM changed, which this milestone forbids
+    expected = e7d.cc.sha256_bytes(e7d.cc.canonical_json_bytes({
+        "fold_id": "EXT-F1", "source_domains": sorted(e7d.FOLD_SOURCE_DOMAINS["EXT-F1"]),
+        "m3b_package_identity": "m3b-id", "siw_package_identity": None, "siw_split_identity": None,
+        "row_material": sorted((r["dataset"], r["project_split"], r["source_video_id"],
+                               r.get("frame_index"), r.get("crop_sha256"), r["label_live_spoof"],
+                               r["status"]) for r in rows),
+        "schema_version": f"{e7d.SCHEMA_PREFIX}-output-schema-v1"}))
+    assert identity == expected
+
+
+# --- 19: no GPAT fitting/render/training/LLM in the new validator code -----
+
+def test_new_validator_code_never_fits_renders_trains_or_calls_llm():
+    source = Path(e7d.__file__).read_text(encoding="utf-8")
+    validator_section = source[source.index("def validate_fold("):source.index("def e7d_validate(")]
+    for forbidden in ("GPATTrainer(", ".fit(", "GPATRoute(", "PhysicsRoute(", "quality_gate.evaluate(",
+                      "train_detector(", "openai", "google.generativeai"):
+        assert forbidden not in validator_section

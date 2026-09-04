@@ -515,12 +515,26 @@ def materialize_fold(repo: Path, fold_id: str, *, authorize: bool = False) -> di
     package_manifest_path = fold_root / "SOURCE_SUPPORT_PACKAGE.json"
     if package_manifest_path.is_file():
         existing = cc.read_json(package_manifest_path)
-        if existing.get("package_identity") == package_identity:
-            return {"resumed": True, "status": "ALREADY_VALID", "path": str(package_manifest_path),
-                   "package_identity": package_identity, "target_access": False, "llm_api_calls": 0}
-        raise E7DConflict(f"{fold_id}: existing SOURCE_SUPPORT_PACKAGE.json package_identity "
-                          f"{existing.get('package_identity')!r} disagrees with the freshly "
-                          f"computed {package_identity!r} -- FAIL CLOSED, never overwritten")
+        if existing.get("package_identity") != package_identity:
+            raise E7DConflict(f"{fold_id}: existing SOURCE_SUPPORT_PACKAGE.json package_identity "
+                              f"{existing.get('package_identity')!r} disagrees with the freshly "
+                              f"computed {package_identity!r} -- FAIL CLOSED, never overwritten")
+        # Identity matches, but that alone is not enough: the frozen E7-D
+        # contract requires the COMPLETE existing package to pass the same
+        # strict validator a fresh --e7d-validate run would use before it
+        # may ever be reported ALREADY_VALID -- never trust a matching
+        # top-level identity on its own (a partial/crashed prior write can
+        # still have a matching identity if the crash happened after the
+        # identity was already computed but before every child manifest
+        # landed).
+        validation = validate_fold(repo, fold_id)
+        if validation["status"] != "VALID":
+            raise E7DError(f"{fold_id}: existing package identity matches, but the existing "
+                           f"package FAILED strict validation -- FAIL CLOSED, refusing to report "
+                           f"ALREADY_VALID or silently rewrite it: {validation['problems']!r}")
+        return {"resumed": True, "status": "ALREADY_VALID", "path": str(package_manifest_path),
+               "package_identity": package_identity, "validation": validation,
+               "target_access": False, "llm_api_calls": 0}
 
     body = {
         "schema_version": f"{SCHEMA_PREFIX}-source-support-package-v1", "fold_id": fold_id,
@@ -535,13 +549,20 @@ def materialize_fold(repo: Path, fold_id: str, *, authorize: bool = False) -> di
         "target_labels_opened": False, "target_image_bytes_opened": False,
         "status": "MATERIALIZED",
     }
-    _write_json_atomic(package_manifest_path, body)
+    # TRANSACTION ORDER: every child manifest is written FIRST; the package
+    # manifest (SOURCE_SUPPORT_PACKAGE.json) is the FINAL commit marker,
+    # written only after all child files have landed. A crash partway
+    # through this sequence leaves NO SOURCE_SUPPORT_PACKAGE.json at all,
+    # so a rerun sees "not materialized" (never a false ALREADY_VALID) --
+    # each individual file is itself atomic via `_write_json_atomic`
+    # (tmp-then-replace), so no `.tmp` file is ever mistaken for a marker.
     _write_json_atomic(fold_root / "source_train.json", {"rows": train_rows})
     _write_json_atomic(fold_root / "source_dev.json", {"rows": dev_rows})
     _write_json_atomic(fold_root / "source_live_train.json", {"rows": live_train_rows})
     _write_json_atomic(fold_root / "source_live_dev.json", {"rows": live_dev_rows})
     if siw_failure_rows:
         _write_json_atomic(fold_root / "terminal_failures.json", {"rows": siw_failure_rows})
+    _write_json_atomic(package_manifest_path, body)
 
     return {"resumed": False, "status": "MATERIALIZED", "path": str(package_manifest_path),
            "body": body, "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
@@ -556,36 +577,188 @@ def e7d_materialize(repo: Path, *, authorize: bool = False) -> dict[str, Any]:
 # TASK H -- read-only validator
 # --------------------------------------------------------------------------- #
 
+_CROP_ROOT_FOR_KIND = {
+    M3B_SOURCE_PACKAGE_KIND: lambda repo: repo / e7b.CASIA_MSU_PACKAGE_ROOT,
+    SIW_SOURCE_PACKAGE_KIND: lambda repo: repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run",
+}
+_REPO_RELATIVE_CROP_ROOT_FOR_KIND = {
+    M3B_SOURCE_PACKAGE_KIND: e7b.CASIA_MSU_PACKAGE_ROOT,
+    SIW_SOURCE_PACKAGE_KIND: f"{e7b.E7B_SIW_SOURCE_PACKAGE_ROOT}/m2_run",
+}
+
+
+def validate_fold(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only per-fold validator. Never writes/alters package
+    bytes. Verifies (A) package structure, (B) row counts and live-subset
+    correctness, (C) fold/domain policy, (D) crop path/root semantics +
+    hash verification, (E) SiW terminal accounting, (F) deterministic
+    package identity recomputed via the UNCHANGED `compute_package_identity`,
+    (G) the fold-aware target firewall, (H) target-access metadata flags."""
+    if fold_id not in FOLD_IDS:
+        raise E7DError(f"unknown fold_id {fold_id!r}")
+    fold_root = repo / E7D_OUTPUT_ROOT / fold_id
+    manifest_path = fold_root / "SOURCE_SUPPORT_PACKAGE.json"
+    if not manifest_path.is_file():
+        return {"status": "NOT_MATERIALIZED", "fold_id": fold_id}
+
+    problems: list[str] = []
+    body = cc.read_json(manifest_path)
+    siw_in_fold = "SiW-Mv2" in FOLD_SOURCE_DOMAINS[fold_id]
+
+    # --- A: package structure ------------------------------------------------
+    required_manifests = ["source_train.json", "source_dev.json", "source_live_train.json",
+                          "source_live_dev.json"]
+    terminal_path = fold_root / "terminal_failures.json"
+    terminal_required = siw_in_fold and (body.get("siw_failure_total") or 0) > 0
+    if terminal_required and not terminal_path.is_file():
+        problems.append("terminal_failures.json required (siw_failure_total > 0) but missing")
+
+    manifest_rows: dict[str, list[dict[str, Any]]] = {}
+    for name in required_manifests:
+        path = fold_root / name
+        if not path.is_file():
+            problems.append(f"missing {name}")
+            manifest_rows[name] = []
+            continue
+        manifest_rows[name] = cc.read_json(path).get("rows", [])
+    terminal_rows = cc.read_json(terminal_path).get("rows", []) if terminal_path.is_file() else []
+
+    train_rows = manifest_rows.get("source_train.json", [])
+    dev_rows = manifest_rows.get("source_dev.json", [])
+    live_train_rows = manifest_rows.get("source_live_train.json", [])
+    live_dev_rows = manifest_rows.get("source_live_dev.json", [])
+
+    # --- B: row counts ---------------------------------------------------------
+    for name, rows, count_field in (("source_train.json", train_rows, "train_row_count"),
+                                    ("source_dev.json", dev_rows, "dev_row_count"),
+                                    ("source_live_train.json", live_train_rows,
+                                     "live_train_row_count"),
+                                    ("source_live_dev.json", live_dev_rows, "live_dev_row_count")):
+        if len(rows) != body.get(count_field):
+            problems.append(f"{name} row count {len(rows)} != recorded {count_field}="
+                            f"{body.get(count_field)}")
+
+    def _row_key(r: dict[str, Any]) -> Any:
+        return (r.get("source_video_id"), r.get("frame_index")) if r.get("frame_index") is not None \
+            else r.get("sample_id") or r.get("source_video_id")
+
+    train_keys = {_row_key(r) for r in train_rows}
+    dev_keys = {_row_key(r) for r in dev_rows}
+    live_train_keys = {_row_key(r) for r in live_train_rows}
+    live_dev_keys = {_row_key(r) for r in live_dev_rows}
+    if not live_train_keys <= train_keys:
+        problems.append("source_live_train.json is not an exact subset of source_train.json")
+    if not live_dev_keys <= dev_keys:
+        problems.append("source_live_dev.json is not an exact subset of source_dev.json")
+    if any(r.get("label_live_spoof") != "live" for r in live_train_rows + live_dev_rows):
+        problems.append("a live manifest row does not have label_live_spoof == 'live'")
+
+    # --- C: fold/domain policy --------------------------------------------------
+    target_domain = FOLD_TARGET_DOMAIN[fold_id]
+    target_domain_absent = True
+    all_rows = train_rows + dev_rows
+    for row in all_rows:
+        if row.get("dataset") not in FOLD_SOURCE_DOMAINS[fold_id]:
+            problems.append(f"row {row.get('source_video_id')!r} belongs to unexpected domain "
+                            f"{row.get('dataset')!r}")
+        if row.get("dataset") == target_domain:
+            target_domain_absent = False
+            problems.append(f"row {row.get('source_video_id')!r} belongs to the HELD-OUT TARGET "
+                            f"domain {target_domain!r}")
+        if row.get("label_live_spoof") not in ("live", "spoof"):
+            problems.append(f"row {row.get('source_video_id')!r} has an invalid live/spoof label")
+    if train_keys & dev_keys:
+        problems.append("train/dev overlap: a source row appears in both manifests")
+
+    # --- D: crop path/root semantics --------------------------------------------
+    crop_rows_verified = 0
+    missing_crops: list[str] = []
+    bad_crop_hashes: list[str] = []
+    target_firewall_pass = True
+    for row in all_rows:
+        kind = row.get("source_package_kind")
+        crop_relative_path = row.get("crop_relative_path")
+        if kind not in _CROP_ROOT_FOR_KIND or not crop_relative_path:
+            problems.append(f"row {row.get('source_video_id')!r} has no resolvable crop root/path")
+            continue
+        repo_relative = f"{_REPO_RELATIVE_CROP_ROOT_FOR_KIND[kind]}/{crop_relative_path}"
+        try:
+            assert_not_target_path(fold_id, repo_relative)
+        except E7DTargetFirewallViolation as exc:
+            target_firewall_pass = False
+            problems.append(str(exc))
+        crop_path = _CROP_ROOT_FOR_KIND[kind](repo) / crop_relative_path
+        if not crop_path.is_file():
+            missing_crops.append(crop_relative_path)
+            problems.append(f"crop missing on disk: {crop_relative_path!r}")
+            continue
+        if cc.sha256_file(crop_path) != row.get("crop_sha256"):
+            bad_crop_hashes.append(crop_relative_path)
+            problems.append(f"crop SHA256 mismatch: {crop_relative_path!r}")
+            continue
+        crop_rows_verified += 1
+
+    # --- E: SiW terminal accounting ---------------------------------------------
+    siw_success_total = body.get("siw_success_total")
+    siw_failure_total = body.get("siw_failure_total")
+    if siw_in_fold:
+        if siw_success_total != FROZEN_SIW["successful_crop_count"]:
+            problems.append(f"siw_success_total {siw_success_total} != "
+                            f"{FROZEN_SIW['successful_crop_count']}")
+        if siw_failure_total != FROZEN_SIW["failure_count"]:
+            problems.append(f"siw_failure_total {siw_failure_total} != {FROZEN_SIW['failure_count']}")
+        if (siw_success_total or 0) + (siw_failure_total or 0) != FROZEN_SIW["planned_frame_count"]:
+            problems.append("siw_success_total + siw_failure_total != "
+                            f"{FROZEN_SIW['planned_frame_count']}")
+        for row in terminal_rows:
+            if row.get("status") != "failure" or not row.get("failure_reason"):
+                problems.append(f"terminal_failures row for {row.get('source_video_id')!r} is not "
+                                "a valid terminal failure (status/failure_reason)")
+            key = _row_key(row)
+            if key in train_keys or key in dev_keys or key in live_train_keys or key in live_dev_keys:
+                problems.append(f"terminal failure {key!r} appears in a support/live manifest -- "
+                                "failures must never enter support manifests")
+        if terminal_required and len(terminal_rows) != siw_failure_total:
+            problems.append(f"terminal_failures.json row count {len(terminal_rows)} != "
+                            f"siw_failure_total={siw_failure_total}")
+
+    # --- F: deterministic identity ----------------------------------------------
+    recomputed_package_identity = compute_package_identity(
+        fold_id=fold_id, m3b_identity=body.get("m3b_package_identity"), rows=all_rows)
+    package_identity_match = recomputed_package_identity == body.get("package_identity")
+    if not package_identity_match:
+        problems.append(f"recomputed_package_identity {recomputed_package_identity!r} != "
+                        f"recorded package_identity {body.get('package_identity')!r}")
+
+    # --- H: metadata flags --------------------------------------------------------
+    if body.get("target_labels_opened") is not False:
+        problems.append("target_labels_opened is not False")
+        target_firewall_pass = False
+    if body.get("target_image_bytes_opened") is not False:
+        problems.append("target_image_bytes_opened is not False")
+        target_firewall_pass = False
+
+    return {
+        "status": "INVALID" if problems else "VALID", "fold_id": fold_id, "problems": problems,
+        "package_identity": body.get("package_identity"),
+        "recomputed_package_identity": recomputed_package_identity,
+        "package_identity_match": package_identity_match,
+        "train_row_count": len(train_rows), "dev_row_count": len(dev_rows),
+        "live_train_row_count": len(live_train_rows), "live_dev_row_count": len(live_dev_rows),
+        "siw_success_total": siw_success_total if siw_in_fold else None,
+        "siw_failure_total": siw_failure_total if siw_in_fold else None,
+        "crop_rows_verified": crop_rows_verified, "missing_crops": missing_crops,
+        "bad_crop_hashes": bad_crop_hashes, "target_domain_absent": target_domain_absent,
+        "target_firewall_pass": target_firewall_pass,
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
 def e7d_validate(repo: Path) -> dict[str, Any]:
-    """`--e7d-validate`: read-only. Never alters package bytes."""
+    """`--e7d-validate`: STRICTLY read-only. Never alters package bytes."""
     results: dict[str, Any] = {}
     for fold_id in FOLD_IDS:
-        fold_root = repo / E7D_OUTPUT_ROOT / fold_id
-        manifest_path = fold_root / "SOURCE_SUPPORT_PACKAGE.json"
-        if not manifest_path.is_file():
-            results[fold_id] = {"status": "NOT_MATERIALIZED"}
-            continue
-        body = cc.read_json(manifest_path)
-        problems = []
-        for manifest_name, count_field in (("source_train.json", "train_row_count"),
-                                           ("source_dev.json", "dev_row_count"),
-                                           ("source_live_train.json", "live_train_row_count"),
-                                           ("source_live_dev.json", "live_dev_row_count")):
-            path = fold_root / manifest_name
-            if not path.is_file():
-                problems.append(f"missing {manifest_name}")
-                continue
-            rows = cc.read_json(path).get("rows", [])
-            if len(rows) != body.get(count_field):
-                problems.append(f"{manifest_name} row count {len(rows)} != recorded "
-                                f"{count_field}={body.get(count_field)}")
-        if "SiW-Mv2" in FOLD_SOURCE_DOMAINS[fold_id]:
-            total = (body.get("siw_success_total") or 0) + (body.get("siw_failure_total") or 0)
-            if total != FROZEN_SIW["planned_frame_count"]:
-                problems.append(f"SiW terminal accounting {total} != "
-                                f"{FROZEN_SIW['planned_frame_count']}")
-        results[fold_id] = {"status": "INVALID" if problems else "VALID", "problems": problems,
-                           "package_identity": body.get("package_identity")}
+        results[fold_id] = validate_fold(repo, fold_id)
     return {"schema_version": f"{SCHEMA_PREFIX}-validate-v1", "folds": results,
            "target_access": False, "llm_api_calls": 0}
 
