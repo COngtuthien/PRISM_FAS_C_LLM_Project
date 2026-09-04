@@ -432,7 +432,10 @@ def test_prepare_gpat_requires_authorize(tmp_path):
 
 
 def test_prepare_gpat_blocked_for_pending_siw_priors():
-    with pytest.raises(e7g.E7Error, match="preflight not ready for GPU GPAT fit -- FAIL CLOSED"):
+    # Real E7-D per-fold output is GPU-produced and not present on this laptop -- prepare_gpat
+    # now reaches the REAL GPAT-input package materialization step and fails closed there,
+    # earlier and more precisely than the old coarse preflight gate.
+    with pytest.raises(e7g.E7Error, match="E7-D source_train.json not present -- FAIL CLOSED"):
         e7g.prepare_gpat(REPO, "EXT-F2", authorize=True)
 
 
@@ -560,7 +563,7 @@ def test_audit_never_conflates_primitive_resolved_with_materialized():
 
 
 def test_prepare_gpat_fails_before_fit_for_f3_too():
-    with pytest.raises(e7g.E7Error, match="preflight not ready for GPU GPAT fit -- FAIL CLOSED"):
+    with pytest.raises(e7g.E7Error, match="E7-D source_train.json not present -- FAIL CLOSED"):
         e7g.prepare_gpat(REPO, "EXT-F3", authorize=True)
 
 
@@ -1531,3 +1534,658 @@ def test_successful_candidate_validation_marker_is_final_write(tmp_path, monkeyp
     assert body["package_identity"] == fake_identity
     assert body["rows"] == fake_rows
     assert result["validation"]["status"] == "VALID"
+
+
+# =========================================================================== #
+# E7_REAL_FOLD_AWARE_GPAT_FIT_IMPLEMENTATION.
+# =========================================================================== #
+
+def _write_m3b_dataset_rows(repo: Path, fold_id: str, *, e7a_domain: str, label_counts: dict[str, int]) -> tuple[list[dict], list[dict]]:
+    """Real crop+prior bytes under the canonical M3B package, plus matching
+    E7-A FOLD_MATERIALIZATION source_train_references and E7-D
+    source_train.json rows, for one M3B dataset. Returns (refs, e7d_rows)."""
+    import cv2
+    import numpy as np
+
+    m3b_root = repo / e7b.CASIA_MSU_PACKAGE_ROOT
+    (m3b_root / "images").mkdir(parents=True, exist_ok=True)
+    (m3b_root / "priors").mkdir(parents=True, exist_ok=True)
+    refs: list[dict] = []
+    e7d_rows: list[dict] = []
+    slug = e7d.E7A_DOMAIN_TO_M3B_DATASET[e7a_domain]
+    for label, count in label_counts.items():
+        for i in range(count):
+            sample_id = f"m3b_{slug}_{label}_{i}"
+            image_path = m3b_root / "images" / f"{sample_id}.jpg"
+            image = ((i * 11 + 5) % 256) * np.ones((32, 32, 3), dtype="uint8")
+            cv2.imwrite(str(image_path), image)
+            crop_sha = e7g.cc.sha256_file(image_path)
+            prior_path = m3b_root / "priors" / f"{sample_id}.npz"
+            np.savez(prior_path, parsing_labels=np.zeros((224, 224), dtype="uint8"),
+                    pose_ypr=np.zeros((3,), dtype="float32"), visibility=np.zeros((9,), dtype="float16"),
+                    bbox=np.zeros((4,), dtype="float32"), landmarks=np.zeros((5, 2), dtype="float32"),
+                    crop_box=np.zeros((4,), dtype="float32"))
+            prior_sha = e7g.cc.sha256_file(prior_path)
+            subject_id = f"subj_{sample_id}"  # globally unique -- never triggers the
+            # different-subject exclusion in _pick, which is not what this fixture is testing
+            refs.append({"fold_id": fold_id, "dataset": e7a_domain, "project_split": "source_train",
+                        "reference_kind": "m3b_processed_sample", "sample_id": sample_id,
+                        "source_record_id": sample_id, "subject_id": subject_id,
+                        "label_live_spoof": label, "image_relative_path": f"images/{sample_id}.jpg",
+                        "prior_relative_path": f"priors/{sample_id}.npz", "crop_sha256": crop_sha,
+                        "prior_sha256": prior_sha})
+            e7d_rows.append({"fold_id": fold_id, "dataset": e7a_domain, "project_split": "source_train",
+                            "label_live_spoof": label, "spoof_family": None, "source_video_id": sample_id,
+                            "frame_index": None, "crop_relative_path": f"images/{sample_id}.jpg",
+                            "crop_sha256": crop_sha, "source_package_kind": e7d.M3B_SOURCE_PACKAGE_KIND,
+                            "source_package_identity": e7b.FROZEN_M3B_PACKAGE_IDENTITY, "status": "success",
+                            "subject_id": subject_id, "failure_reason": None,
+                            "sample_id": sample_id})
+    return refs, e7d_rows
+
+
+def _write_fold_m3b_materialization(repo: Path, fold_id: str, refs: list[dict]) -> None:
+    mat_path = repo / e7b.E7A_MATERIALIZATION_DIR / fold_id / "FOLD_MATERIALIZATION.json"
+    mat_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = json.loads(mat_path.read_text(encoding="utf-8")) if mat_path.is_file() \
+        else {"source_train_references": []}
+    existing["source_train_references"] = existing["source_train_references"] + refs
+    mat_path.write_text(json.dumps(existing), encoding="utf-8")
+
+
+def _write_fold_e7d_source_train_rows(repo: Path, fold_id: str, rows: list[dict]) -> None:
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / fold_id
+    fold_root.mkdir(parents=True, exist_ok=True)
+    train_path = fold_root / "source_train.json"
+    existing = json.loads(train_path.read_text(encoding="utf-8")) if train_path.is_file() else {"rows": []}
+    existing["rows"] = existing["rows"] + rows
+    train_path.write_text(json.dumps(existing), encoding="utf-8")
+    dev_path = fold_root / "source_dev.json"
+    if not dev_path.is_file():
+        dev_path.write_text(json.dumps({"rows": []}), encoding="utf-8")
+
+
+def _write_shared_siw_prior_fixture(repo: Path, monkeypatch, *, video_rows: list[dict]) -> None:
+    """Real crop+prior bytes for the SHARED SiW source-prior package
+    (FULL M3B schema), matching `video_rows` (each: video_id, frame_index,
+    crop_relative_path). Patches `FROZEN_SIW_SOURCE_PRIOR_PACKAGE_IDENTITY`
+    and `EXPECTED_SIW_SUCCESS_CROP_COUNT` to match this fixture."""
+    import numpy as np
+
+    m2_root = repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run"
+    prior_root = repo / e7g.SIW_SOURCE_PRIOR_PACKAGE_ROOT
+    m2_root.mkdir(parents=True, exist_ok=True)
+    prior_root.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for r in video_rows:
+        crop_path = m2_root / r["crop_relative_path"]
+        crop_path.parent.mkdir(parents=True, exist_ok=True)
+        if not crop_path.is_file():
+            crop_path.write_bytes(f"siw-crop-{r['video_id']}-{r['frame_index']}".encode("utf-8"))
+        prior_path = prior_root / f"prior_{r['video_id']}_{r['frame_index']}.npz"
+        np.savez(prior_path, parsing_labels=np.zeros((224, 224), dtype="uint8"),
+                pose_ypr=np.zeros((3,), dtype="float32"), visibility=np.zeros((9,), dtype="float16"),
+                bbox=np.zeros((4,), dtype="float32"), landmarks=np.zeros((5, 2), dtype="float32"),
+                crop_box=np.zeros((4,), dtype="float32"))
+        rows.append({"source_video_id": r["video_id"], "frame_index": r["frame_index"], "status": "success",
+                    "source_crop_relative_path": r["crop_relative_path"],
+                    "source_crop_sha256": e7g.cc.sha256_file(crop_path),
+                    "prior_relative_path": f"prior_{r['video_id']}_{r['frame_index']}.npz",
+                    "prior_sha256": e7g.cc.sha256_file(prior_path)})
+    monkeypatch.setattr(e7g, "EXPECTED_SIW_SUCCESS_CROP_COUNT", len(rows))
+    package_identity = e7g.compute_siw_source_prior_package_identity(rows)
+    monkeypatch.setattr(e7g, "FROZEN_SIW_SOURCE_PRIOR_PACKAGE_IDENTITY", package_identity)
+    (prior_root / e7g.SIW_SOURCE_PRIOR_PACKAGE_FILENAME).write_text(
+        json.dumps({"schema_version": "siw-source-prior-package-v1", "package_identity": package_identity,
+                   "rows": rows}), encoding="utf-8")
+
+
+_GROUP_SIZE = 10  # 80/20 split of 10 -> 8 train / 2 validation, enough for 2 same + 2 cross per live
+
+
+def _build_gpat_ready_fixture(tmp_path: Path, monkeypatch, fold_id: str) -> Path:
+    """Builds a REAL, unmocked GPAT-input-ready fixture for one fold: E7-A/
+    E7-D authority + real M3B and/or shared-SiW crop/prior bytes, sized so
+    the REAL `pair_plan.build_pair_plan` can find 2 same-domain + 2
+    cross-domain spoof sources for every live sample."""
+    repo = _base_repo(tmp_path)
+    config_dest = repo / e7g.GPAT_FIT_CONFIG_PATH
+    config_dest.parent.mkdir(parents=True, exist_ok=True)
+    config_dest.write_text((REPO / e7g.GPAT_FIT_CONFIG_PATH).read_text(encoding="utf-8"), encoding="utf-8")
+    bank_dest = repo / e7g.M7_RECIPE_BANK_ROOT
+    bank_dest.parent.mkdir(parents=True, exist_ok=True)
+    bank_dest.symlink_to((REPO / e7g.M7_RECIPE_BANK_ROOT).resolve())
+    domains = e7g.FOLD_SOURCE_DOMAINS[fold_id]
+    all_refs: list[dict] = []
+    all_e7d_rows: list[dict] = []
+    for domain in domains:
+        if domain == "SiW-Mv2":
+            continue
+        refs, e7d_rows = _write_m3b_dataset_rows(repo, fold_id, e7a_domain=domain,
+                                                 label_counts={"live": _GROUP_SIZE, "spoof": _GROUP_SIZE})
+        all_refs += refs
+        all_e7d_rows += e7d_rows
+    if all_refs:
+        _write_fold_m3b_materialization(repo, fold_id, all_refs)
+    if "SiW-Mv2" in domains:
+        video_rows = [{"video_id": f"siwv{label}{i}", "frame_index": 0,
+                      "crop_relative_path": f"crops/siwv{label}{i}_0.jpg"}
+                     for label in ("live", "spoof") for i in range(_GROUP_SIZE)]
+        _write_shared_siw_prior_fixture(repo, monkeypatch, video_rows=video_rows)
+        siw_rows = [_e7d_siw_row(fold_id, {"video_id": r["video_id"], "frame_index": r["frame_index"],
+                                          "label_live_spoof": "live" if "live" in r["video_id"] else "spoof",
+                                          "crop_relative_path": r["crop_relative_path"],
+                                          "crop_sha256": e7g.cc.sha256_file(
+                                              repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT / "m2_run" /
+                                              r["crop_relative_path"])})
+                    for r in video_rows]
+        all_e7d_rows += siw_rows
+    _write_fold_e7d_source_train_rows(repo, fold_id, all_e7d_rows)
+    return repo
+
+
+def test_f1_gpat_input_exact_source_domains(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    result = e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+    assert set(validation["dataset_counts"]) == {"casia_fasd", "msu_mfsd"}
+
+
+def test_f2_gpat_input_exact_casia_siw(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    result = e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+    assert set(validation["dataset_counts"]) == {"casia_fasd", "siw_mv2"}
+
+
+def test_f3_gpat_input_exact_msu_siw(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F3")
+    result = e7g.materialize_gpat_input_package(repo, "EXT-F3", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F3")
+    assert validation["status"] == "VALID"
+    assert set(validation["dataset_counts"]) == {"msu_mfsd", "siw_mv2"}
+
+
+def test_target_domain_rejected_in_each_fold(tmp_path, monkeypatch):
+    for fold_id, target_domain in e7g.FOLD_TARGET_DOMAIN.items():
+        sub = tmp_path / fold_id
+        sub.mkdir()
+        repo = _build_gpat_ready_fixture(sub, monkeypatch, fold_id)
+        e7g.materialize_gpat_input_package(repo, fold_id, authorize=True)
+        validation = e7g.validate_gpat_input_package(repo, fold_id)
+        target_slug = {"CASIA-FASD": "casia_fasd", "MSU-MFSD": "msu_mfsd",
+                      "SiW-Mv2": "siw_mv2"}[target_domain]
+        assert target_slug not in validation["dataset_counts"]
+
+
+def test_source_dev_rejected(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    # Inject a source_dev row for the SAME sample_id as an existing source_train row -- must
+    # never be picked up (only source_train.json's own rows are ever read).
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F1"
+    train_rows = json.loads((fold_root / "source_train.json").read_text(encoding="utf-8"))["rows"]
+    dev_row = dict(train_rows[0])
+    dev_row["project_split"] = "source_dev"
+    (fold_root / "source_dev.json").write_text(json.dumps({"rows": [dev_row]}), encoding="utf-8")
+    result = e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F1")
+    assert validation["row_count"] == len(train_rows)
+
+
+def test_image_hash_mismatch_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    fold_root = repo / e7d.E7D_OUTPUT_ROOT / "EXT-F1"
+    body = json.loads((fold_root / "source_train.json").read_text(encoding="utf-8"))
+    body["rows"][0]["crop_sha256"] = "0" * 64
+    (fold_root / "source_train.json").write_text(json.dumps(body), encoding="utf-8")
+    with pytest.raises(e7g.E7Error, match="disagrees with E7-A's own materialization reference"):
+        e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+
+
+def test_prior_hash_mismatch_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    mat_path = repo / e7b.E7A_MATERIALIZATION_DIR / "EXT-F1" / "FOLD_MATERIALIZATION.json"
+    body = json.loads(mat_path.read_text(encoding="utf-8"))
+    body["source_train_references"][0]["prior_sha256"] = "0" * 64
+    mat_path.write_text(json.dumps(body), encoding="utf-8")
+    with pytest.raises(e7g.E7Error, match="source prior SHA256 mismatch"):
+        e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+
+
+def test_siw_subject_null_never_fabricated(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    import pyarrow.parquet as pq
+
+    manifest = pq.read_table(repo / e7g.GPAT_INPUT_ROOT / "EXT-F2" / "manifests" /
+                             "source_train.parquet").to_pylist()
+    siw_rows = [r for r in manifest if r["dataset"] == "siw_mv2"]
+    assert siw_rows
+    assert all(r["subject_id"] is None for r in siw_rows)
+    casia_rows = [r for r in manifest if r["dataset"] == "casia_fasd"]
+    assert all(r["subject_id"] is not None for r in casia_rows)
+
+
+def test_source_only_audit_opens_fold_local_paths(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    validation = e7g.validate_gpat_input_package(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+    assert not any("SourceOnlyAudit" in p for p in validation["problems"])
+    # And directly: the REAL, unmodified SourceOnlyAudit accepts every path this module writes.
+    from prism_fas.synthesis.m8_pipeline import SourceOnlyAudit
+
+    import pyarrow.parquet as pq
+
+    audit = SourceOnlyAudit()
+    manifest = pq.read_table(repo / e7g.GPAT_INPUT_ROOT / "EXT-F2" / "manifests" /
+                             "source_train.parquet").to_pylist()
+    for row in manifest:
+        audit.record(row["image_relative_path"])
+        audit.record(row["prior_relative_path"])
+
+
+# --- pair-plan scientific reuse -----------------------------------------------------------
+
+def test_pair_plan_scientific_primitive_actually_invoked(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    from prism_fas.synthesis import pair_plan
+
+    calls = []
+    real_build = pair_plan.build_pair_plan
+
+    def spy(*args, **kwargs):
+        calls.append(1)
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(pair_plan, "build_pair_plan", spy)
+    result = e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    assert len(calls) >= 1
+
+
+def test_same_cross_domain_2_2_preserved(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    validation = e7g.validate_fold_pair_plan(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+
+
+def test_8020_record_partition_isolation_preserved(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    from prism_fas.synthesis import pair_plan
+
+    output_root = repo / e7g.GPAT_PAIR_PLAN_ROOT / "EXT-F1"
+    train_rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_train.parquet")
+    validation_rows = pair_plan.load_pair_manifest(output_root / "pair_manifest_validation.parquet")
+    train_records = {r["live_source_record_id"] for r in train_rows} | \
+        {r["spoof_source_record_id"] for r in train_rows}
+    validation_records = {r["live_source_record_id"] for r in validation_rows} | \
+        {r["spoof_source_record_id"] for r in validation_rows}
+    assert not (train_records & validation_records)
+
+
+def test_pair_plan_globals_restored_after_success(tmp_path, monkeypatch):
+    from prism_fas.synthesis import pair_plan
+
+    original_datasets = pair_plan.ALLOWED_DATASETS
+    original_train = pair_plan.EXPECTED_TRAIN_PAIRS
+    original_validation = pair_plan.EXPECTED_VALIDATION_PAIRS
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    assert pair_plan.ALLOWED_DATASETS == original_datasets
+    assert pair_plan.EXPECTED_TRAIN_PAIRS == original_train
+    assert pair_plan.EXPECTED_VALIDATION_PAIRS == original_validation
+
+
+def test_pair_plan_globals_restored_after_failure(tmp_path, monkeypatch):
+    from prism_fas.synthesis import pair_plan
+
+    original_datasets = pair_plan.ALLOWED_DATASETS
+    original_train = pair_plan.EXPECTED_TRAIN_PAIRS
+    original_validation = pair_plan.EXPECTED_VALIDATION_PAIRS
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated failure inside the scoped adapter")
+
+    monkeypatch.setattr(pair_plan, "build_pair_plan", boom)
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    with pytest.raises(RuntimeError, match="simulated failure"):
+        e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    assert pair_plan.ALLOWED_DATASETS == original_datasets
+    assert pair_plan.EXPECTED_TRAIN_PAIRS == original_train
+    assert pair_plan.EXPECTED_VALIDATION_PAIRS == original_validation
+
+
+def test_f2_f3_accept_siw_mv2_only_via_scoped_adapter(tmp_path, monkeypatch):
+    from prism_fas.synthesis import pair_plan
+
+    assert "siw_mv2" not in pair_plan.ALLOWED_DATASETS  # frozen module constant never includes it
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    result = e7g.materialize_fold_pair_plan(repo, "EXT-F2", authorize=True)
+    assert result["status"] == "MATERIALIZED"
+    assert "siw_mv2" not in pair_plan.ALLOWED_DATASETS  # restored after the call
+
+
+def test_historical_896_224_not_imposed_on_new_folds(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    result = e7g.materialize_fold_pair_plan(repo, "EXT-F2", authorize=True)
+    assert result["train_pairs"] != 896 or result["validation_pairs"] != 224
+    assert result["train_pairs"] > 0
+    assert result["validation_pairs"] > 0
+
+
+# --- effective config -----------------------------------------------------------------
+
+def test_effective_config_changes_only_declared_fields(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F2", authorize=True)
+    effective = e7g.build_effective_gpat_config(repo, "EXT-F2")
+    assert set(effective["declared_overrides"]) == {"data.allowed_datasets",
+                                                     "pair_plan.expected_train_pairs",
+                                                     "pair_plan.expected_validation_pairs"}
+    assert effective["effective_config"]["data"]["allowed_datasets"] == ["casia_fasd", "siw_mv2"]
+
+
+def test_base_gpat_scientific_hyperparameters_identical(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F2", authorize=True)
+    effective = e7g.build_effective_gpat_config(repo, "EXT-F2")
+    cfg = effective["effective_config"]
+    assert cfg["seed"] == 20260806
+    assert cfg["input_size"] == 224
+    assert cfg["batch_size"] == 16
+    assert cfg["epochs"] == 15
+    assert cfg["optimizer"] == {"name": "AdamW", "encoder_lr": 2.0e-4, "recipe_lr": 1.0e-4,
+                               "generator_lr": 2.0e-4, "weight_decay": 1.0e-4, "betas": [0.9, 0.999]}
+    assert cfg["scheduler"] == {"name": "cosine", "warmup_fraction": 0.05, "min_lr": 1.0e-6}
+    assert cfg["gradient_clip_norm"] == 1.0
+    assert cfg["precision"] == {"cuda": "fp16", "cpu": "fp32"}
+    assert cfg["early_stopping"] == {"enabled": True, "min_epochs": 5, "patience_epochs": 4}
+    assert cfg["checkpoint_selection"] == {"primary": "validation_total_loss", "mode": "min",
+                                          "tie_breaker": "validation_identity_cosine",
+                                          "tie_breaker_mode": "max"}
+    assert cfg["pair_plan"]["seed"] == 20260806
+    assert cfg["pair_plan"]["train_fraction"] == 0.8
+    assert cfg["pair_plan"]["pairs_per_live"] == 4
+    assert cfg["pair_plan"]["same_domain_per_live"] == 2
+    assert cfg["pair_plan"]["cross_domain_per_live"] == 2
+    assert cfg["identity_model"]["weight_sha256"] == \
+        "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+
+
+# --- prepare_gpat orchestrator ---------------------------------------------------------
+
+def test_prepare_gpat_without_authorize_fails(tmp_path):
+    repo = _base_repo(tmp_path)
+    with pytest.raises(e7g.E7Error, match="requires --authorize"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=False)
+
+
+def test_production_path_on_laptop_fails_gpu_required(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    with pytest.raises(e7g.E7Error, match="GPU_REQUIRED for real GPAT fitting"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    # by the time it fails, the input package and pair plan ARE materialized and valid.
+    assert e7g.validate_gpat_input_package(repo, "EXT-F1")["status"] == "VALID"
+    assert e7g.validate_fold_pair_plan(repo, "EXT-F1")["status"] == "VALID"
+
+
+def test_gpat_capability_check_is_real_not_hardcoded(tmp_path):
+    repo = _base_repo(tmp_path)
+    capability = e7g._gpat_fit_capability(repo)
+    assert capability["capable"] is False
+    assert capability["cuda_available"] is False
+    assert any("cuda" in p.lower() for p in capability["problems"])
+    assert not any("non-gpu host" in p.lower() for p in capability["problems"])
+
+
+class _FakeTrainer:
+    """Stands in for the REAL GPATTrainer at the exact GPU boundary -- never
+    monkeypatches GPATTrainer.fit itself; only the class construction is
+    replaced so no CUDA/model construction is attempted on the laptop."""
+    instances: list[dict] = []
+    identity_fn = None  # set by _patch_fake_trainer; computes REAL identity fields from disk
+
+    def __init__(self, *, config, package_root, bank_root, pairs_root, run_root, weight_root, device):
+        self.run_root = Path(run_root)
+        self.kwargs = {"config": config, "package_root": package_root, "bank_root": bank_root,
+                      "pairs_root": pairs_root, "run_root": run_root, "weight_root": weight_root,
+                      "device": device}
+        _FakeTrainer.instances.append(self.kwargs)
+
+    def fit(self, *, run_id, progress, resume):
+        checkpoints = self.run_root / "checkpoints"
+        checkpoints.mkdir(parents=True, exist_ok=True)
+        identity = _FakeTrainer.identity_fn()
+        for name in ("last.pt", "best.pt"):
+            (checkpoints / name).write_bytes(f"fake-checkpoint-{name}".encode("utf-8"))
+        return {"run_id": run_id, "epochs_run": 1, "global_step": 1, "stop_reason": "completed_all_epochs",
+               "best": {"validation_total_loss": 0.1}, "history": [{"train_total": 0.1}],
+               "device": "cuda", "identity": identity, "record_set_hashes": {},
+               "checkpoints": {"best_sha256": e7g.cc.sha256_bytes(b"fake-checkpoint-best.pt"),
+                              "last_sha256": e7g.cc.sha256_bytes(b"fake-checkpoint-last.pt")},
+               "source_isolation": {"source_dev_opened": False, "target_test_opened": False}}
+
+
+def _patch_gpat_capable(monkeypatch, repo):
+    monkeypatch.setattr(e7g, "_gpat_fit_capability",
+                        lambda repo_arg: {"capable": True, "cuda_available": True,
+                                         "weight_root": str(repo / "model_cache"), "problems": []})
+
+
+def _patch_fake_trainer(monkeypatch, repo: Path, fold_id: str) -> None:
+    """Patches the GPU boundary with a fake trainer whose reported identity
+    is computed FRESH, from the REAL on-disk package/pair-plan/effective-
+    config -- self-consistent with whatever `prepare_gpat` independently
+    computes and writes into GPAT_FIT_LOCK.json, so the ALREADY_VALID
+    resume path genuinely re-validates rather than trivially matching
+    hardcoded strings."""
+    _FakeTrainer.instances = []
+
+    def real_identity() -> dict:
+        package_identity = json.loads((repo / e7g.GPAT_INPUT_ROOT / fold_id /
+                                       e7g.GPAT_INPUT_LOCK_FILENAME).read_text()) ["content_identity_sha256"]
+        pair_plan_identity = json.loads((repo / e7g.GPAT_PAIR_PLAN_ROOT / fold_id /
+                                         "PAIR_PLAN_LOCK.json").read_text())["pair_plan_identity_sha256"]
+        effective = e7g.build_effective_gpat_config(repo, fold_id)
+        return {"package_identity": package_identity,
+               "recipe_bank_identity": e7g.FROZEN_M7_BANK["bank_content_identity_sha256"],
+               "pair_plan_identity": pair_plan_identity, "config_hash": effective["effective_config_hash"],
+               "architecture_hash": "arch", "adaface_weight_sha256": "ada"}
+
+    monkeypatch.setattr(_FakeTrainer, "identity_fn", staticmethod(real_identity))
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _FakeTrainer)
+    monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
+                        lambda config: type("A", (), {"architecture_hash": lambda self: "arch"})())
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.resolve_weight",
+                        lambda weight_root, role: Path(weight_root) / "identity.bin")
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
+                        lambda path: {"identity": real_identity()})
+
+
+def test_existing_valid_gpat_fit_lock_already_valid_zero_trainer_calls(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    first = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert first["status"] == "FITTED"
+    assert len(_FakeTrainer.instances) == 1
+    second = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert second["status"] == "ALREADY_VALID"
+    assert len(_FakeTrainer.instances) == 1  # trainer.fit was NOT called again
+
+
+def test_partial_compatible_checkpoint_resumes(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")  # its identity_fn matches the REAL package/
+    # pair-plan/effective-config identity below, since both are computed from the same disk state.
+    run_root = e7g.gpat_fit_run_root(repo, "EXT-F1")
+    (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-compatible")
+
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    assert _FakeTrainer.instances[-1]["config"] is not None
+
+
+def test_partial_incompatible_checkpoint_fails_closed(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    run_root = e7g.gpat_fit_run_root(repo, "EXT-F1")
+    (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-incompatible")
+
+    def incompatible_summary(path):
+        return {"identity": {"package_identity": "WRONG", "recipe_bank_identity": "WRONG",
+                            "pair_plan_identity": "WRONG", "config_hash": "WRONG",
+                            "architecture_hash": "WRONG", "adaface_weight_sha256": "WRONG"}}
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary", incompatible_summary)
+    with pytest.raises(e7g.E7Error, match="INCOMPATIBLE"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+    # the partial checkpoint is NEVER deleted/auto-restarted
+    assert (run_root / "checkpoints" / "last.pt").read_bytes() == b"partial-incompatible"
+
+
+def test_terminal_lock_written_only_after_checkpoint_validation(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+
+    class _BadFakeTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            result = super().fit(run_id=run_id, progress=progress, resume=resume)
+            result["identity"] = {**result["identity"], "package_identity": "MISMATCHED"}
+            return result
+
+    _FakeTrainer.instances = []
+    fixed_identity = {"package_identity": "pkg", "recipe_bank_identity": "bank",
+                      "pair_plan_identity": "pairs", "config_hash": "cfg",
+                      "architecture_hash": "arch", "adaface_weight_sha256": "ada"}
+    monkeypatch.setattr(_FakeTrainer, "identity_fn", staticmethod(lambda: dict(fixed_identity)))
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _BadFakeTrainer)
+    monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
+                        lambda config: type("A", (), {"architecture_hash": lambda self: "arch"})())
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.resolve_weight",
+                        lambda weight_root, role: Path(weight_root) / "identity.bin")
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
+                        lambda path: {"identity": dict(fixed_identity)})
+    with pytest.raises(e7g.E7Error, match="best checkpoint identity does not match"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+def test_failed_fit_leaves_no_terminal_lock(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+
+    class _RaisingFakeTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            raise RuntimeError("simulated GPU fit failure")
+
+    _FakeTrainer.instances = []
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _RaisingFakeTrainer)
+    monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
+                        lambda config: type("A", (), {"architecture_hash": lambda self: "arch"})())
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.resolve_weight",
+                        lambda weight_root, role: Path(weight_root) / "identity.bin")
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file", lambda path: "ada")
+    with pytest.raises(RuntimeError, match="simulated GPU fit failure"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+
+
+def test_checkpoint_resolver_uses_native_path(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    expected = repo / e7g.RUN_ROOT / "EXT-F1" / "gpat_fit" / "checkpoints" / "best.pt"
+    assert e7g.gpat_best_checkpoint_path(repo, "EXT-F1") == expected
+    assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1") == expected.with_name("last.pt")
+    # generate_and_match / e7_gpat_bank_validate use the SAME canonical helper, not the old
+    # gpat_checkpoint/best.pt assumption.
+    with pytest.raises(e7g.E7Error, match="no fitted GPAT checkpoint present"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    result = e7g.e7_gpat_bank_validate(repo)
+    assert result["folds"]["EXT-F1"]["gpat_checkpoint_present"] is False
+
+
+def test_gpat_no_target_or_evaluation_only_paths(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    e7g.materialize_gpat_input_package(repo, "EXT-F2", authorize=True)
+    import pyarrow.parquet as pq
+
+    manifest = pq.read_table(repo / e7g.GPAT_INPUT_ROOT / "EXT-F2" / "manifests" /
+                             "source_train.parquet").to_pylist()
+    for row in manifest:
+        assert "evaluation_only" not in row["image_relative_path"]
+        assert "prism_target_eval_v2" not in row["image_relative_path"]
+        assert e7g.PROTECTED_SIW_TARGET_PRIOR_PACKAGE_ROOT not in row["image_relative_path"]
+
+
+def test_gpat_no_llm_calls(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    result = e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    assert result["llm_api_calls"] == 0
+    pf = e7g.preflight(repo)
+    assert pf["LLM_API_CALLS"] == 0
+
+
+def test_source_prior_frozen_evidence_unchanged():
+    import subprocess
+
+    committed = subprocess.run(["git", "show", f"HEAD:{e7g.FROZEN_SOURCE_PRIOR_EVIDENCE_PATH}"],
+                              cwd=REPO, check=True, capture_output=True, text=True).stdout
+    on_disk = (REPO / e7g.FROZEN_SOURCE_PRIOR_EVIDENCE_PATH).read_text(encoding="utf-8")
+    assert committed == on_disk
+    body = json.loads(on_disk)
+    assert body["source_prior_package_identity"] == e7g.FROZEN_SIW_SOURCE_PRIOR_PACKAGE_IDENTITY
+
+
+def test_e7abcd_protected_artifacts_unchanged_gpat(tmp_path, monkeypatch):
+    import subprocess
+
+    for relative in ("src/prism_fas/evaluation/c_ext_e7a_fold_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7b_data_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7c_gpat_prep.py",
+                     "src/prism_fas/evaluation/c_ext_e7d_source_support.py",
+                     "src/prism_fas/synthesis/gpat_trainer.py", "src/prism_fas/synthesis/gpat_model.py",
+                     "src/prism_fas/synthesis/gpat_losses.py", "src/prism_fas/synthesis/m8_pipeline.py",
+                     "src/prism_fas/synthesis/pair_plan.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                  capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD -- must remain unmodified"
+
+
+def test_readiness_reports_per_fold_gpat_fitted(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    pf = e7g.preflight(repo)
+    assert pf["F1_GPAT_FITTED"] is False
+    assert pf["F2_GPAT_FITTED"] is False
+    assert pf["F3_GPAT_FITTED"] is False
+    assert pf["E7_READY_FOR_TRAINING"] is False
+    readiness = e7g.build_readiness(repo)
+    assert readiness["F1_GPAT_FITTED"] is False
+    assert readiness["E7_READY_FOR_TRAINING"] is False
