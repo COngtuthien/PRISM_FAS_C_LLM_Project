@@ -735,3 +735,34 @@ def test_real_repo_preflight_passes_cleanly():
     assert preflight["F1_SHUFFLE_STATUS"] == e7c.BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY
     assert preflight["F2_SHUFFLE_STATUS"] == e7c.PENDING_FEASIBILITY_PREFLIGHT
     assert preflight["F3_SHUFFLE_STATUS"] == e7c.PENDING_FEASIBILITY_PREFLIGHT
+
+
+# =========================================================================== #
+# 895d189 PREFLIGHT OUTPUT-SCHEMA FIX -- e7c_preflight() previously omitted
+# E7_READY_FOR_GPU_GPAT_PREPARATION / E7_READY_FOR_TRAINING (only
+# build_readiness()/build_execution_plan() emitted them). Technical
+# output-schema omission only; no scientific status changed.
+# =========================================================================== #
+
+def test_preflight_emits_ready_for_gpu_gpat_preparation_and_training_fields_when_passing():
+    preflight = e7c.e7c_preflight(REPO)
+    assert preflight["E7C_PREFLIGHT_PASS"] is True
+    assert preflight["E7_READY_FOR_GPU_GPAT_PREPARATION"] is True
+    assert preflight["E7_READY_FOR_TRAINING"] is False
+    assert isinstance(preflight["E7_READY_FOR_TRAINING_REASON"], str)
+    assert preflight["E7_READY_FOR_TRAINING_REASON"]  # non-empty
+
+
+def test_preflight_ready_for_gpu_gpat_preparation_false_when_a_required_binding_fails(tmp_path):
+    repo = _base_repo(tmp_path)  # no E7-B evidence, no E7-A materializations, no recipe banks
+    preflight = e7c.e7c_preflight(repo)
+    assert preflight["E7C_PREFLIGHT_PASS"] is False
+    assert preflight["E7_READY_FOR_GPU_GPAT_PREPARATION"] is False
+    assert preflight["E7_READY_FOR_TRAINING"] is False
+
+
+def test_preflight_ready_for_gpu_gpat_preparation_equals_preflight_pass_exactly():
+    """E7_READY_FOR_GPU_GPAT_PREPARATION is defined as exactly
+    E7C_PREFLIGHT_PASS -- never a separately/independently computed value."""
+    preflight = e7c.e7c_preflight(REPO)
+    assert preflight["E7_READY_FOR_GPU_GPAT_PREPARATION"] == preflight["E7C_PREFLIGHT_PASS"]

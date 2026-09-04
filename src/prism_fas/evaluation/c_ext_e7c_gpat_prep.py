@@ -888,6 +888,15 @@ def e7c_preflight(repo: Path) -> dict[str, Any]:
         "RENDERING_PERFORMED": False, "GPAT_FITTING_PERFORMED": False,
         "TRAINING_PERFORMED": False, "LLM_API_CALLS": 0,
         "E7C_PREFLIGHT_PASS": build_pass,
+        # Previously omitted from this function's own output (only
+        # build_readiness()/build_execution_plan() emitted them) -- a
+        # TECHNICAL output-schema gap, not a scientific-result change:
+        # E7_READY_FOR_GPU_GPAT_PREPARATION is defined as exactly
+        # E7C_PREFLIGHT_PASS (iff every required binding/plan check above
+        # passes); E7_READY_FOR_TRAINING is unconditionally False at E7-C.
+        "E7_READY_FOR_GPU_GPAT_PREPARATION": build_pass,
+        "E7_READY_FOR_TRAINING": False,
+        "E7_READY_FOR_TRAINING_REASON": build_execution_plan(repo)["e7_ready_for_training_reason"],
         "readiness_note": "E7C_PREFLIGHT_PASS=True means PLAN/BINDING VALID AND SAFE TO GO TO GPU "
                           "(READY_FOR_GPU_GPAT_PREPARATION), NOT that any crop-level SiW support "
                           "pool is materialized, and NOT READY_FOR_E7_TRAINING -- training readiness "
