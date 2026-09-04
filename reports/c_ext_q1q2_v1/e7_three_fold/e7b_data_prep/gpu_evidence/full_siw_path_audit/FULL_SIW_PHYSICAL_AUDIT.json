@@ -1,0 +1,21 @@
+{
+  "canonical_video_count": 1700,
+  "planned_frame_count": 6800,
+  "success_rows": 6776,
+  "failure_rows": 24,
+  "total_rows": 6800,
+  "missing_crop_count": 0,
+  "bad_hash_count": 0,
+  "all_success_crops_resolve": true,
+  "all_success_hashes_match": true,
+  "source_frames": 6776,
+  "source_crops": 6776,
+  "preprocessing_failures": 24,
+  "all_frame_subject_null": true,
+  "all_crop_subject_null": true,
+  "failure_codes": {
+    "no_face": 24
+  },
+  "scientific_rerun_required": false,
+  "classification": "TECHNICAL_VALIDATOR_PATH_RESOLUTION_BUG"
+}

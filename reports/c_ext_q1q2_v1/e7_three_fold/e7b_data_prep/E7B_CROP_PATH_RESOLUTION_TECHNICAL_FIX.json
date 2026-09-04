@@ -1,0 +1,31 @@
+{
+  "schema_version": "ext-q1q2-e7b-crop-path-resolution-technical-fix-v1",
+  "BASE_COMMIT": "65714cb897042840fa27dbbd69f5e72bba9ef25d",
+  "BUG_CLASS": "TECHNICAL_PATH_RESOLUTION_FALSE_NEGATIVE",
+  "SCIENTIFIC_DATA_VALID": true,
+  "SCIENTIFIC_RERUN_REQUIRED": false,
+  "OLD_BASE": "package_manifest.parent",
+  "CORRECT_BASE": "package_manifest.parent / \"m2_run\"",
+  "SIW_VALIDATOR_FIXED": true,
+  "TARGET_VALIDATOR_FIXED": true,
+  "SIW_RESUME_FIXED": true,
+  "TARGET_RESUME_FIXED": true,
+  "CROP_RELATIVE_PATH_REWRITTEN": false,
+  "PACKAGE_MANIFEST_REWRITTEN": false,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "explanation": "`crop_relative_path` on every E7-B package row was always correct: it is relative to `PreprocessingRunContext.output_root`, which `_build_e7b_run_context` places at `<package_root>/m2_run` for both the scientific package namespace and the engineering smoke namespace. The package manifest itself (SIW_SOURCE_PACKAGE.json / TARGET_PACKAGE.json) is written one level up, at `<package_root>` (i.e. `package_manifest_path.parent`). Four consumers -- e7b_validate()'s SiW-source crop check, e7b_validate()'s MSU/CASIA target crop check, _resume_completed_video_ids(), and _resume_completed_target_ids() -- all resolved crops directly against `package_manifest_path.parent` instead of `package_manifest_path.parent / 'm2_run'`, so every real, on-disk, hash-verified crop was reported as a false 'successful crop does not resolve on disk'. Fixed via ONE new helper, `_e7b_m2_output_root(package_manifest_path) -> package_manifest_path.parent / 'm2_run'`, used by all four consumers (and `_crop_resolves`'s parameter renamed to `m2_output_root` to make the contract explicit). No persisted data was rewritten: crop_relative_path values, package rows, package_identity, population_identity and split_identity are all untouched -- verified via a real-GPU-package-layout regression fixture whose crops live ONLY under m2_run/ (the old wrong `<package_root>/crops/...` location is asserted absent) and four resume tests (A: valid crop at the correct root is accepted; B: crop entirely missing fails closed; C: sha mismatch fails closed; D: a decoy file at the OLD wrong location does not fool the check -- it still fails closed, proving the correct root is actually being used, not merely 'some file that happens to exist').",
+  "GPU_AUDIT": {
+    "planned": 6800,
+    "success": 6776,
+    "failure": 24,
+    "missing": 0,
+    "bad_hash": 0,
+    "subject_id_null": true,
+    "evidence_path": "reports/c_ext_q1q2_v1/e7_three_fold/e7b_data_prep/gpu_evidence/full_siw_path_audit/FULL_SIW_PHYSICAL_AUDIT.json"
+  },
+  "TARGET_ACCESS": false,
+  "LLM_API_CALLS": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

@@ -700,10 +700,11 @@ def test_config_identity_mismatch_fails_closed_before_build(tmp_path):
 
 def test_resume_completed_target_ids_skips_valid_and_flags_corrupt(tmp_path):
     package_root = tmp_path / "pkg"
-    (package_root / "crops").mkdir(parents=True)
+    m2_output_root = package_root / "m2_run"  # crop_relative_path is relative to <package_root>/m2_run
+    (m2_output_root / "crops").mkdir(parents=True)
     crop_rel = "crops/v0_0.jpg"
     crop_bytes = b"deterministic-crop-bytes"
-    (package_root / crop_rel).write_bytes(crop_bytes)
+    (m2_output_root / crop_rel).write_bytes(crop_bytes)
     crop_sha = e7b.cc.sha256_bytes(crop_bytes)
     manifest = package_root / "TARGET_PACKAGE.json"
     rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
@@ -713,17 +714,38 @@ def test_resume_completed_target_ids_skips_valid_and_flags_corrupt(tmp_path):
     completed = e7b._resume_completed_target_ids(manifest, planned_per_video=4)
     assert completed == {"v0"}
 
-    (package_root / crop_rel).write_bytes(b"tampered-bytes")  # corrupt after the manifest recorded it
+    (m2_output_root / crop_rel).write_bytes(b"tampered-bytes")  # corrupt after the manifest recorded it
     with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+
+
+def test_resume_completed_target_ids_ignores_old_wrong_location(tmp_path):
+    """A crop mistakenly placed at the OLD, wrong `<package_root>/crops/...`
+    location (bypassing `/m2_run/`) must NOT be found -- proves the resume
+    check uses the correct root, not merely "some file that happens to
+    exist"."""
+    package_root = tmp_path / "pkg2"
+    (package_root / "crops").mkdir(parents=True)  # OLD wrong location
+    crop_rel = "crops/v0_0.jpg"
+    crop_bytes = b"deterministic-crop-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)  # misleading file at the wrong root
+    crop_sha = e7b.cc.sha256_bytes(crop_bytes)
+    manifest = package_root / "TARGET_PACKAGE.json"
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": crop_sha}] + [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
         e7b._resume_completed_target_ids(manifest, planned_per_video=4)
 
 
 def test_resume_completed_siw_video_ids_skips_valid_and_flags_corrupt(tmp_path):
     package_root = tmp_path / "siwpkg"
-    (package_root / "crops").mkdir(parents=True)
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops").mkdir(parents=True)
     crop_rel = "crops/Live_0_0.jpg"
     crop_bytes = b"deterministic-siw-crop-bytes"
-    (package_root / crop_rel).write_bytes(crop_bytes)
+    (m2_output_root / crop_rel).write_bytes(crop_bytes)
     crop_sha = e7b.cc.sha256_bytes(crop_bytes)
     manifest = package_root / "SIW_SOURCE_PACKAGE.json"
     rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
@@ -733,8 +755,24 @@ def test_resume_completed_siw_video_ids_skips_valid_and_flags_corrupt(tmp_path):
     completed = e7b._resume_completed_video_ids(manifest, planned_per_video=4)
     assert completed == {"Live_0"}
 
-    (package_root / crop_rel).write_bytes(b"tampered-bytes")
+    (m2_output_root / crop_rel).write_bytes(b"tampered-bytes")
     with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+
+
+def test_resume_completed_siw_video_ids_ignores_old_wrong_location(tmp_path):
+    package_root = tmp_path / "siwpkg2"
+    (package_root / "crops").mkdir(parents=True)  # OLD wrong location
+    crop_rel = "crops/Live_0_0.jpg"
+    crop_bytes = b"deterministic-siw-crop-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)
+    crop_sha = e7b.cc.sha256_bytes(crop_bytes)
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": crop_sha}] + [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
         e7b._resume_completed_video_ids(manifest, planned_per_video=4)
 
 
@@ -1208,3 +1246,216 @@ def test_6751638_false_green_evidence_and_diagnosis_preserved():
     assert body["SCIENTIFIC_PROTOCOL_CHANGED"] is False
     assert body["TECHNICAL_EXECUTION_FAILURE"] is True
     assert body["root_cause"]["detector_none_passed_to_run_preprocessing"] is True
+
+
+# =========================================================================== #
+# 65714cb CROP PATH RESOLUTION FIX -- `crop_relative_path` is relative to
+# `PreprocessingRunContext.output_root`, which `_build_e7b_run_context`
+# always places at `<package_root>/m2_run`. The package manifest itself
+# lives at `<package_root>` (one level up). `e7b_validate()` and the two
+# resume-integrity functions used to resolve crops against
+# `package_manifest_path.parent` directly -- the wrong root -- producing a
+# TECHNICAL false-negative "successful crop does not resolve on disk" for
+# every real, on-disk, hash-verified crop the real GPU SiW-source build
+# produced. Fixed via the ONE `_e7b_m2_output_root()` helper, used
+# everywhere a crop is resolved. No persisted data (crop_relative_path,
+# rows, package identities) was ever rewritten -- those values were always
+# correct; only the CONSUMER's physical base path was wrong.
+# =========================================================================== #
+
+def _real_siw_package_layout_fixture(tmp_path: Path, *, n_success: int = 2, n_failure: int = 2) -> Path:
+    """Mirrors the REAL GPU package layout: SIW_SOURCE_PACKAGE.json at
+    <package_root>, crops physically under <package_root>/m2_run/crops/...
+    -- exactly what the real full SiW-source build produced (verified
+    against reports/c_ext_q1q2_v1/e7_three_fold/e7b_data_prep/gpu_evidence/
+    full_siw_path_audit/FULL_SIW_PHYSICAL_AUDIT.json)."""
+    package_root = tmp_path / "siw_source_v1"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops" / "siw_mv2").mkdir(parents=True)
+    rows = []
+    for i in range(n_success):
+        crop_rel = f"crops/siw_mv2/success_{i}.jpg"
+        crop_bytes = f"crop-bytes-{i}".encode()
+        (m2_output_root / crop_rel).write_bytes(crop_bytes)
+        rows.append({"source_video_id": f"Live_{i}", "source_project_split": "train",
+                    "frame_index": 0, "status": "success", "crop_relative_path": crop_rel,
+                    "crop_sha256": e7b.cc.sha256_bytes(crop_bytes), "label_live_spoof": "live",
+                    "spoof_family": None})
+    for i in range(n_failure):
+        rows.append({"source_video_id": f"Live_{i}", "source_project_split": "train",
+                    "frame_index": i + 1, "status": "failure", "crop_relative_path": None,
+                    "crop_sha256": None, "failure_reason": "no_face", "label_live_spoof": "live",
+                    "spoof_family": None})
+    (package_root / "SIW_SOURCE_PACKAGE.json").write_text(json.dumps({
+        "package_identity": "x", "population_identity": "pop-1", "split_identity": "split-1",
+        "rows": rows,
+    }), encoding="utf-8")
+    return package_root
+
+
+def test_validator_resolves_real_gpu_package_layout_crops_correctly(tmp_path):
+    package_root = _real_siw_package_layout_fixture(tmp_path, n_success=2, n_failure=2)
+    # the OLD, buggy consumer location must NOT exist -- proves the fix
+    # cannot be "accidentally" finding a crop at the wrong root
+    assert not (package_root / "crops").is_dir()
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    import shutil
+    shutil.move(str(package_root), str(repo / e7b.E7B_SIW_SOURCE_PACKAGE_ROOT))
+
+    validation = e7b.e7b_validate(repo)
+    problems = validation["siw_source_package"]["problems"]
+    assert not any("does not resolve on disk" in p for p in problems)  # the exact false-negative is gone
+
+
+def test_crop_resolves_uses_m2_run_root_not_manifest_parent(tmp_path):
+    package_root = tmp_path / "pkg"
+    manifest_path = package_root / "SIW_SOURCE_PACKAGE.json"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops" / "siw_mv2").mkdir(parents=True)
+    crop_bytes = b"a-real-crop"
+    (m2_output_root / "crops/siw_mv2/a.jpg").write_bytes(crop_bytes)
+    sha = e7b.cc.sha256_bytes(crop_bytes)
+
+    assert e7b._e7b_m2_output_root(manifest_path) == m2_output_root
+    assert e7b._crop_resolves(e7b._e7b_m2_output_root(manifest_path), "crops/siw_mv2/a.jpg", sha) is True
+    # the OLD wrong root (manifest's own parent) does NOT contain the crop
+    assert not (package_root / "crops/siw_mv2/a.jpg").is_file()
+    assert e7b._crop_resolves(package_root, "crops/siw_mv2/a.jpg", sha) is False
+
+
+# --- Resume tests A/B/C/D, for BOTH SiW source and target -------------------
+
+def test_resume_A_siw_success_with_matching_sha_at_correct_root_accepted(tmp_path):
+    package_root = tmp_path / "siwA"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/Live_0_0.jpg"
+    crop_bytes = b"crop-a"
+    (m2_output_root / crop_rel).write_bytes(crop_bytes)
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": e7b.cc.sha256_bytes(crop_bytes)}] + \
+           [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    assert e7b._resume_completed_video_ids(manifest, planned_per_video=4) == {"Live_0"}
+
+
+def test_resume_B_siw_crop_entirely_missing_fails_closed(tmp_path):
+    package_root = tmp_path / "siwB"
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    manifest.parent.mkdir(parents=True)
+    crop_rel = "crops/Live_0_0.jpg"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": "a" * 64}] + [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
+        e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+
+
+def test_resume_C_siw_crop_sha_mismatch_fails_closed(tmp_path):
+    package_root = tmp_path / "siwC"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/Live_0_0.jpg"
+    (m2_output_root / crop_rel).write_bytes(b"real-bytes")
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": "0" * 64}] + [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+
+
+def test_resume_D_siw_decoy_at_old_location_still_fails_closed(tmp_path):
+    package_root = tmp_path / "siwD"
+    (package_root / "crops").mkdir(parents=True)  # OLD wrong location -- decoy
+    crop_rel = "crops/Live_0_0.jpg"
+    crop_bytes = b"decoy-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)  # matches sha, but at the WRONG root
+    manifest = package_root / "SIW_SOURCE_PACKAGE.json"
+    rows = [{"source_video_id": "Live_0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": e7b.cc.sha256_bytes(crop_bytes)}] + \
+           [{"source_video_id": "Live_0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
+        e7b._resume_completed_video_ids(manifest, planned_per_video=4)
+
+
+def test_resume_A_target_success_with_matching_sha_at_correct_root_accepted(tmp_path):
+    package_root = tmp_path / "tgtA"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/v0_0.jpg"
+    crop_bytes = b"crop-a"
+    (m2_output_root / crop_rel).write_bytes(crop_bytes)
+    manifest = package_root / "TARGET_PACKAGE.json"
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": e7b.cc.sha256_bytes(crop_bytes)}] + \
+           [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    assert e7b._resume_completed_target_ids(manifest, planned_per_video=4) == {"v0"}
+
+
+def test_resume_B_target_crop_entirely_missing_fails_closed(tmp_path):
+    package_root = tmp_path / "tgtB"
+    manifest = package_root / "TARGET_PACKAGE.json"
+    manifest.parent.mkdir(parents=True)
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": "crops/v0_0.jpg",
+            "crop_sha256": "a" * 64}] + [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
+        e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+
+
+def test_resume_C_target_crop_sha_mismatch_fails_closed(tmp_path):
+    package_root = tmp_path / "tgtC"
+    m2_output_root = package_root / "m2_run"
+    (m2_output_root / "crops").mkdir(parents=True)
+    crop_rel = "crops/v0_0.jpg"
+    (m2_output_root / crop_rel).write_bytes(b"real-bytes")
+    manifest = package_root / "TARGET_PACKAGE.json"
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": "0" * 64}] + [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="corrupt crop"):
+        e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+
+
+def test_resume_D_target_decoy_at_old_location_still_fails_closed(tmp_path):
+    package_root = tmp_path / "tgtD"
+    (package_root / "crops").mkdir(parents=True)  # OLD wrong location -- decoy
+    crop_rel = "crops/v0_0.jpg"
+    crop_bytes = b"decoy-bytes"
+    (package_root / crop_rel).write_bytes(crop_bytes)
+    manifest = package_root / "TARGET_PACKAGE.json"
+    rows = [{"canonical_video_id": "v0", "status": "success", "crop_relative_path": crop_rel,
+            "crop_sha256": e7b.cc.sha256_bytes(crop_bytes)}] + \
+           [{"canonical_video_id": "v0", "status": "failure"}] * 3
+    manifest.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    with pytest.raises(e7b.E7BError, match="missing on resume"):
+        e7b._resume_completed_target_ids(manifest, planned_per_video=4)
+
+
+# --- path-fix technical artifact preserved ----------------------------------
+
+def test_crop_path_resolution_fix_artifact_and_gpu_evidence_preserved():
+    evidence_root = REPO / "reports/c_ext_q1q2_v1/e7_three_fold/e7b_data_prep/gpu_evidence/full_siw_path_audit"
+    assert evidence_root.is_dir()
+    assert (evidence_root / "FULL_SIW_PHYSICAL_AUDIT.json").is_file()
+    audit = json.loads((evidence_root / "FULL_SIW_PHYSICAL_AUDIT.json").read_text(encoding="utf-8"))
+    assert audit["missing_crop_count"] == 0
+    assert audit["bad_hash_count"] == 0
+    assert audit["all_frame_subject_null"] is True
+
+    fix = REPO / e7b.E7B_REPORT_DIR / "E7B_CROP_PATH_RESOLUTION_TECHNICAL_FIX.json"
+    assert fix.is_file()
+    body = json.loads(fix.read_text(encoding="utf-8"))
+    assert body["BASE_COMMIT"] == "65714cb897042840fa27dbbd69f5e72bba9ef25d"
+    assert body["BUG_CLASS"] == "TECHNICAL_PATH_RESOLUTION_FALSE_NEGATIVE"
+    assert body["SCIENTIFIC_DATA_VALID"] is True
+    assert body["SCIENTIFIC_RERUN_REQUIRED"] is False
+    assert body["CROP_RELATIVE_PATH_REWRITTEN"] is False
+    assert body["PACKAGE_MANIFEST_REWRITTEN"] is False
+    assert body["SCIENTIFIC_PROTOCOL_CHANGED"] is False

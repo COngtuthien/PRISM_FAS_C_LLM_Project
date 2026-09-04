@@ -697,6 +697,29 @@ def _read_manifest_rows(context: Any, *, kind: str) -> list[dict[str, Any]]:
     return pq.read_table(path).to_pylist()
 
 
+def _e7b_m2_output_root(package_manifest_path: Path) -> Path:
+    """The ONE mapping from an E7-B package manifest
+    (`SIW_SOURCE_PACKAGE.json`/`TARGET_PACKAGE.json`) to the physical root
+    every persisted `crop_relative_path` on its rows is relative to.
+
+    `_build_e7b_run_context` always places `PreprocessingRunContext.
+    output_root` at `<package_root>/m2_run` -- for BOTH the scientific
+    package namespace and the engineering smoke namespace alike (there is no
+    separate scientific/smoke path semantics). The package manifest itself
+    lives at `<package_root>` (i.e. `package_manifest_path.parent`), one
+    level ABOVE where the frozen M2 pipeline actually wrote crops/frames/
+    manifests. A `crop_relative_path` such as `crops/siw_mv2/<sample>.jpg`
+    must therefore be resolved against `<package_root>/m2_run`, never
+    `<package_root>` directly -- resolving it directly against
+    `package_manifest_path.parent` silently looks in the wrong directory
+    and reports a real, on-disk, hash-verified crop as missing.
+
+    Every E7-B consumer that needs to resolve a persisted crop path MUST
+    use this one helper -- never re-derive `/m2_run` inline.
+    """
+    return package_manifest_path.parent / "m2_run"
+
+
 def _resume_completed_video_ids(package_manifest_path: Path, *, planned_per_video: int) -> set[str]:
     """E7-B's OWN, additive resume-skip layer: a video is skipped only if
     its LAST written package manifest already has `planned_per_video`
@@ -712,14 +735,14 @@ def _resume_completed_video_ids(package_manifest_path: Path, *, planned_per_vide
     for row in body.get("rows", []):
         by_video.setdefault(row["source_video_id"], []).append(row)
     complete: set[str] = set()
-    package_root = package_manifest_path.parent
+    m2_output_root = _e7b_m2_output_root(package_manifest_path)
     for video_id, rows in by_video.items():
         if len(rows) != planned_per_video:
             continue
         for row in rows:
             if row["status"] != "success":
                 continue
-            crop_path = package_root / row["crop_relative_path"]
+            crop_path = m2_output_root / row["crop_relative_path"]
             if not crop_path.is_file():
                 raise E7BError(f"{video_id}: previously-successful crop {row['crop_relative_path']!r} is "
                                "missing on resume -- integrity error, refusing to silently re-sample")
@@ -969,14 +992,14 @@ def _resume_completed_target_ids(package_manifest_path: Path, *, planned_per_vid
     for row in body.get("rows", []):
         by_video.setdefault(row["canonical_video_id"], []).append(row)
     complete: set[str] = set()
-    package_root = package_manifest_path.parent
+    m2_output_root = _e7b_m2_output_root(package_manifest_path)
     for video_id, rows in by_video.items():
         if len(rows) != planned_per_video:
             continue
         for row in rows:
             if row["status"] != "success":
                 continue
-            crop_path = package_root / row["crop_relative_path"]
+            crop_path = m2_output_root / row["crop_relative_path"]
             if not crop_path.is_file():
                 raise E7BError(f"{video_id}: previously-successful crop is missing on resume -- "
                                "integrity error, refusing to silently re-sample")
@@ -1156,10 +1179,14 @@ def write_f1_target_reuse_binding(repo: Path) -> dict[str, Any]:
 # TASK G -- validator
 # --------------------------------------------------------------------------- #
 
-def _crop_resolves(package_root: Path, relative_path: str | None, expected_sha256: str | None) -> bool:
+def _crop_resolves(m2_output_root: Path, relative_path: str | None, expected_sha256: str | None) -> bool:
+    """`m2_output_root` MUST be `_e7b_m2_output_root(package_manifest_path)`
+    -- `crop_relative_path` is relative to the M2 pipeline's own output
+    root (`<package_root>/m2_run`), never to the package manifest's parent
+    directory directly."""
     if not relative_path or not expected_sha256:
         return False
-    crop_path = package_root / relative_path
+    crop_path = m2_output_root / relative_path
     return crop_path.is_file() and cc.sha256_file(crop_path) == expected_sha256
 
 
@@ -1181,7 +1208,7 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
         results["siw_source_package"] = {"status": "NOT_BUILT"}
     else:
         body = cc.read_json(siw_manifest)
-        package_root = siw_manifest.parent
+        m2_output_root = _e7b_m2_output_root(siw_manifest)
         problems = []
         rows = body.get("rows", [])
         refs = _siw_source_refs_from_e7a(repo)
@@ -1193,7 +1220,7 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
             if key not in known_ids:
                 problems.append(f"row references unknown SiW video/split {key}")
             if row.get("status") == "success" and not _crop_resolves(
-                    package_root, row.get("crop_relative_path"), row.get("crop_sha256")):
+                    m2_output_root, row.get("crop_relative_path"), row.get("crop_sha256")):
                 problems.append(f"{row.get('source_video_id')}/{row.get('frame_index')}: "
                                 "successful crop does not resolve on disk")
             if row.get("status") == "failure" and not row.get("failure_reason"):
@@ -1233,7 +1260,7 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
             results[f"{dataset}_target_package"] = {"status": "NOT_BUILT"}
             continue
         body = cc.read_json(manifest)
-        package_root = manifest.parent
+        m2_output_root = _e7b_m2_output_root(manifest)
         problems = []
         planned = body.get("planned_frame_count")
         rows = body.get("rows", [])
@@ -1249,7 +1276,7 @@ def e7b_validate(repo: Path) -> dict[str, Any]:
                 if forbidden_field in row:
                     problems.append(f"row carries forbidden label field {forbidden_field!r}")
             if row.get("status") == "success" and not _crop_resolves(
-                    package_root, row.get("crop_relative_path"), row.get("crop_sha256")):
+                    m2_output_root, row.get("crop_relative_path"), row.get("crop_sha256")):
                 problems.append(f"{row.get('canonical_video_id')}/{row.get('frame_index')}: "
                                 "successful crop does not resolve on disk")
             if row.get("status") == "failure" and not row.get("failure_reason"):
