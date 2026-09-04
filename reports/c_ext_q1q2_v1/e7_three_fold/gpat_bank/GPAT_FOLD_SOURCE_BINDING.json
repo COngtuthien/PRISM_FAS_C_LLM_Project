@@ -1,0 +1,47 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-e7d-binding-v1",
+  "e7d_status": "CLOSED_VALID",
+  "evidence_path": "reports/c_ext_q1q2_v1/e7_three_fold/e7d_source_support/gpu_evidence/final_e7d_valid_8e02114/E7D_FINAL_VALID_SUMMARY.json",
+  "evidence_present": true,
+  "folds": {
+    "EXT-F1": {
+      "frozen_package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "observed_package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "match": true
+    },
+    "EXT-F2": {
+      "frozen_package_identity": "b617dc8ee6b0827ef5c0be3072563bb0013d1c87c7982527a6b16a5b75dde6a0",
+      "observed_package_identity": "b617dc8ee6b0827ef5c0be3072563bb0013d1c87c7982527a6b16a5b75dde6a0",
+      "match": true
+    },
+    "EXT-F3": {
+      "frozen_package_identity": "508a9bd002d22571534d9609a7b301065a8d752b9625f7b500ae27b199ec8955",
+      "observed_package_identity": "508a9bd002d22571534d9609a7b301065a8d752b9625f7b500ae27b199ec8955",
+      "match": true
+    }
+  },
+  "E7D_BINDING_MATCH": true,
+  "siw_accounting_match": true,
+  "frozen_siw_crop_accounting": {
+    "planned": 6800,
+    "success": 6776,
+    "failure": 24,
+    "train_success": 5426,
+    "dev_success": 1350,
+    "live_train_success": 2512,
+    "live_dev_success": 628,
+    "spoof_train_success": 2914,
+    "spoof_dev_success": 722,
+    "train_failures": 22,
+    "dev_failures": 2,
+    "live_failures": 0,
+    "spoof_failures": 24
+  },
+  "local_package_bytes_present": {
+    "EXT-F1": false,
+    "EXT-F2": false,
+    "EXT-F3": false
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

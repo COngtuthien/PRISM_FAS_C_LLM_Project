@@ -1,0 +1,26 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-prior-binding-v1",
+  "prior_generation_function": "prism_fas.data.package.m3b.build_m3b_package",
+  "config_path": "configs/models/m3b_priors.yaml",
+  "prior_schema_version": "m3b-priors-v1",
+  "seed": 20260805,
+  "models": {
+    "parsing": {
+      "backend": "facexformer",
+      "revision": "fd12148d0b19",
+      "weight_sha256": "327a755849ba64d336fb96589ff87b27e84a12be1ecf8bcfaa503d66f803286d"
+    },
+    "identity": {
+      "backend": "adaface_ir50",
+      "revision": "60a65befbcf7",
+      "weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496"
+    }
+  },
+  "m3b_package_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "protected_siw_target_prior_package_root": "data/processed/prism_target_eval_v2",
+  "protected_package_never_read_for_source": true,
+  "output_prior_identity_rule": "sha256 of the merged prior .npz content, recorded per-row as prior_sha256 -- identical convention to M3B's own prior_sha256 field (frozen, never redefined)",
+  "input_crop_sha_binding": "prior generation for a SiW-as-source row must be keyed on E7-B's own crop_sha256 for that row (never recomputed from a different crop, never a replacement/resampled frame)",
+  "target_access": false,
+  "llm_api_calls": 0
+}

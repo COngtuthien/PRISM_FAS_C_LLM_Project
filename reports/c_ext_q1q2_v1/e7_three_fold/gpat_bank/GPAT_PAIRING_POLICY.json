@@ -1,0 +1,41 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-pairing-policy-v1",
+  "reused_module": "prism_fas.synthesis.pair_plan",
+  "frozen_seed": 20260806,
+  "frozen_train_fraction": 0.8,
+  "frozen_pairs_per_live": 4,
+  "legacy_allowed_datasets": [
+    "casia_fasd",
+    "msu_mfsd"
+  ],
+  "legacy_allowed_datasets_fold_aware_override": {
+    "EXT-F1": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "EXT-F2": [
+      "casia_fasd",
+      "siw_mv2"
+    ],
+    "EXT-F3": [
+      "msu_mfsd",
+      "siw_mv2"
+    ]
+  },
+  "legacy_pair_count_constants_are_m3b_size_assumptions_only": true,
+  "pair_counts_resolved_from": "real E7-D fold source TRAIN rows, computed at GPU pair-plan build time -- NEVER predeclared/assumed on this laptop",
+  "preserved_scientific_rules": [
+    "live/spoof roles",
+    "deterministic record partition",
+    "same-domain pairing",
+    "cross-domain pairing",
+    "different-record rule",
+    "different-subject rule (where subject identity exists)",
+    "subject rule NOT_APPLICABLE where SiW subject_id is unavailable (never fabricated)",
+    "deterministic seed",
+    "train/validation isolation"
+  ],
+  "never_alters_rules_to_force_a_pair_count": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

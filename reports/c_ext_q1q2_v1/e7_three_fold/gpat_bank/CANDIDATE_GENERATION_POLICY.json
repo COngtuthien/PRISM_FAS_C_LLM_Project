@@ -1,0 +1,23 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-candidate-generation-policy-v1",
+  "reused_modules": [
+    "prism_fas.synthesis.c5_source_pair_plan",
+    "prism_fas.synthesis.c5_arm_plan",
+    "prism_fas.synthesis.c5_raw_generation",
+    "prism_fas.synthesis.c5_render"
+  ],
+  "never_uses_legacy_m8_candidate_plan": "prism_fas.synthesis.candidate_plan is the LEGACY Version-B planner (keyed on live samples, no arm dimension, EXPECTED_TOTAL=1120) -- NOT used here",
+  "frozen_quota": {
+    "final_bank_per_arm": 1024,
+    "physics_per_arm": 512,
+    "gpat_per_arm": 512
+  },
+  "route_reuse": [
+    "prism_fas.synthesis.synthetic_bank.GPATRoute",
+    "prism_fas.synthesis.synthetic_bank.PhysicsRoute"
+  ],
+  "treatment_fairness": "for a given fold, source assignment/schedule is ARM-INDEPENDENT -- RND/DET/LLM differ only by recipe content, never by a different source-sampling opportunity; Shuffle follows the SAME frozen positional/source schedule when feasible",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false
+}

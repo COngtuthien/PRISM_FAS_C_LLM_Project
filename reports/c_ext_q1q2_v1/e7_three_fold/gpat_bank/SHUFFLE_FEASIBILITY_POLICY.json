@@ -1,0 +1,74 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-shuffle-feasibility-policy-v1",
+  "folds": {
+    "EXT-F1": {
+      "status": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+      "basis": {
+        "E6_V2_STATUS": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+        "SHUFFLE_GPAT_MAX_FILLABLE": 512,
+        "SHUFFLE_PHYSICS_MAX_FILLABLE": 479,
+        "SHUFFLE_PHYSICS_REQUIRED": 512,
+        "SHUFFLE_PHYSICS_CASIA_AVAILABLE": 231,
+        "SHUFFLE_PHYSICS_CASIA_REQUIRED": 264,
+        "SHUFFLE_PHYSICS_CASIA_DEFICIT": 33,
+        "closure_identity": "2a7b95496bf25cbd5d17265188b9003ff17cf48abc7a500dde598738ec1a2a03"
+      },
+      "required_reporting": [
+        "PHYSICS_CANDIDATES_GENERATED",
+        "GPAT_CANDIDATES_GENERATED",
+        "PHYSICS_QUALITY_PASS",
+        "GPAT_QUALITY_PASS",
+        "per_source_domain_pass_counts",
+        "required_quota_per_route_domain",
+        "maximum_fillable_bank_size_under_exact_frozen_matching",
+        "final_status"
+      ]
+    },
+    "EXT-F2": {
+      "status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "basis": {
+        "reason": "independent -- F1's Physics infeasibility is a property of F1's OWN source-domain composition; this fold draws from a different source-domain pair and must be independently rendered/measured/matched",
+        "ext_f1_result_does_not_predetermine_this_fold": true
+      },
+      "required_reporting": [
+        "PHYSICS_CANDIDATES_GENERATED",
+        "GPAT_CANDIDATES_GENERATED",
+        "PHYSICS_QUALITY_PASS",
+        "GPAT_QUALITY_PASS",
+        "per_source_domain_pass_counts",
+        "required_quota_per_route_domain",
+        "maximum_fillable_bank_size_under_exact_frozen_matching",
+        "final_status"
+      ]
+    },
+    "EXT-F3": {
+      "status": "PENDING_FEASIBILITY_PREFLIGHT",
+      "basis": {
+        "reason": "independent -- F1's Physics infeasibility is a property of F1's OWN source-domain composition; this fold draws from a different source-domain pair and must be independently rendered/measured/matched",
+        "ext_f1_result_does_not_predetermine_this_fold": true
+      },
+      "required_reporting": [
+        "PHYSICS_CANDIDATES_GENERATED",
+        "GPAT_CANDIDATES_GENERATED",
+        "PHYSICS_QUALITY_PASS",
+        "GPAT_QUALITY_PASS",
+        "per_source_domain_pass_counts",
+        "required_quota_per_route_domain",
+        "maximum_fillable_bank_size_under_exact_frozen_matching",
+        "final_status"
+      ]
+    }
+  },
+  "forbidden_rescue_actions": [
+    "lower bank size 512",
+    "change source-domain quotas",
+    "relax quality thresholds",
+    "modify q",
+    "resample candidates",
+    "rerender solely to obtain a passing bank",
+    "change matching policy"
+  ],
+  "no_rescue_actions_permitted": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

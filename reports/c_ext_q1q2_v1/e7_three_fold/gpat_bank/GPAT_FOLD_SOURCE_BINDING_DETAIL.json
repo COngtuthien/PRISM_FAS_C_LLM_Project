@@ -1,0 +1,55 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-fold-source-binding-all-v1",
+  "folds": {
+    "EXT-F1": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-fold-source-binding-v1",
+      "fold_id": "EXT-F1",
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "e7d_package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "m3b_train_reference_count": 1440,
+      "m3b_refs_carry_prior_fields": true,
+      "prior_join_key": "sample_id (E7-D row) == sample_id (E7-A m3b_processed_sample reference)",
+      "siw_in_fold": false,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F2": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-fold-source-binding-v1",
+      "fold_id": "EXT-F2",
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "e7d_package_identity": "b617dc8ee6b0827ef5c0be3072563bb0013d1c87c7982527a6b16a5b75dde6a0",
+      "m3b_train_reference_count": 960,
+      "m3b_refs_carry_prior_fields": true,
+      "prior_join_key": "sample_id (E7-D row) == sample_id (E7-A m3b_processed_sample reference)",
+      "siw_in_fold": true,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F3": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-fold-source-binding-v1",
+      "fold_id": "EXT-F3",
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "e7d_package_identity": "508a9bd002d22571534d9609a7b301065a8d752b9625f7b500ae27b199ec8955",
+      "m3b_train_reference_count": 480,
+      "m3b_refs_carry_prior_fields": true,
+      "prior_join_key": "sample_id (E7-D row) == sample_id (E7-A m3b_processed_sample reference)",
+      "siw_in_fold": true,
+      "status": "RESOLVED",
+      "target_access": false,
+      "llm_api_calls": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

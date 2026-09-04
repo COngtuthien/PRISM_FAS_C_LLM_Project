@@ -1,0 +1,39 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-matched-bank-policy-v1",
+  "reused_module": "prism_fas.synthesis.c6_matched_bank",
+  "reused_functions": [
+    "planned_domain_counts",
+    "ideal_domain_share",
+    "largest_remainder_quota",
+    "common_capacity",
+    "resolve_route_quota",
+    "select_route_bank",
+    "build_matched_banks"
+  ],
+  "frozen_quota": {
+    "final_bank_per_arm": 1024,
+    "physics_per_arm": 512,
+    "gpat_per_arm": 512
+  },
+  "required_bank_fields": [
+    "fold_id",
+    "source_support_package_identity",
+    "gpat_checkpoint_identity",
+    "recipe_bank_identity",
+    "recipe_bank_identity_kind",
+    "source_pair_plan_identity",
+    "candidate_plan_identity",
+    "quality_config_identity",
+    "quality_calibration_identity",
+    "route_quotas",
+    "accepted_candidate_ids",
+    "crop_image_hashes",
+    "q_values",
+    "bank_identity",
+    "target_access_audit",
+    "llm_api_calls"
+  ],
+  "absolute_host_paths_excluded_from_identity": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

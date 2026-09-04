@@ -1,0 +1,15 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-quality-gate-binding-v1",
+  "reused_modules": [
+    "prism_fas.synthesis.quality_gate",
+    "prism_fas.synthesis.quality_calibration",
+    "prism_fas.synthesis.c6_scientific"
+  ],
+  "hard_gates_reused_unmodified": true,
+  "q_semantics": "q remains a training-weight/matching variable exactly as frozen -- never reinterpreted as an acceptance criterion",
+  "calibration_source_only": true,
+  "calibration_never_uses_held_out_target": true,
+  "thresholds_never_relaxed_to_force_feasibility": true,
+  "target_access": false,
+  "llm_api_calls": 0
+}

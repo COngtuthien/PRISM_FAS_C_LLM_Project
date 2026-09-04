@@ -1,0 +1,36 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-execution-plan-v1",
+  "per_fold_compatibility": {
+    "EXT-F1": "COMPATIBLE",
+    "EXT-F2": "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION",
+    "EXT-F3": "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION"
+  },
+  "per_fold_shuffle_status": {
+    "EXT-F1": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+    "EXT-F2": "PENDING_FEASIBILITY_PREFLIGHT",
+    "EXT-F3": "PENDING_FEASIBILITY_PREFLIGHT"
+  },
+  "ready_for_gpu_gpat_fit": {
+    "EXT-F1": true,
+    "EXT-F2": true,
+    "EXT-F3": true
+  },
+  "next_gpu_stages": [
+    "prior generation for SiW-as-source rows (F2/F3)",
+    "per-fold GPAT pair-plan construction",
+    "per-fold GPAT fitting",
+    "source-only quality calibration",
+    "per-fold/per-arm candidate generation (Physics+GPAT)",
+    "quality-gate evaluation",
+    "F2/F3 Shuffle-A independent feasibility",
+    "matched-bank resolution",
+    "per-fold/per-condition integrity locks"
+  ],
+  "e7_ready_for_training": false,
+  "reason": "no GPAT checkpoint fitted, no synthetic candidate bank exists, F2/F3 Shuffle feasibility unresolved, no matched-bank/integrity lock has run",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-gpat-fit-policy-v1",
+  "config_path": "configs/synthesis/gpat_m8.yaml",
+  "config_present": true,
+  "config_sha256": "d38f9489861cb16d83c8e1725fc935103e393a99ba8b08ab35605cb7216fe0d6",
+  "seed": 20260806,
+  "conditioning_bank": {
+    "bank_id": "prism_recipe_bank_m7_v1",
+    "bank_content_identity_sha256": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+    "recipe_count": 128,
+    "bank_seed": 20260806,
+    "status": "frozen"
+  },
+  "conditioning_bank_root": "assets/recipe_banks/prism_recipe_bank_m7_v1",
+  "one_fit_per_fold_source_only": true,
+  "fit_arm_independent": "GPAT is fit ONCE per fold, source-only, conditioned on the frozen M7 recipe bank -- NEVER separately per RND/DET/LLM/Shuffle arm. Recipe conditioning differs only at CANDIDATE-GENERATION time (inference against the already-fitted checkpoint with a C3-arm-bank recipe's conditioning vector), never at fit time -- this is how cross-arm fairness is achieved: every arm generates candidates from the exact same fitted weights.",
+  "reused_class": "prism_fas.synthesis.gpat_trainer.GPATTrainer",
+  "reused_fit_method": "GPATTrainer.fit",
+  "never_reimplements": [
+    "architecture (gpat_model.build_gpat_model)",
+    "losses (gpat_losses.compute_losses)",
+    "optimizer",
+    "scheduler",
+    "checkpoint_selection",
+    "early_stopping",
+    "identity_loss",
+    "invariants (gpat_losses.assert_invariants)"
+  ],
+  "source_split_used": "source_train only (config.data.package_split=='source_train', config.data.forbidden_splits includes 'source_dev'/'target_test')",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}

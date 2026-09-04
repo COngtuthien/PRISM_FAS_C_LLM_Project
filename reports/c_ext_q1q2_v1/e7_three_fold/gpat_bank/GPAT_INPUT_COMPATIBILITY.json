@@ -1,0 +1,43 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-gpat-input-compatibility-all-v1",
+  "folds": {
+    "EXT-F1": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-gpat-input-compatibility-v1",
+      "fold_id": "EXT-F1",
+      "status": "COMPATIBLE",
+      "m3b_priors_resolved": true,
+      "m3b_note": "frozen, already-validated M3B package with full priors (parsing_labels/pose_ypr/visibility/bbox/landmarks/crop_box) -- package_identity verified locally",
+      "siw_priors_resolved": null,
+      "siw_note": "no SiW source domain in this fold",
+      "sample_store_mask_builder_note": "prism_fas.synthesis.m8_pipeline.SampleStore.mask_builder() hard-indexes arrays['parsing_labels']/arrays['crop_box'] (no .get fallback) -- any prior lacking those exact keys will KeyError. This module's adapter must materialize a full M3B-schema prior (never a partial/geometry-only one) for every row it feeds to SampleStore, to stay compatible with the UNMODIFIED legacy code path.",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F2": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-gpat-input-compatibility-v1",
+      "fold_id": "EXT-F2",
+      "status": "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION",
+      "m3b_priors_resolved": true,
+      "m3b_note": "frozen, already-validated M3B package with full priors (parsing_labels/pose_ypr/visibility/bbox/landmarks/crop_box) -- package_identity verified locally",
+      "siw_priors_resolved": true,
+      "siw_note": "SiW-as-source priors do not exist yet (E7-B's own SIW_SOURCE_PACKAGE_ROOT has no prior-generation step; present_locally=False). The REQUIRED prior-generation primitive IS fully frozen and reusable (prism_fas.data.package.m3b.build_m3b_package, FaceXFormer rev fd12148d0b19 sha256 327a755849ba64d3..., AdaFace rev 60a65befbcf7, config configs/models/m3b_priors.yaml, seed 20260805) and MUST be invoked (on GPU) against E7-B's own SiW-as-source crop package -- NEVER against the protected target-tagged prism_target_eval_v2 package. This is GPU_REQUIRED, not a new scientific choice, and not BLOCKED.",
+      "sample_store_mask_builder_note": "prism_fas.synthesis.m8_pipeline.SampleStore.mask_builder() hard-indexes arrays['parsing_labels']/arrays['crop_box'] (no .get fallback) -- any prior lacking those exact keys will KeyError. This module's adapter must materialize a full M3B-schema prior (never a partial/geometry-only one) for every row it feeds to SampleStore, to stay compatible with the UNMODIFIED legacy code path.",
+      "target_access": false,
+      "llm_api_calls": 0
+    },
+    "EXT-F3": {
+      "schema_version": "ext-q1q2-e7-gpat-bank-gpat-input-compatibility-v1",
+      "fold_id": "EXT-F3",
+      "status": "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION",
+      "m3b_priors_resolved": true,
+      "m3b_note": "frozen, already-validated M3B package with full priors (parsing_labels/pose_ypr/visibility/bbox/landmarks/crop_box) -- package_identity verified locally",
+      "siw_priors_resolved": true,
+      "siw_note": "SiW-as-source priors do not exist yet (E7-B's own SIW_SOURCE_PACKAGE_ROOT has no prior-generation step; present_locally=False). The REQUIRED prior-generation primitive IS fully frozen and reusable (prism_fas.data.package.m3b.build_m3b_package, FaceXFormer rev fd12148d0b19 sha256 327a755849ba64d3..., AdaFace rev 60a65befbcf7, config configs/models/m3b_priors.yaml, seed 20260805) and MUST be invoked (on GPU) against E7-B's own SiW-as-source crop package -- NEVER against the protected target-tagged prism_target_eval_v2 package. This is GPU_REQUIRED, not a new scientific choice, and not BLOCKED.",
+      "sample_store_mask_builder_note": "prism_fas.synthesis.m8_pipeline.SampleStore.mask_builder() hard-indexes arrays['parsing_labels']/arrays['crop_box'] (no .get fallback) -- any prior lacking those exact keys will KeyError. This module's adapter must materialize a full M3B-schema prior (never a partial/geometry-only one) for every row it feeds to SampleStore, to stay compatible with the UNMODIFIED legacy code path.",
+      "target_access": false,
+      "llm_api_calls": 0
+    }
+  },
+  "target_access": false,
+  "llm_api_calls": 0
+}

@@ -1,0 +1,86 @@
+{
+  "schema_version": "ext-q1q2-e7-gpat-bank-protocol-lock-v1",
+  "folds": {
+    "EXT-F1": {
+      "source_domains": [
+        "CASIA-FASD",
+        "MSU-MFSD"
+      ],
+      "heldout_target_domain": "SiW-Mv2"
+    },
+    "EXT-F2": {
+      "source_domains": [
+        "CASIA-FASD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "MSU-MFSD"
+    },
+    "EXT-F3": {
+      "source_domains": [
+        "MSU-MFSD",
+        "SiW-Mv2"
+      ],
+      "heldout_target_domain": "CASIA-FASD"
+    }
+  },
+  "stages": [
+    "gpat_input_compatibility",
+    "gpat_pair_plan",
+    "gpat_fit",
+    "source_only_quality_calibration",
+    "candidate_generation",
+    "quality_gate",
+    "shuffle_feasibility",
+    "matched_bank",
+    "integrity_lock",
+    "training_readiness_closure"
+  ],
+  "conditions": [
+    "G-REALONLY",
+    "G-RND",
+    "G-DET",
+    "G-LLM",
+    "G-LLM-SHUFFLE-A"
+  ],
+  "synthetic_conditions": [
+    "G-RND",
+    "G-DET",
+    "G-LLM",
+    "G-LLM-SHUFFLE-A"
+  ],
+  "reused_primitives": {
+    "gpat_fitting": "prism_fas.synthesis.gpat_trainer.GPATTrainer.fit",
+    "gpat_model": "prism_fas.synthesis.gpat_model.build_gpat_model",
+    "gpat_losses": "prism_fas.synthesis.gpat_losses.compute_losses",
+    "sample_store": "prism_fas.synthesis.m8_pipeline.SampleStore (UNMODIFIED)",
+    "source_only_audit": "prism_fas.synthesis.m8_pipeline.SourceOnlyAudit (UNMODIFIED)",
+    "pairing": "prism_fas.synthesis.pair_plan.build_pair_plan",
+    "candidate_schedule": "prism_fas.synthesis.c5_source_pair_plan.build_source_pair_plan",
+    "candidate_render": "prism_fas.synthesis.c5_render.render_arm / build_routes",
+    "routes": "prism_fas.synthesis.synthetic_bank.GPATRoute / PhysicsRoute",
+    "quality_gate": "prism_fas.synthesis.quality_gate.evaluate",
+    "quality_calibration": "prism_fas.synthesis.quality_calibration.calibrate",
+    "matched_bank": "prism_fas.synthesis.c6_matched_bank.build_matched_banks",
+    "prior_generation": "prism_fas.data.package.m3b.build_m3b_package"
+  },
+  "never_modifies": [
+    "GPAT architecture",
+    "GPAT losses",
+    "optimizer/scheduler",
+    "checkpoint selection",
+    "early stopping",
+    "pairing scientific rules",
+    "quality metrics",
+    "quality thresholds",
+    "matching policy",
+    "SourceOnlyAudit",
+    "quota"
+  ],
+  "no_global_dataset_name_ban": true,
+  "source_split_policy": "GPAT fit/pairing/candidate-source support uses E7-D source TRAIN only; source DEV is reserved for preregistered source-only calibration/validation; train and dev are never merged",
+  "target_access": false,
+  "llm_api_calls": 0,
+  "rendering_performed": false,
+  "training_performed": false,
+  "gpat_fitting_performed": false
+}
