@@ -2248,6 +2248,254 @@ def _gpat_fit_capability(repo: Path) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# TASK N.5.5 -- TECHNICAL_SINGLE_SAMPLE_EMPTY_CHEEK_FALLBACK_EDGE_CASE.
+#
+# The frozen `prism_fas.synthesis.masks.RegionMaskBuilder` cheek fallback
+# derives its ellipse centre from `nose_x +/- 0.22 * face_width`. For one
+# real EXT-F2 SiW-as-source sample (a large detector bbox on a small crop)
+# that centre lands entirely outside the 224x224 crop, so the ellipse
+# intersects zero pixels and `RegionMaskBuilder.build()` raises
+# `MaskBuildError("region 'right_cheek' produced an empty mask")`.
+#
+# This is a TECHNICAL crop-boundary edge case, never a scientific defect
+# (F1's exhaustive audit proves BBOX_OOB is common and harmless; only ONE
+# EXT-F2 sample's cheek ellipse centre falls fully outside the crop). The
+# ORIGINAL `RegionMaskBuilder` in `masks.py` is NEVER modified. This is an
+# ADDITIVE, E7-scoped compatibility subclass: it calls the real, unmodified
+# `RegionMaskBuilder.region()` first; a non-empty result (or any non-cheek
+# region) passes through byte-identical; only an EMPTY left_cheek/
+# right_cheek result gets a deterministic second-stage recovery that
+# reuses the SAME fallback geometry (`face_box`, `_eye_line`, `_mouth_line`,
+# `landmark`, `face_width`/`face_height`, the same `nose_x +/- 0.22 *
+# face_width` centre rule, the same `0.15 * face_width` / `0.14 *
+# face_height` radii) and ONLY clips the already-computed centre into the
+# valid crop pixel-centre domain before re-rendering via the REAL, frozen
+# `masks._ellipse` (never reimplemented). If the clipped recovery is STILL
+# empty, this returns the empty mask unchanged -- `RegionMaskBuilder.build()`
+# (inherited, never overridden) raises the exact same `MaskBuildError` it
+# always would, so an unrecoverable case fails closed exactly as before.
+# --------------------------------------------------------------------------- #
+
+MASK_COMPATIBILITY_POLICY = "e7-empty-cheek-crop-boundary-recovery-v1"
+MASK_RECOVERY_SOURCE_TAG = "bbox_geometry+crop_boundary_recovery_v1"
+GPAT_ATTEMPT_PROVENANCE_FILENAME = "GPAT_ATTEMPT_PROVENANCE.json"
+
+
+class _E7CompatibleRegionMaskBuilder:
+    """Mixin-style override, applied via a real subclass of the frozen
+    `RegionMaskBuilder` dataclass constructed lazily (see
+    `_e7_compatible_region_mask_builder_class()`) so this module never has
+    to import `RegionMaskBuilder` at module-import time in a way that could
+    be mistaken for a `masks.py` change. Holds NO dataclass fields of its
+    own -- only a class-level, per-invocation-scoped recovery counter."""
+    _recovery_counter: list[int] | None = None
+
+    def region(self, name: str) -> tuple[Any, str]:
+        import numpy as np
+
+        mask, source = super().region(name)  # the REAL, unmodified RegionMaskBuilder.region()
+        if name not in ("left_cheek", "right_cheek") or np.asarray(mask).any():
+            return mask, source  # non-cheek, or already non-empty: pass through byte-identical
+
+        from prism_fas.synthesis.masks import _ellipse  # the REAL, frozen renderer -- never duplicated
+
+        x1, y1, x2, y2 = self.face_box()
+        face_width, face_height = max(x2 - x1, 2.0), max(y2 - y1, 2.0)
+        nose_x, _ = self.landmark("nose")
+        top = self._eye_line() + 0.10 * face_height
+        bottom = min(self._mouth_line() + 0.05 * face_height, y2)
+        centre_x = nose_x - 0.22 * face_width if name == "left_cheek" else nose_x + 0.22 * face_width
+        centre_y = (top + max(bottom, top + 2.0)) / 2.0
+        # The ONLY correction: clip the already-computed ellipse centre into the valid crop
+        # pixel-centre domain. Radii/formula are otherwise byte-identical to the frozen fallback.
+        centre_x = float(np.clip(centre_x, 0.5, self.width - 0.5))
+        centre_y = float(np.clip(centre_y, 0.5, self.height - 0.5))
+        recovered = _ellipse(self.height, self.width, centre_x, centre_y, face_width * 0.15, face_height * 0.14)
+        if not np.asarray(recovered).any():
+            return recovered, source  # still empty -- FAIL CLOSED exactly as before, via build()
+        counter = type(self)._recovery_counter
+        if counter is not None:
+            counter[0] += 1
+        return recovered, MASK_RECOVERY_SOURCE_TAG
+
+
+def _e7_compatible_region_mask_builder_class() -> type:
+    """Builds (once) a real subclass of the frozen `RegionMaskBuilder`
+    dataclass -- MRO `(Built, _E7CompatibleRegionMaskBuilder,
+    RegionMaskBuilder, object)`, i.e. `type(name, (_E7CompatibleRegionMaskBuilder,
+    RegionMaskBuilder), {})` -- so `_E7CompatibleRegionMaskBuilder.region()`
+    overrides `RegionMaskBuilder.region()` and `super().region()` inside it
+    resolves to the REAL, unmodified `RegionMaskBuilder.region()`; every
+    other field/method is inherited unmodified. Never mutates
+    `masks.RegionMaskBuilder` itself."""
+    cached = getattr(_e7_compatible_region_mask_builder_class, "_cached", None)
+    if cached is not None:
+        return cached
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    built = type("E7CompatibleRegionMaskBuilder", (_E7CompatibleRegionMaskBuilder, RegionMaskBuilder), {})
+    _e7_compatible_region_mask_builder_class._cached = built
+    return built
+
+
+@contextlib.contextmanager
+def _scoped_mask_builder_binding(builder_class: type, *, recovery_counter: list[int] | None = None):
+    """Saves the EXACT original `m8_pipeline.RegionMaskBuilder` module-
+    global object, binds `builder_class` for the duration, and restores the
+    original in `finally` -- even on error. `SampleStore.mask_builder()`
+    resolves `RegionMaskBuilder` from `m8_pipeline`'s module namespace at
+    CALL time, so this is the one legitimate seam to redirect construction
+    without ever touching `m8_pipeline.py` itself."""
+    from prism_fas.synthesis import m8_pipeline
+
+    original = m8_pipeline.RegionMaskBuilder
+    if recovery_counter is not None:
+        builder_class._recovery_counter = recovery_counter
+    try:
+        m8_pipeline.RegionMaskBuilder = builder_class
+        yield
+    finally:
+        m8_pipeline.RegionMaskBuilder = original
+        if recovery_counter is not None:
+            builder_class._recovery_counter = None
+
+
+def _scoped_e7_mask_compatibility_binding(recovery_counter: list[int]):
+    """The ONE binding wrapped around the real `GPATTrainer` construction +
+    `fit()` call in `prepare_gpat`."""
+    return _scoped_mask_builder_binding(_e7_compatible_region_mask_builder_class(),
+                                        recovery_counter=recovery_counter)
+
+
+def _iter_gpat_input_sample_ids(package_root: Path) -> list[str]:
+    from prism_fas.data.package.manifests import read_manifest
+
+    rows = read_manifest(package_root / "manifests" / "source_train.parquet")
+    return sorted(row["sample_id"] for row in rows)
+
+
+def audit_mask_compatibility_row_invariance(repo: Path, fold_id: str) -> dict[str, Any]:
+    """Read-only. For every row in this fold's GPAT input source_train
+    manifest and every `masks.REGION_ORDER` region, compares the ORIGINAL
+    frozen `RegionMaskBuilder.region()` result against the E7-corrected
+    result. Never writes; never fits, renders, or trains."""
+    import numpy as np
+    from prism_fas.synthesis.m8_pipeline import SampleStore
+    from prism_fas.synthesis.masks import REGION_ORDER, RegionMaskBuilder
+
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    package_root = repo / GPAT_INPUT_ROOT / fold_id
+    store = SampleStore.open(package_root)
+    corrected_cls = _e7_compatible_region_mask_builder_class()
+
+    rows_checked = regions_checked = different_masks = different_sources = 0
+    recovery_activations = original_failures = corrected_failures = 0
+    recovered_sample_ids: list[str] = []
+    for sample_id in _iter_gpat_input_sample_ids(package_root):
+        _, arrays = store.load(sample_id)
+        kwargs = dict(height=224, width=224, parsing=arrays["parsing_labels"],
+                     landmarks=arrays["landmarks"], bbox=arrays["bbox"], crop_box=arrays["crop_box"])
+        original_builder = RegionMaskBuilder(**kwargs)
+        corrected_builder = corrected_cls(**kwargs)
+        rows_checked += 1
+        for region_name in REGION_ORDER:
+            regions_checked += 1
+            try:
+                original_mask, original_source = original_builder.region(region_name)
+                original_empty = not bool(np.asarray(original_mask).any())
+            except Exception:  # noqa: BLE001 -- any anomaly counts as a failure, never silently skipped
+                original_mask, original_source, original_empty = None, None, True
+            if original_empty:
+                original_failures += 1
+            try:
+                corrected_mask, corrected_source = corrected_builder.region(region_name)
+                corrected_empty = not bool(np.asarray(corrected_mask).any())
+            except Exception:  # noqa: BLE001
+                corrected_mask, corrected_source, corrected_empty = None, None, True
+            if corrected_empty:
+                corrected_failures += 1
+            if original_empty and region_name in ("left_cheek", "right_cheek") and not corrected_empty:
+                recovery_activations += 1
+                recovered_sample_ids.append(sample_id)
+                continue  # a genuine recovery is EXPECTED to differ from the (empty) original
+            if not original_empty:
+                if not np.array_equal(np.asarray(original_mask), np.asarray(corrected_mask)):
+                    different_masks += 1
+                if original_source != corrected_source:
+                    different_sources += 1
+    return {"schema_version": f"{SCHEMA_PREFIX}-mask-compat-row-audit-v1", "fold_id": fold_id,
+           "rows_checked": rows_checked, "regions_checked": regions_checked,
+           "different_masks": different_masks, "different_sources": different_sources,
+           "recovery_activations": recovery_activations, "original_failures": original_failures,
+           "corrected_failures": corrected_failures,
+           "recovered_sample_ids_diagnostic": recovered_sample_ids,  # diagnostic only, never policy
+           "target_access": False, "llm_api_calls": 0}
+
+
+def audit_mask_compatibility_pair_invariance(repo: Path, fold_id: str) -> dict[str, Any]:
+    """Read-only. Reconstructs the live support mask + spoof style mask for
+    EVERY real frozen train+validation pair, using the SAME
+    `compile_recipe`/`SampleStore.cached_mask` coverage/seed-scope/
+    use_support semantics `m8_pipeline.build_batch` itself uses, once under
+    the ORIGINAL frozen `RegionMaskBuilder` and once under the E7-corrected
+    builder. Proves the compatibility branch is a no-op wherever it is not
+    the empty-cheek edge case. Never writes; never fits, renders, or
+    trains."""
+    import numpy as np
+    from prism_fas.recipes.compile import compile_recipe
+    from prism_fas.synthesis import m8_pipeline
+    from prism_fas.synthesis.m8_pipeline import SampleStore, load_pairs, resolve_bank
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    package_root = repo / GPAT_INPUT_ROOT / fold_id
+    pairs_root = repo / GPAT_PAIR_PLAN_ROOT / fold_id
+    bank_root = repo / M7_RECIPE_BANK_ROOT
+    bank = resolve_bank(bank_root)
+    recipes = {recipe.recipe_id: recipe for recipe in bank["recipes"]}
+
+    all_pairs: list[dict[str, Any]] = []
+    for partition in ("train", "validation"):
+        all_pairs.extend(load_pairs(pairs_root, partition))
+
+    def _compute(builder_class: type, recovery_counter: list[int] | None) -> list[tuple[str, Any, Any]]:
+        with _scoped_mask_builder_binding(builder_class, recovery_counter=recovery_counter):
+            store = SampleStore.open(package_root)
+            out = []
+            for pair in all_pairs:
+                recipe = recipes[pair["recipe_id"]]
+                graph = compile_recipe(recipe, bank["ontology"], bank_id=bank["bank_id"])
+                policy = graph.region_mask_policy
+                support = store.cached_mask(pair["live_sample_id"], "live", graph,
+                                            coverage=float(policy["requested_coverage"]),
+                                            seed_scope="region_mask", use_support=True)
+                style = store.cached_mask(pair["spoof_sample_id"], "spoof", graph, coverage=1.0,
+                                          seed_scope="style_mask", use_support=False)
+                out.append((pair["pair_id"], support, style))
+            return out
+
+    original_results = _compute(RegionMaskBuilder, None)
+    recovery_counter = [0]
+    corrected_results = _compute(_e7_compatible_region_mask_builder_class(), recovery_counter)
+
+    different_masks = 0
+    for (pid_o, support_o, style_o), (pid_c, support_c, style_c) in zip(original_results, corrected_results):
+        if pid_o != pid_c:
+            raise E7Error(f"{fold_id}: pair audit ordering drifted ({pid_o!r} != {pid_c!r})")
+        if not np.array_equal(support_o, support_c) or not np.array_equal(style_o, style_c):
+            different_masks += 1
+    return {"schema_version": f"{SCHEMA_PREFIX}-mask-compat-pair-audit-v1", "fold_id": fold_id,
+           "pairs_checked": len(all_pairs), "different_masks": different_masks,
+           "recovery_activations": recovery_counter[0], "target_access": False, "llm_api_calls": 0}
+
+
+def gpat_attempt_provenance_path(repo: Path, fold_id: str) -> Path:
+    return gpat_fit_run_root(repo, fold_id) / GPAT_ATTEMPT_PROVENANCE_FILENAME
+
+
+# --------------------------------------------------------------------------- #
 # TASK N.6 -- GPAT_FIT_LOCK validation + the real fit orchestrator.
 # --------------------------------------------------------------------------- #
 
@@ -2630,9 +2878,35 @@ def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[s
                          "architecture_hash": architecture_hash,
                          "adaface_weight_sha256": adaface_weight_sha256}
 
+    # TECHNICAL_SINGLE_SAMPLE_EMPTY_CHEEK_FALLBACK_EDGE_CASE fix: a partial checkpoint may only
+    # be resumed if a matching GPAT_ATTEMPT_PROVENANCE.json sidecar exists and agrees on
+    # implementation/mask-compatibility-policy/package/pair-plan/config/architecture/AdaFace --
+    # never merely the checkpoint's own embedded identity (which predates this policy field and
+    # cannot itself attest to it). The checkpoint is NEVER deleted on any mismatch.
+    attempt_material = {"package_identity": package_identity,
+                        "pair_plan_identity": pair_plan_identity_value,
+                        "effective_config_hash": effective["effective_config_hash"],
+                        "architecture_hash": architecture_hash, "adaface_weight_sha256": adaface_weight_sha256,
+                        "implementation_commit": provenance["implementation_commit"],
+                        "implementation_module_sha256": provenance["implementation_module_sha256"],
+                        "mask_compatibility_policy": MASK_COMPATIBILITY_POLICY}
+    attempt_provenance_path = gpat_attempt_provenance_path(repo, fold_id)
     last_path = gpat_last_checkpoint_path(repo, fold_id)
     resume = False
     if last_path.is_file():
+        if not attempt_provenance_path.is_file():
+            raise E7Error(f"{fold_id}: a partial checkpoint exists at {last_path} but no "
+                          f"{GPAT_ATTEMPT_PROVENANCE_FILENAME} sidecar is present -- FAIL CLOSED, "
+                          "never resuming an unattributed partial checkpoint; the checkpoint is "
+                          "left on disk untouched")
+        recorded_attempt = cc.read_json(attempt_provenance_path)
+        mismatched_attempt = [field for field, value in attempt_material.items()
+                              if recorded_attempt.get(field) != value]
+        if mismatched_attempt:
+            raise E7Error(f"{fold_id}: the partial checkpoint's {GPAT_ATTEMPT_PROVENANCE_FILENAME} "
+                          f"sidecar disagrees with the CURRENT implementation/mask-policy/package/"
+                          f"pair-plan/config/architecture/AdaFace identity on "
+                          f"{mismatched_attempt} -- FAIL CLOSED, never auto-deleted or restarted")
         summary = checkpoint_summary(last_path)
         identity = summary.get("identity") or {}
         mismatched = [field for field, value in expected_identity.items() if identity.get(field) != value]
@@ -2643,11 +2917,19 @@ def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[s
                           "auto-deleted or restarted")
         resume = True
 
-    trainer = GPATTrainer(config=effective["effective_config"], package_root=package_root,
-                          bank_root=repo / M7_RECIPE_BANK_ROOT, pairs_root=pairs_root, run_root=run_root,
-                          weight_root=weight_root, device="cuda")
+    # Non-terminal attempt provenance, written atomically BEFORE trainer.fit() -- never the
+    # terminal GPAT_FIT_LOCK.json, and never treated as a resumable identity on its own.
+    atomic_json_write(attempt_provenance_path, {
+        "schema_version": f"{SCHEMA_PREFIX}-gpat-attempt-provenance-v1", "fold_id": fold_id,
+        **attempt_material, "resume_requested": resume})
+
     run_id = f"gpat_fit_{fold_id.lower().replace('-', '_')}_{effective['effective_config_hash'][:12]}"
-    fit_result = trainer.fit(run_id=run_id, progress=lambda event: None, resume=resume)
+    recovery_counter = [0]
+    with _scoped_e7_mask_compatibility_binding(recovery_counter):
+        trainer = GPATTrainer(config=effective["effective_config"], package_root=package_root,
+                              bank_root=repo / M7_RECIPE_BANK_ROOT, pairs_root=pairs_root, run_root=run_root,
+                              weight_root=weight_root, device="cuda")
+        fit_result = trainer.fit(run_id=run_id, progress=lambda event: None, resume=resume)
 
     best_path = gpat_best_checkpoint_path(repo, fold_id)
     if not best_path.is_file() or not last_path.is_file():
@@ -2716,10 +2998,12 @@ def prepare_gpat(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[s
            "epochs_completed": fit_result["epochs_run"], "global_step": fit_result["global_step"],
            "stop_reason": fit_result["stop_reason"], "best_metrics": fit_result["best"],
            "record_set_hashes": fit_result["record_set_hashes"], "source_isolation": source_isolation,
+           "mask_compatibility_policy": MASK_COMPATIBILITY_POLICY,
+           "mask_compatibility_recovery_count": recovery_counter[0],
            "TARGET_LABEL_ACCESS": False, "TARGET_IMAGE_ACCESS": False, "RENDERING_PERFORMED": False,
            "DETECTOR_TRAINING_PERFORMED": False, "LLM_API_CALLS": 0}
     atomic_json_write(lock_path, lock)
-    return {"resumed": False, "status": "FITTED", "run_id": run_id, "lock": lock,
+    return {"resumed": resume, "status": "FITTED", "run_id": run_id, "lock": lock,
            "target_access": False, "llm_api_calls": 0, "gpat_fitting_performed": True}
 
 

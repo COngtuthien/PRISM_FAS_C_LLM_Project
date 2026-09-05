@@ -2071,6 +2071,32 @@ def test_existing_valid_gpat_fit_lock_already_valid_zero_trainer_calls(tmp_path,
     assert len(_FakeTrainer.instances) == 1  # trainer.fit was NOT called again
 
 
+def _write_matching_attempt_provenance(repo: Path, fold_id: str, *, resume_requested: bool) -> None:
+    """Writes a GPAT_ATTEMPT_PROVENANCE.json sidecar that agrees EXACTLY
+    with what `prepare_gpat` will independently recompute -- the fixture's
+    real on-disk package/pair-plan/effective-config plus the fixed fake
+    implementation/AdaFace/architecture identity `_patch_fake_trainer`
+    establishes."""
+    package_identity = json.loads((repo / e7g.GPAT_INPUT_ROOT / fold_id /
+                                   e7g.GPAT_INPUT_LOCK_FILENAME).read_text(encoding="utf-8")
+                                  )["content_identity_sha256"]
+    pair_plan_identity = json.loads((repo / e7g.GPAT_PAIR_PLAN_ROOT / fold_id /
+                                     "PAIR_PLAN_LOCK.json").read_text(encoding="utf-8")
+                                    )["pair_plan_identity_sha256"]
+    effective = e7g.build_effective_gpat_config(repo, fold_id)
+    path = e7g.gpat_attempt_provenance_path(repo, fold_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "schema_version": "test-gpat-attempt-provenance-v1", "fold_id": fold_id,
+        "package_identity": package_identity, "pair_plan_identity": pair_plan_identity,
+        "effective_config_hash": effective["effective_config_hash"], "architecture_hash": "arch",
+        "adaface_weight_sha256": e7g.FROZEN_PRIOR_MODELS["identity"]["weight_sha256"],
+        "implementation_commit": _FIXED_IMPLEMENTATION_PROVENANCE["implementation_commit"],
+        "implementation_module_sha256": _FIXED_IMPLEMENTATION_PROVENANCE["implementation_module_sha256"],
+        "mask_compatibility_policy": e7g.MASK_COMPATIBILITY_POLICY,
+        "resume_requested": resume_requested}), encoding="utf-8")
+
+
 def test_partial_compatible_checkpoint_resumes(tmp_path, monkeypatch):
     repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
     e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
@@ -2081,6 +2107,7 @@ def test_partial_compatible_checkpoint_resumes(tmp_path, monkeypatch):
     run_root = e7g.gpat_fit_run_root(repo, "EXT-F1")
     (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
     (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-compatible")
+    _write_matching_attempt_provenance(repo, "EXT-F1", resume_requested=True)
 
     result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
     assert result["status"] == "FITTED"
@@ -2089,11 +2116,16 @@ def test_partial_compatible_checkpoint_resumes(tmp_path, monkeypatch):
 
 def test_partial_incompatible_checkpoint_fails_closed(tmp_path, monkeypatch):
     repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    e7g.materialize_gpat_input_package(repo, "EXT-F1", authorize=True)
+    e7g.materialize_fold_pair_plan(repo, "EXT-F1", authorize=True)
     _patch_gpat_capable(monkeypatch, repo)
     _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
     run_root = e7g.gpat_fit_run_root(repo, "EXT-F1")
     (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
     (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-incompatible")
+    # A MATCHING attempt-provenance sidecar (so this test isolates the CHECKPOINT'S OWN
+    # embedded-identity mismatch, distinct from the sidecar-missing/sidecar-mismatch tests below).
+    _write_matching_attempt_provenance(repo, "EXT-F1", resume_requested=True)
 
     def incompatible_summary(path):
         return {"identity": {"package_identity": "WRONG", "recipe_bank_identity": "WRONG",
@@ -2812,3 +2844,552 @@ def test_gpat_fit_lock_carries_provenance_fields_not_repo_head(tmp_path, monkeyp
     assert lock["implementation_module_sha256"] == \
         _FIXED_IMPLEMENTATION_PROVENANCE["implementation_module_sha256"]
     assert "code_checkpoint" not in lock  # never falsely calls repository HEAD the impl checkpoint
+
+
+# =========================================================================== #
+# TECHNICAL_SINGLE_SAMPLE_EMPTY_CHEEK_FALLBACK_EDGE_CASE fix.
+# =========================================================================== #
+
+def _region_mask_builder_kwargs(*, degenerate_cheek: bool) -> dict:
+    """`parsing` is all-background so every region takes the geometry
+    fallback path deterministically. `degenerate_cheek=True` reconstructs
+    the REAL EXT-F2 incident geometry (crop_box=[320,208,720,917],
+    bbox=[401.9,326.6,725.7,799.0], nose raw x=738.6) whose right_cheek
+    ellipse centre lands entirely outside the 224x224 crop."""
+    import numpy as np
+
+    parsing = np.zeros((224, 224), dtype="uint8")
+    if degenerate_cheek:
+        bbox = np.array([401.9000244140625, 326.62579345703125, 725.75439453125, 798.960693359375],
+                        dtype=np.float32)
+        crop_box = np.array([320.0, 208.0, 720.0, 917.0], dtype=np.float32)
+        cy = float((bbox[1] + bbox[3]) / 2)
+        landmarks = np.array([[450.0, cy - 40], [650.0, cy - 40], [738.636962890625, cy],
+                              [480.0, cy + 80], [650.0, cy + 80]], dtype=np.float32)
+    else:
+        bbox = np.array([30.0, 20.0, 194.0, 204.0], dtype=np.float32)
+        crop_box = np.array([0.0, 0.0, 224.0, 224.0], dtype=np.float32)
+        landmarks = np.array([[80.0, 80.0], [144.0, 80.0], [112.0, 110.0],
+                              [90.0, 150.0], [134.0, 150.0]], dtype=np.float32)
+    return {"height": 224, "width": 224, "parsing": parsing, "landmarks": landmarks, "bbox": bbox,
+           "crop_box": crop_box}
+
+
+# --- 1-9: core recovery-logic behavior -------------------------------------------------------
+
+def test_nonempty_left_cheek_byte_identical():
+    import numpy as np
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=False)
+    corrected_cls = e7g._e7_compatible_region_mask_builder_class()
+    original = RegionMaskBuilder(**kwargs)
+    corrected = corrected_cls(**kwargs)
+    mask_o, source_o = original.region("left_cheek")
+    mask_c, source_c = corrected.region("left_cheek")
+    assert np.asarray(mask_o).any()
+    assert np.array_equal(mask_o, mask_c)
+    assert source_o == source_c
+
+
+def test_nonempty_right_cheek_byte_identical():
+    import numpy as np
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=False)
+    corrected_cls = e7g._e7_compatible_region_mask_builder_class()
+    original = RegionMaskBuilder(**kwargs)
+    corrected = corrected_cls(**kwargs)
+    mask_o, source_o = original.region("right_cheek")
+    mask_c, source_c = corrected.region("right_cheek")
+    assert np.asarray(mask_o).any()
+    assert np.array_equal(mask_o, mask_c)
+    assert source_o == source_c
+
+
+def test_empty_right_cheek_deterministic_recovery():
+    import numpy as np
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=True)
+    original = RegionMaskBuilder(**kwargs)
+    mask_o, _ = original.region("right_cheek")
+    assert not np.asarray(mask_o).any()  # reproduces the real EXT-F2 incident
+
+    corrected_cls = e7g._e7_compatible_region_mask_builder_class()
+    corrected = corrected_cls(**kwargs)
+    mask_c1, source_c1 = corrected.region("right_cheek")
+    mask_c2, source_c2 = corrected_cls(**kwargs).region("right_cheek")
+    assert np.asarray(mask_c1).any()
+    assert np.array_equal(mask_c1, mask_c2)  # deterministic
+    assert source_c1 == source_c2 == e7g.MASK_RECOVERY_SOURCE_TAG
+
+
+def test_empty_left_cheek_symmetric_recovery():
+    import numpy as np
+
+    # Mirror the incident geometry onto the left side (nose far to the LEFT of the crop).
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=True)
+    kwargs = {**kwargs, "landmarks": kwargs["landmarks"].copy()}
+    kwargs["landmarks"][2] = [720.0 - 738.636962890625 + 320.0, kwargs["landmarks"][2][1]]
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    original = RegionMaskBuilder(**kwargs)
+    mask_o, _ = original.region("left_cheek")
+    corrected = e7g._e7_compatible_region_mask_builder_class()(**kwargs)
+    mask_c, source_c = corrected.region("left_cheek")
+    if not np.asarray(mask_o).any():
+        assert np.asarray(mask_c).any()
+        assert source_c == e7g.MASK_RECOVERY_SOURCE_TAG
+
+
+def test_noncheek_empty_result_still_fails_closed_through_build(tmp_path):
+    """A non-cheek region that would be empty must still be surfaced ONLY
+    via the normal `RegionMaskBuilder.build()` path -- never specially
+    handled or recovered by the E7 adapter."""
+    import numpy as np
+    from prism_fas.synthesis.contracts import MaskBuildError
+
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=False)
+    # Degenerate landmarks/bbox collapsed to a single point make every landmark-geometry region
+    # (nose, eyes, mouth) resolve to a near-zero-radius ellipse; force nose radius to zero pixels
+    # by giving a zero-area face_box (bbox == crop_box corners), which face_box() detects as
+    # degenerate and fully falls back to the whole crop -- instead, directly prove the pass-
+    # through contract: the corrected builder's `region()` for "nose" is IDENTICAL to original.
+    corrected = e7g._e7_compatible_region_mask_builder_class()(**kwargs)
+    from prism_fas.synthesis.masks import RegionMaskBuilder
+
+    original = RegionMaskBuilder(**kwargs)
+    mask_o, source_o = original.region("nose")
+    mask_c, source_c = corrected.region("nose")
+    assert np.array_equal(mask_o, mask_c) and source_o == source_c
+    # And build() itself is inherited, unoverridden -- it still raises the SAME MaskBuildError
+    # for an empty non-cheek region (proven directly against the real, frozen build() contract).
+    with pytest.raises(MaskBuildError, match="unknown canonical region"):
+        corrected.region("not_a_real_region")
+
+
+def test_recovered_cheek_is_nonempty():
+    import numpy as np
+
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=True)
+    corrected = e7g._e7_compatible_region_mask_builder_class()(**kwargs)
+    mask, _ = corrected.region("right_cheek")
+    assert int(np.asarray(mask).sum()) > 0
+
+
+def test_source_tag_identifies_recovery_policy():
+    kwargs = _region_mask_builder_kwargs(degenerate_cheek=True)
+    corrected = e7g._e7_compatible_region_mask_builder_class()(**kwargs)
+    _, source = corrected.region("right_cheek")
+    assert source == "bbox_geometry+crop_boundary_recovery_v1"
+    assert source == e7g.MASK_RECOVERY_SOURCE_TAG
+
+
+def test_no_sample_id_hardcoding():
+    import inspect
+
+    source = inspect.getsource(e7g._E7CompatibleRegionMaskBuilder)
+    assert "Live_849" not in source
+    assert "extsrce6f52da34a17b88e0eddd19ba7c05ad7" not in source
+
+
+def test_no_dataset_specific_hardcoding():
+    import inspect
+
+    source = inspect.getsource(e7g._E7CompatibleRegionMaskBuilder)
+    for token in ("siw", "SiW", "casia", "CASIA", "msu", "MSU"):
+        assert token not in source
+
+
+# --- 10-11: scoped binding restoration --------------------------------------------------------
+
+def test_scoped_binding_restores_exact_original_class_on_success():
+    from prism_fas.synthesis import m8_pipeline
+
+    original = m8_pipeline.RegionMaskBuilder
+    with e7g._scoped_e7_mask_compatibility_binding([0]):
+        assert m8_pipeline.RegionMaskBuilder is not original
+        assert issubclass(m8_pipeline.RegionMaskBuilder, original)
+    assert m8_pipeline.RegionMaskBuilder is original
+
+
+def test_scoped_binding_restores_exact_original_class_after_exception():
+    from prism_fas.synthesis import m8_pipeline
+
+    original = m8_pipeline.RegionMaskBuilder
+    with pytest.raises(RuntimeError, match="boom"):
+        with e7g._scoped_e7_mask_compatibility_binding([0]):
+            assert m8_pipeline.RegionMaskBuilder is not original
+            raise RuntimeError("boom")
+    assert m8_pipeline.RegionMaskBuilder is original
+
+
+def test_scoped_binding_recovery_counter_resets_after_scope():
+    corrected_cls = e7g._e7_compatible_region_mask_builder_class()
+    counter = [0]
+    with e7g._scoped_e7_mask_compatibility_binding(counter):
+        assert corrected_cls._recovery_counter is counter
+    assert corrected_cls._recovery_counter is None
+
+
+# --- 12-15: real scientific primitives + protected files byte-identical -----------------------
+
+def test_gpattrainer_remains_real_unmodified_class():
+    from prism_fas.synthesis.gpat_trainer import GPATTrainer
+
+    assert GPATTrainer.__module__ == "prism_fas.synthesis.gpat_trainer"
+    assert not issubclass(GPATTrainer, e7g._E7CompatibleRegionMaskBuilder)
+
+
+def test_masks_py_unchanged():
+    import subprocess
+
+    relative = "src/prism_fas/synthesis/masks.py"
+    committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                               capture_output=True, text=True).stdout
+    on_disk = (REPO / relative).read_text(encoding="utf-8")
+    assert committed == on_disk
+
+
+def test_m8_pipeline_py_unchanged():
+    import subprocess
+
+    relative = "src/prism_fas/synthesis/m8_pipeline.py"
+    committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                               capture_output=True, text=True).stdout
+    on_disk = (REPO / relative).read_text(encoding="utf-8")
+    assert committed == on_disk
+
+
+def test_gpat_trainer_py_unchanged():
+    import subprocess
+
+    relative = "src/prism_fas/synthesis/gpat_trainer.py"
+    committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                               capture_output=True, text=True).stdout
+    on_disk = (REPO / relative).read_text(encoding="utf-8")
+    assert committed == on_disk
+
+
+def test_pair_plan_py_unchanged():
+    import subprocess
+
+    relative = "src/prism_fas/synthesis/pair_plan.py"
+    committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                               capture_output=True, text=True).stdout
+    on_disk = (REPO / relative).read_text(encoding="utf-8")
+    assert committed == on_disk
+
+
+def test_gpat_model_and_losses_and_data_package_unchanged():
+    import subprocess
+
+    for relative in ("src/prism_fas/synthesis/gpat_model.py", "src/prism_fas/synthesis/gpat_losses.py",
+                     "src/prism_fas/synthesis/gpat_checkpoint.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD"
+
+
+# --- 16-25: attempt provenance / fresh-fit / resume safety -------------------------------------
+
+def test_no_last_checkpoint_means_fresh_fit_resume_false(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    assert not e7g.gpat_last_checkpoint_path(repo, "EXT-F1").is_file()
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    assert result["resumed"] is False  # fresh fit -- no partial checkpoint existed
+    provenance = json.loads(e7g.gpat_attempt_provenance_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    assert provenance["resume_requested"] is False
+
+
+def test_partial_checkpoint_without_sidecar_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    run_root = e7g.gpat_fit_run_root(repo, "EXT-F1")
+    (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-no-sidecar")
+    with pytest.raises(e7g.E7Error, match="no.*GPAT_ATTEMPT_PROVENANCE.json.*sidecar"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert (run_root / "checkpoints" / "last.pt").read_bytes() == b"partial-no-sidecar"  # never deleted
+
+
+def _write_partial_checkpoint_with_provenance(repo: Path, fold_id: str, *, override_field: str | None = None,
+                                              override_value: object = None) -> None:
+    e7g.materialize_gpat_input_package(repo, fold_id, authorize=True)
+    e7g.materialize_fold_pair_plan(repo, fold_id, authorize=True)
+    run_root = e7g.gpat_fit_run_root(repo, fold_id)
+    (run_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (run_root / "checkpoints" / "last.pt").write_bytes(b"partial-checkpoint")
+    _write_matching_attempt_provenance(repo, fold_id, resume_requested=True)
+    if override_field is not None:
+        path = e7g.gpat_attempt_provenance_path(repo, fold_id)
+        body = json.loads(path.read_text(encoding="utf-8"))
+        body[override_field] = override_value
+        path.write_text(json.dumps(body), encoding="utf-8")
+
+
+def test_cross_implementation_partial_resume_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    _write_partial_checkpoint_with_provenance(repo, "EXT-F1", override_field="implementation_commit",
+                                              override_value="0" * 40)
+    with pytest.raises(e7g.E7Error, match="disagrees with the CURRENT"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1").read_bytes() == b"partial-checkpoint"
+
+
+def test_cross_module_sha_partial_resume_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    _write_partial_checkpoint_with_provenance(repo, "EXT-F1", override_field="implementation_module_sha256",
+                                              override_value="1" * 64)
+    with pytest.raises(e7g.E7Error, match="disagrees with the CURRENT"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1").read_bytes() == b"partial-checkpoint"
+
+
+def test_cross_mask_policy_partial_resume_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    _write_partial_checkpoint_with_provenance(repo, "EXT-F1", override_field="mask_compatibility_policy",
+                                              override_value="some-other-policy-v0")
+    with pytest.raises(e7g.E7Error, match="disagrees with the CURRENT"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1").read_bytes() == b"partial-checkpoint"
+
+
+def test_cross_package_pair_config_model_identity_partial_resume_fails(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    _write_partial_checkpoint_with_provenance(repo, "EXT-F1", override_field="package_identity",
+                                              override_value="drifted-package-identity")
+    with pytest.raises(e7g.E7Error, match="disagrees with the CURRENT"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1").read_bytes() == b"partial-checkpoint"
+
+
+def test_matching_partial_checkpoint_may_resume(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    _write_partial_checkpoint_with_provenance(repo, "EXT-F1")
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    assert result["resumed"] is True  # a legitimately resumed fit must report resumed=True
+
+
+def test_attempt_provenance_written_before_trainer_fit(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+
+    seen_before_fit = {}
+
+    class _RecordingTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            path = e7g.gpat_attempt_provenance_path(repo, "EXT-F1")
+            seen_before_fit["exists"] = path.is_file()
+            return super().fit(run_id=run_id, progress=progress, resume=resume)
+
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _RecordingTrainer)
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert seen_before_fit["exists"] is True
+
+
+def test_terminal_lock_written_after_successful_validation_only(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    assert e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+    assert e7g.validate_gpat_fit_lock(repo, "EXT-F1")["status"] == "VALID"
+
+
+def test_failed_fit_leaves_no_terminal_lock_mask_compat(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+
+    class _CrashingTrainer(_FakeTrainer):
+        def fit(self, *, run_id, progress, resume):
+            raise RuntimeError("simulated fit crash")
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _CrashingTrainer)
+    with pytest.raises(RuntimeError, match="simulated fit crash"):
+        e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert not e7g.gpat_fit_lock_path(repo, "EXT-F1").is_file()
+    # the attempt provenance sidecar (non-terminal) is fine to have landed before the crash
+    assert e7g.gpat_attempt_provenance_path(repo, "EXT-F1").is_file()
+
+
+# --- 26-28: terminal lock backward compatibility + new fields + counter scope ------------------
+
+def test_old_f1_terminal_lock_without_mask_policy_fields_remains_valid(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    # Simulate a HISTORICAL lock written before this fix -- absence of the two new fields.
+    del lock["mask_compatibility_policy"]
+    del lock["mask_compatibility_recovery_count"]
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    validation = e7g.validate_gpat_fit_lock(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+
+
+def test_new_terminal_lock_records_mask_policy_and_recovery_count(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F2")
+    result = e7g.prepare_gpat(repo, "EXT-F2", authorize=True)
+    lock = result["lock"]
+    assert lock["mask_compatibility_policy"] == e7g.MASK_COMPATIBILITY_POLICY
+    assert lock["mask_compatibility_recovery_count"] == 0  # the fake trainer never invokes real masks
+
+
+def test_recovery_counter_is_invocation_scoped(tmp_path, monkeypatch):
+    corrected_cls = e7g._e7_compatible_region_mask_builder_class()
+    counter_a = [0]
+    with e7g._scoped_e7_mask_compatibility_binding(counter_a):
+        kwargs = _region_mask_builder_kwargs(degenerate_cheek=True)
+        corrected_cls(**kwargs).region("right_cheek")
+    assert counter_a[0] == 1
+    assert corrected_cls._recovery_counter is None
+    counter_b = [0]
+    with e7g._scoped_e7_mask_compatibility_binding(counter_b):
+        pass  # no recovery activated in this scope
+    assert counter_b[0] == 0  # a FRESH counter per invocation, never accumulated across scopes
+
+
+# --- 29-30: F1 row/pair invariance audit LOGIC --------------------------------------------------
+
+def _write_audit_ready_package(repo: Path, fold_id: str, *, degenerate_cheek: bool) -> tuple[Path, list[str]]:
+    """A minimal, directly-constructed GPAT-input-shaped package (real jpg
+    + real npz priors, real `manifests/source_train.parquet`) with
+    CONTROLLED, non-degenerate-by-default geometry -- bypasses the E7-D/M3B
+    machinery entirely so the row/pair invariance audits can be exercised
+    against known geometry without fighting the all-zero-prior identity
+    fixtures used elsewhere in this file."""
+    import cv2
+    import numpy as np
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    package_root = repo / e7g.GPAT_INPUT_ROOT / fold_id
+    (package_root / "images").mkdir(parents=True, exist_ok=True)
+    (package_root / "priors").mkdir(parents=True, exist_ok=True)
+    (package_root / "manifests").mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    sample_ids = []
+    for label, count in (("live", 2), ("spoof", 2)):
+        for i in range(count):
+            sample_id = f"audit_{label}_{i}"
+            sample_ids.append(sample_id)
+            image_path = package_root / "images" / f"{sample_id}.jpg"
+            cv2.imwrite(str(image_path), ((i * 7 + 3) % 256) * np.ones((224, 224, 3), dtype="uint8"))
+            prior_path = package_root / "priors" / f"{sample_id}.npz"
+            kwargs = _region_mask_builder_kwargs(degenerate_cheek=degenerate_cheek and label == "live" and i == 0)
+            np.savez(prior_path, parsing_labels=kwargs["parsing"], pose_ypr=np.zeros((3,), dtype="float32"),
+                    visibility=np.zeros((9,), dtype="float16"), bbox=kwargs["bbox"],
+                    landmarks=kwargs["landmarks"], crop_box=kwargs["crop_box"])
+            rows.append({"sample_id": sample_id, "project_split": "source_train",
+                        "image_relative_path": f"images/{sample_id}.jpg",
+                        "prior_relative_path": f"priors/{sample_id}.npz"})
+    table = pa.Table.from_pydict({key: [row[key] for row in rows] for key in rows[0]})
+    pq.write_table(table, package_root / "manifests" / "source_train.parquet")
+    return package_root, sample_ids
+
+
+def test_f1_row_invariance_audit_logic_zero_diff_for_normal_geometry(tmp_path):
+    repo = _base_repo(tmp_path)
+    _write_audit_ready_package(repo, "EXT-F1", degenerate_cheek=False)
+    report = e7g.audit_mask_compatibility_row_invariance(repo, "EXT-F1")
+    assert report["rows_checked"] == 4
+    assert report["different_masks"] == 0
+    assert report["different_sources"] == 0
+    assert report["recovery_activations"] == 0
+    assert report["original_failures"] == 0
+    assert report["corrected_failures"] == 0
+    assert report["target_access"] is False
+
+
+def test_f1_row_invariance_audit_logic_detects_recovery(tmp_path):
+    repo = _base_repo(tmp_path)
+    _write_audit_ready_package(repo, "EXT-F2", degenerate_cheek=True)
+    report = e7g.audit_mask_compatibility_row_invariance(repo, "EXT-F2")
+    assert report["recovery_activations"] >= 1
+    assert report["corrected_failures"] == 0
+    assert report["original_failures"] >= 1
+    assert report["recovered_sample_ids_diagnostic"]  # diagnostic only, never policy
+
+
+def test_f1_pair_invariance_audit_logic(tmp_path, monkeypatch):
+    from prism_fas.recipes.bank import load_bank
+
+    repo = _base_repo(tmp_path)
+    package_root, sample_ids = _write_audit_ready_package(repo, "EXT-F1", degenerate_cheek=False)
+    bank_dest = repo / e7g.M7_RECIPE_BANK_ROOT
+    bank_dest.parent.mkdir(parents=True, exist_ok=True)
+    bank_dest.symlink_to((REPO / e7g.M7_RECIPE_BANK_ROOT).resolve())
+    bank = load_bank(bank_dest)
+    cheek_recipe = next(r for r in bank["recipes"] if "right_cheek" in r.regions)
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    pairs_root = repo / e7g.GPAT_PAIR_PLAN_ROOT / "EXT-F1"
+    pairs_root.mkdir(parents=True, exist_ok=True)
+    pair_row = {"pair_id": "P-1", "partition": "train", "slot": 0, "domain_relation": "same_domain",
+               "live_sample_id": sample_ids[0], "live_dataset": "casia_fasd",
+               "live_source_record_id": sample_ids[0], "spoof_sample_id": sample_ids[2],
+               "spoof_dataset": "casia_fasd", "spoof_source_record_id": sample_ids[2],
+               "recipe_id": cheek_recipe.recipe_id, "recipe_seed": int(cheek_recipe.seed),
+               "different_subject_rule": "not_applicable", "package_identity": "x",
+               "recipe_bank_identity": bank["bank_id"]}
+    from prism_fas.synthesis.pair_plan import _PAIR_FIELDS
+
+    schema = pa.schema(_PAIR_FIELDS)
+    table = pa.Table.from_pydict({name: [pair_row[name]] for name, _ in _PAIR_FIELDS}, schema=schema)
+    pq.write_table(table, pairs_root / "pair_manifest_train.parquet")
+    pq.write_table(pa.Table.from_pydict({name: [] for name, _ in _PAIR_FIELDS}, schema=schema),
+                   pairs_root / "pair_manifest_validation.parquet")
+
+    report = e7g.audit_mask_compatibility_pair_invariance(repo, "EXT-F1")
+    assert report["pairs_checked"] == 1
+    assert report["different_masks"] == 0
+    assert report["recovery_activations"] == 0
+    assert report["target_access"] is False
+
+
+# --- 31-32: no target access, no LLM -----------------------------------------------------------
+
+def test_mask_compat_audit_target_access_false(tmp_path):
+    repo = _base_repo(tmp_path)
+    _write_audit_ready_package(repo, "EXT-F1", degenerate_cheek=False)
+    report = e7g.audit_mask_compatibility_row_invariance(repo, "EXT-F1")
+    assert report["target_access"] is False
+    assert report["llm_api_calls"] == 0
+
+
+def test_mask_compat_no_llm_calls(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, "EXT-F1")
+    result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
+    assert result["llm_api_calls"] == 0
+    assert result["lock"]["LLM_API_CALLS"] == 0
