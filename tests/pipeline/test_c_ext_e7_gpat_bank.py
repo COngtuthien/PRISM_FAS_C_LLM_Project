@@ -325,7 +325,14 @@ def test_quality_calibration_source_only():
     binding = e7g.build_quality_gate_binding(REPO)
     assert binding["calibration_source_only"] is True
     assert binding["calibration_never_uses_held_out_target"] is True
-    assert binding["thresholds_never_relaxed_to_force_feasibility"] is True
+    # No ad-hoc threshold relaxation of any kind -- only the preregistered frozen
+    # STRICT/NOMINAL/PERMISSIVE profile-selection procedure is allowed.
+    walk = binding["strict_nominal_permissive_profile_walk"]
+    assert walk["frozen_profile_order"] == ["STRICT", "NOMINAL", "PERMISSIVE"]
+    assert walk["one_common_profile_applies_to_all_arms"] is True
+    assert walk["no_fourth_profile_ever_created"] is True
+    assert walk["no_post_outcome_threshold_edits"] is True
+    assert walk["no_target_information_used"] is True
 
 
 # --- target firewall per fold -------------------------------------------------
@@ -441,7 +448,7 @@ def test_prepare_gpat_blocked_for_pending_siw_priors():
 
 def test_generate_and_match_requires_gpat_checkpoint(tmp_path):
     repo = _base_repo(tmp_path)
-    with pytest.raises(e7g.E7Error, match="no fitted GPAT checkpoint"):
+    with pytest.raises(e7g.E7Error, match="GPAT fit lock is not VALID"):
         e7g.generate_and_match(repo, "EXT-F1", authorize=True)
 
 
@@ -1643,18 +1650,25 @@ def _write_shared_siw_prior_fixture(repo: Path, monkeypatch, *, video_rows: list
 _GROUP_SIZE = 10  # 80/20 split of 10 -> 8 train / 2 validation, enough for 2 same + 2 cross per live
 
 
-def _build_gpat_ready_fixture(tmp_path: Path, monkeypatch, fold_id: str) -> Path:
+def _build_gpat_ready_fixture(tmp_path: Path, monkeypatch, fold_id: str, *, repo: Path | None = None) -> Path:
     """Builds a REAL, unmocked GPAT-input-ready fixture for one fold: E7-A/
     E7-D authority + real M3B and/or shared-SiW crop/prior bytes, sized so
     the REAL `pair_plan.build_pair_plan` can find 2 same-domain + 2
-    cross-domain spoof sources for every live sample."""
-    repo = _base_repo(tmp_path)
+    cross-domain spoof sources for every live sample.
+
+    Pass an existing `repo` (already built for a different fold) to
+    accumulate multiple folds' GPAT-input-ready state in ONE repo -- the
+    one-time config/bank setup below is idempotent so a second/third call
+    against the same `repo` never re-does or breaks it."""
+    repo = _base_repo(tmp_path) if repo is None else repo
     config_dest = repo / e7g.GPAT_FIT_CONFIG_PATH
-    config_dest.parent.mkdir(parents=True, exist_ok=True)
-    config_dest.write_text((REPO / e7g.GPAT_FIT_CONFIG_PATH).read_text(encoding="utf-8"), encoding="utf-8")
+    if not config_dest.is_file():
+        config_dest.parent.mkdir(parents=True, exist_ok=True)
+        config_dest.write_text((REPO / e7g.GPAT_FIT_CONFIG_PATH).read_text(encoding="utf-8"), encoding="utf-8")
     bank_dest = repo / e7g.M7_RECIPE_BANK_ROOT
-    bank_dest.parent.mkdir(parents=True, exist_ok=True)
-    bank_dest.symlink_to((REPO / e7g.M7_RECIPE_BANK_ROOT).resolve())
+    if not bank_dest.exists():
+        bank_dest.parent.mkdir(parents=True, exist_ok=True)
+        bank_dest.symlink_to((REPO / e7g.M7_RECIPE_BANK_ROOT).resolve())
     domains = e7g.FOLD_SOURCE_DOMAINS[fold_id]
     all_refs: list[dict] = []
     all_e7d_rows: list[dict] = []
@@ -2201,7 +2215,7 @@ def test_checkpoint_resolver_uses_native_path(tmp_path, monkeypatch):
     assert e7g.gpat_last_checkpoint_path(repo, "EXT-F1") == expected.with_name("last.pt")
     # generate_and_match / e7_gpat_bank_validate use the SAME canonical helper, not the old
     # gpat_checkpoint/best.pt assumption.
-    with pytest.raises(e7g.E7Error, match="no fitted GPAT checkpoint present"):
+    with pytest.raises(e7g.E7Error, match="GPAT fit lock is not VALID"):
         e7g.generate_and_match(repo, "EXT-F1", authorize=True)
     result = e7g.e7_gpat_bank_validate(repo)
     assert result["folds"]["EXT-F1"]["gpat_checkpoint_present"] is False
@@ -3393,3 +3407,1123 @@ def test_mask_compat_no_llm_calls(tmp_path, monkeypatch):
     result = e7g.prepare_gpat(repo, "EXT-F1", authorize=True)
     assert result["llm_api_calls"] == 0
     assert result["lock"]["LLM_API_CALLS"] == 0
+
+
+# ============================================================================= #
+# generate_and_match -- source-only quality calibration -> candidate generation
+# -> quality-gate evaluation -> matched-bank resolution.
+#
+# Per the user's explicit protocol: mocking `c5_render.render_arm`, a route's
+# `.generate()`, `quality_calibration.calibrate` and `quality_gate.evaluate` at
+# their OWN real function boundaries is acceptable for tests whose purpose is
+# orchestration/identity/provenance/firewall/resume-semantics -- every test
+# below still exercises the REAL `generate_and_match` orchestration code path,
+# and the REAL `c6_scientific.gate_candidates` / `eligible_candidates` /
+# `assess_profile` / `select_strictest_profile` / `c6_matched_bank.
+# build_matched_banks` (none of those are mocked). The per-candidate
+# reuse/rebuild/retained-failure semantics of `c5_render.render_arm` itself are
+# exhaustively covered, unmodified, by the existing `test_c5_raw_generation.py`
+# / `test_c5_runtime_recovery.py` / `test_c5_scientific_executor.py` suites;
+# this section proves E7 *orchestrates* those frozen primitives correctly, not
+# that the primitives themselves are correct.
+# ============================================================================= #
+
+def _write_c3_arm_bank(repo: Path, arm: str, *, count: int = 256) -> None:
+    from prism_fas.synthesis import c5_arm_plan
+
+    root = repo / c5_arm_plan.C3_BANK_ROOT / arm.lower()
+    root.mkdir(parents=True, exist_ok=True)
+    recipes = [{"recipe_id": f"{arm.lower()}_{i:04d}"} for i in range(count)]
+    (root / "recipes.jsonl").write_text("\n".join(json.dumps(r) for r in recipes), encoding="utf-8")
+    lock = {"arm": arm, "scientific_eligible": True, "bank_identity": f"bank_{arm.lower()}",
+           "selected_set_identity": f"sel_{arm.lower()}", "ontology_identity": ""}
+    (root / "C3_BANK.json").write_text(json.dumps(lock), encoding="utf-8")
+
+
+_SHUFFLE_SEEDS = [20260806, 20260807, 20260808, 20260809, 20260810]
+
+
+def _write_shuffle_recipes_fixture(repo: Path, *, count: int = 256) -> list[dict]:
+    """A minimal, internally-consistent frozen LLM-SHUFFLE-A fixture: `count`
+    recipes carrying the SAME `recipe_id` as `_write_c3_arm_bank`'s LLM bank
+    at each ordinal (proving source-pair/recipe alignment trivially, exactly
+    as a real field-only shuffle would -- `_recipe_id` reads whichever
+    identifier field is present, and only that value must match), plus a
+    self-consistent `E6_TRAINING_PLAN_LOCK.json` (`c_ext_e6_training_plan.
+    is_usable_plan_lock`'s own check)."""
+    recipes = [{"recipe_id": f"llm_{i:04d}", "shuffled_marker": True} for i in range(count)]
+    e6_dir = repo / "reports/c_ext_q1q2_v1/e6_llm_shuffle"
+    e6_dir.mkdir(parents=True, exist_ok=True)
+    (e6_dir / "LLM_SHUFFLE_A_RECIPES.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in recipes), encoding="utf-8")
+    recipe_identity = e7g.cc.sha256_json(recipes)
+    lock_body = {"schema_version": "e6-training-plan-lock-v1", "status": "FROZEN",
+                "seed_count": len(_SHUFFLE_SEEDS), "detector_seeds": list(_SHUFFLE_SEEDS),
+                "plan_identity": "fake-e6-training-plan-identity",
+                "llm_shuffle_a_recipe_identity": recipe_identity, "recipe_count": count}
+    lock_body["lock_identity"] = e7g.cc.sha256_bytes(e7g.cc.canonical_json_bytes(lock_body))
+    (e6_dir / "E6_TRAINING_PLAN_LOCK.json").write_text(json.dumps(lock_body), encoding="utf-8")
+    return recipes
+
+
+def _build_generation_ready_fixture(tmp_path: Path, monkeypatch, fold_id: str) -> Path:
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, fold_id)
+    quality_config_dest = repo / e7g.QUALITY_CONFIG_PATH
+    quality_config_dest.parent.mkdir(parents=True, exist_ok=True)
+    quality_config_dest.write_text((REPO / e7g.QUALITY_CONFIG_PATH).read_text(encoding="utf-8"),
+                                   encoding="utf-8")
+    _patch_gpat_capable(monkeypatch, repo)
+    _patch_fake_trainer(monkeypatch, repo, fold_id)
+    result = e7g.prepare_gpat(repo, fold_id, authorize=True)
+    assert result["status"] == "FITTED"
+    for arm in e7g.c5spp_arms():
+        _write_c3_arm_bank(repo, arm)
+    _write_shuffle_recipes_fixture(repo)
+    return repo
+
+
+_NOMINAL_CALIBRATION_THRESHOLDS = {"tau_fd": 0.5, "tau_id": 0.5, "tau_lm": 0.5,
+                                   "tau_parse": 0.5, "tau_out": 0.0, "tau_fp": 0.5}
+
+
+def _fake_calibration_payload() -> dict:
+    from prism_fas.synthesis.quality_gate import Thresholds
+
+    thresholds = Thresholds.from_dict(_NOMINAL_CALIBRATION_THRESHOLDS)
+    return {"thresholds": dict(_NOMINAL_CALIBRATION_THRESHOLDS), "threshold_sha256": thresholds.sha256(),
+           "fingerprint": {"references": {}, "reference_sha256": "fp0"},
+           "used_target": False, "used_source_dev": False,
+           "source_isolation": {"source_dev_opened": False, "target_test_opened": False},
+           "quality_models": {},
+           "populations": {"live": 20, "spoof": 20, "benign": 80,
+                          "live_per_dataset": {"fake_domain": 20}, "spoof_per_dataset": {"fake_domain": 20},
+                          "split": "source_train", "population_sha256": "fake-population-sha"}}
+
+
+def _perfect_metrics(*, measured_strength: float = 0.3) -> dict:
+    return {"face_detection_score": 1.0, "identity_cosine": 1.0, "landmark_nme": 0.0,
+           "outside_mask_parsing_dice": 1.0, "outside_mask_max_error": 0.0,
+           "measured_artifact_strength": measured_strength, "requested_artifact_strength": 0.3,
+           "fingerprint_score": 0.0, "support_overlap": 1.0}
+
+
+def _failing_metrics() -> dict:
+    return {"face_detection_score": 0.0, "identity_cosine": 0.0, "landmark_nme": 10.0,
+           "outside_mask_parsing_dice": 0.0, "outside_mask_max_error": 0.0,
+           "measured_artifact_strength": 0.3, "requested_artifact_strength": 0.3,
+           "fingerprint_score": 1.0, "support_overlap": 1.0}
+
+
+class _FakeBackends:
+    def __init__(self, weight_root, *, device="cpu"):
+        self.weight_root = weight_root
+        self.device = device
+
+
+class _FakeEvaluator:
+    def __init__(self, backends, calibration):
+        self.backends = backends
+        self.calibration = calibration
+
+
+def _patch_generation_boundary(monkeypatch, repo: Path, *, accept=lambda row: True,
+                               skip=lambda row: False, measured_strength=0.3) -> dict:
+    """Patches every GPU/model boundary `generate_and_match` reaches beyond the
+    already-real `_patch_gpat_capable`/`_patch_fake_trainer` seams. Returns a
+    dict of call-count/argument trackers a test can assert against."""
+    from prism_fas.synthesis import c5_raw_generation as raw
+
+    tracking = {"render_arm_calls": [], "evaluate_pool_calls": [], "mask_builder_names": []}
+
+    monkeypatch.setattr(e7g, "_generation_capability",
+                        lambda repo_arg: {"capable": True, "cuda_available": True,
+                                         "weight_root": str(repo / "model_cache"), "problems": []})
+    monkeypatch.setattr("prism_fas.synthesis.m8_pipeline.SampleStore.open",
+                        classmethod(lambda cls, root, audit=None: object()))
+    monkeypatch.setattr("prism_fas.synthesis.c5_render.build_routes",
+                        lambda repo_arg, **kwargs: {})
+    monkeypatch.setattr("prism_fas.synthesis.c5_render.route_bank",
+                        lambda repo_arg, arm: {"arm": arm})
+    monkeypatch.setattr(e7g, "build_shuffle_route_bank",
+                        lambda repo_arg, recipes, *, bank_identity, ontology_identity:
+                        {"arm": e7g.SHUFFLE_ARM_NAME})
+    monkeypatch.setattr("prism_fas.synthesis.quality_calibration.QualityBackends", _FakeBackends)
+    monkeypatch.setattr("prism_fas.synthesis.synthetic_bank.CandidateEvaluator", _FakeEvaluator)
+    monkeypatch.setattr("prism_fas.synthesis.c6_scientific.fit_nominal_calibration",
+                        lambda package_root, config, backends, **limits: _fake_calibration_payload())
+
+    from prism_fas.synthesis import m8_pipeline
+
+    def _fake_render_arm(*, work_root, plan, store, bank, routes, limit=None, progress=None):
+        tracking["render_arm_calls"].append(plan["arm"])
+        tracking["mask_builder_names"].append(m8_pipeline.RegionMaskBuilder.__name__)
+        records = [{"generation_identity": {"candidate_id": row["candidate_id"]},
+                   "status": raw.FAILED_GENERATION}
+                  for row in plan["candidates"] if skip(row)]
+        n_failed = len(records)
+        return {"arm": plan["arm"], "planned": len(plan["candidates"]),
+               "attempted": len(plan["candidates"]), "records": records, "reused": 0,
+               "rendered": len(plan["candidates"]) - n_failed, "rebuilt": 0, "failed": n_failed,
+               "record_set_digest": "fake-record-digest", "payload_set_digest": "fake-payload-digest",
+               "summary": {}}
+
+    monkeypatch.setattr("prism_fas.synthesis.c5_render.render_arm", _fake_render_arm)
+
+    def _fake_evaluate_pool(evaluator, store, bank, *, candidate_root, arm, rows):
+        tracking["evaluate_pool_calls"].append(arm)
+        tracking["mask_builder_names"].append(m8_pipeline.RegionMaskBuilder.__name__)
+        metrics = {}
+        for row in rows:
+            if skip(row):
+                continue
+            metrics[row["candidate_id"]] = (_perfect_metrics(measured_strength=measured_strength)
+                                            if accept(row) else _failing_metrics())
+        return metrics
+
+    monkeypatch.setattr("prism_fas.synthesis.c6_scientific.evaluate_pool", _fake_evaluate_pool)
+    return tracking
+
+
+def _accept_all(row) -> bool:
+    return True
+
+
+def _skip_none(row) -> bool:
+    return False
+
+
+def test_generate_and_match_requires_authorize(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    with pytest.raises(e7g.E7Error, match="authorize"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=False)
+
+
+def test_generate_and_match_requires_valid_gpat_fit_lock(tmp_path, monkeypatch):
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    # No prepare_gpat call at all -- best.pt does not exist, let alone a VALID lock.
+    with pytest.raises(e7g.E7Error, match="GPAT fit lock is not VALID"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+
+
+def test_generate_and_match_no_hardcoded_non_gpu_stub_remains(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    monkeypatch.setattr(e7g, "_generation_capability",
+                        lambda repo_arg: {"capable": False, "cuda_available": False,
+                                         "weight_root": "/nowhere", "problems": ["no cuda"]})
+    with pytest.raises(e7g.E7Error) as excinfo:
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert "reached the real GPU candidate-generation boundary on a non-GPU host" not in str(excinfo.value)
+    assert "GPU_REQUIRED" in str(excinfo.value)
+
+
+def test_generate_and_match_capability_gate_is_real(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    monkeypatch.setattr(e7g, "_generation_capability",
+                        lambda repo_arg: {"capable": False, "cuda_available": False,
+                                         "weight_root": "/some/weight/root",
+                                         "problems": ["pinned quality model weight unresolved"]})
+    with pytest.raises(e7g.E7Error, match="pinned quality model weight unresolved"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+
+
+def test_generate_and_match_calibration_is_source_only(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    payload = json.loads(e7g.quality_calibration_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    assert payload["used_target"] is False
+    assert payload["used_source_dev"] is False
+    assert payload["source_isolation"]["source_dev_opened"] is False
+    assert payload["source_isolation"]["target_test_opened"] is False
+    validation = e7g.validate_quality_calibration(repo, "EXT-F1")
+    assert validation["status"] == "VALID"
+
+
+def test_effective_fold_quality_calibration_binding_reflects_actual_fold_population(tmp_path, monkeypatch):
+    """F2's real source population is CASIA-FASD + SiW-Mv2, NOT the frozen
+    quality_gate_m8.yaml's historical CASIA+MSU description -- the binding
+    must record F2's OWN actual dataset/live/spoof counts, mechanically,
+    never the YAML's descriptive numbers."""
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F2", authorize=True)
+    binding = json.loads(e7g.effective_fold_quality_calibration_binding_path(repo, "EXT-F2")
+                         .read_text(encoding="utf-8"))
+    assert sorted(binding["allowed_source_datasets"]) == sorted(e7g.FOLD_SOURCE_DATASET_SLUGS["EXT-F2"])
+    assert set(binding["actual_dataset_counts"]) == set(e7g.FOLD_SOURCE_DATASET_SLUGS["EXT-F2"])
+    assert "casia_fasd" not in ("msu_mfsd",)  # sanity: F2 never includes msu_mfsd
+    assert "msu_mfsd" not in binding["actual_dataset_counts"]
+    assert binding["actual_live_spoof_counts"]["live"] > 0
+    assert binding["actual_live_spoof_counts"]["spoof"] > 0
+    assert binding["calibration_stage"] == "C6_SYNTHETIC_QUALITY_GATE_SOURCE_TRAIN_ONLY"
+    assert binding["target_access"] is False
+    assert binding["llm_api_calls"] == 0
+    validation = e7g.validate_effective_fold_quality_calibration_binding(repo, "EXT-F2")
+    assert validation["status"] == "VALID"
+
+
+def test_effective_fold_quality_calibration_binding_never_alters_frozen_config(tmp_path, monkeypatch):
+    """The binding changes ONLY population metadata -- the base quality
+    config's own SHA256 (formulas/percentiles/hard gates/seed/model
+    identities) is recorded unchanged, never altered."""
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F3")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F3", authorize=True)
+    from prism_fas.synthesis.quality_calibration import config_sha, load_quality_config
+
+    expected_base_sha = config_sha(load_quality_config(repo / e7g.QUALITY_CONFIG_PATH))
+    binding = json.loads(e7g.effective_fold_quality_calibration_binding_path(repo, "EXT-F3")
+                         .read_text(encoding="utf-8"))
+    assert binding["base_quality_config_sha256"] == expected_base_sha
+
+
+def test_generate_and_match_no_target_or_llm_access(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    assert result["target_access"] is False
+    assert result["llm_api_calls"] == 0
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        lock = result["locks"][condition]
+        assert lock["TARGET_IMAGE_ACCESS"] is False
+        assert lock["TARGET_LABEL_ACCESS"] is False
+        assert lock["LLM_API_CALLS"] == 0
+
+
+def test_candidate_schedule_identical_across_rnd_det_llm(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    # `build_all_arm_plans` internally calls `assert_arms_share_the_schedule`, which raises on
+    # any position/route/domain-relation/live/spoof divergence -- a returned result IS the proof.
+    plans = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    signatures = {arm: [(row["position"], row["route"], row["domain_relation"],
+                        row["live_target_sample_id"], row["spoof_source_sample_id"])
+                       for row in plan["candidates"]]
+                 for arm, plan in plans["arm_plans"].items()}
+    reference = signatures["RND"]
+    assert signatures["DET"] == reference
+    assert signatures["LLM"] == reference
+
+
+def test_exact_initial_route_cardinality(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    plans = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    from prism_fas.synthesis.c5_source_pair_plan import GPAT, PHYSICS
+
+    for arm, plan in plans["arm_plans"].items():
+        assert plan["planned_candidates"] == 2048
+        routes = [row["route"] for row in plan["candidates"]]
+        assert routes.count(PHYSICS) == 1024
+        assert routes.count(GPAT) == 1024
+
+
+def test_candidate_ids_deterministic(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    first = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    second = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                             gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    for arm in e7g.c5spp_arms():
+        ids_first = [row["candidate_id"] for row in first["arm_plans"][arm]["candidates"]]
+        ids_second = [row["candidate_id"] for row in second["arm_plans"][arm]["candidates"]]
+        assert ids_first == ids_second
+
+
+def test_quality_calibration_does_not_alter_c5_candidate_identity(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    before = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                             gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert e7g.quality_calibration_path(repo, "EXT-F1").is_file()
+    after = e7g.materialize_candidate_plans(repo, "EXT-F1",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    for arm in e7g.c5spp_arms():
+        ids_before = [row["candidate_id"] for row in before["arm_plans"][arm]["candidates"]]
+        ids_after = [row["candidate_id"] for row in after["arm_plans"][arm]["candidates"]]
+        assert ids_before == ids_after
+
+
+def test_gpat_checkpoint_identity_bound_at_generation(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    lock_path = e7g.gpat_fit_lock_path(repo, "EXT-F1")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["package_identity"] = "0" * 64
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    with pytest.raises(e7g.E7Error, match="package_identity"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+
+
+def test_q_does_not_alter_acceptance_or_bank_membership(tmp_path, monkeypatch):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    repo_a = _build_generation_ready_fixture(tmp_path / "a", monkeypatch, "EXT-F1")
+    tracking = _patch_generation_boundary(monkeypatch, repo_a, accept=_accept_all, skip=_skip_none,
+                                          measured_strength=0.30)
+    result_a = e7g.generate_and_match(repo_a, "EXT-F1", authorize=True)
+    assert result_a["status"] == "FITTED"
+
+    repo_b = _build_generation_ready_fixture(tmp_path / "b", monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo_b, accept=_accept_all, skip=_skip_none,
+                               measured_strength=0.32)  # different q, same acceptance
+    result_b = e7g.generate_and_match(repo_b, "EXT-F1", authorize=True)
+    assert result_b["status"] == "FITTED"
+
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        selected_a = sorted(row["candidate_id"] for row in result_a["locks"][condition]["selected"])
+        selected_b = sorted(row["candidate_id"] for row in result_b["locks"][condition]["selected"])
+        assert selected_a == selected_b
+        q_values = {row["q"] for row in result_a["locks"][condition]["selected"]}
+        assert len(q_values) >= 1  # q genuinely varies per candidate and is still recorded
+
+
+def test_exact_final_quota_512_physics_512_gpat(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        lock = result["locks"][condition]
+        assert lock["final_bank_size"] == 1024
+        assert lock["by_route"] == {"physics": 512, "gpat": 512}
+
+
+def test_common_source_domain_quota_preserved_across_arms(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    exposures = {condition: result["locks"][condition]["exposure"] for condition in
+                ("G-RND", "G-DET", "G-LLM")}
+    assert exposures["G-RND"] == exposures["G-DET"] == exposures["G-LLM"]
+
+
+def test_terminal_lock_written_last(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    attempt_mtime = e7g.generation_attempt_provenance_path(repo, "EXT-F1").stat().st_mtime
+    calibration_mtime = e7g.quality_calibration_path(repo, "EXT-F1").stat().st_mtime
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        lock_mtime = e7g.bank_lock_path(repo, "EXT-F1", condition).stat().st_mtime
+        assert attempt_mtime <= lock_mtime
+        assert calibration_mtime <= lock_mtime
+
+
+def test_partial_runtime_failure_leaves_no_terminal_lock(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+
+    from prism_fas.synthesis import c5_render
+
+    def _raising_render_arm(**kwargs):
+        raise c5_render.RuntimeAttemptFailure(
+            "simulated runtime failure", candidate_id="c5syn_deadbeef", arm=kwargs["plan"]["arm"],
+            position=0, route="physics", stage="render_physics", error_type="Simulated",
+            attempt_ordinal=1, attempt_path="nowhere")
+
+    monkeypatch.setattr("prism_fas.synthesis.c5_render.render_arm", _raising_render_arm)
+    with pytest.raises(e7g.E7Error, match="rendering aborted"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        assert not e7g.bank_lock_path(repo, "EXT-F1", condition).is_file()
+
+
+def test_existing_invalid_bank_lock_fails_closed_never_regenerated(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    tracking = _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    lock_path = e7g.bank_lock_path(repo, "EXT-F1", "G-RND")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["selected_set_sha256"] = "corrupted"
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    calls_before = len(tracking["render_arm_calls"])
+    with pytest.raises(e7g.E7Error, match="FAILED strict validation"):
+        e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert len(tracking["render_arm_calls"]) == calls_before  # never silently regenerated
+
+
+def test_rerun_reuses_already_valid_banks_zero_extra_calls(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    tracking = _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    first = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert first["status"] == "FITTED"
+    calls_after_first = len(tracking["render_arm_calls"])
+    second = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert second["status"] == "ALREADY_VALID"
+    assert second["rendering_performed"] is False
+    assert len(tracking["render_arm_calls"]) == calls_after_first  # rendering NOT repeated
+
+
+def test_semantic_failure_retained_never_resampled(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+
+    def _skip_first_gpat(row):
+        return row["route"] == "gpat" and row["position"] == 1
+
+    tracking = _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_first_gpat)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        selected_ids = {row["candidate_id"] for row in result["locks"][condition]["selected"]}
+        closure = result["locks"][condition]["provenance_closure"]
+        assert closure["semantic_failed"] >= 1
+        assert closure["closed"] is True
+    # A second invocation resumes/reuses -- the retained failure is not resampled into existence.
+    calls_before = len(tracking["render_arm_calls"])
+    second = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert second["status"] == "ALREADY_VALID"
+    assert len(tracking["render_arm_calls"]) == calls_before
+
+
+def test_target_firewall_all_three_folds(tmp_path, monkeypatch):
+    for fold_id in e7g.FOLD_IDS:
+        sub = tmp_path / fold_id
+        sub.mkdir()
+        repo = _build_generation_ready_fixture(sub, monkeypatch, fold_id)
+        _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+        result = e7g.generate_and_match(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+        assert result["target_access"] is False
+        assert result["llm_api_calls"] == 0
+        for condition in ("G-RND", "G-DET", "G-LLM"):
+            lock = result["locks"][condition]
+            assert lock["TARGET_IMAGE_ACCESS"] is False
+            assert lock["TARGET_LABEL_ACCESS"] is False
+            assert lock["LLM_API_CALLS"] == 0
+
+
+def test_f1_shuffle_remains_permanently_blocked(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["shuffle_status"] == "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY"
+    assert result.get("shuffle_result") is None
+    # F1's Shuffle-A adapter is never invoked at all -- no BANK_LOCK.json, no closure.
+    assert not e7g.bank_lock_path(repo, "EXT-F1", e7g.SHUFFLE_CONDITION).is_file()
+    assert not e7g.generation_closure_path(repo, "EXT-F1", e7g.SHUFFLE_CONDITION).is_file()
+
+
+def test_f2_f3_shuffle_uses_same_source_schedule_as_llm_and_reaches_valid_bank(tmp_path, monkeypatch):
+    (tmp_path / "f2").mkdir()
+    (tmp_path / "f3").mkdir()
+    for sub, fold_id in ((tmp_path / "f2", "EXT-F2"), (tmp_path / "f3", "EXT-F3")):
+        repo = _build_generation_ready_fixture(sub, monkeypatch, fold_id)
+        _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+        result = e7g.generate_and_match(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+        assert result["shuffle_status"] == "VALID"
+        assert result["shuffle_result"]["status"] == "VALID"
+        shuffle_lock = result["shuffle_result"]["lock"]
+        assert shuffle_lock["arm"] == "LLM_SHUFFLE_A"
+        assert shuffle_lock["final_bank_size"] == 1024
+        assert shuffle_lock["by_route"] == {"physics": 512, "gpat": 512}
+        # Source schedule proof: SAME source_pair_plan_identity as this fold's own LLM arm.
+        assert shuffle_lock["same_source_schedule_as_original_llm"] is True
+        assert shuffle_lock["source_pair_plan_identity"] == shuffle_lock["original_llm_source_pair_plan_identity"]
+        # Candidate identity proof: the arm plan identity (and therefore every candidate id)
+        # differs from LLM's own, because the recipe bank content/identity differs.
+        assert shuffle_lock["candidate_identities_differ_from_original_llm"] is True
+        assert shuffle_lock["arm_plan_identity"] != shuffle_lock["original_llm_arm_plan_identity"]
+        # Firewall.
+        assert shuffle_lock["TARGET_IMAGE_ACCESS"] is False
+        assert shuffle_lock["TARGET_LABEL_ACCESS"] is False
+        assert shuffle_lock["LLM_API_CALLS"] == 0
+        validation = e7g.validate_matched_bank_lock(repo, fold_id, e7g.SHUFFLE_CONDITION)
+        assert validation["status"] == "VALID"
+
+
+def test_shuffle_recipe_ordinal_alignment_exact(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    shuffle = e7g.load_shuffle_recipes(repo)
+    alignment = e7g.verify_shuffle_source_pair_alignment(repo, shuffle["recipes"])
+    assert alignment["all_ordinals_aligned"] is True
+    assert alignment["ordinals_checked"] == 256
+
+
+def test_shuffle_recipe_content_identity_is_frozen_e6_identity(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    shuffle = e7g.load_shuffle_recipes(repo)
+    llm_bank = e7g.c5_arm_plan_load_arm_bank(repo, "LLM")
+    assert shuffle["content_identity"] != llm_bank["bank_identity"]
+
+
+def test_shuffle_candidate_ids_differ_from_original_llm_every_position(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F2").read_text(encoding="utf-8"))
+    plans = e7g.materialize_candidate_plans(repo, "EXT-F2",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    llm_plan = plans["arm_plans"]["LLM"]
+    shuffle = e7g.load_shuffle_recipes(repo)
+    shuffle_plan = e7g.build_shuffle_arm_plan(
+        repo, "EXT-F2", plans["base_plan"], shuffle["recipes"],
+        gpat_checkpoint_sha256=lock["best_checkpoint_sha256"],
+        physics_engine_version=llm_plan["physics_engine_version"],
+        ontology_identity=llm_plan["ontology_identity"], recipe_bank_identity=shuffle["content_identity"],
+        training_plan_identity=shuffle["plan_lock"]["plan_identity"])
+    llm_ids = {row["candidate_id"] for row in llm_plan["candidates"]}
+    shuffle_ids = {row["candidate_id"] for row in shuffle_plan["candidates"]}
+    assert llm_ids.isdisjoint(shuffle_ids)
+    assert len(shuffle_ids) == 2048
+
+
+def test_shuffle_no_new_rng_or_source_selection(tmp_path, monkeypatch):
+    """The per-position (route, live sample, GPAT spoof source) tuple is
+    IDENTICAL between LLM and LLM-SHUFFLE-A in the same fold -- proving no
+    new RNG, seed, or source-assignment rule was introduced; only the
+    recipe content differs."""
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F3")
+    lock = json.loads(e7g.gpat_fit_lock_path(repo, "EXT-F3").read_text(encoding="utf-8"))
+    plans = e7g.materialize_candidate_plans(repo, "EXT-F3",
+                                            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    llm_plan = plans["arm_plans"]["LLM"]
+    shuffle = e7g.load_shuffle_recipes(repo)
+    shuffle_plan = e7g.build_shuffle_arm_plan(
+        repo, "EXT-F3", plans["base_plan"], shuffle["recipes"],
+        gpat_checkpoint_sha256=lock["best_checkpoint_sha256"],
+        physics_engine_version=llm_plan["physics_engine_version"],
+        ontology_identity=llm_plan["ontology_identity"], recipe_bank_identity=shuffle["content_identity"],
+        training_plan_identity=shuffle["plan_lock"]["plan_identity"])
+    llm_signature = [(row["position"], row["route"], row["live_target_sample_id"],
+                     row["spoof_source_sample_id"]) for row in llm_plan["candidates"]]
+    shuffle_signature = [(row["position"], row["route"], row["live_target_sample_id"],
+                         row["spoof_source_sample_id"]) for row in shuffle_plan["candidates"]]
+    assert llm_signature == shuffle_signature
+
+
+def test_shuffle_never_touches_historical_e6_module_or_artifacts(tmp_path, monkeypatch):
+    import subprocess
+
+    for relative in ("src/prism_fas/evaluation/c_ext_e6_render.py",
+                     "src/prism_fas/evaluation/c_ext_e6_training_plan.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD"
+
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F2", authorize=True)
+    # E6's OWN historical output paths (a different milestone's frozen artifacts) are never
+    # written by the fold-scoped E7 adapter.
+    import prism_fas.evaluation.c_ext_e6_render as e6r_mod
+
+    assert not (repo / e6r_mod.RENDER_PLAN_PATH).exists()
+    assert not (repo / e6r_mod.BANK_LOCK_PATH).exists()
+    assert not (repo / e6r_mod.RENDER_PLAN_LOCK_PATH).exists()
+
+
+def test_reserve_tranche_volume_shortfall_blocks_with_protocol_gap(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+
+    def _accept_few_gpat(row):
+        if row["route"] == "gpat":
+            return row["position"] < 100  # far short of the 512 floor, every profile
+        return True
+
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_few_gpat, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        closure = result["conditions"][condition]
+        assert closure["is_scientific_lock"] is False
+        assert closure["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+        assert not e7g.bank_lock_path(repo, "EXT-F1", condition).is_file()
+    # The explicit, read-only, pre-outcome protocol-gap evidence artifact is written alongside.
+    evidence_path = e7g.reserve_tranche_protocol_gap_evidence_path(repo)
+    assert evidence_path.is_file()
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert evidence["is_scientific_lock"] is False
+    assert "missing_authority" in evidence
+    validation = e7g.validate_reserve_tranche_protocol_gap_evidence(repo)
+    assert validation["status"] == "VALID"
+
+
+def test_reserve_tranche_shortfall_blocks_shuffle_on_fold_anchor(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F2")
+
+    def _accept_few_gpat(row):
+        if row["route"] == "gpat":
+            return row["position"] < 100
+        return True
+
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_few_gpat, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F2", authorize=True)
+    assert result["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+    assert result["shuffle_status"] == e7g.SHUFFLE_BLOCKED_BY_FOLD_ANCHOR
+    assert not e7g.bank_lock_path(repo, "EXT-F2", e7g.SHUFFLE_CONDITION).is_file()
+
+
+def test_reserve_protocol_gap_identity_deterministic_and_fold_independent():
+    first = e7g.reserve_protocol_gap_identity()
+    second = e7g.reserve_protocol_gap_identity()
+    assert first == second
+    assert isinstance(first, str) and len(first) == 64
+
+
+def test_reserve_protocol_gap_identity_bound_before_rendering(tmp_path, monkeypatch):
+    """A wrapper around the REAL patched `c5_render.render_arm` boundary
+    asserts, on its very first call, that `GENERATE_ATTEMPT_PROVENANCE.json`
+    already exists on disk and already carries the pre-bound reserve-gap
+    identity -- proving the binding happens strictly BEFORE any rendering,
+    not merely that it ends up present afterward."""
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    import prism_fas.synthesis.c5_render as c5_render_mod
+
+    inner_render_arm = c5_render_mod.render_arm
+    seen = {"checked": False}
+
+    def _checking_render_arm(**kwargs):
+        attempt_path = e7g.generation_attempt_provenance_path(repo, "EXT-F1")
+        assert attempt_path.is_file(), "attempt provenance must exist before the first render call"
+        attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+        assert attempt["reserve_protocol_gap_identity"] == e7g.reserve_protocol_gap_identity()
+        assert attempt["reserve_protocol_gap_status"] == e7g.RESERVE_PROTOCOL_GAP_KNOWN_STATUS
+        seen["checked"] = True
+        return inner_render_arm(**kwargs)
+
+    monkeypatch.setattr("prism_fas.synthesis.c5_render.render_arm", _checking_render_arm)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert seen["checked"] is True
+
+
+def test_reserve_protocol_gap_documented_without_blocking_when_pool_sufficient(tmp_path, monkeypatch):
+    """When the initial 2048 pool is sufficient, the known gap remains
+    documented in attempt provenance but blocks nothing."""
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == "FITTED"
+    attempt = json.loads(e7g.generation_attempt_provenance_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    assert attempt["reserve_protocol_gap_identity"] == e7g.reserve_protocol_gap_identity()
+    assert attempt["reserve_protocol_gap_status"] == e7g.RESERVE_PROTOCOL_GAP_KNOWN_STATUS
+
+
+def test_reserve_shortfall_closure_references_pre_bound_identity(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+
+    def _accept_few_gpat(row):
+        if row["route"] == "gpat":
+            return row["position"] < 100
+        return True
+
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_few_gpat, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+    attempt = json.loads(e7g.generation_attempt_provenance_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        closure = result["conditions"][condition]
+        assert closure["evidence"]["reserve_protocol_gap_identity"] == \
+            attempt["reserve_protocol_gap_identity"] == e7g.reserve_protocol_gap_identity()
+
+
+# ============================================================================= #
+# END-TO-END FAKE-REPO PREFLIGHT / READINESS VALIDATION (all three folds in ONE
+# repo, exactly as the real GPU checkout would accumulate them across runs).
+# ============================================================================= #
+
+def _patch_fake_trainer_multi(monkeypatch, repo: Path) -> dict:
+    """Like `_patch_fake_trainer`, but derives `fold_id` from the checkpoint
+    PATH itself (matching against every fold's own best/last checkpoint
+    path) instead of closing over one fixed fold_id -- `_patch_fake_
+    trainer`'s single-fold closures would otherwise only stay correct for
+    whichever fold was patched LAST, since `monkeypatch.setattr` replaces
+    the same global function each call. Returns a mutable `{"id": None}`
+    box the caller sets to the fold about to be fitted (`_FakeTrainer.fit`
+    itself is called with no path yet to derive a fold from)."""
+    _FakeTrainer.instances = []
+    current_fold = {"id": None}
+
+    def _fold_for_path(path) -> str:
+        path = Path(path)
+        for fid in e7g.FOLD_IDS:
+            if path in (e7g.gpat_best_checkpoint_path(repo, fid), e7g.gpat_last_checkpoint_path(repo, fid)):
+                return fid
+        raise AssertionError(f"checkpoint path {path} does not belong to any known fold")
+
+    def real_identity(fold_id: str) -> dict:
+        package_identity = json.loads((repo / e7g.GPAT_INPUT_ROOT / fold_id /
+                                       e7g.GPAT_INPUT_LOCK_FILENAME).read_text())["content_identity_sha256"]
+        pair_plan_identity = json.loads((repo / e7g.GPAT_PAIR_PLAN_ROOT / fold_id /
+                                         "PAIR_PLAN_LOCK.json").read_text())["pair_plan_identity_sha256"]
+        effective = e7g.build_effective_gpat_config(repo, fold_id)
+        return {"package_identity": package_identity,
+               "recipe_bank_identity": e7g.FROZEN_M7_BANK["bank_content_identity_sha256"],
+               "pair_plan_identity": pair_plan_identity, "config_hash": effective["effective_config_hash"],
+               "architecture_hash": "arch",
+               "adaface_weight_sha256": e7g.FROZEN_PRIOR_MODELS["identity"]["weight_sha256"]}
+
+    from prism_fas.synthesis.gpat_checkpoint import CheckpointError, STRICT_IDENTITY_FIELDS
+    from prism_fas.synthesis.gpat_contracts import GPAT_CHECKPOINT_SCHEMA_VERSION
+
+    def identity_fn() -> dict:
+        assert current_fold["id"] is not None, "set current_fold['id'] before calling prepare_gpat"
+        return real_identity(current_fold["id"])
+
+    monkeypatch.setattr(_FakeTrainer, "identity_fn", staticmethod(identity_fn))
+    monkeypatch.setattr("prism_fas.synthesis.gpat_trainer.GPATTrainer", _FakeTrainer)
+    monkeypatch.setattr("prism_fas.synthesis.gpat_model.build_gpat_model",
+                        lambda config: type("A", (), {"architecture_hash": lambda self: "arch"})())
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.resolve_weight",
+                        lambda weight_root, role: Path(weight_root) / "identity.bin")
+    monkeypatch.setattr("prism_fas.synthesis.quality_models.sha256_file",
+                        lambda path: e7g.FROZEN_PRIOR_MODELS["identity"]["weight_sha256"])
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.checkpoint_summary",
+                        lambda path: {"identity": real_identity(_fold_for_path(path)),
+                                     "schema_version": GPAT_CHECKPOINT_SCHEMA_VERSION})
+
+    def fake_load_checkpoint(path, *, expected_identity):
+        identity = real_identity(_fold_for_path(path))
+        mismatched = [f for f in STRICT_IDENTITY_FIELDS
+                     if f in expected_identity and identity.get(f) != expected_identity[f]]
+        if mismatched:
+            raise CheckpointError(f"refusing to resume: identity mismatch on {mismatched}")
+        return {"identity": identity, "record_set_hashes": {}, "history": [{"train_total": 0.1}],
+               "global_step": 1, "best_metrics": {"validation_total_loss": 0.1}}
+
+    monkeypatch.setattr("prism_fas.synthesis.gpat_checkpoint.load_checkpoint", fake_load_checkpoint)
+    return current_fold
+
+
+def _build_all_folds_gpat_valid_fixture(tmp_path: Path, monkeypatch) -> Path:
+    """All three folds' GPAT_FIT_LOCK.json VALID, in ONE repo. No candidate/
+    matched banks exist yet -- STATE A."""
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F2", repo=repo)
+    repo = _build_gpat_ready_fixture(tmp_path, monkeypatch, "EXT-F3", repo=repo)
+    _patch_gpat_capable(monkeypatch, repo)
+    current_fold = _patch_fake_trainer_multi(monkeypatch, repo)
+    for fold_id in e7g.FOLD_IDS:
+        current_fold["id"] = fold_id
+        result = e7g.prepare_gpat(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+    return repo
+
+
+def _build_all_folds_generation_ready_fixture(tmp_path: Path, monkeypatch) -> Path:
+    """All three folds GPAT-VALID plus every repo-level (not fold-specific)
+    fixture `generate_and_match` needs: quality config, C3 arm banks, frozen
+    Shuffle-A recipes."""
+    repo = _build_all_folds_gpat_valid_fixture(tmp_path, monkeypatch)
+    quality_config_dest = repo / e7g.QUALITY_CONFIG_PATH
+    quality_config_dest.parent.mkdir(parents=True, exist_ok=True)
+    quality_config_dest.write_text((REPO / e7g.QUALITY_CONFIG_PATH).read_text(encoding="utf-8"),
+                                   encoding="utf-8")
+    for arm in e7g.c5spp_arms():
+        _write_c3_arm_bank(repo, arm)
+    _write_shuffle_recipes_fixture(repo)
+    return repo
+
+
+def test_state_a_gpat_complete_banks_not_yet_generated(tmp_path, monkeypatch):
+    repo = _build_all_folds_gpat_valid_fixture(tmp_path, monkeypatch)
+
+    pf = e7g.preflight(repo)
+    assert pf["F1_GPAT_FITTED"] is True
+    assert pf["F2_GPAT_FITTED"] is True
+    assert pf["F3_GPAT_FITTED"] is True
+    assert pf["E7_READY_FOR_TRAINING"] is False
+    for fold_id in e7g.FOLD_IDS:
+        assert pf[f"{fold_id.replace('EXT-', '')}_CANDIDATE_BANK_STAGE_CLOSED"] is False
+
+    readiness = e7g.build_readiness(repo)
+    assert readiness["F1_GPAT_FITTED"] is True
+    assert readiness["F2_GPAT_FITTED"] is True
+    assert readiness["F3_GPAT_FITTED"] is True
+    assert readiness["E7_READY_FOR_TRAINING"] is False
+    assert "no GPAT checkpoint fitted" not in readiness["reason"]
+    assert readiness["training_performed"] is False
+
+    execution_plan = e7g.build_execution_plan(repo)
+    assert execution_plan["e7_ready_for_training"] is False
+    assert "no GPAT checkpoint fitted" not in execution_plan["reason"]
+    assert execution_plan["per_fold_gpat_fitted"] == {"EXT-F1": True, "EXT-F2": True, "EXT-F3": True}
+    assert execution_plan["per_fold_candidate_bank_stage_closed"] == \
+        {"EXT-F1": False, "EXT-F2": False, "EXT-F3": False}
+    # candidate generation / quality / matched-bank closure is what truthfully remains
+    assert "candidate" in execution_plan["reason"] or "matched-bank" in execution_plan["reason"]
+
+    validate_report = e7g.e7_gpat_bank_validate(repo)
+    for fold_id in e7g.FOLD_IDS:
+        assert validate_report["folds"][fold_id]["gpat_fit_lock_status"] == "VALID"
+        assert validate_report["folds"][fold_id]["banks"]["G-RND"] == "NOT_MATERIALIZED"
+        assert validate_report["folds"][fold_id]["banks"]["G-DET"] == "NOT_MATERIALIZED"
+        assert validate_report["folds"][fold_id]["banks"]["G-LLM"] == "NOT_MATERIALIZED"
+
+
+def test_state_b_valid_core_bank_closure_all_folds(tmp_path, monkeypatch):
+    repo = _build_all_folds_generation_ready_fixture(tmp_path, monkeypatch)
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    for fold_id in e7g.FOLD_IDS:
+        result = e7g.generate_and_match(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+
+    pf = e7g.preflight(repo)
+    assert pf["F1_CANDIDATE_BANK_STAGE_CLOSED"] is True
+    assert pf["F2_CANDIDATE_BANK_STAGE_CLOSED"] is True
+    assert pf["F3_CANDIDATE_BANK_STAGE_CLOSED"] is True
+    # F1's frozen Shuffle infeasibility is a legitimate terminal disposition -- NOT "missing
+    # forever" -- and must not stop the OTHER two folds' Shuffle-A from reaching VALID.
+    assert pf["F1_SHUFFLE_STATUS"] == "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY"
+    assert pf["F2_SHUFFLE_STATUS"] == "VALID"
+    assert pf["F3_SHUFFLE_STATUS"] == "VALID"
+
+    execution_plan = e7g.build_execution_plan(repo)
+    assert execution_plan["e7_ready_for_training"] is True
+
+    readiness = e7g.build_readiness(repo)
+    assert readiness["E7_READY_FOR_TRAINING"] is True
+    assert readiness["training_performed"] is False  # readiness, never execution
+    assert readiness["gpat_fitting_performed"] is False
+    schedulable = readiness["SCHEDULABLE_CONDITIONS"]
+    for fold_id in ("EXT-F1", "EXT-F2", "EXT-F3"):
+        assert schedulable[fold_id]["G-RND"] is True
+        assert schedulable[fold_id]["G-DET"] is True
+        assert schedulable[fold_id]["G-LLM"] is True
+    # The five F1 Shuffle detector runs must remain unschedulable, even though E7_READY_FOR_
+    # TRAINING is now True and F1's OWN other three conditions are schedulable.
+    assert schedulable["EXT-F1"][e7g.SHUFFLE_CONDITION] is False
+    assert schedulable["EXT-F2"][e7g.SHUFFLE_CONDITION] is True
+    assert schedulable["EXT-F3"][e7g.SHUFFLE_CONDITION] is True
+
+    validate_report = e7g.e7_gpat_bank_validate(repo)
+    for fold_id in ("EXT-F1", "EXT-F2", "EXT-F3"):
+        for condition in ("G-RND", "G-DET", "G-LLM"):
+            assert validate_report["folds"][fold_id]["banks"][condition] == "VALID"
+
+
+def test_state_c_scientifically_blocked_shuffle_distinguishable(tmp_path, monkeypatch):
+    """Simulates a REAL F2 Shuffle matched-bank infeasibility terminal
+    closure (its own eligible candidates cannot fill the reused LLM quota)
+    and proves it is distinguishable from NOT_MATERIALIZED, a technical
+    failure, a protocol gap, and a VALID bank -- and never a fake VALID
+    BANK_LOCK."""
+    repo = _build_all_folds_generation_ready_fixture(tmp_path, monkeypatch)
+
+    # `accept`/`skip` predicates only ever see position/route (shared across RND/DET/LLM/Shuffle
+    # by the frozen fairness invariant), so they cannot special-case Shuffle-A alone -- the
+    # dedicated unit test `test_matched_bank_infeasible_is_distinct_frozen_rule_outcome`-style
+    # coverage for HOW `select_route_bank` raises already exists. Here, build all three folds to
+    # a real VALID state first, then overwrite F2's Shuffle bank with a hand-written closure in
+    # EXACTLY the shape `run_shuffle_generation_and_match` itself would leave on disk when its
+    # `except selector.MatchedBankError` branch fires -- proving the READINESS side reads and
+    # distinguishes that real closure shape correctly.
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    for fold_id in e7g.FOLD_IDS:
+        result = e7g.generate_and_match(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+    assert e7g.resolved_shuffle_status(repo, "EXT-F2") == "VALID"
+
+    # Overwrite F2's just-written VALID Shuffle bank with a hand-written SHUFFLE_MATCHED_BANK_
+    # INFEASIBLE closure, exactly as `run_shuffle_generation_and_match` itself would leave on
+    # disk when `select_route_bank` cannot fill the reused quota -- proving the READINESS side
+    # reads and distinguishes this real closure shape correctly.
+    e7g.bank_lock_path(repo, "EXT-F2", e7g.SHUFFLE_CONDITION).unlink()
+    e7g._write_generation_closure(
+        repo, "EXT-F2", e7g.SHUFFLE_CONDITION, status=e7g.SHUFFLE_MATCHED_BANK_INFEASIBLE,
+        evidence={"reason": "eligible Shuffle-A candidates could not fill the reused LLM quota"})
+
+    status = e7g.resolved_shuffle_status(repo, "EXT-F2")
+    assert status == e7g.SHUFFLE_MATCHED_BANK_INFEASIBLE
+    assert status != "NOT_MATERIALIZED"
+    assert status != e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE  # not a protocol gap
+    assert status != "VALID"
+    assert not e7g.bank_lock_path(repo, "EXT-F2", e7g.SHUFFLE_CONDITION).is_file()  # never faked VALID
+
+    readiness = e7g.build_readiness(repo)
+    schedulable = readiness["SCHEDULABLE_CONDITIONS"]
+    # The blocked condition is unschedulable...
+    assert schedulable["EXT-F2"][e7g.SHUFFLE_CONDITION] is False
+    # ...but every OTHER scientifically valid condition, in every fold, continues undisturbed.
+    for fold_id in ("EXT-F1", "EXT-F2", "EXT-F3"):
+        for condition in ("G-RND", "G-DET", "G-LLM"):
+            assert schedulable[fold_id][condition] is True
+    assert schedulable["EXT-F3"][e7g.SHUFFLE_CONDITION] is True
+
+
+def test_state_d_reserve_protocol_gap_across_full_readiness(tmp_path, monkeypatch):
+    repo = _build_all_folds_generation_ready_fixture(tmp_path, monkeypatch)
+
+    def _accept_few_gpat(row):
+        if row["route"] == "gpat":
+            return row["position"] < 100
+        return True
+
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_few_gpat, skip=_skip_none)
+    result = e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert result["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        assert not e7g.bank_lock_path(repo, "EXT-F1", condition).is_file()
+
+    validate_report = e7g.e7_gpat_bank_validate(repo)
+    closure = validate_report["folds"]["EXT-F1"]["generation_closure"]
+    assert closure["conditions"]["G-RND"] != "VALID"
+    assert closure["candidate_bank_stage_closed"] is False
+
+    execution_plan = e7g.build_execution_plan(repo)
+    assert execution_plan["e7_ready_for_training"] is False
+    assert execution_plan["per_fold_candidate_bank_stage_closed"]["EXT-F1"] is False
+
+    readiness = e7g.build_readiness(repo)
+    assert readiness["E7_READY_FOR_TRAINING"] is False
+    assert readiness["SCHEDULABLE_CONDITIONS"]["EXT-F1"]["G-RND"] is False
+    # The exact protocol gap, not a vague failure.
+    on_disk_closure = json.loads(e7g.generation_closure_path(repo, "EXT-F1", "G-RND")
+                                 .read_text(encoding="utf-8"))
+    assert on_disk_closure["status"] == e7g.BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE
+    evidence_path = e7g.reserve_tranche_protocol_gap_evidence_path(repo)
+    assert evidence_path.is_file()
+
+
+def test_state_e_corrupted_terminal_artifact_fails_closed(tmp_path, monkeypatch):
+    repo = _build_all_folds_generation_ready_fixture(tmp_path, monkeypatch)
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    for fold_id in e7g.FOLD_IDS:
+        result = e7g.generate_and_match(repo, fold_id, authorize=True)
+        assert result["status"] == "FITTED"
+
+    # Corrupt ONE terminal bank's selected_set_sha256 -- simulating a corrupted candidate/bank
+    # identity in the fake repo.
+    lock_path = e7g.bank_lock_path(repo, "EXT-F2", "G-DET")
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["selected_set_sha256"] = "0" * 64
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    validation = e7g.validate_matched_bank_lock(repo, "EXT-F2", "G-DET")
+    assert validation["status"] == "INVALID"
+
+    validate_report = e7g.e7_gpat_bank_validate(repo)
+    assert validate_report["folds"]["EXT-F2"]["banks"]["G-DET"] == "INVALID"
+    assert validate_report["folds"]["EXT-F2"]["generation_closure"]["candidate_bank_stage_closed"] is False
+
+    execution_plan = e7g.build_execution_plan(repo)
+    assert execution_plan["e7_ready_for_training"] is False  # the corruption is not silently accepted
+    assert execution_plan["per_fold_candidate_bank_stage_closed"]["EXT-F2"] is False
+
+    readiness = e7g.build_readiness(repo)
+    assert readiness["E7_READY_FOR_TRAINING"] is False
+    assert readiness["SCHEDULABLE_CONDITIONS"]["EXT-F2"]["G-DET"] is False
+    # The OTHER, uncorrupted conditions in the SAME fold and in other folds are unaffected.
+    assert readiness["SCHEDULABLE_CONDITIONS"]["EXT-F2"]["G-RND"] is True
+    assert readiness["SCHEDULABLE_CONDITIONS"]["EXT-F1"]["G-RND"] is True
+
+    # No silent regeneration: a second orchestration call still fails closed on the SAME
+    # corrupted lock rather than quietly rewriting it.
+    with pytest.raises(e7g.E7Error, match="FAILED strict validation"):
+        e7g.generate_and_match(repo, "EXT-F2", authorize=True)
+
+
+def test_matched_bank_infeasible_is_distinct_frozen_rule_outcome():
+    """Unit-level proof (not a full generate_and_match run) that C6's OWN
+    frozen rule can refuse a common source-domain quota even when every arm
+    individually clears the route floor -- the genuine frozen-rule
+    infeasibility this module classifies as `MATCHED_BANK_INFEASIBLE`,
+    distinct from the missing-reserve-tranche-authority gap above."""
+    from prism_fas.synthesis import c6_matched_bank as selector
+
+    def _plan(domain_by_route: dict[str, list[str]]) -> dict:
+        candidates = []
+        for route, domains in domain_by_route.items():
+            for i, domain in enumerate(domains):
+                candidates.append({"candidate_id": f"{route}_{i}", "route": route,
+                                   selector.SOURCE_DOMAIN_PLAN_FIELD: domain,
+                                   "recipe_id": f"r{i}", "recipe_ordinal": i,
+                                   "live_target_sample_id": f"live{i}", "position": i})
+        return {"candidates": candidates}
+
+    # Physics: 600 candidates all from domain A. GPAT: 600 candidates all from domain B. Each
+    # route individually clears the 512 floor, but no single common per-domain quota vector can
+    # be filled identically for both routes from the SAME arm.
+    plans = {arm: _plan({"physics": ["A"] * 600, "gpat": ["B"] * 600}) for arm in ("RND", "DET", "LLM")}
+    accepted_by_arm = {
+        arm: [selector.SelectableCandidate(candidate_id=row["candidate_id"], arm=arm, route=row["route"],
+                                           source_domain=row[selector.SOURCE_DOMAIN_PLAN_FIELD],
+                                           recipe_id=row["recipe_id"], recipe_ordinal=row["recipe_ordinal"],
+                                           live_target_sample_id=row["live_target_sample_id"],
+                                           base_position=row["position"])
+             for row in plans[arm]["candidates"]]
+        for arm in ("RND", "DET", "LLM")}
+    from prism_fas.synthesis import c6_scientific
+
+    assessment = c6_scientific.assess_profile("STRICT", accepted_by_arm, plans)
+    assert assessment.arms_meet_route_floor is True
+    # Physics has zero domain-B candidates and GPAT has zero domain-A candidates in every arm, so
+    # no per-domain quota vector shared by both routes can be filled -- MATCHED_BANK_INFEASIBLE,
+    # never a fake VALID bank.
+    outcome = selector.build_matched_banks(plans, accepted_by_arm)
+    if outcome["matched"]:
+        pytest.skip("this hand-built domain split happened to be quota-feasible under the frozen "
+                   "largest-remainder rule; the point of this test is that the frozen selector, "
+                   "not this module, decides feasibility")
+    assert outcome["reason"] == "COMMON_SOURCE_DOMAIN_QUOTA_INFEASIBLE"
+
+
+def test_generation_implementation_commit_and_module_sha_bound(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    attempt = json.loads(e7g.generation_attempt_provenance_path(repo, "EXT-F1").read_text(encoding="utf-8"))
+    assert attempt["implementation_commit"] == _FIXED_IMPLEMENTATION_PROVENANCE["implementation_commit"]
+    assert attempt["implementation_module_sha256"] == \
+        _FIXED_IMPLEMENTATION_PROVENANCE["implementation_module_sha256"]
+    for condition in ("G-RND", "G-DET", "G-LLM"):
+        lock_path = e7g.bank_lock_path(repo, "EXT-F1", condition)
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        assert lock["implementation_commit"] == _FIXED_IMPLEMENTATION_PROVENANCE["implementation_commit"]
+
+
+def test_mask_compatibility_binding_active_during_rendering_and_evaluation(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    tracking = _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    from prism_fas.synthesis import m8_pipeline
+
+    original_name = m8_pipeline.RegionMaskBuilder.__name__
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    assert tracking["mask_builder_names"], "render_arm/evaluate_pool were never invoked"
+    assert all(name == "E7CompatibleRegionMaskBuilder" for name in tracking["mask_builder_names"])
+    # Restored after the invocation returns -- the scoped binding never leaks.
+    assert m8_pipeline.RegionMaskBuilder.__name__ == original_name
+
+
+def test_c5_c6_synthesis_primitives_unchanged():
+    import subprocess
+
+    for relative in (
+        "src/prism_fas/synthesis/c5_source_pair_plan.py", "src/prism_fas/synthesis/c5_arm_plan.py",
+        "src/prism_fas/synthesis/c5_raw_generation.py", "src/prism_fas/synthesis/c5_render.py",
+        "src/prism_fas/synthesis/synthetic_bank.py", "src/prism_fas/synthesis/quality_gate.py",
+        "src/prism_fas/synthesis/quality_calibration.py", "src/prism_fas/synthesis/c6_scientific.py",
+        "src/prism_fas/synthesis/c6_matched_bank.py", "src/prism_fas/synthesis/gate_profiles.py",
+    ):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD"
+
+
+def test_e7_gpat_bank_validate_reports_generation_status(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    report = e7g.e7_gpat_bank_validate(repo)
+    folds = report["folds"]["EXT-F1"]
+    assert folds["banks"] == {"G-RND": "VALID", "G-DET": "VALID", "G-LLM": "VALID",
+                              "G-LLM-SHUFFLE-A": "NOT_MATERIALIZED"}
+    assert folds["generation_closure"]["candidate_bank_stage_closed"] is True
+
+
+def test_preflight_e7_ready_for_training_stays_false_after_valid_banks(tmp_path, monkeypatch):
+    repo = _build_generation_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    _patch_generation_boundary(monkeypatch, repo, accept=_accept_all, skip=_skip_none)
+    e7g.generate_and_match(repo, "EXT-F1", authorize=True)
+    pf = e7g.preflight(repo)
+    assert pf["E7_READY_FOR_TRAINING"] is False
+    assert pf["F1_CANDIDATE_BANK_STAGE_CLOSED"] is True

@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Any
 
 from prism_fas.evaluation import c_ext_common as cc
+from prism_fas.evaluation import c_ext_e6_render as e6r
 from prism_fas.evaluation import c_ext_e7b_data_prep as e7b
 from prism_fas.evaluation import c_ext_e7c_gpat_prep as e7c
 from prism_fas.evaluation import c_ext_e7d_source_support as e7d
@@ -220,6 +221,1182 @@ LLM_SHUFFLE_A_RECIPES_PATH = e7c.LLM_SHUFFLE_A_RECIPES_PATH
 LLM_SHUFFLE_A_AUDIT_PATH = e7c.LLM_SHUFFLE_A_AUDIT_PATH
 
 # --------------------------------------------------------------------------- #
+# TASK O -- SOURCE-ONLY QUALITY CALIBRATION -> CANDIDATE GENERATION ->
+# QUALITY-GATE EVALUATION -> F2/F3 SHUFFLE FEASIBILITY -> MATCHED SYNTHETIC
+# BANK -> STRICT INTEGRITY LOCK.
+#
+# Every scientific decision below is made by a REUSED, UNMODIFIED frozen
+# primitive: `c5_source_pair_plan.build_source_pair_plan` (arm-independent
+# base schedule), `c5_arm_plan.build_all_arm_plans`/
+# `assert_arms_share_the_schedule` (per-arm plans + the frozen fairness
+# proof), `c5_render.render_arm`/`build_routes`/`route_bank` (rendering,
+# resume, retained-failure, runtime-abort semantics), `quality_calibration.
+# calibrate`/`QualityBackends` (source-only calibration),
+# `c6_scientific.build_common_profiles`/`gate_candidates`/
+# `eligible_candidates`/`assess_profile`/`select_strictest_profile`/
+# `evaluate_pool`/`provenance_closure`/`bank_lock_payload`/`candidate_pool`
+# (the STRICT->NOMINAL->PERMISSIVE profile walk), and
+# `c6_matched_bank.build_matched_banks`/`selector_identity` (the frozen
+# matched-bank selector). This module's own code is ONLY: fold-aware path
+# binding, GPAT-checkpoint binding, real capability/provenance gates,
+# attempt/terminal provenance, and the two explicit protocol-gap closures
+# below -- never a second implementation of any scientific algorithm.
+#
+# MANDATORY PROTOCOL AUDIT (recorded, not re-litigated by future edits):
+#
+# 1. RESERVE TRANCHE. `configs/c_ext_q1q2_v1/conditions.yaml`'s
+#    `reserve_tranche_per_route: 256` key is read by ZERO Python code
+#    anywhere in this repository (grep-verified). `c_ext_e0_freeze.py`
+#    line ~320 only echoes a hardcoded descriptive string into a
+#    provenance JSON; it computes nothing and gates nothing. The REAL
+#    frozen `c5_source_pair_plan.CANDIDATES_PER_ARM`/
+#    `c5_arm_plan._assert_arm_plan`/`c5_render.completeness` hard-fix the
+#    budget at exactly 2048 candidates/arm and assert it; `c5_render.py`'s
+#    own docstrings state, verbatim, "the frozen 2048-per-arm budget never
+#    grows" and "a semantic generation failure is retained... never
+#    resampled"; `gate_profiles.py` states three separate times that on
+#    shortfall "C6 FAILS rather than relaxing the gate... not replaceable
+#    by extra renders". There is therefore NO authoritative rule anywhere
+#    for which additional source samples/recipes/positions/candidate
+#    identities a +256/route reserve tranche would consist of. Per the
+#    explicit governing instruction, this module implements ONLY the
+#    single frozen 2048-candidates/arm pass and NEVER expands it; a
+#    shortfall after that single pass is recorded as
+#    `BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE` (see below), never as a
+#    silently-widened budget and never as a fabricated VALID bank.
+#
+# 2. SHUFFLE-A FOR EXT-F2/EXT-F3 -- CORRECTED. An earlier pass of this audit
+#    concluded no adapter exists anywhere in the repository; that was WRONG.
+#    `c_ext_e6_render.py` IS an existing, additive, already-authorized
+#    Shuffle-A rendering adapter (its own module docstring says so
+#    explicitly) that already proves, by direct construction:
+#      * `c5_render.identity_for`/`render_one`/`render_arm` and
+#        `c5_raw_generation.candidate_dir`/`reuse_decision`/`write_record`
+#        carry NO closed arm-vocabulary check -- only
+#        `c5_source_pair_plan.arm_candidate_plan_identity` and
+#        `c5_arm_plan.arm_bank_root`/`load_arm_bank`/`build_arm_plan` do
+#        (`e6r._e6_arm_plan_identity`'s docstring, `e6r.build_arm_plan_rows`);
+#      * `c5_source_pair_plan.candidate_identity()` also carries no closed
+#        arm check, so `arm="LLM_SHUFFLE_A"` may be passed to it directly
+#        (`e6r.build_arm_plan_rows`);
+#      * `c6_matched_bank.select_route_bank`/`SelectableCandidate`/
+#        `selected_set_digest`/`exposure_summary` are generic over `arm`
+#        (`e6r.default_quality_matcher`), and `detector.c6_bank.
+#        C6MatchedBankReader.open` accepts an arbitrary `arm` string
+#        (`e6r.verify_bank_readable_by_c6_matched_bank_reader`).
+#    What is F1/historical-specific in `c_ext_e6_render.py` and must NOT be
+#    reused: every `EXPECTED_*` module-level constant (`EXPECTED_ONTOLOGY_
+#    IDENTITY`, `EXPECTED_GPAT_CHECKPOINT_SHA256`, `EXPECTED_SOURCE_PAIR_
+#    PLAN_IDENTITY`, `EXPECTED_PACKAGE_IDENTITY`, ...), every path under
+#    `reports/full/c5|c6` / `data/packages/prism_data_v1_m3b` (the SINGLE
+#    historical F1 source package), and `resolve_e6_route_quota`'s specific
+#    file (`C6_BANK_LOCK_LLM_PATH`) -- these all name ONE fold's historical
+#    artifacts. `audit_historical_path`/`build_render_plan`/
+#    `resolve_render_runtime_objects`/`resolve_e6_route_quota` are therefore
+#    NOT called for E7; this module builds its own fold-scoped equivalents
+#    (`build_shuffle_arm_plan`, `build_shuffle_route_bank`,
+#    `_shuffle_arm_plan_identity`) that reproduce the SAME shape/rule,
+#    citing `c_ext_e6_render` as the authority for why each step is legal,
+#    while binding the FOLD's OWN `materialize_candidate_plans` base
+#    schedule, GPAT checkpoint identity and (for the quota) that SAME fold's
+#    own just-computed LLM bank exposure -- never a cross-fold value.
+#    General/reused verbatim (fold-independent, since the Shuffle-A recipe
+#    content and its identity are ONE global frozen artifact, not per-fold):
+#    `e6r.load_frozen_shuffle_recipes`, `e6r.verify_shuffle_recipe_source`,
+#    `e6r.verify_source_pair_recipe_alignment`.
+#    EXT-F1's Shuffle-A status is UNCHANGED: permanently
+#    `BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY`; its historical E6
+#    closure is never re-rendered, never reopened, never modified.
+#
+# 3. MASK COMPATIBILITY. Direct code trace confirms `GPATRoute.generate`
+#    (via `_support_masks` for the live support mask AND
+#    `store.cached_mask` for the spoof style mask) and `PhysicsRoute.
+#    generate` (via `_support_masks`) both reach `SampleStore.
+#    mask_builder()` -> `m8_pipeline.RegionMaskBuilder(...)` -- the
+#    IDENTICAL seam GPAT fitting's `build_batch` uses. `c6_scientific.
+#    evaluate_pool`'s `requested_support_for` ALSO reaches the exact same
+#    `_support_masks` seam when reconstructing a candidate's requested
+#    support mask for quality measurement. Both rendering and evaluation
+#    are therefore wrapped in the SAME `_scoped_e7_mask_compatibility_
+#    binding` this module already uses for GPAT fitting, with ONE fresh
+#    per-invocation recovery counter shared across both phases.
+# --------------------------------------------------------------------------- #
+
+GENERATE_CANDIDATE_ROOT = f"{DATA_ROOT}/candidates"
+QUALITY_CONFIG_PATH = "configs/synthesis/quality_gate_m8.yaml"
+BANK_LOCK_FILENAME = "BANK_LOCK.json"
+GENERATE_ATTEMPT_PROVENANCE_FILENAME = "GENERATE_ATTEMPT_PROVENANCE.json"
+QUALITY_CALIBRATION_FILENAME = "QUALITY_CALIBRATION.json"
+GENERATION_CLOSURE_FILENAME = "GENERATION_CLOSURE.json"
+
+#: The pseudo-arm name `c_ext_e6_render.py` established for LLM-SHUFFLE-A
+#: rendering. Reused verbatim -- a second, differently-spelled arm name for
+#: the identical treatment would make E7's candidates incomparable with any
+#: future cross-milestone audit.
+SHUFFLE_ARM_NAME = e6r.E6_ARM_NAME
+#: This fold's Shuffle-A condition, alongside "G-RND"/"G-DET"/"G-LLM". Every
+#: path/validator helper below (`bank_lock_path`, `generation_closure_path`,
+#: `validate_matched_bank_lock`) already takes `condition` as a plain string
+#: with no closed vocabulary, so this condition reuses them unmodified.
+SHUFFLE_CONDITION = "G-LLM-SHUFFLE-A"
+SHUFFLE_ARM_PLAN_SCHEMA_VERSION = f"{SCHEMA_PREFIX}-shuffle-arm-plan-v1"
+
+#: Reserve-tranche extension has no authoritative implementation anywhere in
+#: the repository (see the audit above) -- a shortfall after the single
+#: frozen 2048-candidates/arm pass is reported under this status, never
+#: silently expanded, resampled or faked VALID.
+BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE = "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+#: A route/arm that is infeasible under the frozen selector's OWN rule
+#: (`COMMON_SOURCE_DOMAIN_QUOTA_INFEASIBLE`) -- distinct from the missing-
+#: authority gap above: the frozen rule DOES answer this case (fail
+#: closed), it is simply not a VALID bank.
+MATCHED_BANK_INFEASIBLE = "MATCHED_BANK_INFEASIBLE"
+#: Shuffle-A's OWN analogous finding: its eligible candidates cannot fill
+#: the SAME common per-route/per-domain quota that fold's own LLM bank
+#: already achieved (`e6r.resolve_e6_route_quota`'s precedent, fold-scoped
+#: here rather than pinned to the historical F1 bank). Distinct from F1's
+#: `BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY`: that one rests on
+#: observed real GPU evidence; this one is a rule this module WOULD apply
+#: on observing the same outcome, and has not yet been observed for F2/F3.
+SHUFFLE_MATCHED_BANK_INFEASIBLE = "SHUFFLE_MATCHED_BANK_INFEASIBLE"
+#: Shuffle-A structurally depends on that SAME fold's own RND/DET/LLM
+#: matched banks for its quota anchor (see `SHUFFLE_MATCHED_BANK_INFEASIBLE`
+#: docstring) -- if those are blocked, Shuffle-A is never attempted and
+#: resolves here instead, carrying the SAME underlying reason.
+SHUFFLE_BLOCKED_BY_FOLD_ANCHOR = "BLOCKED_BY_FOLD_ANCHOR_BANK"
+
+
+def generation_condition_run_root(repo: Path, fold_id: str, condition: str) -> Path:
+    return repo / RUN_ROOT / fold_id / condition
+
+
+def generation_candidate_root(repo: Path, fold_id: str) -> Path:
+    return repo / GENERATE_CANDIDATE_ROOT / fold_id
+
+
+def generation_attempt_provenance_path(repo: Path, fold_id: str) -> Path:
+    return repo / RUN_ROOT / fold_id / GENERATE_ATTEMPT_PROVENANCE_FILENAME
+
+
+def quality_calibration_path(repo: Path, fold_id: str) -> Path:
+    return repo / RUN_ROOT / fold_id / QUALITY_CALIBRATION_FILENAME
+
+
+def bank_lock_path(repo: Path, fold_id: str, condition: str) -> Path:
+    return generation_condition_run_root(repo, fold_id, condition) / BANK_LOCK_FILENAME
+
+
+def generation_closure_path(repo: Path, fold_id: str, condition: str) -> Path:
+    return generation_condition_run_root(repo, fold_id, condition) / GENERATION_CLOSURE_FILENAME
+
+
+def resolved_shuffle_status(repo: Path, fold_id: str) -> str:
+    """The AUTHORITATIVE per-fold Shuffle-A status, read from the REAL
+    on-disk state -- never a hardcoded per-fold table. F1 is unchanged
+    (permanently blocked, historical). F2/F3: a strictly-validated
+    `BANK_LOCK.json` under `SHUFFLE_CONDITION` means VALID; otherwise an
+    explicit closure written by `run_shuffle_generation_and_match` (either
+    `SHUFFLE_MATCHED_BANK_INFEASIBLE` or `SHUFFLE_BLOCKED_BY_FOLD_ANCHOR`);
+    otherwise Shuffle-A has simply not been attempted yet for this fold."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if fold_id == "EXT-F1":
+        return BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY
+    if validate_matched_bank_lock(repo, fold_id, SHUFFLE_CONDITION)["status"] == "VALID":
+        return "VALID"
+    closure_path = generation_closure_path(repo, fold_id, SHUFFLE_CONDITION)
+    if closure_path.is_file():
+        return cc.read_json(closure_path)["status"]
+    return PENDING_FEASIBILITY_PREFLIGHT
+
+
+def c5spp_arms() -> tuple[str, ...]:
+    from prism_fas.synthesis.c5_source_pair_plan import ARMS
+
+    return ARMS
+
+
+# --------------------------------------------------------------------------- #
+# Shuffle-A fold-scoped adapter -- reproduces `c_ext_e6_render.py`'s already-
+# authorized mapping rule (see the corrected audit item 2 above), fold-scoped
+# rather than pinned to the single historical F1 render. General, fold-
+# independent pieces are imported from `c_ext_e6_render` verbatim; the
+# F1-specific pieces (module-level `EXPECTED_*` constants, the historical
+# `reports/full/c5|c6` paths) are never touched -- this is a SEPARATE, small,
+# additive set of functions, citing `c_ext_e6_render` as authority for each
+# step's legality.
+# --------------------------------------------------------------------------- #
+
+def load_shuffle_recipes(repo: Path) -> dict[str, Any]:
+    """The frozen, fold-independent 256 LLM-SHUFFLE-A recipes. Reused
+    verbatim: `e6r.load_frozen_shuffle_recipes`/`verify_shuffle_recipe_source`
+    read a SINGLE global artifact (`LLM_SHUFFLE_A_RECIPES_PATH`, identical to
+    this module's own `LLM_SHUFFLE_A_RECIPES_PATH` binding) plus the E6
+    training-plan lock, neither of which names a fold."""
+    return e6r.verify_shuffle_recipe_source(repo)
+
+
+def _shuffle_arm_plan_identity(*, fold_id: str, source_pair_plan_identity: str,
+                               recipe_bank_identity: str, gpat_checkpoint_sha256: str,
+                               physics_engine_version: str, ontology_identity: str,
+                               training_plan_identity: str) -> str:
+    """Mirrors `e6r._e6_arm_plan_identity`'s exact shape (cited as authority
+    for why this is legal: `c5_source_pair_plan.arm_candidate_plan_identity`'s
+    `arm in {RND,DET,LLM}` check is deliberately closed and must not be
+    widened), now also binding `fold_id` -- E6 had exactly one fold and
+    needed none."""
+    material = {"schema_version": SHUFFLE_ARM_PLAN_SCHEMA_VERSION, "fold_id": fold_id,
+               "arm": SHUFFLE_ARM_NAME, "source_pair_plan_identity": source_pair_plan_identity,
+               "recipe_bank_identity": recipe_bank_identity,
+               "gpat_checkpoint_sha256": gpat_checkpoint_sha256,
+               "physics_engine_version": physics_engine_version,
+               "ontology_identity": ontology_identity,
+               "training_plan_identity": training_plan_identity}
+    return cc.sha256_bytes(cc.canonical_json_bytes(material))
+
+
+def build_shuffle_arm_plan(repo: Path, fold_id: str, base_plan: dict[str, Any],
+                           recipes: list[dict[str, Any]], *, gpat_checkpoint_sha256: str,
+                           physics_engine_version: str, ontology_identity: str,
+                           recipe_bank_identity: str, training_plan_identity: str) -> dict[str, Any]:
+    """LLM-SHUFFLE-A's 2048 candidates for ONE fold, over that fold's OWN
+    base schedule (`materialize_candidate_plans`'s `base_plan` -- the SAME
+    object RND/DET/LLM's own plans are built from, so the source/live/spoof/
+    route schedule is IDENTICAL to that fold's LLM arm by construction, never
+    re-derived). Mirrors `e6r.build_arm_plan_rows`'s loop shape exactly
+    (cited as authority: `c5_source_pair_plan.candidate_identity` and
+    `c5_arm_plan._recipe_id`/`_assert_arm_plan` carry no closed-arm check),
+    but reads the fold's OWN base plan directly instead of re-deriving one
+    from a hardcoded single-package path -- and returns a plan dict shaped
+    EXACTLY like `c5_arm_plan.build_arm_plan`'s own output (same key names),
+    so it can be passed to `c5_render.render_arm`/`c6_scientific.
+    evaluate_pool`/`gate_candidates` with no renaming adapter, unlike E6's
+    `identity_for_plan` shim (which existed only because E6's own plan dict
+    used different field names)."""
+    from prism_fas.synthesis.c5_arm_plan import _assert_arm_plan, _recipe_id
+    from prism_fas.synthesis.c5_source_pair_plan import (CANDIDATES_PER_ARM, GPAT,
+                                                         candidate_identity,
+                                                         source_pair_plan_identity as _spp_identity)
+
+    if len(recipes) != len(c5_arm_plan_load_arm_bank(repo, "LLM")["recipes"]):
+        raise E7Error(f"{fold_id}: Shuffle-A recipe count {len(recipes)} != the frozen "
+                      f"{len(c5_arm_plan_load_arm_bank(repo, 'LLM')['recipes'])}-recipe C3 bank size")
+    base_identity = _spp_identity(base_plan)
+    positions = base_plan["positions"]
+    if len(positions) != CANDIDATES_PER_ARM:
+        raise E7Error(f"{fold_id}: base schedule holds {len(positions)} positions, not "
+                      f"{CANDIDATES_PER_ARM}")
+    plan_identity = _shuffle_arm_plan_identity(
+        fold_id=fold_id, source_pair_plan_identity=base_identity,
+        recipe_bank_identity=recipe_bank_identity, gpat_checkpoint_sha256=gpat_checkpoint_sha256,
+        physics_engine_version=physics_engine_version, ontology_identity=ontology_identity,
+        training_plan_identity=training_plan_identity)
+    rows: list[dict[str, Any]] = []
+    for row in positions:
+        ordinal = int(row["recipe_ordinal"])
+        recipe_id = _recipe_id(recipes[ordinal], ordinal)
+        binding = gpat_checkpoint_sha256 if row["route"] == GPAT else physics_engine_version
+        rows.append({**row, "arm": SHUFFLE_ARM_NAME, "recipe_id": recipe_id,
+                    "recipe_bank_identity": recipe_bank_identity, "generator_binding": binding,
+                    "candidate_id": candidate_identity(
+                        source_pair_plan_identity=base_identity, arm=SHUFFLE_ARM_NAME,
+                        recipe_bank_identity=recipe_bank_identity, recipe_id=recipe_id,
+                        recipe_ordinal=ordinal, slot=int(row["slot"]), position=int(row["position"]),
+                        route=row["route"], live_target_sample_id=row["live_target_sample_id"],
+                        spoof_source_sample_id=row["spoof_source_sample_id"],
+                        package_identity=base_plan["package_identity"], ontology_identity=ontology_identity,
+                        generator_binding=binding)})
+    # TASK B (E6 precedent): the SAME cardinality/uniqueness/route-split/
+    # per-recipe assertion `c5_arm_plan.build_arm_plan` runs on its own rows.
+    _assert_arm_plan(rows, SHUFFLE_ARM_NAME)
+    return {"schema_version": SHUFFLE_ARM_PLAN_SCHEMA_VERSION, "arm": SHUFFLE_ARM_NAME,
+           "fold_id": fold_id, "arm_plan_identity": plan_identity,
+           "source_pair_plan_identity": base_identity, "package_identity": base_plan["package_identity"],
+           "recipe_bank_identity": recipe_bank_identity, "ontology_identity": ontology_identity,
+           "gpat_checkpoint_sha256": gpat_checkpoint_sha256,
+           "physics_engine_version": physics_engine_version, "planned_candidates": len(rows),
+           "binds_quality_calibration": False, "candidates": rows}
+
+
+def c5_arm_plan_load_arm_bank(repo: Path, arm: str) -> dict[str, Any]:
+    from prism_fas.synthesis.c5_arm_plan import load_arm_bank
+
+    return load_arm_bank(repo, arm)
+
+
+def build_shuffle_route_bank(repo: Path, recipes: list[dict[str, Any]], *,
+                             bank_identity: str, ontology_identity: str) -> dict[str, Any]:
+    """Mirrors `e6r.build_e6_route_bank`'s SHAPE exactly (cited as authority:
+    the dict `PhysicsRoute`/`GPATRoute`/`render_one` consume, carrying the
+    REAL live `ontology` object rather than only its identity string), but
+    verifies against THIS FOLD's own already-validated `ontology_identity`
+    (the same value that fold's `arm_plans["LLM"]["ontology_identity"]`
+    already carries) instead of a hardcoded F1-pinned constant."""
+    from prism_fas.recipes.ontology import load_ontology
+    from prism_fas.recipes.schema import parse_recipe
+    from prism_fas.synthesis import c5_render
+
+    ontology = load_ontology(Path(repo) / c5_render.ONTOLOGY_CONFIG)
+    if ontology.sha256 != ontology_identity:
+        raise E7Error(f"resolved ontology identity {ontology.sha256!r} != the fold's own "
+                      f"validated {ontology_identity!r}")
+    parsed = [parse_recipe(recipe) for recipe in recipes]
+    return {"recipes": parsed, "bank_id": f"e7_{SHUFFLE_ARM_NAME.lower()}",
+           "bank_identity": bank_identity, "ontology": ontology, "ontology_identity": ontology.sha256}
+
+
+def verify_shuffle_source_pair_alignment(repo: Path, shuffled_recipes: list[dict[str, Any]]) -> dict[str, Any]:
+    """`e6r.verify_source_pair_recipe_alignment` reused VERBATIM (a pure
+    function of two recipe lists plus `c5_arm_plan._recipe_id`, carrying no
+    F1-specific state at all): proves, for every one of the 256 ordinals,
+    that the frozen LLM C3 bank's `_recipe_id` at that ordinal is IDENTICAL
+    to LLM-SHUFFLE-A's `_recipe_id` at the same ordinal -- the shuffle moved
+    field CONTENT between ordinals, never the ordinal-to-identity mapping
+    itself. The frozen LLM recipe bank is fold-independent (one global C3
+    asset), so `original_recipes` here is the SAME for every fold."""
+    original_recipes = c5_arm_plan_load_arm_bank(repo, "LLM")["recipes"]
+    return e6r.verify_source_pair_recipe_alignment(
+        repo, original_recipes=original_recipes, shuffled_recipes=shuffled_recipes)
+
+
+def run_shuffle_generation_and_match(
+    repo: Path, fold_id: str, *, base_plan: dict[str, Any], llm_arm_plan: dict[str, Any],
+    gpat_checkpoint_sha256: str, routes: dict[str, Any], store: Any, evaluator: Any,
+    recovery_counter: list[int], profile: str, thresholds: Any, threshold_id: str,
+    route_quotas: dict[str, Any], provenance: dict[str, Any], calibration: Any,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Generates, evaluates and matches LLM-SHUFFLE-A for ONE fold. Called
+    ONLY for EXT-F2/EXT-F3, and only after that SAME fold's RND/DET/LLM
+    matched banks are VALID -- `route_quotas` (that run's OWN common
+    per-route/per-domain quota) is Shuffle-A's quota anchor, reused rather
+    than recomputed, exactly mirroring `e6r.resolve_e6_route_quota`'s
+    precedent ("LLM-SHUFFLE-A reuses the quota ORIGINAL_LLM's OWN historical
+    bank already achieved... never recomputed jointly"), fold-scoped here
+    instead of pinned to the historical F1 bank. Writes either a real
+    `BANK_LOCK.json` (via the frozen `c6_scientific.bank_lock_payload`) or an
+    explicit `SHUFFLE_MATCHED_BANK_INFEASIBLE` closure -- never a fake VALID
+    lock and never silently aliased to the LLM arm's own candidates."""
+    from prism_fas.synthesis import c5_raw_generation as raw
+    from prism_fas.synthesis import c5_render, c6_scientific
+    from prism_fas.synthesis import c6_matched_bank as selector
+    from prism_fas.synthesis.quality_calibration import config_sha as _config_sha
+    from prism_fas.utils.core import atomic_json_write
+
+    shuffle = load_shuffle_recipes(repo)
+    recipes = shuffle["recipes"]
+    alignment = verify_shuffle_source_pair_alignment(repo, recipes)
+    if not alignment["all_ordinals_aligned"]:
+        raise E7Error(f"{fold_id}: Shuffle-A source-pair/recipe alignment broken -- FAIL CLOSED")
+
+    shuffle_plan = build_shuffle_arm_plan(
+        repo, fold_id, base_plan, recipes, gpat_checkpoint_sha256=gpat_checkpoint_sha256,
+        physics_engine_version=llm_arm_plan["physics_engine_version"],
+        ontology_identity=llm_arm_plan["ontology_identity"],
+        recipe_bank_identity=shuffle["content_identity"],
+        training_plan_identity=shuffle["plan_lock"]["plan_identity"])
+    bank = build_shuffle_route_bank(repo, recipes, bank_identity=shuffle_plan["recipe_bank_identity"],
+                                    ontology_identity=shuffle_plan["ontology_identity"])
+    work_root = generation_candidate_root(repo, fold_id)
+
+    with _scoped_e7_mask_compatibility_binding(recovery_counter):
+        render_result = c5_render.render_arm(work_root=work_root, plan=shuffle_plan, store=store,
+                                             bank=bank, routes=routes)
+    with _scoped_e7_mask_compatibility_binding(recovery_counter):
+        metrics = c6_scientific.evaluate_pool(evaluator, store, bank, candidate_root=work_root,
+                                              arm=SHUFFLE_ARM_NAME, rows=shuffle_plan["candidates"])
+
+    decisions = c6_scientific.gate_candidates(metrics, thresholds)
+    pool = {row["candidate_id"]: selector.SelectableCandidate(
+                candidate_id=row["candidate_id"], arm=SHUFFLE_ARM_NAME, route=row["route"],
+                source_domain=str(row[selector.SOURCE_DOMAIN_PLAN_FIELD]), recipe_id=row["recipe_id"],
+                recipe_ordinal=int(row["recipe_ordinal"]), live_target_sample_id=row["live_target_sample_id"],
+                base_position=int(row["position"]))
+            for row in shuffle_plan["candidates"]}
+    eligible = c6_scientific.eligible_candidates(decisions, pool)
+    semantic_failure_ids = [record["generation_identity"]["candidate_id"]
+                            for record in render_result["records"]
+                            if record.get("status") == raw.FAILED_GENERATION]
+
+    try:
+        selected_rows: list[dict[str, Any]] = []
+        for route in selector.ROUTES:
+            selected_rows.extend(selector.select_route_bank(
+                eligible, route=route, quota=route_quotas[route]["quota"]))
+    except selector.MatchedBankError as exc:
+        evidence = {"reused_route_quotas": route_quotas, "reason": str(exc),
+                   "mask_compatibility_recovery_count": recovery_counter[0],
+                   "alignment": alignment}
+        closure = _write_generation_closure(repo, fold_id, SHUFFLE_CONDITION,
+                                            status=SHUFFLE_MATCHED_BANK_INFEASIBLE, evidence=evidence)
+        return {"status": SHUFFLE_MATCHED_BANK_INFEASIBLE, "closure": closure}
+
+    shuffle_bank = {
+        "arm": SHUFFLE_ARM_NAME, "selected": selected_rows, "size": len(selected_rows),
+        "by_route": {route: sum(1 for row in selected_rows if row["route"] == route)
+                    for route in selector.ROUTES},
+        "exposure": {route: selector.exposure_summary(
+            [row for row in selected_rows if row["route"] == route]) for route in selector.ROUTES},
+        "selected_set_sha256": selector.selected_set_digest(selected_rows),
+    }
+    closure = c6_scientific.provenance_closure(
+        pool_candidate_ids=list(pool), semantic_failure_ids=semantic_failure_ids,
+        decisions=decisions, selected_ids=[row["candidate_id"] for row in selected_rows])
+    if not closure["closed"]:
+        raise E7Error(f"{fold_id}/{SHUFFLE_CONDITION}: provenance closure is not partitioned -- "
+                      f"FAIL CLOSED, no terminal lock written: {closure!r}")
+
+    selector_contract = selector.selector_identity(
+        quality_profile_identity=threshold_id, c5_pool_lock_sha256=shuffle_plan["arm_plan_identity"],
+        decision_set_sha256=selector.decision_set_digest(decisions))
+    lock_body = c6_scientific.bank_lock_payload(
+        arm=SHUFFLE_ARM_NAME, bank=shuffle_bank, selector_contract=selector_contract, profile=profile,
+        threshold_identity=threshold_id, c5_pool_lock_sha256=shuffle_plan["arm_plan_identity"],
+        provenance=closure)
+    lock_body.update({
+        "fold_id": fold_id, "condition": SHUFFLE_CONDITION,
+        "package_identity": shuffle_plan["package_identity"],
+        "gpat_checkpoint_sha256": gpat_checkpoint_sha256,
+        "source_pair_plan_identity": shuffle_plan["source_pair_plan_identity"],
+        "arm_plan_identity": shuffle_plan["arm_plan_identity"],
+        "recipe_bank_identity_kind": "LLM_SHUFFLE_A_FROZEN_RECIPES",
+        "quality_calibration_sha256": calibration.calibration_sha256,
+        "quality_config_sha256": _config_sha(config),
+        "mask_compatibility_policy": MASK_COMPATIBILITY_POLICY,
+        "mask_compatibility_recovery_count": recovery_counter[0],
+        "implementation_commit": provenance["implementation_commit"],
+        "implementation_module_sha256": provenance["implementation_module_sha256"],
+        "repository_head_commit": provenance["repository_head_commit"],
+        # Proof that the source schedule is IDENTICAL to LLM's in this fold, and that the
+        # candidate identities nonetheless differ (distinct recipe_bank_identity/arm_plan_identity):
+        "original_llm_source_pair_plan_identity": llm_arm_plan["source_pair_plan_identity"],
+        "original_llm_arm_plan_identity": llm_arm_plan["arm_plan_identity"],
+        "same_source_schedule_as_original_llm":
+            shuffle_plan["source_pair_plan_identity"] == llm_arm_plan["source_pair_plan_identity"],
+        "candidate_identities_differ_from_original_llm": shuffle_plan["arm_plan_identity"] !=
+            llm_arm_plan["arm_plan_identity"],
+        "shuffle_recipes_input_file_sha256": shuffle["input_file_sha256"],
+        "source_pair_recipe_alignment": alignment,
+        "quota_reused_from_condition": "G-LLM",
+        "TARGET_IMAGE_ACCESS": False, "TARGET_LABEL_ACCESS": False, "LLM_API_CALLS": 0,
+    })
+    atomic_json_write(bank_lock_path(repo, fold_id, SHUFFLE_CONDITION), lock_body)
+    post_validation = validate_matched_bank_lock(repo, fold_id, SHUFFLE_CONDITION)
+    if post_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}/{SHUFFLE_CONDITION}: freshly-written BANK_LOCK.json FAILED strict "
+                      f"validation immediately after write -- {post_validation['problems']!r}")
+    return {"status": "VALID", "lock": lock_body}
+
+
+def _generation_capability(repo: Path) -> dict[str, Any]:
+    """Real, non-fabricated host-capability check for candidate generation
+    AND quality evaluation: CUDA (C5 GPAT rendering never falls back to
+    CPU) plus resolvable pinned detector/parsing/identity weights. Never a
+    hardcoded 'non-GPU host' string."""
+    problems: list[str] = []
+    cuda_available = False
+    try:
+        from prism_fas.synthesis.gpat_trainer import resolve_device
+
+        device = resolve_device(None)
+        cuda_available = str(device).startswith("cuda")
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"could not resolve device: {exc!r}")
+    if not cuda_available:
+        problems.append("scientific C5 GPAT rendering requires CUDA and this host did not "
+                        "resolve a cuda device")
+    weight_root = _resolve_weight_root(repo)
+    try:
+        from prism_fas.synthesis.quality_models import resolve_weight
+
+        for role in ("detector", "parsing", "identity"):
+            resolve_weight(weight_root, role, verify=False)
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"pinned quality model weight unresolved under {weight_root}: {exc!r}")
+    return {"capable": not problems, "cuda_available": cuda_available,
+           "weight_root": str(weight_root), "problems": problems}
+
+
+def _current_gpat_expected_identity(repo: Path, fold_id: str) -> dict[str, str]:
+    """Independently recomputed CURRENT GPAT checkpoint identity -- the
+    SAME package/pair-plan/config/architecture/AdaFace fields
+    `validate_gpat_fit_lock` anchors from current frozen authorities,
+    never merely echoed from the lock. Raises `E7Error` if any piece
+    cannot be recomputed."""
+    input_validation = validate_gpat_input_package(repo, fold_id)
+    if input_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: GPAT input package is not VALID: "
+                      f"{input_validation.get('problems')!r}")
+    pair_validation = validate_fold_pair_plan(repo, fold_id)
+    if pair_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: pair plan is not VALID: {pair_validation.get('problems')!r}")
+    effective = build_effective_gpat_config(repo, fold_id)
+    from prism_fas.synthesis.gpat_model import build_gpat_model
+
+    architecture_hash = build_gpat_model(effective["effective_config"]).architecture_hash()
+    adaface_weight_sha256 = (effective["effective_config"].get("identity_model") or {}).get("weight_sha256")
+    if adaface_weight_sha256 != FROZEN_PRIOR_MODELS["identity"]["weight_sha256"]:
+        raise E7Error(f"{fold_id}: effective_config.identity_model.weight_sha256 "
+                      f"{adaface_weight_sha256!r} != the frozen AdaFace SHA "
+                      f"{FROZEN_PRIOR_MODELS['identity']['weight_sha256']!r}")
+    # Field names match GPAT_FIT_LOCK.json's OWN top-level keys exactly (see the lock body built
+    # at the end of `prepare_gpat`) -- `m7_recipe_bank_identity` and `effective_config_hash`, not
+    # the shorter names used elsewhere for the analogous C5 fields, so the drift comparison below
+    # compares like against like rather than silently comparing two different-shaped identities.
+    return {"package_identity": input_validation["recomputed_package_identity"],
+           "m7_recipe_bank_identity": FROZEN_M7_BANK["bank_content_identity_sha256"],
+           "pair_plan_identity": pair_validation["recomputed_pair_plan_identity"],
+           "effective_config_hash": effective["effective_config_hash"],
+           "architecture_hash": architecture_hash, "adaface_weight_sha256": adaface_weight_sha256}
+
+
+def materialize_candidate_plans(repo: Path, fold_id: str, *, gpat_checkpoint_sha256: str) -> dict[str, Any]:
+    """Real, deterministic C5 base+arm plan construction -- writes nothing.
+    Reuses `c5_source_pair_plan.build_source_pair_plan`/
+    `c5_arm_plan.build_all_arm_plans` VERBATIM; the latter already asserts
+    the RND/DET/LLM fairness invariant internally (`assert_arms_share_the_
+    schedule`), so a returned result IS the fairness proof."""
+    from prism_fas.synthesis import c5_arm_plan, c5_source_pair_plan
+    from prism_fas.synthesis.physics import PHYSICS_ENGINE_VERSION
+
+    package_root = repo / GPAT_INPUT_ROOT / fold_id
+    base_plan = c5_source_pair_plan.build_source_pair_plan(package_root)
+    arm_plans = c5_arm_plan.build_all_arm_plans(
+        repo, base_plan, gpat_checkpoint_sha256=gpat_checkpoint_sha256,
+        physics_engine_version=PHYSICS_ENGINE_VERSION)
+    return {"base_plan": base_plan, "arm_plans": arm_plans}
+
+
+def validate_candidate_plan(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only. Rebuilds the base+arm C5 plans FRESH from CURRENT
+    frozen inputs (never merely trusts a stored identity) and confirms
+    deterministic reproducibility plus the cross-arm fairness invariant."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    lock_validation = validate_gpat_fit_lock(repo, fold_id)
+    if lock_validation["status"] != "VALID":
+        return {"schema_version": f"{SCHEMA_PREFIX}-candidate-plan-validate-v1", "fold_id": fold_id,
+               "status": "NOT_MATERIALIZED", "reason": "GPAT fit lock is not VALID"}
+    lock = cc.read_json(gpat_fit_lock_path(repo, fold_id))
+    try:
+        plans = materialize_candidate_plans(repo, fold_id, gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    except Exception as exc:  # noqa: BLE001 -- any failure to rebuild is itself a hard validation failure
+        return {"schema_version": f"{SCHEMA_PREFIX}-candidate-plan-validate-v1", "fold_id": fold_id,
+               "status": "INVALID", "problems": [f"could not rebuild candidate plans: {exc!r}"]}
+    from prism_fas.synthesis.c5_source_pair_plan import source_pair_plan_identity
+
+    return {"schema_version": f"{SCHEMA_PREFIX}-candidate-plan-validate-v1", "fold_id": fold_id,
+           "status": "VALID", "problems": [],
+           "source_pair_plan_identity": source_pair_plan_identity(plans["base_plan"]),
+           "arm_plan_identities": {arm: plan["arm_plan_identity"] for arm, plan in plans["arm_plans"].items()},
+           "target_access": False, "llm_api_calls": 0}
+
+
+def validate_candidate_render_records(repo: Path, fold_id: str, arm: str) -> dict[str, Any]:
+    """STRICT, read-only. Recomputes the record-set/payload-set digests
+    from disk via the real, frozen `c5_render`/`c5_raw_generation`
+    primitives -- never trusts presence alone."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    lock_validation = validate_gpat_fit_lock(repo, fold_id)
+    if lock_validation["status"] != "VALID":
+        return {"schema_version": f"{SCHEMA_PREFIX}-candidate-render-validate-v1", "fold_id": fold_id,
+               "arm": arm, "status": "NOT_MATERIALIZED"}
+    lock = cc.read_json(gpat_fit_lock_path(repo, fold_id))
+    from prism_fas.synthesis import c5_raw_generation as raw
+    from prism_fas.synthesis import c5_render
+
+    try:
+        plans = materialize_candidate_plans(repo, fold_id, gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    except Exception as exc:  # noqa: BLE001
+        return {"schema_version": f"{SCHEMA_PREFIX}-candidate-render-validate-v1", "fold_id": fold_id,
+               "arm": arm, "status": "INVALID", "problems": [f"could not rebuild plan: {exc!r}"]}
+    plan = plans["arm_plans"][arm]
+    records = c5_render.collect_records(generation_candidate_root(repo, fold_id), {arm: plan})
+    completeness = c5_render.completeness({arm: plan}, records)
+    return {"schema_version": f"{SCHEMA_PREFIX}-candidate-render-validate-v1", "fold_id": fold_id, "arm": arm,
+           "status": "VALID" if records else "NOT_MATERIALIZED",
+           "record_set_digest": raw.record_set_digest(records),
+           "payload_set_digest": raw.payload_set_digest(records),
+           "completeness": completeness, "target_access": False, "llm_api_calls": 0}
+
+
+def validate_quality_calibration(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only. Never writes."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    path = quality_calibration_path(repo, fold_id)
+    if not path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-quality-calibration-validate-v1", "fold_id": fold_id,
+               "status": "NOT_MATERIALIZED"}
+    from prism_fas.synthesis.quality_calibration import config_sha, load_quality_config
+    from prism_fas.synthesis.synthetic_bank import FrozenCalibration
+
+    problems: list[str] = []
+    try:
+        calibration = FrozenCalibration.load(path)
+    except Exception as exc:  # noqa: BLE001
+        return {"schema_version": f"{SCHEMA_PREFIX}-quality-calibration-validate-v1", "fold_id": fold_id,
+               "status": "INVALID", "problems": [f"could not load: {exc!r}"]}
+    payload = cc.read_json(path)
+    if payload.get("used_target") is not False or payload.get("used_source_dev") is not False:
+        problems.append("calibration payload does not declare used_target=False/used_source_dev=False")
+    source_isolation = payload.get("source_isolation") or {}
+    if source_isolation.get("source_dev_opened") or source_isolation.get("target_test_opened"):
+        problems.append("calibration source_isolation reports a forbidden open")
+    try:
+        config = load_quality_config(repo / QUALITY_CONFIG_PATH)
+        if payload.get("calibration_config_sha256") != config_sha(config):
+            problems.append("calibration_config_sha256 does not match the current frozen quality config")
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"could not reload the frozen quality config: {exc!r}")
+    return {"schema_version": f"{SCHEMA_PREFIX}-quality-calibration-validate-v1", "fold_id": fold_id,
+           "status": "INVALID" if problems else "VALID", "problems": problems,
+           "calibration_sha256": calibration.calibration_sha256, "target_access": False, "llm_api_calls": 0}
+
+
+def prepare_quality_calibration(repo: Path, fold_id: str, *, backends: Any,
+                                authorize: bool = False) -> dict[str, Any]:
+    """Source-only quality calibration, computed ONCE per fold and reused
+    across RND/DET/LLM. Resume-aware: an existing, independently-valid
+    `QUALITY_CALIBRATION.json` is reused, never silently recomputed."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    path = quality_calibration_path(repo, fold_id)
+    if path.is_file():
+        validation = validate_quality_calibration(repo, fold_id)
+        if validation["status"] != "VALID":
+            raise E7Error(f"{fold_id}: existing QUALITY_CALIBRATION.json FAILED strict validation -- "
+                          f"FAIL CLOSED, never silently recomputed: {validation['problems']!r}")
+        return {"resumed": True, "status": "ALREADY_VALID", "path": str(path), "validation": validation}
+    if not authorize:
+        raise E7Error(f"quality calibration for {fold_id} requires --authorize")
+    from prism_fas.synthesis import c6_scientific
+    from prism_fas.synthesis.quality_calibration import load_quality_config, write_calibration
+
+    package_root = repo / GPAT_INPUT_ROOT / fold_id
+    config = load_quality_config(repo / QUALITY_CONFIG_PATH)
+    raw_payload = c6_scientific.fit_nominal_calibration(package_root, config, backends)
+    write_calibration(path, raw_payload, config=config)
+    validation = validate_quality_calibration(repo, fold_id)
+    if validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: freshly-written QUALITY_CALIBRATION.json FAILED strict validation "
+                      f"immediately after write -- {validation['problems']!r}")
+    return {"resumed": False, "status": "MATERIALIZED", "path": str(path), "validation": validation}
+
+
+EFFECTIVE_FOLD_QUALITY_CALIBRATION_BINDING_FILENAME = "EFFECTIVE_FOLD_QUALITY_CALIBRATION_BINDING.json"
+
+
+def effective_fold_quality_calibration_binding_path(repo: Path, fold_id: str) -> Path:
+    return repo / RUN_ROOT / fold_id / EFFECTIVE_FOLD_QUALITY_CALIBRATION_BINDING_FILENAME
+
+
+def build_effective_fold_quality_calibration_binding(repo: Path, fold_id: str) -> dict[str, Any]:
+    """Documents the split between two DIFFERENT calibration stages, so
+    neither is mistaken for the other:
+
+    (A) C6 SYNTHETIC QUALITY-GATE calibration -- this function's subject --
+        governed by `configs/synthesis/quality_gate_m8.yaml` +
+        `quality_calibration.calibrate`/`c6_scientific.fit_nominal_
+        calibration`. Source_train-ONLY. Every numeric formula, percentile,
+        hard gate, seed and model identity is frozen and untouched here.
+
+    (B) A LATER detector temperature/operating-threshold calibration (NOT
+        implemented anywhere in this module) -- governed by the extension's
+        source_dev-only rule. A DIFFERENT stage; this binding says nothing
+        about it and must never be read as if it did.
+
+    `quality_gate_m8.yaml`'s `calibration_population.allowed_datasets`/
+    `live_samples`/`spoof_samples` are HISTORICAL, DESCRIPTIVE-ONLY fields:
+    `quality_calibration.load_quality_config` reads only `split` from that
+    block, and `quality_calibration.calibrate` computes its live/spoof
+    population, per-dataset counts and population identity LIVE from
+    whichever `package_root` it is actually given (see `calibrate`'s own
+    `populations` return field) -- it never reads the YAML's descriptive
+    numbers for population membership. For EXT-F1 those numbers happen to
+    describe CASIA+MSU; for EXT-F2/EXT-F3 they do not (CASIA+SiW-Mv2,
+    MSU+SiW-Mv2) -- `calibrate()` was never using them either way. This
+    binding exists purely so a report reader sees the FOLD's real,
+    mechanically-derived population explicitly, instead of assuming the
+    YAML's historical description still applies.
+
+    Binds ONLY fold-dependent population METADATA (allowed datasets, actual
+    live/spoof counts, population/package identity) -- never a threshold,
+    percentile, seed or model identity, all of which remain exactly what
+    the frozen config + `calibrate()` produced."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    calibration_path = quality_calibration_path(repo, fold_id)
+    if not calibration_path.is_file():
+        raise E7Error(f"{fold_id}: no QUALITY_CALIBRATION.json to bind -- run calibration first")
+    payload = cc.read_json(calibration_path)
+    populations = payload.get("populations") or {}
+    from prism_fas.synthesis.quality_calibration import config_sha, load_quality_config
+
+    config = load_quality_config(repo / QUALITY_CONFIG_PATH)
+    package_validation = validate_gpat_input_package(repo, fold_id)
+    if package_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: GPAT input package is not VALID -- {package_validation.get('problems')!r}")
+    allowed_datasets = sorted(FOLD_SOURCE_DATASET_SLUGS[fold_id])
+    if sorted(package_validation["dataset_counts"]) != allowed_datasets:
+        raise E7Error(f"{fold_id}: package dataset_counts {sorted(package_validation['dataset_counts'])} "
+                      f"!= this fold's frozen allowed datasets {allowed_datasets}")
+    material = {"schema_version": f"{SCHEMA_PREFIX}-effective-fold-quality-calibration-binding-v1",
+               "fold_id": fold_id, "base_quality_config_sha256": config_sha(config),
+               "allowed_source_datasets": allowed_datasets,
+               "package_identity": package_validation["recomputed_package_identity"]}
+    binding_identity = cc.sha256_bytes(cc.canonical_json_bytes(material))
+    return {**material, "binding_identity": binding_identity,
+           "actual_dataset_counts": dict(package_validation["dataset_counts"]),
+           "actual_live_spoof_counts": {"live": populations.get("live"), "spoof": populations.get("spoof")},
+           "actual_live_per_dataset": populations.get("live_per_dataset"),
+           "actual_spoof_per_dataset": populations.get("spoof_per_dataset"),
+           "source_population_identity": populations.get("population_sha256"),
+           "calibration_config_sha256": payload.get("calibration_config_sha256"),
+           "historical_yaml_calibration_population_is_descriptive_only": True,
+           "note": ("configs/synthesis/quality_gate_m8.yaml's calibration_population."
+                    "allowed_datasets/live_samples/spoof_samples describe EXT-F1's historical "
+                    "population only; they are never read by load_quality_config beyond `split`, "
+                    "and never read by quality_calibration.calibrate for population membership -- "
+                    "this fold's REAL population is recorded above, mechanically, from that SAME "
+                    "calibrate() call's own output"),
+           "calibration_stage": "C6_SYNTHETIC_QUALITY_GATE_SOURCE_TRAIN_ONLY",
+           "distinct_from": "a later detector temperature/operating-threshold calibration stage "
+                            "(source_dev-only rule) -- NOT implemented here, NOT described here",
+           "target_access": False, "llm_api_calls": 0}
+
+
+def validate_effective_fold_quality_calibration_binding(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only. Independently rebuilds the binding from current
+    disk state and re-checks the recorded copy matches, field for field."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    path = effective_fold_quality_calibration_binding_path(repo, fold_id)
+    if not path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-effective-fold-quality-calibration-binding-validate-v1",
+               "fold_id": fold_id, "status": "NOT_MATERIALIZED"}
+    recorded = cc.read_json(path)
+    try:
+        recomputed = build_effective_fold_quality_calibration_binding(repo, fold_id)
+    except Exception as exc:  # noqa: BLE001
+        return {"schema_version": f"{SCHEMA_PREFIX}-effective-fold-quality-calibration-binding-validate-v1",
+               "fold_id": fold_id, "status": "INVALID", "problems": [f"could not rebuild: {exc!r}"]}
+    problems = [f"{key} drifted" for key in recomputed if recorded.get(key) != recomputed.get(key)]
+    return {"schema_version": f"{SCHEMA_PREFIX}-effective-fold-quality-calibration-binding-validate-v1",
+           "fold_id": fold_id, "status": "INVALID" if problems else "VALID", "problems": problems,
+           "target_access": False, "llm_api_calls": 0}
+
+
+def write_effective_fold_quality_calibration_binding(repo: Path, fold_id: str) -> dict[str, Any]:
+    from prism_fas.utils.core import atomic_json_write
+
+    body = build_effective_fold_quality_calibration_binding(repo, fold_id)
+    path = effective_fold_quality_calibration_binding_path(repo, fold_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json_write(path, body)
+    validation = validate_effective_fold_quality_calibration_binding(repo, fold_id)
+    if validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: freshly-written EFFECTIVE_FOLD_QUALITY_CALIBRATION_BINDING.json "
+                      f"FAILED strict validation -- {validation['problems']!r}")
+    return body
+
+
+def validate_matched_bank_lock(repo: Path, fold_id: str, condition: str) -> dict[str, Any]:
+    """STRICT, read-only. A `BANK_LOCK.json` merely being present is NOT
+    sufficient for VALID -- independently recomputes the selected-set
+    digest and re-checks the frozen cardinality/q-neutrality/firewall
+    declarations."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    path = bank_lock_path(repo, fold_id, condition)
+    if not path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-bank-lock-validate-v1", "fold_id": fold_id,
+               "condition": condition, "status": "NOT_MATERIALIZED"}
+    lock = cc.read_json(path)
+    problems: list[str] = []
+    if not lock.get("is_scientific_lock"):
+        problems.append("lock.is_scientific_lock is not True")
+    from prism_fas.synthesis import c6_matched_bank as selector
+
+    recomputed_selected_sha = selector.selected_set_digest(lock.get("selected", []))
+    if recomputed_selected_sha != lock.get("selected_set_sha256"):
+        problems.append(f"recomputed selected_set_sha256 {recomputed_selected_sha!r} != "
+                        f"recorded {lock.get('selected_set_sha256')!r}")
+    by_route = lock.get("by_route") or {}
+    if by_route.get(selector.PHYSICS) != selector.PER_ROUTE or by_route.get(selector.GPAT) != selector.PER_ROUTE:
+        problems.append(f"by_route counts {by_route!r} != "
+                        f"{{'physics': {selector.PER_ROUTE}, 'gpat': {selector.PER_ROUTE}}}")
+    if lock.get("final_bank_size") != selector.FINAL_BANK_PER_ARM:
+        problems.append(f"final_bank_size {lock.get('final_bank_size')!r} != {selector.FINAL_BANK_PER_ARM}")
+    if lock.get("q_used_for_selection") is not False:
+        problems.append("q_used_for_selection is not False")
+    if lock.get("TARGET_IMAGE_ACCESS") is not False or lock.get("TARGET_LABEL_ACCESS") is not False:
+        problems.append("terminal lock does not declare TARGET_IMAGE_ACCESS/TARGET_LABEL_ACCESS false")
+    if lock.get("LLM_API_CALLS") != 0:
+        problems.append("terminal lock LLM_API_CALLS != 0")
+    return {"schema_version": f"{SCHEMA_PREFIX}-bank-lock-validate-v1", "fold_id": fold_id,
+           "condition": condition, "status": "INVALID" if problems else "VALID", "problems": problems,
+           "target_access": False, "llm_api_calls": 0}
+
+
+def validate_generation_closure(repo: Path, fold_id: str) -> dict[str, Any]:
+    """STRICT, read-only. The per-fold summary across RND/DET/LLM banks and
+    the fold's Shuffle-A disposition."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    conditions = {condition: validate_matched_bank_lock(repo, fold_id, condition)["status"]
+                 for condition in ("G-RND", "G-DET", "G-LLM")}
+    shuffle_status = resolved_shuffle_status(repo, fold_id)
+    candidate_bank_stage_closed = (all(status == "VALID" for status in conditions.values())
+                                   and shuffle_status != PENDING_FEASIBILITY_PREFLIGHT)
+    return {"schema_version": f"{SCHEMA_PREFIX}-generation-closure-validate-v1", "fold_id": fold_id,
+           "conditions": conditions, "shuffle_status": shuffle_status,
+           "candidate_bank_stage_closed": candidate_bank_stage_closed,
+           "target_access": False, "llm_api_calls": 0}
+
+
+def _render_all_arms(repo: Path, fold_id: str, *, arm_plans: dict[str, Any], routes: dict[str, Any],
+                     store: Any, recovery_counter: list[int]) -> dict[str, dict[str, Any]]:
+    """Renders RND/DET/LLM's 2048-candidate schedules via the REAL, frozen
+    `c5_render.render_arm` (resume/retained-failure/runtime-abort semantics
+    all native). Wrapped in the E7 mask-compatibility binding because both
+    `GPATRoute.generate` and `PhysicsRoute.generate` reach `SampleStore.
+    mask_builder()` the identical way GPAT fitting's `build_batch` does."""
+    from prism_fas.synthesis import c5_render
+
+    work_root = generation_candidate_root(repo, fold_id)
+    results: dict[str, dict[str, Any]] = {}
+    with _scoped_e7_mask_compatibility_binding(recovery_counter):
+        for arm in ("RND", "DET", "LLM"):
+            bank = c5_render.route_bank(repo, arm)
+            results[arm] = c5_render.render_arm(work_root=work_root, plan=arm_plans[arm], store=store,
+                                                bank=bank, routes=routes)
+    return results
+
+
+def _evaluate_all_arms(repo: Path, fold_id: str, *, arm_plans: dict[str, Any], store: Any,
+                       evaluator: Any, recovery_counter: list[int]) -> dict[str, dict[str, dict[str, Any]]]:
+    """Measures every generated candidate's RAW metric set exactly once,
+    via the REAL, frozen `c6_scientific.evaluate_pool`. Also wrapped in the
+    SAME mask-compatibility binding + counter as rendering: `evaluate_pool`
+    -> `requested_support_for` -> `synthetic_bank._support_masks` reaches
+    the identical `SampleStore.mask_builder()` seam."""
+    from prism_fas.synthesis import c5_render, c6_scientific
+
+    candidate_root = generation_candidate_root(repo, fold_id)
+    metrics: dict[str, dict[str, dict[str, Any]]] = {}
+    with _scoped_e7_mask_compatibility_binding(recovery_counter):
+        for arm in ("RND", "DET", "LLM"):
+            bank = c5_render.route_bank(repo, arm)
+            metrics[arm] = c6_scientific.evaluate_pool(
+                evaluator, store, bank, candidate_root=candidate_root, arm=arm,
+                rows=arm_plans[arm]["candidates"])
+    return metrics
+
+
+def _write_generation_closure(repo: Path, fold_id: str, condition: str, *, status: str,
+                              evidence: dict[str, Any]) -> dict[str, Any]:
+    """Non-fake closure for a route/arm that is infeasible under either
+    (a) the frozen selector's own rule with no missing authority
+    (`MATCHED_BANK_INFEASIBLE`), or (b) a shortfall after the single frozen
+    2048-candidate pass that the unauthored reserve-tranche extension could
+    not resolve (`BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE`). NEVER a fake
+    VALID `BANK_LOCK.json`."""
+    from prism_fas.utils.core import atomic_json_write
+
+    body = {"schema_version": f"{SCHEMA_PREFIX}-generation-closure-v1", "fold_id": fold_id,
+           "condition": condition, "status": status, "is_scientific_lock": False, "evidence": evidence,
+           "target_access": False, "llm_api_calls": 0}
+    path = generation_closure_path(repo, fold_id, condition)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json_write(path, body)
+    return body
+
+
+def generate_and_match(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
+    """`--generate-and-match --authorize [--fold EXT-Fn]`: REAL transactional
+    candidate generation + quality-gate evaluation + matched-bank
+    resolution for RND/DET/LLM, PLUS the fold-scoped LLM-SHUFFLE-A adapter
+    (`run_shuffle_generation_and_match`, see the corrected audit item 2
+    above). Fails closed unless `validate_gpat_fit_lock` is VALID. F1's
+    Shuffle-A stays permanently `BLOCKED_TRUE_FROZEN_MATCHED_BANK_
+    INFEASIBILITY` and is never touched here. F2/F3's Shuffle-A is
+    attempted ONLY after that SAME fold's RND/DET/LLM banks are VALID
+    (its quota anchor); if they are blocked, Shuffle-A resolves to
+    `SHUFFLE_BLOCKED_BY_FOLD_ANCHOR` without being attempted; if attempted
+    and its own eligible candidates cannot fill the reused quota, it
+    resolves to `SHUFFLE_MATCHED_BANK_INFEASIBLE`; otherwise it reaches a
+    real, independently-validated `BANK_LOCK.json` under `SHUFFLE_
+    CONDITION`."""
+    if fold_id not in FOLD_IDS:
+        raise E7Error(f"unknown fold_id {fold_id!r}")
+    if not authorize:
+        raise E7Error(f"candidate generation for {fold_id} requires --authorize; refusing to run")
+
+    # (1) Strict VALID GPAT fit lock -- never merely best.pt existing.
+    lock_validation = validate_gpat_fit_lock(repo, fold_id)
+    if lock_validation["status"] != "VALID":
+        raise E7Error(f"{fold_id}: GPAT fit lock is not VALID -- run --prepare-gpat first; FAIL "
+                      f"CLOSED: {lock_validation.get('problems')!r}")
+    lock = cc.read_json(gpat_fit_lock_path(repo, fold_id))
+
+    # (2) Already-closed short-circuit: ALL of RND/DET/LLM independently VALID, and (for F2/F3)
+    # Shuffle-A has ALREADY reached a terminal state (a VALID lock, or an explicit closure) --
+    # never merely "not yet attempted" (`PENDING_FEASIBILITY_PREFLIGHT`).
+    conditions = ("G-RND", "G-DET", "G-LLM")
+    existing = {condition: validate_matched_bank_lock(repo, fold_id, condition) for condition in conditions}
+    shuffle_terminal = (fold_id == "EXT-F1") or \
+        resolved_shuffle_status(repo, fold_id) != PENDING_FEASIBILITY_PREFLIGHT
+    if all(v["status"] == "VALID" for v in existing.values()) and shuffle_terminal:
+        return {"resumed": True, "status": "ALREADY_VALID", "conditions": existing,
+               "shuffle_status": resolved_shuffle_status(repo, fold_id), "target_access": False,
+               "llm_api_calls": 0, "rendering_performed": False}
+    if any(v["status"] == "INVALID" for v in existing.values()):
+        raise E7Error(f"{fold_id}: an existing BANK_LOCK.json FAILED strict validation -- FAIL "
+                      f"CLOSED, NEVER regenerated: {existing!r}")
+
+    # (3) Real, independently-recomputed CURRENT GPAT identity -- binds generation to package/
+    # pair-plan/config/architecture/AdaFace, never merely trusting the lock's own fields.
+    gpat_identity = _current_gpat_expected_identity(repo, fold_id)
+    for field in gpat_identity:
+        if gpat_identity[field] != lock.get(field):
+            raise E7Error(f"{fold_id}: current GPAT identity {field}={gpat_identity[field]!r} != "
+                          f"GPAT_FIT_LOCK.{field}={lock.get(field)!r} -- FAIL CLOSED")
+
+    # (4) Real GPU-capability gate for generation + quality evaluation. Never a hardcoded
+    # "non-GPU host" string.
+    capability = _generation_capability(repo)
+    if not capability["capable"]:
+        raise E7Error(f"{fold_id}: GPU_REQUIRED for real C5 candidate generation and quality "
+                      f"evaluation -- this host is not capable: {capability['problems']!r}. The GPAT "
+                      "fit lock IS VALID; only real rendering/evaluation remains, and it must run "
+                      f"on a GPU host with the pinned models resolvable under "
+                      f"{capability['weight_root']!r}.")
+
+    # (5) Real generation implementation-commit provenance gate -- reused VERBATIM from GPAT
+    # fitting; never hardcodes a specific commit, and the GPU checkout HEAD is never treated as
+    # the implementation identity.
+    provenance = resolve_implementation_commit_provenance(repo)
+
+    # (6) Real, deterministic C5 base+arm plans -- `build_all_arm_plans` already asserts the
+    # RND/DET/LLM fairness invariant internally.
+    try:
+        plans = materialize_candidate_plans(repo, fold_id, gpat_checkpoint_sha256=lock["best_checkpoint_sha256"])
+    except Exception as exc:  # noqa: BLE001 -- any frozen-cardinality/fairness violation is fatal
+        raise E7Error(f"{fold_id}: could not build the frozen C5 candidate plans: {exc!r}") from exc
+    arm_plans = plans["arm_plans"]
+
+    # (7) Non-terminal attempt provenance, written atomically BEFORE any scientific rendering.
+    from prism_fas.utils.core import atomic_json_write
+
+    from prism_fas.synthesis.c5_source_pair_plan import source_pair_plan_identity as _c5_base_identity
+
+    attempt_body = {
+        "schema_version": f"{SCHEMA_PREFIX}-generate-attempt-provenance-v1", "fold_id": fold_id,
+        "package_identity": gpat_identity["package_identity"],
+        "gpat_checkpoint_sha256": lock["best_checkpoint_sha256"],
+        "gpat_fit_lock_identity": dict(gpat_identity),
+        "source_pair_plan_identity": _c5_base_identity(plans["base_plan"]),
+        "arm_plan_identities": {arm: plan["arm_plan_identity"] for arm, plan in arm_plans.items()},
+        "mask_compatibility_policy": MASK_COMPATIBILITY_POLICY,
+        "implementation_commit": provenance["implementation_commit"],
+        "implementation_module_sha256": provenance["implementation_module_sha256"],
+        "repository_head_commit": provenance["repository_head_commit"],
+        # Bound BEFORE any candidate is rendered, for every fold, regardless of whether THIS fold
+        # ever observes a shortfall: the known reserve-tranche protocol gap (§10.4's frozen
+        # initial schedule, the trigger, the required tranche, the cap, and the missing-authority
+        # statement) is a static fact, never a per-run outcome. If a shortfall IS later observed,
+        # BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE's evidence references THIS EXACT identity (read
+        # back from this same attempt_body), never a freshly recomputed one.
+        "reserve_protocol_gap_identity": reserve_protocol_gap_identity(),
+        "reserve_protocol_gap_status": RESERVE_PROTOCOL_GAP_KNOWN_STATUS,
+    }
+    attempt_path = generation_attempt_provenance_path(repo, fold_id)
+    attempt_path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json_write(attempt_path, attempt_body)
+
+    # (8) Real routes, store, and a SINGLE per-invocation recovery counter shared by rendering
+    # AND evaluation (both reach the same mask-builder seam).
+    from prism_fas.synthesis import c5_render, c6_matched_bank as selector, c6_scientific
+    from prism_fas.synthesis.m8_pipeline import SampleStore
+    from prism_fas.synthesis.quality_calibration import QualityBackends, config_sha, load_quality_config
+    from prism_fas.synthesis.synthetic_bank import CandidateEvaluator, FrozenCalibration
+
+    package_root = repo / GPAT_INPUT_ROOT / fold_id
+    device = "cuda" if capability["cuda_available"] else "cpu"
+    routes = c5_render.build_routes(repo, checkpoint_path=gpat_best_checkpoint_path(repo, fold_id),
+                                    checkpoint_sha256=lock["best_checkpoint_sha256"],
+                                    expected_identity=gpat_identity, device=device)
+    store = SampleStore.open(package_root)
+    recovery_counter = [0]
+
+    try:
+        render_results = _render_all_arms(repo, fold_id, arm_plans=arm_plans, routes=routes, store=store,
+                                          recovery_counter=recovery_counter)
+    except c5_render.RenderError as exc:
+        raise E7Error(f"{fold_id}: C5 rendering aborted -- FAIL CLOSED, no terminal lock written, "
+                      f"the candidate was NOT consumed: {exc}") from exc
+
+    # (9) Source-only quality calibration, computed once per fold, reused across all three arms.
+    # The frozen quality_gate_m8.yaml's calibration formulas/percentiles/hard-gates/seed/model
+    # identities are NEVER touched; `write_effective_fold_quality_calibration_binding` records
+    # ONLY this fold's real, mechanically-derived population metadata (see its own docstring for
+    # why the YAML's descriptive allowed_datasets/live_samples/spoof_samples do not apply as-is
+    # to EXT-F2/EXT-F3, and were never actually read by `calibrate()` for population membership).
+    weight_root = Path(capability["weight_root"])
+    backends = QualityBackends(weight_root, device=device)
+    prepare_quality_calibration(repo, fold_id, backends=backends, authorize=True)
+    write_effective_fold_quality_calibration_binding(repo, fold_id)
+    calibration = FrozenCalibration.load(quality_calibration_path(repo, fold_id))
+    config = load_quality_config(repo / QUALITY_CONFIG_PATH)
+
+    evaluator = CandidateEvaluator(backends, calibration)
+    metrics_by_arm = _evaluate_all_arms(repo, fold_id, arm_plans=arm_plans, store=store, evaluator=evaluator,
+                                        recovery_counter=recovery_counter)
+
+    # (10) The STRICT -> NOMINAL -> PERMISSIVE profile walk, via the frozen c6_scientific helpers.
+    pool = c6_scientific.candidate_pool(arm_plans)
+    profiles = c6_scientific.build_common_profiles(calibration.thresholds.as_dict(),
+                                                    nominal_source="quality_calibration.calibrate")
+    assessments = []
+    decisions_by_profile: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    accepted_by_profile: dict[str, dict[str, list[Any]]] = {}
+    for name in c6_scientific.PROFILE_ORDER:
+        profile = profiles[name]
+        decisions_by_arm = {arm: c6_scientific.gate_candidates(metrics_by_arm[arm], profile.as_thresholds())
+                            for arm in ("RND", "DET", "LLM")}
+        accepted_by_arm = {arm: c6_scientific.eligible_candidates(decisions_by_arm[arm], pool[arm])
+                          for arm in ("RND", "DET", "LLM")}
+        assessments.append(c6_scientific.assess_profile(name, accepted_by_arm, arm_plans))
+        decisions_by_profile[name] = decisions_by_arm
+        accepted_by_profile[name] = accepted_by_arm
+    decision = c6_scientific.select_strictest_profile(assessments)
+
+    def _block_shuffle_on_anchor_failure(anchor_status: str) -> None:
+        # (11) Shuffle-A structurally depends on THIS fold's own RND/DET/LLM banks for its quota
+        # anchor (see `SHUFFLE_MATCHED_BANK_INFEASIBLE`'s docstring) -- if they are blocked,
+        # Shuffle-A is never attempted; F1 is never touched here at all.
+        if fold_id == "EXT-F1":
+            return
+        _write_generation_closure(repo, fold_id, SHUFFLE_CONDITION, status=SHUFFLE_BLOCKED_BY_FOLD_ANCHOR,
+                                  evidence={"reason": "fold anchor RND/DET/LLM banks did not reach VALID",
+                                           "anchor_status": anchor_status})
+
+    if decision.selected is None:
+        # No profile is matched-feasible. Classify WHY rather than fabricating a VALID bank:
+        # a route/arm short of the frozen 512 floor is exactly the reserve-tranche gap this
+        # module has NO authority to resolve; three arms each individually satisfying the floor
+        # but unable to agree on one common source-domain quota is a genuine frozen-rule
+        # infeasibility, distinct from a missing-authority gap.
+        volume_shortfall = any(not assessment.arms_meet_route_floor for assessment in assessments)
+        status = BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE if volume_shortfall else MATCHED_BANK_INFEASIBLE
+        evidence = {"assessments": [assessment.as_dict() for assessment in assessments],
+                   "profile_decision": decision.as_dict(),
+                   "mask_compatibility_recovery_count": recovery_counter[0]}
+        if volume_shortfall:
+            # The explicit, read-only, pre-chosen-nothing evidence artifact (item 4 of the
+            # mandatory re-audit): what is known, what triggers a reserve tranche, and exactly
+            # which mapping authority is missing -- refreshed alongside the observed shortfall,
+            # never used to justify inventing a rule. References the SAME identity already bound
+            # into `attempt_body` BEFORE rendering began -- never a freshly recomputed one.
+            write_reserve_tranche_protocol_gap_evidence(repo)
+            evidence["reserve_protocol_gap_identity"] = attempt_body["reserve_protocol_gap_identity"]
+            assert evidence["reserve_protocol_gap_identity"] == reserve_protocol_gap_identity(), \
+                "reserve protocol gap identity drifted between pre-render binding and this closure"
+        closures = {condition: _write_generation_closure(repo, fold_id, condition, status=status,
+                                                          evidence=evidence)
+                   for condition in conditions}
+        _block_shuffle_on_anchor_failure(status)
+        return {"resumed": False, "status": status, "conditions": closures,
+               "shuffle_status": resolved_shuffle_status(repo, fold_id), "target_access": False,
+               "llm_api_calls": 0, "rendering_performed": True}
+
+    profile = decision.selected
+    accepted_by_arm = accepted_by_profile[profile]
+    decisions_by_arm = decisions_by_profile[profile]
+    outcome = selector.build_matched_banks(arm_plans, accepted_by_arm)
+    if not outcome["matched"]:
+        # Should be unreachable given `decision.selected` was chosen on this exact feasibility
+        # test -- defensive, never a fabricated VALID bank.
+        evidence = {"outcome": outcome, "mask_compatibility_recovery_count": recovery_counter[0]}
+        closures = {condition: _write_generation_closure(repo, fold_id, condition,
+                                                          status=MATCHED_BANK_INFEASIBLE, evidence=evidence)
+                   for condition in conditions}
+        _block_shuffle_on_anchor_failure(MATCHED_BANK_INFEASIBLE)
+        return {"resumed": False, "status": MATCHED_BANK_INFEASIBLE, "conditions": closures,
+               "shuffle_status": resolved_shuffle_status(repo, fold_id), "target_access": False,
+               "llm_api_calls": 0, "rendering_performed": True}
+
+    from prism_fas.synthesis import c5_raw_generation as raw
+
+    threshold_id = c6_scientific.threshold_identity(profiles[profile].as_thresholds())
+    locks: dict[str, dict[str, Any]] = {}
+    for arm in ("RND", "DET", "LLM"):
+        condition = f"G-{arm}"
+        bank = outcome["banks"][arm]
+        selector_contract = selector.selector_identity(
+            quality_profile_identity=threshold_id, c5_pool_lock_sha256=arm_plans[arm]["arm_plan_identity"],
+            decision_set_sha256=selector.decision_set_digest(decisions_by_arm[arm]))
+        semantic_failure_ids = [record["generation_identity"]["candidate_id"]
+                                for record in render_results[arm]["records"]
+                                if record.get("status") == raw.FAILED_GENERATION]
+        closure = c6_scientific.provenance_closure(
+            pool_candidate_ids=list(pool[arm]), semantic_failure_ids=semantic_failure_ids,
+            decisions=decisions_by_arm[arm], selected_ids=[row["candidate_id"] for row in bank["selected"]])
+        if not closure["closed"]:
+            raise E7Error(f"{fold_id}/{condition}: provenance closure is not partitioned -- FAIL "
+                          f"CLOSED, no terminal lock written: {closure!r}")
+        lock_body = c6_scientific.bank_lock_payload(
+            arm=arm, bank=bank, selector_contract=selector_contract, profile=profile,
+            threshold_identity=threshold_id, c5_pool_lock_sha256=arm_plans[arm]["arm_plan_identity"],
+            provenance=closure)
+        lock_body.update({
+            "fold_id": fold_id, "condition": condition,
+            "package_identity": gpat_identity["package_identity"],
+            "gpat_checkpoint_sha256": lock["best_checkpoint_sha256"],
+            "gpat_fit_lock_identity": dict(gpat_identity),
+            "source_pair_plan_identity": arm_plans[arm]["source_pair_plan_identity"],
+            "arm_plan_identity": arm_plans[arm]["arm_plan_identity"],
+            "recipe_bank_identity_kind": "C3_TREATMENT_BANK",
+            "quality_calibration_sha256": calibration.calibration_sha256,
+            "quality_config_sha256": config_sha(config),
+            "mask_compatibility_policy": MASK_COMPATIBILITY_POLICY,
+            "mask_compatibility_recovery_count": recovery_counter[0],
+            "implementation_commit": provenance["implementation_commit"],
+            "implementation_module_sha256": provenance["implementation_module_sha256"],
+            "repository_head_commit": provenance["repository_head_commit"],
+            "TARGET_IMAGE_ACCESS": False, "TARGET_LABEL_ACCESS": False, "LLM_API_CALLS": 0,
+        })
+        atomic_json_write(bank_lock_path(repo, fold_id, condition), lock_body)
+        locks[condition] = lock_body
+
+    # (12) Strict independent revalidation of every just-written terminal lock -- the write above
+    # is never trusted on its own.
+    for condition in conditions:
+        post_validation = validate_matched_bank_lock(repo, fold_id, condition)
+        if post_validation["status"] != "VALID":
+            raise E7Error(f"{fold_id}/{condition}: freshly-written BANK_LOCK.json FAILED strict "
+                          f"validation immediately after write -- {post_validation['problems']!r}")
+
+    # (13) LLM-SHUFFLE-A, fold-scoped (see the corrected audit item 2 above) -- attempted ONLY now
+    # that this fold's own RND/DET/LLM banks are VALID (its quota anchor). F1 is never touched.
+    shuffle_result = None
+    if fold_id != "EXT-F1":
+        shuffle_result = run_shuffle_generation_and_match(
+            repo, fold_id, base_plan=plans["base_plan"], llm_arm_plan=arm_plans["LLM"],
+            gpat_checkpoint_sha256=lock["best_checkpoint_sha256"], routes=routes, store=store,
+            evaluator=evaluator, recovery_counter=recovery_counter, profile=profile,
+            thresholds=profiles[profile].as_thresholds(), threshold_id=threshold_id,
+            route_quotas=outcome["route_quotas"], provenance=provenance, calibration=calibration,
+            config=config)
+
+    return {"resumed": False, "status": "FITTED", "profile": profile, "locks": locks,
+           "shuffle_result": shuffle_result, "shuffle_status": resolved_shuffle_status(repo, fold_id),
+           "target_access": False, "llm_api_calls": 0, "rendering_performed": True}
+
+
+# --------------------------------------------------------------------------- #
 # Frozen bank-size quota (audited from gate_profiles.py; asserted, never
 # trusted from prose)
 # --------------------------------------------------------------------------- #
@@ -235,6 +1412,151 @@ def frozen_bank_quota() -> dict[str, int]:
         raise E7Error(f"frozen bank quota drift detected: repository authority {quota!r} != "
                       f"expected {expected!r} -- STOP, do not choose a new quota")
     return quota
+
+
+RESERVE_TRANCHE_PROTOCOL_GAP_EVIDENCE_FILENAME = "RESERVE_TRANCHE_PROTOCOL_GAP_EVIDENCE.json"
+
+
+def reserve_tranche_protocol_gap_evidence_path(repo: Path) -> Path:
+    return repo / RUN_ROOT / RESERVE_TRANCHE_PROTOCOL_GAP_EVIDENCE_FILENAME
+
+
+#: A deterministic status naming the KNOWN, pre-outcome protocol gap -- present in EVERY fold's
+#: attempt provenance regardless of whether that fold ever needs a reserve tranche. Distinct from
+#: `BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE`, which is the terminal status a fold's OWN observed
+#: shortfall resolves to; this constant just says "the gap is known and documented".
+RESERVE_PROTOCOL_GAP_KNOWN_STATUS = "KNOWN_GAP_DOCUMENTED_PRE_RENDER"
+
+
+def _reserve_protocol_gap_material() -> dict[str, Any]:
+    """The KNOWN, STATIC reserve-tranche facts -- true regardless of any
+    fold's outcome, so this material (and the identity over it) can be
+    computed and bound BEFORE any candidate is rendered. The SAME material
+    backs both `reserve_protocol_gap_identity()` and
+    `build_reserve_tranche_protocol_gap_evidence()`, so the two can never
+    silently drift apart."""
+    from prism_fas.synthesis.c5_source_pair_plan import ARMS as _ARMS
+    from prism_fas.synthesis.c5_source_pair_plan import CANDIDATES_PER_ARM, PLAN_SEED
+
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-reserve-protocol-gap-identity-v1",
+        "known_initial_schedule": {
+            "candidates_per_arm": CANDIDATES_PER_ARM, "physics_per_arm": CANDIDATES_PER_ARM // 2,
+            "gpat_per_arm": CANDIDATES_PER_ARM // 2, "arms": list(_ARMS), "base_schedule_seed": PLAN_SEED,
+        },
+        "known_reserve_trigger": "if any arm-route ends with fewer than 512 accepted candidates "
+                                 "after the single frozen 2048-candidate pass",
+        "known_required_tranche_if_triggered": "+256 candidates/route, for ALL arms "
+                                               "synchronously (never one arm alone)",
+        "known_cap": "2048 candidates/route/arm (4096 candidates/arm total) -- never exceeded",
+        "missing_authority_summary": "no frozen or extension-authorized rule anywhere in the "
+                                     "repository specifies the deterministic mapping of a reserve "
+                                     "position (beyond the frozen 2048) to: a recipe ordinal, a "
+                                     "live sample, a GPAT spoof source, a route slot, or a "
+                                     "candidate identity",
+    }
+
+
+def reserve_protocol_gap_identity() -> str:
+    """A deterministic identity over the KNOWN, pre-outcome reserve-tranche
+    protocol-gap facts -- computable and bindable into attempt provenance
+    BEFORE any candidate is rendered, for every fold, regardless of whether
+    that fold ever observes a shortfall. A later
+    `BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE` closure references this EXACT
+    pre-bound identity (read back from that fold's own attempt provenance),
+    never a freshly recomputed one that could silently drift from what was
+    bound before rendering began."""
+    return cc.sha256_bytes(cc.canonical_json_bytes(_reserve_protocol_gap_material()))
+
+
+def build_reserve_tranche_protocol_gap_evidence(repo: Path) -> dict[str, Any]:
+    """A READ-ONLY, PRE-OUTCOME statement of exactly what the reserve-
+    tranche extension trigger requires and exactly which authority is
+    missing -- written BEFORE any GPU generation run, and never chosen or
+    guessed. No generation outcome has been observed under the current
+    `generate_and_match` implementation as of this artifact; this is a
+    protocol-gap DISCLOSURE, not a decision.
+
+    Re-audited against the current repository (grep-verified, same
+    conclusion as the original audit): `configs/c_ext_q1q2_v1/
+    conditions.yaml`'s `reserve_tranche_per_route: 256` key is read by ZERO
+    Python code anywhere in this repository; `c_ext_e0_freeze.py` only
+    echoes a hardcoded descriptive string into a provenance JSON. The real
+    frozen `c5_source_pair_plan.CANDIDATES_PER_ARM` / `c5_arm_plan.
+    _assert_arm_plan` / `c5_render.completeness` hard-fix the schedule at
+    exactly 2048 candidates/arm; `gate_profiles.py` states three times that
+    on shortfall "C6 FAILS rather than relaxing the gate... not replaceable
+    by extra renders". Nothing in the repository specifies how a reserve
+    position beyond position 2047 would map to a recipe ordinal, a live
+    sample, a GPAT spoof source, a route slot or a candidate identity."""
+    material = _reserve_protocol_gap_material()
+    return {
+        "schema_version": f"{SCHEMA_PREFIX}-reserve-tranche-protocol-gap-evidence-v1",
+        "reserve_protocol_gap_identity": reserve_protocol_gap_identity(),
+        "is_scientific_lock": False, "pre_outcome": True,
+        "as_of": "written before any GPU generation run under the current implementation; no "
+                "arm-route acceptance count has been observed",
+        "known_initial_schedule": material["known_initial_schedule"],
+        "known_reserve_trigger": material["known_reserve_trigger"],
+        "known_required_tranche_if_triggered": material["known_required_tranche_if_triggered"],
+        "known_cap": material["known_cap"],
+        "missing_authority": {
+            "summary": material["missing_authority_summary"],
+            "evidence": {
+                "unconsumed_config_key": "configs/c_ext_q1q2_v1/conditions.yaml: "
+                                        "reserve_tranche_per_route: 256 (read by zero Python code)",
+                "descriptive_only_echo": "c_ext_e0_freeze.py echoes a hardcoded descriptive "
+                                        "string into a provenance JSON; computes and gates nothing",
+                "frozen_primitives_fix_the_budget": [
+                    "c5_source_pair_plan.CANDIDATES_PER_ARM (2048, asserted by _assert_schedule)",
+                    "c5_arm_plan._assert_arm_plan (2048, asserted per arm)",
+                    "c5_render.completeness (\"the frozen 2048-per-arm budget never grows\")",
+                    "gate_profiles.py (\"C6 FAILS rather than relaxing the gate... not "
+                    "replaceable by extra renders\", stated three times)",
+                ],
+            },
+            "what_would_have_to_be_decided_by_the_user_before_any_reserve_code_is_written": [
+                "the exact ordinal/position assignment rule for reserve slots (e.g. does "
+                "recipe_ordinal wrap 0..255 again, or extend beyond 255?)",
+                "whether the SAME live-sample modulo rule extends past position 2047 or a new "
+                "rule is required",
+                "whether GPAT spoof-source selection is re-keyed on the extended position or "
+                "reuses the existing SHA256-keyed rule verbatim",
+                "the exact candidate-identity material for a reserve-tranche candidate (so RND/"
+                "DET/LLM reserve schedules remain provably identical, mirroring §11.3's fairness "
+                "invariant for the initial 2048)",
+            ],
+        },
+        "action_taken": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE is reported on an observed "
+                        "shortfall; NO rule is invented, NO modulo/random/repetition/reordering "
+                        "scheme is chosen, and NO candidate beyond the frozen 2048/arm is ever "
+                        "rendered by this module",
+        "target_access": False, "llm_api_calls": 0,
+    }
+
+
+def validate_reserve_tranche_protocol_gap_evidence(repo: Path) -> dict[str, Any]:
+    """STRICT, read-only. Re-derives the evidence fresh and compares."""
+    path = reserve_tranche_protocol_gap_evidence_path(repo)
+    if not path.is_file():
+        return {"schema_version": f"{SCHEMA_PREFIX}-reserve-tranche-protocol-gap-evidence-validate-v1",
+               "status": "NOT_MATERIALIZED"}
+    recorded = cc.read_json(path)
+    recomputed = build_reserve_tranche_protocol_gap_evidence(repo)
+    problems = [f"{key} drifted" for key in recomputed if recorded.get(key) != recomputed.get(key)]
+    return {"schema_version": f"{SCHEMA_PREFIX}-reserve-tranche-protocol-gap-evidence-validate-v1",
+           "status": "INVALID" if problems else "VALID", "problems": problems,
+           "target_access": False, "llm_api_calls": 0}
+
+
+def write_reserve_tranche_protocol_gap_evidence(repo: Path) -> dict[str, Any]:
+    from prism_fas.utils.core import atomic_json_write
+
+    body = build_reserve_tranche_protocol_gap_evidence(repo)
+    path = reserve_tranche_protocol_gap_evidence_path(repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json_write(path, body)
+    return body
 
 
 # --------------------------------------------------------------------------- #
@@ -3042,15 +4364,37 @@ def write_candidate_generation_policy(repo: Path) -> dict[str, Any]:
 
 def build_quality_gate_binding(repo: Path) -> dict[str, Any]:
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-quality-gate-binding-v1",
+        "schema_version": f"{SCHEMA_PREFIX}-quality-gate-binding-v2",
         "reused_modules": ["prism_fas.synthesis.quality_gate", "prism_fas.synthesis.quality_calibration",
-                          "prism_fas.synthesis.c6_scientific"],
+                          "prism_fas.synthesis.c6_scientific", "prism_fas.synthesis.gate_profiles"],
         "hard_gates_reused_unmodified": True,
         "q_semantics": "q remains a training-weight/matching variable exactly as frozen -- never "
                       "reinterpreted as an acceptance criterion",
         "calibration_source_only": True,
         "calibration_never_uses_held_out_target": True,
-        "thresholds_never_relaxed_to_force_feasibility": True,
+        # Corrected wording: the frozen rule is NOT "there is exactly one threshold set that is
+        # never touched" -- it is that §11.4 preregisters exactly three derived profiles (STRICT,
+        # NOMINAL, PERMISSIVE, via `gate_profiles.PROFILE_ORDER`/`derive_profile`/
+        # `build_profiles`) and `c6_scientific.select_strictest_profile` selects the STRICTEST one
+        # that is matched-feasible for ALL of RND/DET/LLM in the fold, walked in that frozen
+        # order. No ad-hoc threshold relaxation of any kind is permitted outside that
+        # preregistered procedure: no fourth profile, no per-arm threshold, no edit to a
+        # threshold after candidate outcomes are observed, and never on target information.
+        "strict_nominal_permissive_profile_walk": {
+            "frozen_profile_order": ["STRICT", "NOMINAL", "PERMISSIVE"],
+            "selector": "prism_fas.synthesis.c6_scientific.select_strictest_profile",
+            "profile_derivation": "prism_fas.synthesis.gate_profiles.derive_profile/build_profiles",
+            "rule": "the STRICTEST profile that is matched-feasible for every arm in the fold is "
+                   "selected; if none qualifies, generation for that fold is BLOCKED "
+                   "(BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE or MATCHED_BANK_INFEASIBLE) rather "
+                   "than relaxing any threshold",
+            "one_common_profile_applies_to_all_arms": True,
+            "no_fourth_profile_ever_created": True,
+            "no_post_outcome_threshold_edits": True,
+            "no_target_information_used": True,
+        },
+        "no_ad_hoc_threshold_relaxation": "only the preregistered frozen STRICT/NOMINAL/PERMISSIVE "
+                                         "profile-selection procedure is allowed",
         "target_access": False, "llm_api_calls": 0,
     }
 
@@ -3192,7 +4536,6 @@ def _prior_generation_primitive_resolved_per_fold(compatibility: dict[str, dict[
 
 def build_execution_plan(repo: Path) -> dict[str, Any]:
     compatibility = {fold_id: audit_gpat_input_compatibility(repo, fold_id) for fold_id in FOLD_IDS}
-    shuffle = build_shuffle_feasibility_policy(repo)
     gpat_input_compatible = {fold_id: compatibility[fold_id]["status"] in
                              ("COMPATIBLE", "COMPATIBLE_PENDING_GPU_PRIOR_GENERATION")
                              for fold_id in FOLD_IDS}
@@ -3205,26 +4548,60 @@ def build_execution_plan(repo: Path) -> dict[str, Any]:
         fold_id: gpat_input_compatible[fold_id] and not source_priors_materialized[fold_id]
         for fold_id in FOLD_IDS
     }
+    gpat_fitted = {fold_id: validate_gpat_fit_lock(repo, fold_id)["status"] == "VALID"
+                  for fold_id in FOLD_IDS}
+    generation_closure = {fold_id: validate_generation_closure(repo, fold_id) for fold_id in FOLD_IDS}
+    candidate_bank_stage_closed = {fold_id: generation_closure[fold_id]["candidate_bank_stage_closed"]
+                                  for fold_id in FOLD_IDS}
+    all_gpat_fitted = all(gpat_fitted.values())
+    all_candidate_banks_closed = all(candidate_bank_stage_closed.values())
+    e7_ready_for_training = all_gpat_fitted and all_candidate_banks_closed
+    # Per-fold, per-condition schedulability: TRUE only for a condition whose BANK_LOCK.json is
+    # independently re-validated VALID right now. A fold reaching "candidate-bank stage closed"
+    # does NOT make every one of its conditions schedulable -- F1's G-LLM-SHUFFLE-A is a
+    # legitimate, permanent, frozen terminal block and stays unschedulable even after F1's stage
+    # closes; this map is what keeps that distinction visible instead of collapsing it into one
+    # global boolean.
+    schedulable_conditions = {
+        fold_id: {condition: validate_matched_bank_lock(repo, fold_id, condition)["status"] == "VALID"
+                 for condition in ("G-RND", "G-DET", "G-LLM", SHUFFLE_CONDITION)}
+        for fold_id in FOLD_IDS
+    }
+    if not all_gpat_fitted:
+        reason = "GPAT fitting is not yet VALID for every fold"
+    elif not all_candidate_banks_closed:
+        reason = ("all three folds' GPAT fits are VALID; per-fold RND/DET/LLM candidate "
+                 "generation/quality-gate/matched-bank resolution and F2/F3 Shuffle-A protocol-"
+                 "gap disposition remain to reach a terminal state")
+    else:
+        reason = ("all three folds' GPAT fits and candidate-bank stages have reached a terminal "
+                 "state (VALID banks, or a legitimate scientifically-blocked/protocol-gap "
+                 "closure); E7_READY_FOR_TRAINING means this stage has fully CLOSED and a later "
+                 "milestone MAY now schedule detector training on whichever conditions "
+                 "`schedulable_conditions` marks VALID -- it does NOT mean training has run "
+                 "(training_performed stays False here always), and a condition this module "
+                 "blocked (frozen or protocol-gap) never becomes schedulable merely because its "
+                 "fold's stage closed")
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-execution-plan-v2",
+        "schema_version": f"{SCHEMA_PREFIX}-execution-plan-v3",
         "per_fold_compatibility": {f: compatibility[f]["status"] for f in FOLD_IDS},
-        "per_fold_shuffle_status": {f: shuffle["folds"][f]["status"] for f in FOLD_IDS},
+        "per_fold_shuffle_status": {f: resolved_shuffle_status(repo, f) for f in FOLD_IDS},
         "per_fold_source_priors_materialized": source_priors_materialized,
+        "per_fold_gpat_fitted": gpat_fitted,
+        "per_fold_candidate_bank_stage_closed": candidate_bank_stage_closed,
+        "schedulable_conditions": schedulable_conditions,
         "ready_for_gpu_gpat_fit": ready_for_gpu_gpat_fit,
         "ready_for_gpu_source_prior_materialization": ready_for_gpu_source_prior_materialization,
-        "next_gpu_stages": ["A. source prior materialization (--prepare-source-priors, SiW-as-"
-                            "source rows for F2/F3 -- shared package, generated at most once)",
-                            "B. strict prior validation (--validate-source-priors)",
-                            "C. GPAT-input package/adapter materialization",
-                            "D. GPAT pair-plan materialization/validation",
-                            "E. GPATTrainer.fit (only after A-D succeed)",
-                            "source-only quality calibration",
-                            "per-fold/per-arm candidate generation (Physics+GPAT)",
-                            "quality-gate evaluation", "F2/F3 Shuffle-A independent feasibility",
-                            "matched-bank resolution", "per-fold/per-condition integrity locks"],
-        "e7_ready_for_training": False,
-        "reason": "no GPAT checkpoint fitted, no synthetic candidate bank exists, F2/F3 Shuffle "
-                 "feasibility unresolved, no matched-bank/integrity lock has run",
+        "next_gpu_stages": ["per-fold/per-arm candidate generation (Physics+GPAT) via "
+                            "--generate-and-match --authorize [--fold ...]",
+                            "source-only quality calibration (computed once per fold)",
+                            "the STRICT->NOMINAL->PERMISSIVE quality-gate profile walk",
+                            "matched-bank resolution (RND/DET/LLM independently)",
+                            "F2/F3 fold-scoped LLM-SHUFFLE-A adapter, attempted after that "
+                            "fold's own RND/DET/LLM banks are VALID (F1 stays frozen blocked)",
+                            "per-fold/per-condition BANK_LOCK.json or scientific-block closure"],
+        "e7_ready_for_training": e7_ready_for_training,
+        "reason": reason,
         "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
         "training_performed": False, "gpat_fitting_performed": False,
     }
@@ -3241,7 +4618,6 @@ def preflight(repo: Path) -> dict[str, Any]:
     e7d_binding = build_e7d_binding(repo)
     compatibility = {fold_id: audit_gpat_input_compatibility(repo, fold_id) for fold_id in FOLD_IDS}
     e7d_validation = e7d.e7d_validate(repo)
-    shuffle = build_shuffle_feasibility_policy(repo)
     recipe_binding = e7c.build_recipe_bank_binding(repo)
 
     source_support_valid = {
@@ -3265,9 +4641,16 @@ def preflight(repo: Path) -> dict[str, Any]:
         gpat_input_compatible[f] and not source_priors_materialized[f] for f in FOLD_IDS)
     gpat_fitted = {fold_id: validate_gpat_fit_lock(repo, fold_id)["status"] == "VALID"
                   for fold_id in FOLD_IDS}
+    # Now that all three folds' GPAT locks are VALID (per the frozen GPU evidence), readiness for
+    # the NEXT stage (candidate generation -> quality gate -> matched bank) is reported per fold,
+    # never conflated with "no GPAT checkpoint fitted" (that framing is retired).
+    ready_for_gpu_generate_and_match = {fold_id: gpat_fitted[fold_id] for fold_id in FOLD_IDS}
+    generation_closure = {fold_id: validate_generation_closure(repo, fold_id) for fold_id in FOLD_IDS}
+    candidate_bank_stage_closed = {fold_id: generation_closure[fold_id]["candidate_bank_stage_closed"]
+                                  for fold_id in FOLD_IDS}
 
     return {
-        "schema_version": f"{SCHEMA_PREFIX}-preflight-v2",
+        "schema_version": f"{SCHEMA_PREFIX}-preflight-v3",
         "E7D_BINDING_MATCH": e7d_binding["E7D_BINDING_MATCH"] if e7d_binding["evidence_present"]
                             else False,
         "F1_SOURCE_SUPPORT_VALID": source_support_valid["EXT-F1"],
@@ -3292,9 +4675,13 @@ def preflight(repo: Path) -> dict[str, Any]:
         "PAIRING_SCIENTIFIC_RULES_REUSED": True,
         "QUALITY_GATE_REUSED": True,
         "MATCHED_BANK_LOGIC_REUSED": True,
-        "F1_SHUFFLE_STATUS": shuffle["folds"]["EXT-F1"]["status"],
-        "F2_SHUFFLE_STATUS": shuffle["folds"]["EXT-F2"]["status"],
-        "F3_SHUFFLE_STATUS": shuffle["folds"]["EXT-F3"]["status"],
+        # Resolved from each fold's OWN structural situation (never inherited from F1's result):
+        # F1 remains the pre-existing frozen infeasibility; F2/F3 read the REAL on-disk state of
+        # the fold-scoped LLM-SHUFFLE-A adapter (`run_shuffle_generation_and_match`) -- never
+        # silently aliased to the LLM arm's own bank.
+        "F1_SHUFFLE_STATUS": resolved_shuffle_status(repo, "EXT-F1"),
+        "F2_SHUFFLE_STATUS": resolved_shuffle_status(repo, "EXT-F2"),
+        "F3_SHUFFLE_STATUS": resolved_shuffle_status(repo, "EXT-F3"),
         "RECIPE_BANKS_BOUND": recipe_binding["all_required_banks_bound"],
         # LITERAL meaning: all source inputs GPATTrainer.fit would open already exist and
         # validate -- never "the workflow knows how to create priors first".
@@ -3306,11 +4693,23 @@ def preflight(repo: Path) -> dict[str, Any]:
         # is fitted.
         "F1_GPAT_FITTED": gpat_fitted["EXT-F1"], "F2_GPAT_FITTED": gpat_fitted["EXT-F2"],
         "F3_GPAT_FITTED": gpat_fitted["EXT-F3"],
+        "F1_READY_FOR_GENERATE_AND_MATCH": ready_for_gpu_generate_and_match["EXT-F1"],
+        "F2_READY_FOR_GENERATE_AND_MATCH": ready_for_gpu_generate_and_match["EXT-F2"],
+        "F3_READY_FOR_GENERATE_AND_MATCH": ready_for_gpu_generate_and_match["EXT-F3"],
+        "F1_CANDIDATE_BANK_STAGE_CLOSED": candidate_bank_stage_closed["EXT-F1"],
+        "F2_CANDIDATE_BANK_STAGE_CLOSED": candidate_bank_stage_closed["EXT-F2"],
+        "F3_CANDIDATE_BANK_STAGE_CLOSED": candidate_bank_stage_closed["EXT-F3"],
+        # E7_READY_FOR_TRAINING stays FALSE throughout this stage: candidate banks reaching a
+        # legitimate terminal state (VALID banks, or a scientifically blocked/protocol-gap
+        # closure) is not itself the finish line, and a blocked condition (F1 Shuffle-A
+        # permanently, F2/F3 Shuffle-A via the protocol-gap audit above) must never be scheduled
+        # for detector training.
         "E7_READY_FOR_TRAINING": False,
         "TARGET_LABEL_ACCESS": False, "TARGET_IMAGE_ACCESS": False,
         "TRAINING_PERFORMED": False, "RENDERING_PERFORMED": False,
         "GPAT_FITTING_PERFORMED": False, "LLM_API_CALLS": 0,
         "per_fold_compatibility_detail": {f: compatibility[f]["status"] for f in FOLD_IDS},
+        "per_fold_generation_closure": generation_closure,
     }
 
 
@@ -3326,9 +4725,20 @@ def build_readiness(repo: Path) -> dict[str, Any]:
         "F3_SOURCE_PRIORS_MATERIALIZED": pf["F3_SOURCE_PRIORS_MATERIALIZED"],
         "F1_GPAT_FITTED": pf["F1_GPAT_FITTED"], "F2_GPAT_FITTED": pf["F2_GPAT_FITTED"],
         "F3_GPAT_FITTED": pf["F3_GPAT_FITTED"],
-        "E7_READY_FOR_TRAINING": False, "reason": execution_plan["reason"],
+        # A READINESS signal only -- "this stage has fully closed, a later milestone MAY now
+        # schedule training on whichever conditions SCHEDULABLE_CONDITIONS marks VALID". It is
+        # NEVER an execution signal: TRAINING_PERFORMED stays False regardless, and this module
+        # never runs a detector. See `build_execution_plan`'s own `reason` for the exact rule.
+        "E7_READY_FOR_TRAINING": execution_plan["e7_ready_for_training"], "reason": execution_plan["reason"],
         "F1_SHUFFLE_STATUS": pf["F1_SHUFFLE_STATUS"], "F2_SHUFFLE_STATUS": pf["F2_SHUFFLE_STATUS"],
         "F3_SHUFFLE_STATUS": pf["F3_SHUFFLE_STATUS"],
+        "F1_CANDIDATE_BANK_STAGE_CLOSED": pf["F1_CANDIDATE_BANK_STAGE_CLOSED"],
+        "F2_CANDIDATE_BANK_STAGE_CLOSED": pf["F2_CANDIDATE_BANK_STAGE_CLOSED"],
+        "F3_CANDIDATE_BANK_STAGE_CLOSED": pf["F3_CANDIDATE_BANK_STAGE_CLOSED"],
+        # Per-fold, per-condition schedulability -- never collapsed into one global boolean. A
+        # fold's own permanently-blocked/protocol-gap condition (e.g. EXT-F1's
+        # G-LLM-SHUFFLE-A) stays False here even when E7_READY_FOR_TRAINING is True.
+        "SCHEDULABLE_CONDITIONS": execution_plan["schedulable_conditions"],
         "target_access": False, "llm_api_calls": 0, "rendering_performed": False,
         "training_performed": False, "gpat_fitting_performed": False,
     }
@@ -3340,41 +4750,34 @@ def write_readiness(repo: Path) -> dict[str, Any]:
 
 # --------------------------------------------------------------------------- #
 # TASK N -- GPU-stage entry points (real fail-closed orchestration; NOT
-# executed on the laptop this turn). `prepare_gpat` itself is defined above
-# (TASK N.6) next to the transaction/identity plumbing it depends on.
+# executed on the laptop this turn). `prepare_gpat` is defined above (TASK
+# N.6) next to the transaction/identity plumbing it depends on;
+# `generate_and_match` is defined earlier still, in the SOURCE-ONLY QUALITY
+# CALIBRATION -> CANDIDATE GENERATION -> ... section, next to the C5/C6
+# orchestration helpers it depends on.
 # --------------------------------------------------------------------------- #
-
-def generate_and_match(repo: Path, fold_id: str, *, authorize: bool = False) -> dict[str, Any]:
-    """`--generate-and-match --authorize [--fold EXT-Fn]`: per-arm candidate
-    generation (PhysicsRoute/GPATRoute), quality-gate evaluation, and
-    matched-bank resolution via the frozen c6_matched_bank machinery. Fails
-    closed if GPAT has not been fit for this fold yet."""
-    if fold_id not in FOLD_IDS:
-        raise E7Error(f"unknown fold_id {fold_id!r}")
-    if not authorize:
-        raise E7Error(f"candidate generation for {fold_id} requires --authorize; refusing to run")
-    checkpoint_path = gpat_best_checkpoint_path(repo, fold_id)
-    if not checkpoint_path.is_file():
-        raise E7Error(f"{fold_id}: no fitted GPAT checkpoint present -- run --prepare-gpat first; "
-                      "FAIL CLOSED")
-    raise E7Error(f"{fold_id}: reached the real GPU candidate-generation boundary on a non-GPU "
-                  "host -- refusing to proceed")
 
 
 def e7_gpat_bank_validate(repo: Path) -> dict[str, Any]:
-    """`--validate`: STRICTLY read-only."""
+    """`--validate`: STRICTLY read-only. A `BANK_LOCK.json` merely being
+    present is NEVER reported VALID here -- every RND/DET/LLM bank is
+    independently revalidated via `validate_matched_bank_lock`, and
+    Shuffle-A's status is resolved from its OWN authoritative closure
+    logic, never assumed from a bank-lock path pattern."""
     results = {}
     for fold_id in FOLD_IDS:
         checkpoint_path = gpat_best_checkpoint_path(repo, fold_id)
-        bank_lock_paths = {cond: repo / RUN_ROOT / fold_id / cond / "BANK_LOCK.json"
-                          for cond in SYNTHETIC_CONDITIONS}
         results[fold_id] = {
             "gpat_checkpoint_present": checkpoint_path.is_file(),
             "gpat_fit_lock_status": validate_gpat_fit_lock(repo, fold_id)["status"],
-            "banks": {cond: ("VALID" if p.is_file() else "NOT_MATERIALIZED")
-                     for cond, p in bank_lock_paths.items()},
+            "candidate_plan_status": validate_candidate_plan(repo, fold_id)["status"],
+            "quality_calibration_status": validate_quality_calibration(repo, fold_id)["status"],
+            "banks": {cond: validate_matched_bank_lock(repo, fold_id, cond)["status"]
+                     for cond in ("G-RND", "G-DET", "G-LLM", SHUFFLE_CONDITION)},
+            "shuffle_a_status": resolved_shuffle_status(repo, fold_id),
+            "generation_closure": validate_generation_closure(repo, fold_id),
         }
-    return {"schema_version": f"{SCHEMA_PREFIX}-validate-v1", "folds": results,
+    return {"schema_version": f"{SCHEMA_PREFIX}-validate-v2", "folds": results,
            "target_access": False, "llm_api_calls": 0}
 
 
