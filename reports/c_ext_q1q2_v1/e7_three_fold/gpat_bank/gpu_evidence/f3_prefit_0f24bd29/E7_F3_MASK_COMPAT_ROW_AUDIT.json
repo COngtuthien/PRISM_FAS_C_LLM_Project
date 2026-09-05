@@ -1,0 +1,16 @@
+{
+  "corrected_failures": 0,
+  "different_masks": 0,
+  "different_sources": 0,
+  "fold_id": "EXT-F3",
+  "llm_api_calls": 0,
+  "original_failures": 1,
+  "recovered_sample_ids_diagnostic": [
+    "extsrce6f52da34a17b88e0eddd19ba7c05ad7"
+  ],
+  "recovery_activations": 1,
+  "regions_checked": 53154,
+  "rows_checked": 5906,
+  "schema_version": "ext-q1q2-e7-gpat-bank-mask-compat-row-audit-v1",
+  "target_access": false
+}

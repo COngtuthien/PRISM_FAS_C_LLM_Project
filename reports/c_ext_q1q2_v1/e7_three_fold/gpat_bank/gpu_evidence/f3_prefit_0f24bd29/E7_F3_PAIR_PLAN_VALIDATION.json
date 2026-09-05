@@ -1,0 +1,15 @@
+{
+  "fold_id": "EXT-F3",
+  "llm_api_calls": 0,
+  "observed_train_pairs": 8416,
+  "observed_validation_pairs": 2112,
+  "package_identity": "00a3e40bf032310cf764a3e05fdef8dd4f85c5f09b4a1162e3a5e1a066dfe2ce",
+  "pair_plan_identity": "0ea0caf93f922e777f2d343aa65974373b47e7cbca2babdd65a7e9cf83993144",
+  "pair_plan_identity_match": true,
+  "problems": [],
+  "recomputed_pair_plan_identity": "0ea0caf93f922e777f2d343aa65974373b47e7cbca2babdd65a7e9cf83993144",
+  "schema_version": "ext-q1q2-e7-gpat-bank-pair-plan-validate-v1",
+  "seed": 20260806,
+  "status": "VALID",
+  "target_access": false
+}

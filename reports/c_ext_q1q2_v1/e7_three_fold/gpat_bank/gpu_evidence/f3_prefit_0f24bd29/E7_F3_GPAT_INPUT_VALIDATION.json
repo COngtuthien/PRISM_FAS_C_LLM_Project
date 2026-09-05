@@ -1,0 +1,24 @@
+{
+  "bad_image_hashes": 0,
+  "bad_prior_hashes": 0,
+  "dataset_counts": {
+    "msu_mfsd": 480,
+    "siw_mv2": 5426
+  },
+  "duplicate_ids": 0,
+  "fold_id": "EXT-F3",
+  "forbidden_rows": [],
+  "live_count": 2632,
+  "llm_api_calls": 0,
+  "missing_images": 0,
+  "missing_priors": 0,
+  "package_identity": "00a3e40bf032310cf764a3e05fdef8dd4f85c5f09b4a1162e3a5e1a066dfe2ce",
+  "package_identity_match": true,
+  "problems": [],
+  "recomputed_package_identity": "00a3e40bf032310cf764a3e05fdef8dd4f85c5f09b4a1162e3a5e1a066dfe2ce",
+  "row_count": 5906,
+  "schema_version": "ext-q1q2-e7-gpat-bank-gpat-input-validate-v1",
+  "spoof_count": 3274,
+  "status": "VALID",
+  "target_access": false
+}

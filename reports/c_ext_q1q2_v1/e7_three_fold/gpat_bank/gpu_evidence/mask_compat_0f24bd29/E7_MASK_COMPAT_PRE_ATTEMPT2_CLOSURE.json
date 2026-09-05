@@ -1,0 +1,29 @@
+{
+  "F1_LOCK_STATUS": "VALID",
+  "F1_PAIR_INVARIANCE_PASS": true,
+  "F1_RERUN_REQUIRED": false,
+  "F1_ROW_INVARIANCE_PASS": true,
+  "F2_ATTEMPT2_MUST_RESUME": false,
+  "F2_BEST_CHECKPOINT_PRESENT": false,
+  "F2_COMPATIBILITY_STATUS": "COMPATIBLE",
+  "F2_GPAT_INPUT_STATUS": "VALID",
+  "F2_LAST_CHECKPOINT_PRESENT": false,
+  "F2_LOCK_STATUS": "NOT_MATERIALIZED",
+  "F2_PAIR_PLAN_STATUS": "VALID",
+  "F2_RECOVERY_PASS": true,
+  "F2_SOURCE_PRIORS_STATUS": "VALID",
+  "F2_TERMINAL_LOCK_PRESENT": false,
+  "LLM_API_CALLS": 0,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "TARGET_IMAGE_ACCESS": false,
+  "TARGET_LABEL_ACCESS": false,
+  "decision": "AUTHORIZED_FOR_EXT_F2_GPAT_FRESH_FIT_ATTEMPT2",
+  "implementation_provenance": {
+    "implementation_commit": "0f24bd29b230615faf8429f51199ba712d28e17e",
+    "implementation_module_sha256": "8125f51cfec3139f7a58591bec39e4bce66856e825a5ed09d05c0b36473c70f0",
+    "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9"
+  },
+  "mask_compatibility_policy": "e7-empty-cheek-crop-boundary-recovery-v1",
+  "schema_version": "e7-mask-compatibility-pre-attempt2-closure-v1",
+  "status": "VALID"
+}

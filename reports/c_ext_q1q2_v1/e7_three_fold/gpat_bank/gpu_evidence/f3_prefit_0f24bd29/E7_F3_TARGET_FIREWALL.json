@@ -1,0 +1,17 @@
+{
+  "active": true,
+  "always_open_source_side_roots": [
+    "data/packages/prism_data_v1_m3b",
+    "assets/recipe_banks/prism_recipe_bank_m7_v1",
+    "data/processed/c_ext_q1q2_v1/e7b/siw_source_v1"
+  ],
+  "forbidden_roots": [
+    "data/evaluation_only",
+    "reports/flow2_counterfactual_assumed_pass",
+    "runs/flow2_counterfactual_assumed_pass",
+    "reports/full/exploratory_target_v3",
+    "reports/c_ext_q1q2_v1/e5_realonly/target_scoring",
+    "data/processed/c_ext_q1q2_v1/e7b/casia_target_v1"
+  ],
+  "heldout_target_domain": "CASIA-FASD"
+}

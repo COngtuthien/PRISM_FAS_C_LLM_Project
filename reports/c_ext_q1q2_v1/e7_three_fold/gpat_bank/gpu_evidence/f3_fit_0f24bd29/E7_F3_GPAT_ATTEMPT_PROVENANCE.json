@@ -1,0 +1,13 @@
+{
+  "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+  "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+  "effective_config_hash": "b3e05d71532751affd3b59984a4ee8af30308bf65592abc6b0a624efd0e533c2",
+  "fold_id": "EXT-F3",
+  "implementation_commit": "0f24bd29b230615faf8429f51199ba712d28e17e",
+  "implementation_module_sha256": "8125f51cfec3139f7a58591bec39e4bce66856e825a5ed09d05c0b36473c70f0",
+  "mask_compatibility_policy": "e7-empty-cheek-crop-boundary-recovery-v1",
+  "package_identity": "00a3e40bf032310cf764a3e05fdef8dd4f85c5f09b4a1162e3a5e1a066dfe2ce",
+  "pair_plan_identity": "0ea0caf93f922e777f2d343aa65974373b47e7cbca2babdd65a7e9cf83993144",
+  "resume_requested": false,
+  "schema_version": "ext-q1q2-e7-gpat-bank-gpat-attempt-provenance-v1"
+}

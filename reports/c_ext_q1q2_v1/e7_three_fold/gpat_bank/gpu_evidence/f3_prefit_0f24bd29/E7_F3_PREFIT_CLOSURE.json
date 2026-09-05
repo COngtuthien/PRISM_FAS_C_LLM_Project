@@ -1,0 +1,54 @@
+{
+  "LLM_API_CALLS": 0,
+  "SCIENTIFIC_PROTOCOL_CHANGED": false,
+  "TARGET_IMAGE_ACCESS": false,
+  "TARGET_LABEL_ACCESS": false,
+  "decision": "AUTHORIZED_FOR_EXT_F3_GPAT_FRESH_FIT",
+  "effective_config_hash": "b3e05d71532751affd3b59984a4ee8af30308bf65592abc6b0a624efd0e533c2",
+  "f2_terminal_validation": {
+    "fold_id": "EXT-F2",
+    "llm_api_calls": 0,
+    "problems": [],
+    "schema_version": "ext-q1q2-e7-gpat-bank-gpat-fit-lock-validate-v1",
+    "status": "VALID",
+    "target_access": false
+  },
+  "f3_preexisting_terminal_status": "NOT_MATERIALIZED",
+  "fold_id": "EXT-F3",
+  "gpat_input_dataset_counts": {
+    "msu_mfsd": 480,
+    "siw_mv2": 5426
+  },
+  "gpat_input_package_identity": "00a3e40bf032310cf764a3e05fdef8dd4f85c5f09b4a1162e3a5e1a066dfe2ce",
+  "gpat_input_row_count": 5906,
+  "gpat_input_status": "VALID",
+  "gpu_capability": {
+    "capable": true,
+    "cuda_available": true,
+    "problems": [],
+    "weight_root": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/weights"
+  },
+  "heldout_target": "CASIA-FASD",
+  "implementation_provenance": {
+    "implementation_commit": "0f24bd29b230615faf8429f51199ba712d28e17e",
+    "implementation_module_sha256": "8125f51cfec3139f7a58591bec39e4bce66856e825a5ed09d05c0b36473c70f0",
+    "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9"
+  },
+  "mask_compatibility_policy": "e7-empty-cheek-crop-boundary-recovery-v1",
+  "mask_recovery_activations": 1,
+  "pair_plan_identity": "0ea0caf93f922e777f2d343aa65974373b47e7cbca2babdd65a7e9cf83993144",
+  "pair_plan_status": "VALID",
+  "recovered_sample_ids": [
+    "extsrce6f52da34a17b88e0eddd19ba7c05ad7"
+  ],
+  "schema_version": "e7-f3-gpat-prefit-closure-v1",
+  "source_domains": [
+    "MSU-MFSD",
+    "SiW-Mv2"
+  ],
+  "source_prior_package_identity": "36f9154a4bd8e82382ffcc57a6b2c78749188ef07d222a0f11ab3d2f7817dec6",
+  "source_prior_status": "VALID",
+  "status": "VALID",
+  "train_pairs": 8416,
+  "validation_pairs": 2112
+}

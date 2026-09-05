@@ -1,0 +1,63 @@
+{
+  "DETECTOR_TRAINING_PERFORMED": false,
+  "LLM_API_CALLS": 0,
+  "RENDERING_PERFORMED": false,
+  "TARGET_IMAGE_ACCESS": false,
+  "TARGET_LABEL_ACCESS": false,
+  "adaface_weight_sha256": "43bd2d570584d95d4a17ce81f26449034c45dbeed750afcab651872abc0e1496",
+  "architecture_hash": "aaca9a2233eb4e0edf1285831fad8b005bb8e95374cc1437d254d77e34efcebc",
+  "base_config_sha256": "d38f9489861cb16d83c8e1725fc935103e393a99ba8b08ab35605cb7216fe0d6",
+  "best_checkpoint_relative_path": "runs/c_ext_q1q2_v1/e7_gpat_bank/EXT-F2/gpat_fit/checkpoints/best.pt",
+  "best_checkpoint_sha256": "2fd6e1069a87ef4ac99e40f69a9799927a72235b8a3d6dea04b5dae5ef16cad9",
+  "best_metrics": {
+    "epoch": 14,
+    "global_step": 8010,
+    "sha256": "2fd6e1069a87ef4ac99e40f69a9799927a72235b8a3d6dea04b5dae5ef16cad9",
+    "validation_identity_cosine": 0.9997232040362571,
+    "validation_total_loss": 0.01603029457046025
+  },
+  "device": "cuda",
+  "effective_config_hash": "f061be6f3e6eac7e7319c1612c64028227d699870deb1b4cf9fcb8d69e0352ed",
+  "epochs_completed": 15,
+  "epochs_requested": 15,
+  "fold_id": "EXT-F2",
+  "global_step": 8010,
+  "implementation_commit": "0f24bd29b230615faf8429f51199ba712d28e17e",
+  "implementation_module_sha256": "8125f51cfec3139f7a58591bec39e4bce66856e825a5ed09d05c0b36473c70f0",
+  "last_checkpoint_relative_path": "runs/c_ext_q1q2_v1/e7_gpat_bank/EXT-F2/gpat_fit/checkpoints/last.pt",
+  "last_checkpoint_sha256": "a7491408aea93d156431b6e3a77afec6e327f3010eb1c452431247f83459c918",
+  "m7_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+  "mask_compatibility_policy": "e7-empty-cheek-crop-boundary-recovery-v1",
+  "mask_compatibility_recovery_count": 2,
+  "package_identity": "609d76fbe7617ad10f54ac0811f864b2b1a0aeece736b66f1f25712849821880",
+  "pair_plan_identity": "fcc137dd11e79014be17e3c261ce42defbc827ff3125d348d2cfc5021ace1ce5",
+  "record_set_hashes": {
+    "train_live_source_record_id": "a96ced8518c797f1a26b12399279fbbf904e89287df5fbccf270c4bf1e9faaa4",
+    "train_spoof_source_record_id": "78da52dc2814c6435dbceb8d85b4fceef0cc53c5719b51bd09a58c4db5384980",
+    "validation_live_source_record_id": "88fcc5831b99d716c8b54ee9836f980912b484329f3db6291f442e382cebd269",
+    "validation_spoof_source_record_id": "84d73c192dacafd00d4d82a52a948a8336469092bb24ebd0048985fc6f73ff5c"
+  },
+  "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+  "run_id": "gpat_fit_ext_f2_f061be6f3e6e",
+  "schema_version": "ext-q1q2-e7-gpat-bank-gpat-fit-lock-v1",
+  "seed": 20260806,
+  "source_isolation": {
+    "distinct_paths": 11795,
+    "manifests_opened": [
+      "manifests/source_train.parquet"
+    ],
+    "path_prefixes": [
+      "images",
+      "manifests",
+      "priors"
+    ],
+    "raw_dataset_path_opened": false,
+    "source_dev_opened": false,
+    "source_train_opened": true,
+    "target_label_artifact_opened": false,
+    "target_test_opened": false,
+    "total_opens": 11795
+  },
+  "status": "VALID",
+  "stop_reason": "completed_all_epochs"
+}

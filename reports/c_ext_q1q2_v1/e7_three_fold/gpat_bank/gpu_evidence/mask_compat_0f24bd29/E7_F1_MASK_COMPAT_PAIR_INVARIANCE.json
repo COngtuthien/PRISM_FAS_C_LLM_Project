@@ -1,0 +1,9 @@
+{
+  "different_masks": 0,
+  "fold_id": "EXT-F1",
+  "llm_api_calls": 0,
+  "pairs_checked": 1120,
+  "recovery_activations": 0,
+  "schema_version": "ext-q1q2-e7-gpat-bank-mask-compat-pair-audit-v1",
+  "target_access": false
+}
