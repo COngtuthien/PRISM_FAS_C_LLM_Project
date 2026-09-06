@@ -1,0 +1,92 @@
+{
+  "amendment_name": "E7-v1.1 RESERVE AMENDMENT",
+  "amendment_status": "FROZEN_POST_OBSERVATION_PRE_RENDER",
+  "authority_audit_path": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/RESERVE_SCHEDULE_AUTHORITY_AUDIT.json",
+  "budget": {
+    "goal_accepted_per_arm": {
+      "gpat": 512,
+      "physics": 512
+    },
+    "hard_cap_per_route_arm": 2048,
+    "hard_cap_total_per_arm": 4096,
+    "initial_per_arm": {
+      "gpat": 1024,
+      "physics": 1024
+    },
+    "max_tranches": 4,
+    "never_lower_quality_threshold": true,
+    "no_oversampling_to_fake_a_full_bank": true,
+    "reserve_tranche_per_route": 256,
+    "underfill_after_cap": "SCIENTIFICALLY_BLOCKED"
+  },
+  "frozen_after": "observing BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE on the v1.0 initial-pool attempt for EXT-F1, EXT-F2 and EXT-F3 (all of G-RND/G-DET/G-LLM, every fold)",
+  "frozen_before": "any reserve candidate rendering",
+  "frozen_primitives_not_modified": [
+    "c5_source_pair_plan.py",
+    "c5_arm_plan.py",
+    "c5_raw_generation.py",
+    "c5_render.py",
+    "synthetic_bank.py",
+    "quality_gate.py",
+    "quality_calibration.py",
+    "c6_scientific.py",
+    "c6_matched_bank.py",
+    "gpat_trainer.py",
+    "gpat_model.py",
+    "gpat_losses.py",
+    "m8_pipeline.py",
+    "masks.py",
+    "pair_plan.py",
+    "gate_profiles.py"
+  ],
+  "governing_spec_section": "EXT-Q1Q2 Detailed Spec v1.0 section 6.1 (Unified synthetic candidate budget)",
+  "llm_api_calls": 0,
+  "not_e0_preregistered": true,
+  "not_implemented_this_task": "rendering, quality evaluation, and the tranche orchestration LOOP are NOT implemented by this module -- only the deterministic schedule/identity construction. Opening (rendering) the first reserve tranche requires a separate, later, explicit authorization.",
+  "orchestration_procedure_future_work": [
+    "open tranche t for all 3 arms x 2 routes synchronously (this module)",
+    "render (reuses c5_render.render_arm unmodified -- NOT implemented by this module)",
+    "evaluate (reuses c6_scientific.evaluate_pool/gate_candidates unmodified -- NOT implemented by this module)",
+    "recompute the exact STRICT/NOMINAL/PERMISSIVE matched-bank feasibility over the CUMULATIVE pool (reuses c6_scientific.assess_profile/select_strictest_profile/c6_matched_bank.build_matched_banks unmodified -- NOT implemented by this module)",
+    "if still infeasible and t < 4: open tranche t+1",
+    "if infeasible at t = 4: SCIENTIFICALLY_BLOCKED, no oversampling, no threshold change"
+  ],
+  "outcome_independence": "no function in this module accepts an accepted-count, a quality score, a q value, a prior tranche's result, target data, or any other observed outcome as an input; membership is a pure function of (fold_id, tranche, route, recipe_ordinal, arm) only",
+  "rendering_authorized": false,
+  "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "reused_frozen_functions": [
+    "c5_source_pair_plan.load_source_rows",
+    "c5_source_pair_plan.live_for_position",
+    "c5_source_pair_plan.spoof_for_position",
+    "c5_source_pair_plan.candidate_identity",
+    "c5_source_pair_plan.source_pair_plan_identity",
+    "c5_arm_plan.load_arm_bank",
+    "c5_arm_plan._recipe_id",
+    "c5_arm_plan.build_all_arm_plans (invariance check only)"
+  ],
+  "route_assignment": "BLOCK: within one tranche's 512 new positions, the first 256 (by position order) are PHYSICS, the next 256 are GPAT",
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-protocol-lock-v1",
+  "shuffle_policy": "the core RND/DET/LLM anchor bank must reach a common matched-feasible profile BEFORE Shuffle-A is evaluated for that fold; this amendment does not implement Shuffle reserve as an independent rescue mechanism; EXT-F1's historical Shuffle scientific infeasibility (BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY) is NOT rescued by it",
+  "synchronization_rule": "a reserve tranche is ALWAYS built for all three RND/DET/LLM arms and both routes together, via materialize_reserve_schedule_for_fold -- this module exposes no API to build a partial (single-arm or single-route) tranche",
+  "target_access": false,
+  "v1_0_evidence_immutable": true,
+  "v1_0_evidence_rewritten_or_rescued": false,
+  "v1_0_pool_invariance": "positions 0..2047 are never produced, touched, or renumbered by this module; reserve positions occupy 2048.. exclusively (RESERVE_POSITION_BASE)",
+  "v1_0_terminal_observations_referenced": {
+    "EXT-F1": {
+      "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+    },
+    "EXT-F2": {
+      "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+    },
+    "EXT-F3": {
+      "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "folds": {
+    "EXT-F1": {
+      "arm_schedule_identities": {
+        "DET": "2c0a14d3a6b4461ddc3c630631b79e3df841af04156439ea2cfc62407eb7299d",
+        "LLM": "faaa9859106cb2a0423d0dbc066201b6c9dec832bb6103b39b2a42681915b09a",
+        "RND": "54ea9f598ce10f0c0b50e53bdd6ac5e1f78e7834eeff5253b1fdda866410d3d5"
+      },
+      "arms_share_the_schedule": true,
+      "reserve_candidate_ids_disjoint_from_v1_0": true,
+      "reserve_max_position": 4095,
+      "reserve_min_position": 2048,
+      "v1_0_max_position": 2047,
+      "v1_0_pool_identical_before_and_after": true,
+      "v1_0_position_count": 2048,
+      "v1_0_source_pair_plan_identity": "fcd4d7f87718d3c12793656750a57dbae904ff51bc4c78f293a11588c989325f"
+    },
+    "EXT-F2": {
+      "arm_schedule_identities": {
+        "DET": "f9764a9f57d183bb1e75a7c3ffdf7b05858574b528cf7af558d2b5edc17168cf",
+        "LLM": "473aee83eebdb66b3be1c8a7c354be48a7dd6db56c06d5d4533eca8f3ee5216f",
+        "RND": "98be45f80d36a1abeb37bf336f7fc0debac618034ac60cade39ece83e866ff84"
+      },
+      "arms_share_the_schedule": true,
+      "reserve_candidate_ids_disjoint_from_v1_0": true,
+      "reserve_max_position": 4095,
+      "reserve_min_position": 2048,
+      "v1_0_max_position": 2047,
+      "v1_0_pool_identical_before_and_after": true,
+      "v1_0_position_count": 2048,
+      "v1_0_source_pair_plan_identity": "45211615f61cfddeaa6c575abfb0851e8efedb6528705e74e3cab5dedb272b63"
+    },
+    "EXT-F3": {
+      "arm_schedule_identities": {
+        "DET": "2f00303fb5e0faad3eec22fb1df63ea7f5deb9b6f5e2057419aa515f5713cff9",
+        "LLM": "62b134226bc793117e7c5672a35a49f8389dcb6a74e6f604bf75799c4d885237",
+        "RND": "f584be8b8e1670bc8ba687021a3884dbd0ce809301019830bae0163f7862fc88"
+      },
+      "arms_share_the_schedule": true,
+      "reserve_candidate_ids_disjoint_from_v1_0": true,
+      "reserve_max_position": 4095,
+      "reserve_min_position": 2048,
+      "v1_0_max_position": 2047,
+      "v1_0_pool_identical_before_and_after": true,
+      "v1_0_position_count": 2048,
+      "v1_0_source_pair_plan_identity": "8b05ddf7642a65e122180b87609af6b2de4354b4263b7ef53936ec87b39fe6eb"
+    }
+  },
+  "is_scientific_lock": false,
+  "note": "FIXTURE-BACKED illustrative dry run over a tiny synthetic repo (the same kind used by this milestone's own test suite), NOT the real per-fold GPAT-input package -- this laptop checkout holds no real GPU-synced package data. Per-fold identities/values here demonstrate the MECHANISM only and MUST be recomputed fresh against the real per-fold package on the GPU host before any reserve tranche is authorized or rendered, exactly as the original v1.0 base schedule already requires for its own identities.",
+  "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-invariance-audit-v1"
+}

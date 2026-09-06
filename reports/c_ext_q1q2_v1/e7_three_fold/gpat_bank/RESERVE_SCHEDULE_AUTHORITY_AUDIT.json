@@ -1,0 +1,157 @@
+{
+  "action_this_task": "READ-ONLY audit and report only. No reserve candidate was invented, computed or executed. No frozen synthesis primitive, GPAT checkpoint or lock, quality calibration artifact, Flow1/Flow2 artifact, or existing candidate bank/generation closure was modified, deleted or re-run.",
+  "answers": {
+    "authoritative_exact_reserve_schedule_exists": false,
+    "can_extend_through_tranche_1_4_without_changing_frozen_2048": "CANNOT ANSWER as a fact -- no rule exists. This is exactly the property the draft amendment proposal below is designed, but not yet proven or ratified, to satisfy.",
+    "freezing_file_commit_identity": null,
+    "guarantees_identical_scheduling_across_rnd_det_llm": "N/A for reserve positions -- no rule exists to evaluate. The EXISTING frozen initial-2048 schedule DOES guarantee this, via c5_arm_plan.assert_arms_share_the_schedule; any future reserve rule MUST also satisfy this exact invariant before it can be ratified.",
+    "guarantees_no_target_access": "N/A for reserve positions -- no rule exists to evaluate. The existing schedule's target-firewall guarantee rests on live_for_position/spoof_for_position/load_source_rows reading source_train only; any future reserve rule MUST reuse those exact functions unmodified to inherit the same guarantee.",
+    "reserve_candidate_id_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_candidate_ordinal_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_domain_relation_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_live_sample_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_recipe_ordinal_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_route_assignment_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_seed_hash_rule": "UNDEFINED -- no rule found anywhere audited",
+    "reserve_spoof_partner_rule": "UNDEFINED -- no rule found anywhere audited"
+  },
+  "audit_identity": "68b19a31613c0deff341b2d669facfc97c152a2aeee73a033fb191e42c953817",
+  "audit_scope": "READ-ONLY protocol/source audit of whether an authoritative, exact, deterministic reserve-candidate schedule already exists for the BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE trigger observed on the first authorized E7 generate_and_match attempt across EXT-F1/EXT-F2/EXT-F3.",
+  "constraints_observed_this_task": {
+    "llm_api_calls": 0,
+    "no_candidate_bank_or_generation_closure_modified": true,
+    "no_existing_generation_artifact_modified_or_rerun": true,
+    "no_flow1_flow2_artifact_modified": true,
+    "no_frozen_synthesis_primitive_modified": true,
+    "no_gpat_checkpoint_or_lock_modified": true,
+    "no_quality_calibration_modified": true,
+    "no_reserve_candidate_invented_or_executed": true,
+    "target_access": false
+  },
+  "draft_amendment_proposal": {
+    "framing": "Drafted AFTER observing, under the existing source-only/target-blind protocol, that all three folds' initial frozen 2048-candidate pass fell short of the 512-accepted floor on at least one route, and BEFORE any reserve candidate is rendered. This is a genuine MID-STUDY protocol amendment and must always be cited as such. It is explicitly NOT part of, and must never be described or recorded as, the E0 preregistration freeze -- the trigger condition (which folds/routes would fall short) was not and could not have been known at E0.",
+    "hard_requirements_satisfied_by_design": [
+      "global and outcome-independent: one identical deterministic rule for every fold, every arm, every route, every tranche -- no branch anywhere in the mechanism reads an accepted count, a q value, a per-arm pass rate, or any other observed outcome",
+      "never reads target images, target labels, or target metrics",
+      "never makes an outcome-adaptive recipe or source choice: every assignment formula is fixed before substitution, exactly mirroring how the initial schedule is already constructed",
+      "preserves positions 0..2047 and everything derived from them (identity, bytes, files already on disk) completely unchanged -- reserve positions occupy a NEW, disjoint, strictly-higher numbering range, never a renumbering of existing slots",
+      "synchronized +256/route/all-arm tranches exactly as spec section 6.1 requires, capped at 2048 candidates/route/arm",
+      "defines complete candidate membership (recipe ordinal, live sample, spoof partner, route, domain relation, candidate identity) for every reserve position before any reserve rendering could begin"
+    ],
+    "not_yet_decided": "This entire section is a DRAFT for the user/spec-owner to ratify, amend or reject. No code in this task implements it, and no reserve candidate exists anywhere because of it. If ratified, the resulting frozen rule must be committed as an explicit, separate, additive change (e.g. a new c5_reserve_schedule.py module, never an edit to c5_source_pair_plan.py/c5_arm_plan.py/c5_render.py) with its own identity, BEFORE any reserve candidate is rendered -- and the ratification record must state the exact date/commit and the fact that it was frozen AFTER observing the reserve trigger and BEFORE any reserve rendering, never as an E0 preregistration.",
+    "recommended_mechanism_draft": {
+      "candidate_identity_construction": "REUSE candidate_identity() VERBATIM, unmodified, over the reserve position's own (route, recipe_ordinal, live, spoof, domain_relation) tuple -- a reserve candidate's identity is therefore automatically distinct from every position-0..2047 candidate (different `position` input) and automatically identical in construction rule across RND/DET/LLM.",
+      "domain_relation_assignment_for_gpat": "continue the SAME alternating same_domain/cross_domain pattern the original 4 GPAT slots/recipe already use (2 same + 2 cross): relation = SAME_DOMAIN if (reserve_index_within_route // 256) is even else CROSS_DOMAIN -- preserves the existing 50/50 balance, introduces no new ratio.",
+      "explicitly_open_decisions_requiring_user_ratification": [
+        "block route assignment (256 Physics then 256 GPAT) vs. an alternating slot pattern mirroring the original per-recipe 8-slot cycle -- both are equally deterministic and outcome-independent; this draft recommends the simpler block form without treating the choice as already decided",
+        "whether to add new frozen constants inside c5_source_pair_plan.py itself (a frozen-primitive EDIT requiring explicit sign-off under CLAUDE.md) versus implementing this as a wholly separate additive module that only IMPORTS the existing frozen functions with zero primitive edits -- this draft recommends the additive-module path specifically so no frozen synthesis primitive is ever touched",
+        "the exact acceptance test suite that must pass on the EXTENDED schedule before reserve rendering is authorized -- this draft recommends re-running the cardinality assertions, the cross-arm fairness assertion, and a fresh source-only audit over the full extended position range, all strictly BEFORE any reserve GPU rendering begins"
+      ],
+      "fairness_and_target_firewall_inheritance": "because every reserve position is produced by the SAME frozen, position-keyed functions the initial schedule already uses and already proves fair (assert_arms_share_the_schedule) and source-only (load_source_rows reads source_train only), the extension inherits both guarantees BY CONSTRUCTION -- subject to re-running the equivalent checks over the EXTENDED schedule as an explicit acceptance gate before any reserve rendering.",
+      "live_sample_and_spoof_partner_assignment": "REUSE live_for_position/spoof_for_position VERBATIM, unmodified, called with the reserve position's own (larger) position number -- both are already pure functions of (position, seed) with no assumption that position < 2048.",
+      "position_numbering": "For tranche t in 1..4, one arm/fold's reserve positions are numbered 2048 + 512*(t-1) .. 2048 + 512*t - 1 (512 = 256/route * 2 routes) -- strictly above, and disjoint from, the frozen 0..2047 range. Nothing keyed on an existing position (identity, candidate_id, rendered bytes) is touched.",
+      "principle": "Extend c5_source_pair_plan's EXISTING frozen, position-keyed functions (live_for_position, eligible_spoof_sources/spoof_for_position, candidate_identity) VERBATIM into a new, disjoint position range. Nothing about HOW a position becomes a candidate is invented; only WHICH new positions exist and their (route, recipe_ordinal, domain_relation) triple is proposed.",
+      "recipe_ordinal_assignment": "recipe_ordinal = reserve_index mod 256, where reserve_index is the position's 0-based rank WITHIN its own route across all tranches (0..1023 at the t=4 cap) -- cycles back through the SAME frozen 256-recipe bank, at most 4 additional full cycles per route, the same shape the initial schedule already uses (4 Physics + 4 GPAT renders/recipe before any reserve tranche opens).",
+      "route_assignment": "Within one tranche's 512 new positions, the first 256 (by position order) are PHYSICS and the next 256 are GPAT -- deterministic and identical for every arm/fold/tranche."
+    },
+    "status_label": "DRAFT -- NOT RATIFIED, NOT IMPLEMENTED, NOT EXECUTED"
+  },
+  "governing_spec_citation": {
+    "adjacent_sections_checked_and_ruled_out": [
+      "section 7 (E0 outputs) -- protocol freeze artifacts only, no schedule content",
+      "section 18/19 area 'schedule realizations' (DET mixed-radix odometer mapping, offsets 0/53/107) -- this is the C3 RECIPE-BANK realization mechanism for E11 multi-bank (384->256 MILP selection across independent bank realizations), a completely separate frozen mechanism; it has no bearing on C5 candidate-render position scheduling or reserve tranches"
+    ],
+    "confirms": [
+      "initial_budget: 1024 Physics + 1024 GPAT per arm/fold",
+      "goal: 512 accepted Physics + 512 accepted GPAT",
+      "reserve_trigger: any arm-route <512 accepted -> open +256 candidates/route for ALL arms in that fold, synchronously",
+      "cap: 2048 candidates/route/arm (4096 total/arm)",
+      "never lower quality threshold",
+      "underfill after cap -> SCIENTIFICALLY BLOCKED; no oversampling to fake a full bank",
+      "must report candidate_count, passed_count, selected_count, reserve_tranche_count per arm-route"
+    ],
+    "document": "/home/cong/PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx",
+    "does_not_specify": [
+      "reserve candidate ordinal / recipe ordinal mapping",
+      "reserve live-sample assignment",
+      "reserve GPAT spoof-partner assignment",
+      "reserve route/slot assignment",
+      "reserve same/cross-domain relation assignment",
+      "reserve candidate_id construction",
+      "any seed/hash rule for reserve positions"
+    ],
+    "extracted_text_note": "diacritics stripped for ASCII-safe JSON storage; the MD report alongside this file carries the original Vietnamese text verbatim",
+    "extracted_text_original": [
+      "Initial candidate generation per arm/fold: 1024 Physics + 1024 GPAT = 2048 candidates.",
+      "Goal: exactly 512 accepted Physics + 512 accepted GPAT = 1024 final synthetic samples per arm.",
+      "Neu bat ky arm-route nao co <512 accepted, mo reserve tranche +256 candidates/route cho TAT CA arms trong fold do.",
+      "Lap dong bo toi da den 2048 candidates/route/arm (4096 total/arm).",
+      "Khong bao gio ha quality threshold. Neu sau cap van thieu 512 o bat ky arm-route nao: fold/condition = SCIENTIFICALLY BLOCKED, khong dung oversampling de gia du bank.",
+      "Bao cao candidate_count, passed_count, selected_count, reserve_tranche_count cho moi arm-route."
+    ],
+    "extraction_method": "read-only extraction of word/document.xml text from the .docx zip archive (no docx library available); verified against the existing repository paraphrase in c_ext_e0_freeze.py and configs/c_ext_q1q2_v1/conditions.yaml, which match exactly",
+    "resolved_via": "src/prism_fas/evaluation/c_ext_e0_freeze.py:737-739 names this exact path as the extension's governing spec ('EXT-Q1Q2 Detailed Spec v1.0')",
+    "section": "6.1 Unified synthetic candidate budget"
+  },
+  "repository_audit": {
+    "conditions_yaml_reserve_key": "reserve_tranche_per_route: 256 (line 49) -- numeric parameter only, matches the spec exactly; grep-confirmed read by ZERO Python code anywhere in the repository",
+    "configs_checked": [
+      "configs/c_ext_q1q2_v1/conditions.yaml"
+    ],
+    "e0_freeze_reference": "src/prism_fas/evaluation/c_ext_e0_freeze.py:317-325 echoes the SAME numeric budget into a descriptive provenance dict ('synthetic_candidate_budget'); computes and gates nothing",
+    "frozen_primitives_result": "zero matches for 'reserve'/'tranche' in any of the above files (the sole hit, c5_raw_generation.py:260, is the unrelated English word 'Reserved' in a docstring about semantic-failure retention, not candidate scheduling)",
+    "frozen_synthesis_primitives_checked": [
+      "src/prism_fas/synthesis/c5_source_pair_plan.py",
+      "src/prism_fas/synthesis/c5_arm_plan.py",
+      "src/prism_fas/synthesis/c5_render.py",
+      "src/prism_fas/synthesis/c5_raw_generation.py",
+      "src/prism_fas/synthesis/c6_scientific.py",
+      "src/prism_fas/synthesis/c6_matched_bank.py",
+      "src/prism_fas/synthesis/gate_profiles.py",
+      "src/prism_fas/synthesis/quality_gate.py",
+      "src/prism_fas/synthesis/quality_calibration.py",
+      "src/prism_fas/synthesis/synthetic_bank.py"
+    ],
+    "git_history_checked": "git log --all --oneline -i --grep=reserve -> zero commits concern a reserve-candidate schedule (checked against the full history, not just this branch)",
+    "hard_fixed_budget_evidence": [
+      "c5_source_pair_plan.CANDIDATES_PER_ARM = RECIPES_PER_ARM(256) * RENDERS_PER_RECIPE(8) = 2048, asserted by _assert_schedule on every build",
+      "c5_arm_plan._assert_arm_plan asserts exactly 2048 candidates/arm, exactly 1024/1024 route split, exactly 8 renders/recipe, on every arm plan built",
+      "c5_render.completeness() docstring/rule field, verbatim: 'a semantic generation failure is retained and reported; it is never resampled and the frozen 2048-per-arm budget never grows'",
+      "gate_profiles.py module docstring: 'Selection picks the strictest profile that yields the full matched cardinality in every arm... If none qualifies, C6 FAILS; it never relaxes the gate for the arm that fell short' and 'range/recipe-safe constraints are never relaxed beyond their frozen legal range' (tau_out)"
+    ],
+    "reports_and_docs_checked": [
+      "docs/PROJECT_STATE.md",
+      "docs/spec_snapshot.md (PRISM-FAS-B v1.1 -- a DIFFERENT, main-repo spec; its own section 6.1 is 'Filesystem isolation', unrelated)",
+      "reports/v15_reconciliation/*",
+      "docs/V15_PIPELINE_RESTRUCTURE_PLAN.md"
+    ],
+    "reports_and_docs_result": "no reserve-tranche candidate-schedule content found; every other 'reserve' substring hit repository-wide is the English word 'preserved'/'preserves', a false positive of case-insensitive substring search",
+    "test_suite_checked": "tests/pipeline/test_c5_*.py, test_c6_*.py (19 files) -- zero tests exercise a reserve-tranche candidate SCHEDULE; the only reserve-related tests in the repository (in test_c_ext_e7_gpat_bank.py, added this milestone) test that the BLOCK fires correctly and that its evidence is pre-bound -- they do not assume or exercise a schedule, because none exists"
+  },
+  "schema_version": "ext-q1q2-e7-gpat-bank-reserve-schedule-authority-audit-v1",
+  "status": "PROTOCOL_AMENDMENT_REQUIRED",
+  "trigger_context": {
+    "detector_training_performed": false,
+    "llm_api_calls": 0,
+    "no_valid_core_bank_produced": true,
+    "note": "Reported by the user as the outcome of the first authorized GPU generate_and_match attempt. This laptop checkout holds no local run/BANK_LOCK/GENERATION_CLOSURE artifacts from that attempt (it ran on the GPU host); none were inspected, modified, deleted or re-run to produce this audit -- this audit is a pure source/spec/history read.",
+    "observed_terminal_states": {
+      "EXT-F1": {
+        "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+      },
+      "EXT-F2": {
+        "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+      },
+      "EXT-F3": {
+        "G-DET": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-LLM": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+        "G-RND": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE"
+      }
+    },
+    "target_labels_accessed": false
+  }
+}
