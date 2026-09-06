@@ -358,11 +358,32 @@ def candidate_id_disjointness_report(repo: Path, fold_id: str) -> dict[str, Any]
 # Run state
 # --------------------------------------------------------------------------- #
 
+def _cumulative_counts_after_tranche(tranche: int) -> dict[str, dict[str, int]]:
+    """The exact cumulative Physics/GPAT candidate count per arm after
+    `tranche` reserve tranches have been RENDERED (0 = the immutable v1.0
+    pool alone, before any reserve tranche) -- a pure function of `tranche`
+    alone: `V1_0_CUMULATIVE_PER_ROUTE[route] + 256 * tranche`. Used
+    identically regardless of WHY a tranche's evaluation loop stopped
+    (`NEEDS_NEXT_RESERVE_TRANCHE` or `SCIENTIFICALLY_BLOCKED_AFTER_
+    RESERVE_CAP`): the cumulative count reflects how many tranches were
+    rendered, never why. Fixes a bookkeeping bug discovered after EXT-F1's
+    real terminal tranche-4 run under commit db87b1c: the cap-block branch
+    previously left `state`'s PRIOR cumulative_counts (1792/1792, tranche
+    3's value) in place instead of recomputing tranche 4's own (2048/2048).
+    That run's SCIENTIFIC result (SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP,
+    the PERMISSIVE assessment, the route-quota/shortfall numbers) was
+    computed correctly and is untouched by this fix -- only this metadata
+    field was stale. See E7_V1_1_TERMINAL_COUNT_BOOKKEEPING_CORRECTION.md."""
+    return {arm: {route: V1_0_CUMULATIVE_PER_ROUTE[route] + 256 * tranche
+                 for route in (spp.PHYSICS, spp.GPAT)}
+           for arm in spp.ARMS}
+
+
 def build_initial_run_state(fold_id: str) -> dict[str, Any]:
     return {
         "schema_version": f"{SCHEMA_PREFIX}-run-state-v1", "fold_id": fold_id,
         "status": STATUS_AWAITING_OPEN, "next_tranche": 1, "closed_at_tranche": None,
-        "cumulative_counts": {arm: dict(V1_0_CUMULATIVE_PER_ROUTE) for arm in spp.ARMS},
+        "cumulative_counts": _cumulative_counts_after_tranche(0),
         "target_access": False, "llm_api_calls": 0,
     }
 
@@ -700,15 +721,19 @@ def open_and_close_tranche(repo: Path, fold_id: str, tranche: int, *, authorize:
                "mask_compatibility_recovery_count": recovery_counter[0]}
 
     if decision.selected is None:
+        # The cumulative count reflects how many tranches were RENDERED, never why the loop
+        # stopped -- the SAME helper applies whether this tranche needs a successor or is the
+        # terminal cap-exhaustion tranche (item 4 of the bug report: the cap-block branch must
+        # record tranche 4's own 2048/2048, not silently retain tranche 3's 1792/1792).
+        cumulative_counts = _cumulative_counts_after_tranche(tranche)
         if tranche < rs.MAX_TRANCHES:
             new_status = STATUS_NEEDS_NEXT_TRANCHE
             new_state = {**state, "status": new_status, "next_tranche": tranche + 1,
-                        "cumulative_counts": {arm: {route: V1_0_CUMULATIVE_PER_ROUTE[route] + 256 * tranche
-                                                   for route in (spp.PHYSICS, spp.GPAT)}
-                                             for arm in spp.ARMS}}
+                        "cumulative_counts": cumulative_counts}
         else:
             new_status = STATUS_CAP_BLOCKED
-            new_state = {**state, "status": new_status, "next_tranche": None, "closed_at_tranche": None}
+            new_state = {**state, "status": new_status, "next_tranche": None, "closed_at_tranche": None,
+                        "cumulative_counts": cumulative_counts}
         closure = {**evidence, "schema_version": f"{SCHEMA_PREFIX}-tranche-closure-v1", "fold_id": fold_id,
                   "status": new_status, "is_scientific_lock": False, "target_access": False,
                   "llm_api_calls": 0}

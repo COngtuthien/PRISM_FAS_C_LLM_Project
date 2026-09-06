@@ -267,6 +267,129 @@ def test_m_tranche_4_infeasibility_produces_cap_block(tmp_path, monkeypatch):
         orch.open_and_close_tranche(repo, "EXT-F2", 4, authorize=True)
 
 
+# ============================================================================= #
+# TERMINAL RUN-STATE BOOKKEEPING CORRECTION -- regression tests for the bug
+# discovered after EXT-F1's real terminal tranche-4 run under commit
+# db87b1c721da99d89d6b9439418e94ab46e68767: the cap-block branch (tranche ==
+# rs.MAX_TRANCHES, decision.selected is None) previously left `cumulative_
+# counts` at its PRIOR tranche's stale value (1792/1792) instead of
+# recording tranche 4's own true cumulative count (2048/2048). Purely a
+# run-state METADATA fix -- the scientific evaluation (assessments, profile
+# decision, terminal status) was already correct and is unchanged by it.
+# ============================================================================= #
+
+def _accept_never_enough_gpat(row) -> bool:
+    if row["route"] == spp.PHYSICS:
+        return True
+    return False
+
+
+def test_cumulative_counts_correct_after_each_needs_next_tranche(tmp_path, monkeypatch):
+    """Items 1-3: after T1/T2/T3 infeasibility, RESERVE_RUN_STATE.json's
+    cumulative_counts must read 1280/1280, 1536/1536, 1792/1792."""
+    repo, _ = _build_orchestrator_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    fx._patch_generation_boundary(monkeypatch, repo, accept=_accept_never_enough_gpat, skip=fx._skip_none)
+    orch.write_reserve_schedule_lock(repo, "EXT-F1")
+
+    expected_after = {1: 1280, 2: 1536, 3: 1792}
+    for tranche in (1, 2, 3):
+        result = orch.open_and_close_tranche(repo, "EXT-F1", tranche, authorize=True)
+        assert result["status"] == orch.STATUS_NEEDS_NEXT_TRANCHE
+        state = orch.read_run_state(repo, "EXT-F1")
+        for arm in spp.ARMS:
+            assert state["cumulative_counts"][arm][spp.PHYSICS] == expected_after[tranche]
+            assert state["cumulative_counts"][arm][spp.GPAT] == expected_after[tranche]
+
+
+def test_cumulative_counts_correct_after_terminal_cap_block(tmp_path, monkeypatch):
+    """Item 4 (the reported bug, fixed): after T4 cap-block, RESERVE_RUN_
+    STATE.json's cumulative_counts must read 2048/2048 -- NOT the stale
+    1792/1792 left over from T3."""
+    repo, _ = _build_orchestrator_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    fx._patch_generation_boundary(monkeypatch, repo, accept=_accept_never_enough_gpat, skip=fx._skip_none)
+    orch.write_reserve_schedule_lock(repo, "EXT-F1")
+    for tranche in (1, 2, 3):
+        orch.open_and_close_tranche(repo, "EXT-F1", tranche, authorize=True)
+
+    result = orch.open_and_close_tranche(repo, "EXT-F1", 4, authorize=True)
+    assert result["status"] == orch.STATUS_CAP_BLOCKED  # item 5
+
+    state = orch.read_run_state(repo, "EXT-F1")
+    for arm in spp.ARMS:
+        assert state["cumulative_counts"][arm][spp.PHYSICS] == 2048  # the bug: this used to read 1792
+        assert state["cumulative_counts"][arm][spp.GPAT] == 2048
+    assert state["status"] == "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP"  # item 5, exact string
+    assert state["next_tranche"] is None  # item 6
+
+    # item 7: no T5 may open (both because it is out of the frozen 1..4 range, and because the
+    # fold is already closed).
+    with pytest.raises(orch.E7ReserveOrchestratorError):
+        orch.open_and_close_tranche(repo, "EXT-F1", 5, authorize=True)
+
+
+def test_correction_touches_only_run_state_metadata_not_scientific_content(tmp_path, monkeypatch):
+    """The fix changes ONLY `RESERVE_RUN_STATE.json`'s `cumulative_counts`
+    field. The tranche closure's own scientific content (assessments,
+    selected profile, terminal status) is computed BEFORE `new_state` is
+    ever built and carries no `cumulative_counts` field at all -- proving
+    the correction cannot have touched it."""
+    repo, _ = _build_orchestrator_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    fx._patch_generation_boundary(monkeypatch, repo, accept=_accept_never_enough_gpat, skip=fx._skip_none)
+    orch.write_reserve_schedule_lock(repo, "EXT-F1")
+    for tranche in (1, 2, 3):
+        orch.open_and_close_tranche(repo, "EXT-F1", tranche, authorize=True)
+    result = orch.open_and_close_tranche(repo, "EXT-F1", 4, authorize=True)
+
+    closure = result["closure"]
+    assert "cumulative_counts" not in closure
+    assert closure["status"] == "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP"
+    assert len(closure["assessments"]) == 3  # STRICT, NOMINAL, PERMISSIVE -- all three, always
+    assert closure["profile_decision"]["selected_profile"] is None
+    # Every one of the three profile assessments still reports arms_meet_route_floor False for
+    # this fixture's engineered GPAT shortfall -- the SAME finding regardless of the run-state
+    # metadata fix.
+    for assessment in closure["assessments"]:
+        assert assessment["arms_meet_route_floor"] is False
+
+
+def test_closed_matched_behavior_unchanged_by_this_fix(tmp_path, monkeypatch):
+    """Item 8: a fold that CLOSES (matched) is unaffected -- this fix only
+    touches the `decision.selected is None` branch."""
+    repo, tracking = _build_orchestrator_ready_fixture(tmp_path, monkeypatch, "EXT-F1")
+    orch.write_reserve_schedule_lock(repo, "EXT-F1")
+    first = orch.open_and_close_tranche(repo, "EXT-F1", 1, authorize=True)
+    assert first["status"] == orch.STATUS_NEEDS_NEXT_TRANCHE
+    second = orch.open_and_close_tranche(repo, "EXT-F1", 2, authorize=True)
+    assert second["status"] == orch.STATUS_CLOSED_MATCHED
+    state = orch.read_run_state(repo, "EXT-F1")
+    assert state["status"] == orch.STATUS_CLOSED_MATCHED
+    assert state["closed_at_tranche"] == 2
+    assert state["next_tranche"] is None
+    for arm in spp.ARMS:
+        bank = second["closure"]["banks"][arm]
+        assert bank["final_bank_size"] == 1024
+        assert bank["by_route"] == {"physics": 512, "gpat": 512}
+
+
+def test_reserve_schedule_rule_identity_unchanged_by_bookkeeping_fix():
+    """Item 9."""
+    assert rs.reserve_schedule_rule_identity() == \
+        "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822"
+
+
+def test_no_scientific_primitive_changed_by_bookkeeping_fix():
+    """Item 10 (re-affirms `test_frozen_c5_c6_gpat_and_v1_0_module_unchanged`
+    specifically in the context of this correction)."""
+    import subprocess
+
+    for relative in ("src/prism_fas/evaluation/c_ext_e7_reserve_schedule.py",
+                     "src/prism_fas/evaluation/c_ext_e7_gpat_bank.py"):
+        committed = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=REPO, check=True,
+                                   capture_output=True, text=True).stdout
+        on_disk = (REPO / relative).read_text(encoding="utf-8")
+        assert committed == on_disk, f"{relative} differs from HEAD"
+
+
 # --- N/O. firewall / LLM ------------------------------------------------------
 
 def test_no_target_domain_and_zero_llm_calls(tmp_path, monkeypatch):

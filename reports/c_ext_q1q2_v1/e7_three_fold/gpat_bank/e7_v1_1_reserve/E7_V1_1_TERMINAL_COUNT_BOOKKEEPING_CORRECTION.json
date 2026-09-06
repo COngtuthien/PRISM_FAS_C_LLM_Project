@@ -1,0 +1,135 @@
+{
+  "affected_file": "src/prism_fas/evaluation/c_ext_e7_reserve_orchestrator.py",
+  "bug": {
+    "confirmed_from_code": true,
+    "correct_terminal_value_per_arm": {
+      "gpat": 2048,
+      "physics": 2048
+    },
+    "field": "RESERVE_RUN_STATE.json.cumulative_counts",
+    "observed_stale_value_per_arm": {
+      "gpat": 1792,
+      "physics": 1792
+    },
+    "root_cause": "the decision.selected is None / tranche == rs.MAX_TRANCHES (cap-block) branch built new_state by spreading **state without recomputing cumulative_counts, so it silently inherited tranche 3's value"
+  },
+  "classification": "TECHNICAL_METADATA_BOOKKEEPING_FIX",
+  "correction_created_after_f1_finished": true,
+  "correction_predates_ext_f1_run": false,
+  "discovered_after_fold": "EXT-F1",
+  "discovered_after_implementation_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+  "ext_f1_historical_artifact_policy": {
+    "attributable_to_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+    "candidates_regenerated": false,
+    "final_closure_mutated": false,
+    "interpretation_rule": "use RESERVE_FINAL_CLOSURE.json for EXT-F1's scientific result; do not read its RESERVE_RUN_STATE.json cumulative_counts field as evidence of candidate counts",
+    "rerun_performed": false,
+    "run_state_corrected_in_place": false
+  },
+  "ext_f1_terminal_scientific_evidence": {
+    "common_quota": {
+      "gpat": "512/512",
+      "physics": "295/512"
+    },
+    "final_cumulative_planned_route_counts": {
+      "gpat": {
+        "casia_fasd": 1164,
+        "msu_mfsd": 884,
+        "total": 2048
+      },
+      "physics": {
+        "casia_fasd": 1181,
+        "msu_mfsd": 867,
+        "total": 2048
+      }
+    },
+    "final_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "permissive_profile": {
+      "DET": {
+        "gpat": 1105,
+        "physics": 774
+      },
+      "LLM": {
+        "gpat": 968,
+        "physics": 295
+      },
+      "RND": {
+        "gpat": 1155,
+        "physics": 783
+      }
+    },
+    "physics_shortfall": 217,
+    "t4_genuinely_used_2048_candidates_per_route_per_arm": true
+  },
+  "f1_scientific_result_of_record": "RESERVE_FINAL_CLOSURE.json",
+  "f1_scientific_result_unchanged": true,
+  "fix": {
+    "applied_to_branches": [
+      "NEEDS_NEXT_RESERVE_TRANCHE (tranche < MAX_TRANCHES)",
+      "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP (tranche == MAX_TRANCHES)"
+    ],
+    "closed_matched_branch_touched": false,
+    "helper_added": "_cumulative_counts_after_tranche(tranche)"
+  },
+  "future_folds": "any fold's terminal cap-block run after this fix records the correct 2048/2048 cumulative count directly in its own RESERVE_RUN_STATE.json",
+  "historical_sequence": [
+    {
+      "event": "E7-v1.0 initial pool",
+      "scope": "EXT-F1 G-RND/G-DET/G-LLM",
+      "status": "BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE",
+      "step": 1
+    },
+    {
+      "detail": "reserve mechanism frozen BEFORE any reserve candidate rendered; trigger = step 1",
+      "event": "E7-v1.1 amendment ratified and frozen",
+      "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+      "step": 2
+    },
+    {
+      "event": "EXT-F1 Tranche 1",
+      "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+      "step": 3
+    },
+    {
+      "event": "EXT-F1 Tranche 2",
+      "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+      "step": 4
+    },
+    {
+      "event": "EXT-F1 Tranche 3",
+      "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+      "step": 5
+    },
+    {
+      "event": "EXT-F1 Tranche 4",
+      "implementation_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+      "note": "EXT-F1's scientific result of record; immutable",
+      "status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+      "step": 6
+    },
+    {
+      "detail": "RESERVE_RUN_STATE.json cumulative_counts found stale at 1792/1792 (tranche 3's value) instead of tranche 4's true 2048/2048; RESERVE_FINAL_CLOSURE.json was and remains correct",
+      "event": "Post-run technical observation",
+      "step": 7
+    },
+    {
+      "detail": "c_ext_e7_reserve_orchestrator.py fixed so future terminal cap-block runs record 2048/2048 directly; EXT-F1's own historical RESERVE_RUN_STATE.json left unrepaired, exactly as step 6 produced it",
+      "event": "Correction applied (this artifact, this commit)",
+      "step": 8
+    }
+  ],
+  "llm_api_calls": 0,
+  "no_f1_candidate_rerun": true,
+  "no_f1_closure_rewritten": true,
+  "no_f1_gpu_state_file_repaired_in_place": true,
+  "no_quality_result_recomputed": true,
+  "original_stale_state_preserved_as_evidence": true,
+  "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "schema_version": "ext-q1q2-e7-v1-1-terminal-count-bookkeeping-correction-v1",
+  "scientific_result_unchanged": true,
+  "target_access": false,
+  "unaffected_files": [
+    "src/prism_fas/evaluation/c_ext_e7_reserve_schedule.py",
+    "src/prism_fas/evaluation/c_ext_e7_gpat_bank.py"
+  ]
+}
