@@ -1,0 +1,498 @@
+{
+  "audit_manifest": {
+    "master_manifest": "gpu_evidence/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_TERMINAL_EVIDENCE.sha256",
+    "master_manifest_sha256sum_c_verified": true,
+    "per_fold_manifests_present": true
+  },
+  "classification": "CONSOLIDATED_SCIENTIFIC_AND_PROVENANCE_CLOSURE",
+  "downstream_dependency_classification": {
+    "E10_decision_gate": {
+      "disposition": "READY",
+      "e8_does_not_substitute": "E8 (once run) can address only the 'Quality confound' condition on its own separate q-matched construction -- it cannot supply or substitute for the three missing E7-detector-derived conditions above, because E8's own conditions (G-RND-QMATCH/G-DET-QMATCH/G-LLM-QMATCH) are a different comparison than the raw cross-domain/real-only/semantic-ablation comparisons E10 requires",
+      "fail_closed_rule": "because E7's core synthetic detector conditions (G-RND/G-DET/G-LLM/G-LLM-SHUFFLE-A) are unavailable in every fold, THREE of E10's five required positive-evidence conditions (spec section 17 table) cannot currently be demonstrated: (1) 'Cross-domain signal' -- frozen LLM bank not last on >=2/3 held-out folds by ACER, requires completed E7 G-LLM/G-RND/G-DET trainings; (2) 'Value over real-only' -- LLM better than REAL-ONLY on >=2/3 folds by mean ACER, requires completed E7 G-LLM trainings; (3) 'Semantic ablation' -- LLM-original better than LLM-SHUFFLE-A, requires completed E7 G-LLM and G-LLM-SHUFFLE-A trainings. The remaining two conditions ('Quality confound' and 'Integrity') do not require an E7 detector training and can be assessed via E8 and the BA-controls/threshold-transfer diagnostics respectively",
+      "mandatory_interpretation_rule": "when E10 is eventually executed, the ABSENCE of the three E7-detector-derived conditions above must NOT be interpreted as, treated as, or silently converted into positive support for E11. The gate must fail closed (resolve to the spec's own explicit fallback: 'do not call the LLM again') unless the frozen specification's required evidence is actually available AND satisfied. No substitute criteria may be invented to route around a missing E7-detector-derived condition",
+      "reason": "E10 is a DECISION GATE, not a detector experiment -- governing spec Appendix D's Q2-NoLLM execution profile explicitly lists E10 ('E10 decision') as a required step of that profile (no LLM API call), and section 17's purpose is to decide whether calling the LLM again (E11) is justified. A gate can be evaluated -- and can legitimately resolve to its negative branch -- even when some of its positive-evidence inputs are unavailable; the absence of inputs is itself a valid, decidable outcome under the spec's own explicit fallback ('if the above conditions are not met, do NOT call the LLM again')"
+    },
+    "E11_independent_multi_bank_study": {
+      "disposition": "NOT_APPLICABLE_AFTER_E7_FAILURE",
+      "enum_note": "the value NOT_APPLICABLE_AFTER_E7_FAILURE is retained here only because it is the prior enum value already present in this schema; the substantive, preferred status is NOT_AUTHORIZED_UNDER_CURRENT_E10_EVIDENCE, explained by the fields below -- this is a deliberate wording correction, not a change of outcome",
+      "llm_api_call_authorized_by_this_closure": false,
+      "not_scientifically_impossible_forever": true,
+      "path_forward": "launching E11 would require a SEPARATE protocol decision or amendment (an explicit, dated ratification analogous to the E7-v1.1 RESERVE AMENDMENT itself, including E11's own pre-API hash-locked subprotocol per spec section 18) and must never be silently treated as already authorized by the original E10-authorized Q1-mechanism-study pathway",
+      "preferred_disposition_wording": "NOT_AUTHORIZED_UNDER_CURRENT_E10_EVIDENCE",
+      "reason": "E11 remains an optional experiment explicitly defined by the governing spec (section 18, 'the only step the core plan permits an LLM call'); it is not authorized under the CURRENT frozen plan because E10's required positive core evidence (the three E7-detector-derived conditions listed under E10_decision_gate.fail_closed_rule above) cannot currently be demonstrated -- E11 is explicitly conditioned on E10's gate being satisfied ('if [E10's conditions] are met and the goal is a Q1 mechanism claim, E11 becomes mandatory'; spec section 17)"
+    },
+    "E6_LLM_SHUFFLE_A": {
+      "disposition": "BLOCKED_BY_E7_CORE_BANK",
+      "ext_f1_historical_shuffle_status": "BLOCKED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY -- remains separately frozen and immutable; no Shuffle rescue is authorized by this amendment or any prior one",
+      "reason": "the frozen fold-scoped Shuffle-A policy (src/prism_fas/evaluation/c_ext_e7_gpat_bank.py; also recorded in c_ext_e7_reserve_orchestrator.py's protocol lock 'shuffle_policy' field) requires that fold's own RND/DET/LLM core anchor bank close (reach a common matched-feasible profile) BEFORE Shuffle-A candidate generation is even attempted; 0/3 folds closed their anchor bank, so Shuffle-A generation was never attempted for EXT-F2/EXT-F3",
+      "scope_clarification": "this disposition covers ONLY the downstream matched synthetic-bank / detector comparison (condition G-LLM-SHUFFLE-A in E7's Track-G table); the recipe-level Shuffle-A construction and audit itself (frozen field-group swap process, marginal-preservation assertion, co-occurrence/JS-divergence audit against the original LLM recipe bank) is a conceptually distinct, upstream, recipe-level step and is NOT itself blocked by this result"
+    },
+    "E7_detector_experiment": {
+      "disposition": "PER_CONDITION -- see per_condition below (no single experiment-wide scalar is used)",
+      "interpretation_note": "G-REALONLY alone does NOT answer RQ1/RQ2. The primary comparative hypothesis families EXT-H1 (LLM vs RND), EXT-H2 (LLM vs DET) and EXT-H4 (LLM-original vs LLM-SHUFFLE) (c_ext_e0_freeze.py hypothesis-family freeze) each require at least one BLOCKED_BY_E7_CORE_BANK condition and therefore cannot be tested in any fold under this protocol",
+      "per_condition": {
+        "G-DET": {
+          "disposition": "BLOCKED_BY_E7_CORE_BANK",
+          "reason": "requires that fold's own matched DET synthetic bank as training data; 0/3 folds produced one"
+        },
+        "G-LLM": {
+          "disposition": "BLOCKED_BY_E7_CORE_BANK",
+          "reason": "requires that fold's own matched LLM synthetic bank as training data; 0/3 folds produced one"
+        },
+        "G-LLM-SHUFFLE-A": {
+          "disposition": "BLOCKED_BY_E7_CORE_BANK",
+          "reason": "requires that fold's own matched Shuffle-A synthetic bank as training data; Shuffle-A generation was never attempted in any fold because the core anchor bank never closed (see E6_LLM_SHUFFLE_A above)"
+        },
+        "G-REALONLY": {
+          "disposition": "READY",
+          "reason": "governing spec section 14 table: G-REALONLY's recipe bank is 'None' and synthetic='No' -- it consumes no E7 matched-bank artifact and is structurally unaffected by this result"
+        },
+        "G-RND": {
+          "disposition": "BLOCKED_BY_E7_CORE_BANK",
+          "reason": "requires that fold's own matched RND synthetic bank as training data; 0/3 folds produced one"
+        }
+      }
+    },
+    "E8_q_matched_detector_experiment": {
+      "caveat": "READY means the prescribed source-only q-matched CONSTRUCTION is executable now -- it is NOT a guarantee that a scientifically adequate bank will result. E8 is a DIFFERENT, explicitly pre-specified ablation with its own bank-construction rule; its realized unique-bank size and common q support must be measured and reported when E8 is actually run. An E8 bank must never be described or used as an E7 rescue bank, and running E8 does not alter, weaken, or reopen E7's own SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP result (0/3 valid core synthetic matched banks) -- that result stands independently",
+      "disposition": "READY",
+      "not_yet_started": "E8 has NOT been run or launched by this closure; only its readiness is recorded here",
+      "reason": "governing spec section 15 ('E8 -- Quality-matched synthetic-bank ablation') defines its OWN, separate, source-only bank-construction rule that does not require a successful E7 512-Physics + 512-GPAT common matched bank: (1) split Physics and GPAT separately; (2) bin q into the fixed 10 bins; (3) per route/bin, n_b = minimum ACCEPTED count across RND, DET, LLM; (4) select exactly n_b samples per arm by stable hash of sample_id || 'QMATCH-v1'; (5) concatenate across bins/routes so matched bank size is identical across arms on common q support; (6) keep total optimizer updates fixed by sampling with replacement. E7's DIFFERENT, frozen selector (one common 512/512 quota across RND/DET/LLM, per spec section 11.3) failing to close does not, by itself, block this different construction: every fold's own PERMISSIVE-profile accepted counts (this closure's `folds.*.final_permissive.arm_route_counts`) are nonzero for RND/DET/LLM on both routes in all three folds, so n_b > 0 is achievable",
+      "trigger_status": "the governing spec's own pre-specified trigger for E8 (frozen at E0: |SMD(q)| >= 0.25 between LLM and RND, or between LLM and DET, on the final accepted q distribution) has already fired -- recorded in reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json (E8_TRIGGER_FROM_E2=true)"
+    },
+    "E9_candidate_pool_perturbation": {
+      "conditional_on_need_meaning": "per the spec's own execution-profile appendix (Q2-NoLLM profile: 'E8/E9 theo trigger/need'), E9 is run only if exact-256-bank sensitivity actually needs checking -- it is not a mandatory step independent of that need, unlike E7",
+      "disposition": "READY",
+      "label": "conditional-on-need",
+      "reason": "governing spec section 16 ('E9 -- Conditional bank-selection robustness') operates entirely on the frozen 384-candidate recipe pools and the frozen 384->256 MILP selector -- a C3 recipe-bank-selection sensitivity question, upstream of and independent from C5 rendering, quality gating, C6 matched-bank construction, or any E7 synthetic matched detector bank; it does not consume any E7 rendered-candidate or matched-bank artifact and is therefore unaffected by this result",
+      "scope_note": "E9 tests sensitivity to which 256-of-384 recipes were selected from the SAME frozen candidate pool via three deterministic perturbation masks (P1/P2/P3) -- the spec explicitly forbids calling this independent generator replication ('Khong duoc goi day la independent generator replication'); this closure makes the same distinction and does not describe E9 as independent generator replication"
+    },
+    "method": "classified from the governing EXT-Q1Q2 Detailed Spec v1.0 (sections 14-18, Appendix D's execution-order appendix and Q2-NoLLM/Q1-MultiBank execution profiles) and existing implementation dependencies (c_ext_e7_gpat_bank.py Shuffle-A policy, c_ext_e7_reserve_orchestrator.py protocol lock, c_ext_e0_freeze.py hypothesis-family freeze, E7_E8_TRIGGER_RECORD.json's real E8 trigger evidence) only -- no disposition was invented from intuition or from E7 implementation convenience"
+  },
+  "final_scientific_interpretation": {
+    "all_folds_exhausted_reserve_cap": true,
+    "all_folds_terminal_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "common_failure_mode_route": "Physics",
+    "core_matched_banks_produced": "0 / 3",
+    "gpat_feasible_512_of_512_final_permissive_all_folds": true,
+    "is_evidence_llm_recipes_generally_inferior": false,
+    "is_target_acer_evidence": false,
+    "limiting_arm_route_observed": "LLM-Physics in every fold (EXT-F1 LLM-Physics=295, EXT-F2 LLM-Physics=467, EXT-F3 LLM-Physics=472 -- the smallest accepted Physics count of the three arms in every fold's final PERMISSIVE assessment, and therefore the binding constraint on the common Physics quota, since the frozen matched-bank selector requires ONE common quota vector across RND/DET/LLM)",
+    "nature_of_result": "a source-only, target-blind synthetic-generation/quality-gate/matched-bank FEASIBILITY result under the frozen v1.0+v1.1 protocol",
+    "precise_scope_of_the_finding": "under this frozen generation/gating/matching protocol (fixed recipe banks, fixed quality thresholds, fixed common-domain-quota matched-bank selector, capped at 2048 candidates/route/arm), the required common 512-Physics quota could not be constructed in any of the three folds -- nothing more, nothing less"
+  },
+  "folds": {
+    "EXT-F1": {
+      "closed_at_tranche": null,
+      "domain_pair": "CASIA-FASD + MSU-MFSD -> SiW-Mv2",
+      "evidence_files": {
+        "final_closure": "gpu_evidence/e7_v1_1_reserve/EXT_F1_RESERVE_FINAL_CLOSURE.json",
+        "terminal_evidence_manifest": "gpu_evidence/e7_v1_1_reserve/EXT_F1_RESERVE_TERMINAL_EVIDENCE.sha256"
+      },
+      "final_nominal_feasible": false,
+      "final_permissive": {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 1105,
+            "physics": 774
+          },
+          "LLM": {
+            "gpat": 968,
+            "physics": 295
+          },
+          "RND": {
+            "gpat": 1155,
+            "physics": 783
+          }
+        },
+        "gpat_common_quota": 512,
+        "gpat_planned": {
+          "casia_fasd": 1164,
+          "msu_mfsd": 884
+        },
+        "gpat_shortfall": 0,
+        "physics_common_quota": 295,
+        "physics_planned": {
+          "casia_fasd": 1181,
+          "msu_mfsd": 867
+        },
+        "physics_shortfall": 217
+      },
+      "final_permissive_feasible": false,
+      "final_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+      "final_strict_feasible": false,
+      "implementation_commits_used_across_tranches_1_to_4": [
+        "db87b1c721da99d89d6b9439418e94ab46e68767"
+      ],
+      "llm_api_calls": 0,
+      "mask_compatibility_recovery_count": 0,
+      "selected_profile": null,
+      "target_access": false,
+      "terminal_run_state_cumulative_counts": {
+        "DET": {
+          "gpat": 1792,
+          "physics": 1792
+        },
+        "LLM": {
+          "gpat": 1792,
+          "physics": 1792
+        },
+        "RND": {
+          "gpat": 1792,
+          "physics": 1792
+        }
+      },
+      "terminal_run_state_note": "STALE (known bookkeeping bug, commit db87b1c721da99d89d6b9439418e94ab46e68767): reads 1792/1792 per arm instead of the true 2048/2048 the tranche-4 scientific evaluation actually used (see FINAL_CLOSURE assessments' own planned route counts, which sum to 2048 for both routes). Never repaired in place -- RESERVE_FINAL_CLOSURE.json is F1's scientific result of record.",
+      "tranche_at_termination": 4,
+      "tranche_progression_permissive": [
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 182,
+          "physics_shortfall": 330,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 1
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 218,
+          "physics_shortfall": 294,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 2
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 256,
+          "physics_shortfall": 256,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 3
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 295,
+          "physics_shortfall": 217,
+          "status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+          "tranche": 4
+        }
+      ]
+    },
+    "EXT-F2": {
+      "closed_at_tranche": null,
+      "domain_pair": "CASIA-FASD + SiW-Mv2 -> MSU-MFSD",
+      "evidence_files": {
+        "final_closure": "gpu_evidence/e7_v1_1_reserve/EXT_F2_RESERVE_FINAL_CLOSURE.json",
+        "terminal_evidence_manifest": "gpu_evidence/e7_v1_1_reserve/EXT_F2_RESERVE_TERMINAL_EVIDENCE.sha256"
+      },
+      "final_nominal_feasible": false,
+      "final_permissive": {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 979,
+            "physics": 964
+          },
+          "LLM": {
+            "gpat": 1098,
+            "physics": 467
+          },
+          "RND": {
+            "gpat": 1071,
+            "physics": 1014
+          }
+        },
+        "gpat_common_quota": 512,
+        "gpat_planned": {
+          "casia_fasd": 79,
+          "siw_mv2": 1969
+        },
+        "gpat_shortfall": 0,
+        "physics_common_quota": 467,
+        "physics_planned": {
+          "casia_fasd": 230,
+          "siw_mv2": 1818
+        },
+        "physics_shortfall": 45
+      },
+      "final_permissive_feasible": false,
+      "final_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+      "final_strict_feasible": false,
+      "implementation_commits_used_across_tranches_1_to_4": [
+        "fae929616219fad083a2ce6ca05fbf7d25bd0157"
+      ],
+      "llm_api_calls": 0,
+      "mask_compatibility_recovery_count": 0,
+      "selected_profile": null,
+      "target_access": false,
+      "terminal_run_state_cumulative_counts": {
+        "DET": {
+          "gpat": 2048,
+          "physics": 2048
+        },
+        "LLM": {
+          "gpat": 2048,
+          "physics": 2048
+        },
+        "RND": {
+          "gpat": 2048,
+          "physics": 2048
+        }
+      },
+      "terminal_run_state_note": "CORRECT (commit fae929616219fad083a2ce6ca05fbf7d25bd0157): 2048/2048 per arm.",
+      "tranche_at_termination": 4,
+      "tranche_progression_permissive": [
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 304,
+          "physics_shortfall": 208,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 1
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 360,
+          "physics_shortfall": 152,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 2
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 413,
+          "physics_shortfall": 99,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 3
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 467,
+          "physics_shortfall": 45,
+          "status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+          "tranche": 4
+        }
+      ]
+    },
+    "EXT-F3": {
+      "closed_at_tranche": null,
+      "domain_pair": "MSU-MFSD + SiW-Mv2 -> CASIA-FASD",
+      "evidence_files": {
+        "final_closure": "gpu_evidence/e7_v1_1_reserve/EXT_F3_RESERVE_FINAL_CLOSURE.json",
+        "terminal_evidence_manifest": "gpu_evidence/e7_v1_1_reserve/EXT_F3_RESERVE_TERMINAL_EVIDENCE.sha256"
+      },
+      "final_nominal_feasible": false,
+      "final_permissive": {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 998,
+            "physics": 965
+          },
+          "LLM": {
+            "gpat": 952,
+            "physics": 472
+          },
+          "RND": {
+            "gpat": 1174,
+            "physics": 1027
+          }
+        },
+        "gpat_common_quota": 512,
+        "gpat_planned": {
+          "msu_mfsd": 55,
+          "siw_mv2": 1993
+        },
+        "gpat_shortfall": 0,
+        "physics_common_quota": 472,
+        "physics_planned": {
+          "msu_mfsd": 175,
+          "siw_mv2": 1873
+        },
+        "physics_shortfall": 40
+      },
+      "final_permissive_feasible": false,
+      "final_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+      "final_strict_feasible": false,
+      "implementation_commits_used_across_tranches_1_to_4": [
+        "fae929616219fad083a2ce6ca05fbf7d25bd0157"
+      ],
+      "llm_api_calls": 0,
+      "mask_compatibility_recovery_count": 1,
+      "selected_profile": null,
+      "target_access": false,
+      "terminal_run_state_cumulative_counts": {
+        "DET": {
+          "gpat": 2048,
+          "physics": 2048
+        },
+        "LLM": {
+          "gpat": 2048,
+          "physics": 2048
+        },
+        "RND": {
+          "gpat": 2048,
+          "physics": 2048
+        }
+      },
+      "terminal_run_state_note": "CORRECT (commit fae929616219fad083a2ce6ca05fbf7d25bd0157): 2048/2048 per arm.",
+      "tranche_at_termination": 4,
+      "tranche_progression_permissive": [
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 301,
+          "physics_shortfall": 211,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 1
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 363,
+          "physics_shortfall": 149,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 2
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 415,
+          "physics_shortfall": 97,
+          "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+          "tranche": 3
+        },
+        {
+          "gpat_common_quota": 512,
+          "gpat_shortfall": 0,
+          "physics_common_quota": 472,
+          "physics_shortfall": 40,
+          "status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+          "tranche": 4
+        }
+      ]
+    }
+  },
+  "integrity_and_leakage_statement": {
+    "arm_specific_threshold_introduced": false,
+    "fold_rerun_after_terminal_scientific_closure": false,
+    "llm_api_calls": 0,
+    "post_cap_candidate_generated": false,
+    "quality_threshold_lowered": false,
+    "selector_changed": false,
+    "target_access": false,
+    "target_distribution_used_to_rescue_feasibility": false
+  },
+  "no_experiment_run_this_task": true,
+  "protocol_history": [
+    {
+      "event": "E7-v1.0 frozen initial candidate pools executed once (all 3 folds)",
+      "step": 1
+    },
+    {
+      "event": "All folds failed to form the required matched banks from the initial 2048/route/arm pool",
+      "step": 2
+    },
+    {
+      "event": "Repository audit found no authoritative reserve membership/schedule (see RESERVE_SCHEDULE_AUTHORITY_AUDIT.md)",
+      "step": 3
+    },
+    {
+      "event": "Status: BLOCKED_PROTOCOL_GAP_RESERVE_SCHEDULE (EXT-F1/F2/F3, G-RND/G-DET/G-LLM, commit db87b1c721da99d89d6b9439418e94ab46e68767 for F1's own attempt)",
+      "step": 4
+    },
+    {
+      "event": "E7-v1.1 RESERVE AMENDMENT frozen after observing source-only feasibility failure and BEFORE any reserve rendering",
+      "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+      "step": 5
+    },
+    {
+      "event": "Reserve membership defined deterministically and outcome-independently (position/tranche/route/recipe-ordinal formulas fixed before any rendering)",
+      "step": 6
+    },
+    {
+      "event": "Four synchronized +256-candidate-per-route reserve tranches permitted per \u00a76.1",
+      "step": 7
+    },
+    {
+      "event": "Maximum cumulative pool capped at 2048 candidates/route/arm (4096 total/arm)",
+      "step": 8
+    },
+    {
+      "event": "Gate thresholds (STRICT/NOMINAL/PERMISSIVE), route quotas, the matched-bank selector, candidate-ID construction and the target firewall were never adapted from observed outcomes at any tranche",
+      "step": 9
+    },
+    {
+      "event": "EXT-F1's terminal tranche-4 run (commit db87b1c721da99d89d6b9439418e94ab46e68767) revealed a post-run RESERVE_RUN_STATE.json cumulative_counts metadata bug (stale 1792/1792 instead of 2048/2048)",
+      "step": 10
+    },
+    {
+      "event": "Metadata-only fix committed as fae929616219fad083a2ce6ca05fbf7d25bd0157 (fix(c-ext): correct E7 terminal reserve counts)",
+      "step": 11
+    },
+    {
+      "event": "EXT-F1 remains scientifically attributable to db87b1c721da99d89d6b9439418e94ab46e68767 -- never retroactively reattributed to the fix commit",
+      "step": 12
+    },
+    {
+      "event": "EXT-F2 and EXT-F3 executed under fae929616219fad083a2ce6ca05fbf7d25bd0157 and confirmed correct terminal 2048/2048 bookkeeping in their own RESERVE_RUN_STATE.json",
+      "step": 13
+    }
+  ],
+  "provenance": {
+    "bookkeeping_correction_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+    "evidence_root": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/gpu_evidence/e7_v1_1_reserve/",
+    "ext_f1_never_attributed_to_bookkeeping_fix": true,
+    "ext_f1_scientific_execution_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+    "ext_f2_execution_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+    "ext_f3_execution_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+    "llm_api_calls": 0,
+    "master_evidence_manifest": "gpu_evidence/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_TERMINAL_EVIDENCE.sha256",
+    "master_evidence_manifest_verified_sha256sum_c": true,
+    "per_fold_evidence_manifests": {
+      "EXT-F1": "gpu_evidence/e7_v1_1_reserve/EXT_F1_RESERVE_TERMINAL_EVIDENCE.sha256",
+      "EXT-F2": [
+        "gpu_evidence/e7_v1_1_reserve/EXT_F2_RESERVE_TERMINAL_EVIDENCE.sha256",
+        "gpu_evidence/e7_v1_1_reserve/EXT_F2_COMPLETE_RESERVE_AUDIT_TRAIL.sha256"
+      ],
+      "EXT-F3": [
+        "gpu_evidence/e7_v1_1_reserve/EXT_F3_RESERVE_TERMINAL_EVIDENCE.sha256",
+        "gpu_evidence/e7_v1_1_reserve/EXT_F3_COMPLETE_RESERVE_AUDIT_TRAIL.sha256"
+      ]
+    },
+    "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+    "target_access": false
+  },
+  "recovery_evidence": {
+    "EXT-F1": {
+      "mask_compatibility_recovery_count": 0
+    },
+    "EXT-F2": {
+      "mask_compatibility_recovery_count": 0
+    },
+    "EXT-F3": {
+      "mask_compatibility_recovery_count": 1
+    },
+    "policy": "e7-empty-cheek-crop-boundary-recovery-v1 (frozen; unrelated to reserve rendering membership or matched-bank feasibility; recorded here purely as provenance)",
+    "source": "RESERVE_FINAL_CLOSURE.json.mask_compatibility_recovery_count for each fold, read directly from persisted evidence -- not assumed"
+  },
+  "reporting_task_only": true,
+  "schema_version": "ext-q1q2-e7-v1-1-three-fold-scientific-closure-v1",
+  "validation_performed_this_task": {
+    "all_three_final_statuses_confirmed": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "cross_checked_against_persisted_evidence": true,
+    "ext_f1_not_falsely_attributed_to_fae9296": true,
+    "f1_gpat_shortfall_confirmed": 0,
+    "f1_physics_shortfall_confirmed": 217,
+    "f2_f3_terminal_cumulative_counts_confirmed_2048_2048": true,
+    "f2_gpat_shortfall_confirmed": 0,
+    "f2_physics_shortfall_confirmed": 45,
+    "f3_gpat_shortfall_confirmed": 0,
+    "f3_physics_shortfall_confirmed": 40,
+    "json_parses": true,
+    "zero_historical_evidence_file_modified": true,
+    "zero_scientific_code_diff": true
+  }
+}
