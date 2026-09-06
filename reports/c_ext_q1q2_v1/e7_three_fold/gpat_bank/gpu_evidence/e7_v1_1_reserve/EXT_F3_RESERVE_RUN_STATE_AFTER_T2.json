@@ -1,0 +1,23 @@
+{
+  "closed_at_tranche": null,
+  "cumulative_counts": {
+    "DET": {
+      "gpat": 1536,
+      "physics": 1536
+    },
+    "LLM": {
+      "gpat": 1536,
+      "physics": 1536
+    },
+    "RND": {
+      "gpat": 1536,
+      "physics": 1536
+    }
+  },
+  "fold_id": "EXT-F3",
+  "llm_api_calls": 0,
+  "next_tranche": 3,
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-run-state-v1",
+  "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+  "target_access": false
+}

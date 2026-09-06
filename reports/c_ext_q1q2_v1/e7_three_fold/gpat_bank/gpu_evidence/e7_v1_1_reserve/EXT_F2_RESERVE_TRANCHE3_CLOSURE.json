@@ -1,0 +1,702 @@
+{
+  "assessments": [
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 722,
+          "physics": 473
+        },
+        "LLM": {
+          "gpat": 728,
+          "physics": 93
+        },
+        "RND": {
+          "gpat": 801,
+          "physics": 485
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "STRICT",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 8
+          },
+          "common_capacity": {
+            "casia_fasd": 15,
+            "siw_mv2": 705
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 22.571429,
+            "siw_mv2": 489.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 23,
+            "siw_mv2": 489
+          },
+          "planned": {
+            "casia_fasd": 79,
+            "siw_mv2": 1713
+          },
+          "quota": {
+            "casia_fasd": 15,
+            "siw_mv2": 497
+          },
+          "quota_total": 512,
+          "redistribution": [
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": 0.428571,
+              "quota_after": 490
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -0.571429,
+              "quota_after": 491
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -1.571429,
+              "quota_after": 492
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -2.571429,
+              "quota_after": 493
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -3.571429,
+              "quota_after": 494
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -4.571429,
+              "quota_after": 495
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -5.571429,
+              "quota_after": 496
+            },
+            {
+              "capacity": 705,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -6.571429,
+              "quota_after": 497
+            }
+          ],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 64,
+            "siw_mv2": 355
+          },
+          "common_capacity": {
+            "casia_fasd": 2,
+            "siw_mv2": 91
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 65.714286,
+            "siw_mv2": 446.285714
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 66,
+            "siw_mv2": 446
+          },
+          "planned": {
+            "casia_fasd": 230,
+            "siw_mv2": 1562
+          },
+          "quota": {
+            "casia_fasd": 2,
+            "siw_mv2": 91
+          },
+          "quota_total": 93,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 419
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 774,
+          "physics": 498
+        },
+        "LLM": {
+          "gpat": 822,
+          "physics": 104
+        },
+        "RND": {
+          "gpat": 846,
+          "physics": 507
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "NOMINAL",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 5
+          },
+          "common_capacity": {
+            "casia_fasd": 18,
+            "siw_mv2": 756
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 22.571429,
+            "siw_mv2": 489.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 23,
+            "siw_mv2": 489
+          },
+          "planned": {
+            "casia_fasd": 79,
+            "siw_mv2": 1713
+          },
+          "quota": {
+            "casia_fasd": 18,
+            "siw_mv2": 494
+          },
+          "quota_total": 512,
+          "redistribution": [
+            {
+              "capacity": 756,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": 0.428571,
+              "quota_after": 490
+            },
+            {
+              "capacity": 756,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -0.571429,
+              "quota_after": 491
+            },
+            {
+              "capacity": 756,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -1.571429,
+              "quota_after": 492
+            },
+            {
+              "capacity": 756,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -2.571429,
+              "quota_after": 493
+            },
+            {
+              "capacity": 756,
+              "domain": "siw_mv2",
+              "ideal_minus_quota_before": -3.571429,
+              "quota_after": 494
+            }
+          ],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 63,
+            "siw_mv2": 345
+          },
+          "common_capacity": {
+            "casia_fasd": 3,
+            "siw_mv2": 101
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 65.714286,
+            "siw_mv2": 446.285714
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 66,
+            "siw_mv2": 446
+          },
+          "planned": {
+            "casia_fasd": 230,
+            "siw_mv2": 1562
+          },
+          "quota": {
+            "casia_fasd": 3,
+            "siw_mv2": 101
+          },
+          "quota_total": 104,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 408
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 847,
+          "physics": 849
+        },
+        "LLM": {
+          "gpat": 950,
+          "physics": 413
+        },
+        "RND": {
+          "gpat": 932,
+          "physics": 890
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "PERMISSIVE",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {},
+          "common_capacity": {
+            "casia_fasd": 26,
+            "siw_mv2": 821
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 22.571429,
+            "siw_mv2": 489.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 23,
+            "siw_mv2": 489
+          },
+          "planned": {
+            "casia_fasd": 79,
+            "siw_mv2": 1713
+          },
+          "quota": {
+            "casia_fasd": 23,
+            "siw_mv2": 489
+          },
+          "quota_total": 512,
+          "redistribution": [],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 26,
+            "siw_mv2": 73
+          },
+          "common_capacity": {
+            "casia_fasd": 40,
+            "siw_mv2": 373
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 65.714286,
+            "siw_mv2": 446.285714
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 66,
+            "siw_mv2": 446
+          },
+          "planned": {
+            "casia_fasd": 230,
+            "siw_mv2": 1562
+          },
+          "quota": {
+            "casia_fasd": 40,
+            "siw_mv2": 373
+          },
+          "quota_total": 413,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 99
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    }
+  ],
+  "fold_id": "EXT-F2",
+  "is_scientific_lock": false,
+  "llm_api_calls": 0,
+  "mask_compatibility_recovery_count": 0,
+  "profile_decision": {
+    "c6_scientific_failed": true,
+    "evaluations": [
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 722,
+            "physics": 473
+          },
+          "LLM": {
+            "gpat": 728,
+            "physics": 93
+          },
+          "RND": {
+            "gpat": 801,
+            "physics": 485
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "STRICT",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 8
+            },
+            "common_capacity": {
+              "casia_fasd": 15,
+              "siw_mv2": 705
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 22.571429,
+              "siw_mv2": 489.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 23,
+              "siw_mv2": 489
+            },
+            "planned": {
+              "casia_fasd": 79,
+              "siw_mv2": 1713
+            },
+            "quota": {
+              "casia_fasd": 15,
+              "siw_mv2": 497
+            },
+            "quota_total": 512,
+            "redistribution": [
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": 0.428571,
+                "quota_after": 490
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -0.571429,
+                "quota_after": 491
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -1.571429,
+                "quota_after": 492
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -2.571429,
+                "quota_after": 493
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -3.571429,
+                "quota_after": 494
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -4.571429,
+                "quota_after": 495
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -5.571429,
+                "quota_after": 496
+              },
+              {
+                "capacity": 705,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -6.571429,
+                "quota_after": 497
+              }
+            ],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 64,
+              "siw_mv2": 355
+            },
+            "common_capacity": {
+              "casia_fasd": 2,
+              "siw_mv2": 91
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 65.714286,
+              "siw_mv2": 446.285714
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 66,
+              "siw_mv2": 446
+            },
+            "planned": {
+              "casia_fasd": 230,
+              "siw_mv2": 1562
+            },
+            "quota": {
+              "casia_fasd": 2,
+              "siw_mv2": 91
+            },
+            "quota_total": 93,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 419
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 774,
+            "physics": 498
+          },
+          "LLM": {
+            "gpat": 822,
+            "physics": 104
+          },
+          "RND": {
+            "gpat": 846,
+            "physics": 507
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "NOMINAL",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 5
+            },
+            "common_capacity": {
+              "casia_fasd": 18,
+              "siw_mv2": 756
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 22.571429,
+              "siw_mv2": 489.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 23,
+              "siw_mv2": 489
+            },
+            "planned": {
+              "casia_fasd": 79,
+              "siw_mv2": 1713
+            },
+            "quota": {
+              "casia_fasd": 18,
+              "siw_mv2": 494
+            },
+            "quota_total": 512,
+            "redistribution": [
+              {
+                "capacity": 756,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": 0.428571,
+                "quota_after": 490
+              },
+              {
+                "capacity": 756,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -0.571429,
+                "quota_after": 491
+              },
+              {
+                "capacity": 756,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -1.571429,
+                "quota_after": 492
+              },
+              {
+                "capacity": 756,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -2.571429,
+                "quota_after": 493
+              },
+              {
+                "capacity": 756,
+                "domain": "siw_mv2",
+                "ideal_minus_quota_before": -3.571429,
+                "quota_after": 494
+              }
+            ],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 63,
+              "siw_mv2": 345
+            },
+            "common_capacity": {
+              "casia_fasd": 3,
+              "siw_mv2": 101
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 65.714286,
+              "siw_mv2": 446.285714
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 66,
+              "siw_mv2": 446
+            },
+            "planned": {
+              "casia_fasd": 230,
+              "siw_mv2": 1562
+            },
+            "quota": {
+              "casia_fasd": 3,
+              "siw_mv2": 101
+            },
+            "quota_total": 104,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 408
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 847,
+            "physics": 849
+          },
+          "LLM": {
+            "gpat": 950,
+            "physics": 413
+          },
+          "RND": {
+            "gpat": 932,
+            "physics": 890
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "PERMISSIVE",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {},
+            "common_capacity": {
+              "casia_fasd": 26,
+              "siw_mv2": 821
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 22.571429,
+              "siw_mv2": 489.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 23,
+              "siw_mv2": 489
+            },
+            "planned": {
+              "casia_fasd": 79,
+              "siw_mv2": 1713
+            },
+            "quota": {
+              "casia_fasd": 23,
+              "siw_mv2": 489
+            },
+            "quota_total": 512,
+            "redistribution": [],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 26,
+              "siw_mv2": 73
+            },
+            "common_capacity": {
+              "casia_fasd": 40,
+              "siw_mv2": 373
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 65.714286,
+              "siw_mv2": 446.285714
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 66,
+              "siw_mv2": 446
+            },
+            "planned": {
+              "casia_fasd": 230,
+              "siw_mv2": 1562
+            },
+            "quota": {
+              "casia_fasd": 40,
+              "siw_mv2": 373
+            },
+            "quota_total": 413,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 99
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      }
+    ],
+    "on_failure": "\u00a711.4: if no profile qualifies, C6 FAILS. The gate is never widened, no arm gets its own threshold, the target distribution is not altered, the selector is not changed and no candidate is regenerated",
+    "profile_order": [
+      "STRICT",
+      "NOMINAL",
+      "PERMISSIVE"
+    ],
+    "selected_profile": null
+  },
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-tranche-closure-v1",
+  "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+  "target_access": false,
+  "tranche": 3
+}

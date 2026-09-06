@@ -1,0 +1,101 @@
+{
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-preflight-v1",
+  "fold_id": "EXT-F3",
+  "1_amendment_protocol_lock": {
+    "schema_version": "ext-q1q2-e7-v1-1-reserve-protocol-lock-validate-v1",
+    "status": "VALID",
+    "problems": [],
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "2_3_reserve_schedule_lock": {
+    "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-schedule-lock-validate-v1",
+    "fold_id": "EXT-F3",
+    "status": "VALID",
+    "problems": []
+  },
+  "4_v1_0_invariance": {
+    "invariant": true,
+    "problems": []
+  },
+  "5_candidate_id_disjointness": {
+    "fold_id": "EXT-F3",
+    "by_arm": {
+      "RND": {
+        "disjoint_from_v1_0": true,
+        "disjoint_across_tranches": true,
+        "total_reserve_candidates": 2048,
+        "unique_reserve_candidates": 2048
+      },
+      "DET": {
+        "disjoint_from_v1_0": true,
+        "disjoint_across_tranches": true,
+        "total_reserve_candidates": 2048,
+        "unique_reserve_candidates": 2048
+      },
+      "LLM": {
+        "disjoint_from_v1_0": true,
+        "disjoint_across_tranches": true,
+        "total_reserve_candidates": 2048,
+        "unique_reserve_candidates": 2048
+      }
+    },
+    "all_disjoint": true
+  },
+  "6_tranche_counts": {
+    "fold_id": "EXT-F3",
+    "run_state_status": "AWAITING_RESERVE_OPEN",
+    "next_tranche": 1,
+    "closed_at_tranche": null,
+    "counts_per_arm_route": {
+      "v1_0": {
+        "physics": 1024,
+        "gpat": 1024
+      },
+      "after_tranche_1": {
+        "physics": 1280,
+        "gpat": 1280
+      },
+      "after_tranche_2": {
+        "physics": 1536,
+        "gpat": 1536
+      },
+      "after_tranche_3": {
+        "physics": 1792,
+        "gpat": 1792
+      },
+      "after_tranche_4": {
+        "physics": 2048,
+        "gpat": 2048
+      }
+    }
+  },
+  "7_source_domain_firewall": {
+    "fold_id": "EXT-F3",
+    "target_domain": "CASIA-FASD",
+    "target_slug": "casia_fasd",
+    "status": "VALID",
+    "violating_positions": [],
+    "violation_count": 0,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "8_9_authorization": {
+    "fold_id": "EXT-F3",
+    "authorized": true,
+    "unmet_conditions": [],
+    "capability": {
+      "capable": true,
+      "cuda_available": true,
+      "weight_root": "/home/sparc/workdir/longnm/PRISM_FAS_C_LLM_Project/weights",
+      "problems": []
+    },
+    "next_tranche": 1,
+    "rendering_performed": false,
+    "target_access": false,
+    "llm_api_calls": 0
+  },
+  "rendering_performed": false,
+  "target_access": false,
+  "llm_api_calls": 0
+}

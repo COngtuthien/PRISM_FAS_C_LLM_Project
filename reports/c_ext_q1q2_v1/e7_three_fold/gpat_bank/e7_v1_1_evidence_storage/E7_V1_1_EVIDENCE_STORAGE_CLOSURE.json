@@ -1,0 +1,105 @@
+{
+  "classification": "COMPLETE_E7_V1_1_EVIDENCE_STORAGE_CLOSURE",
+  "console_archive": {
+    "console_log_count": 12,
+    "contents": "exactly the 12 raw console logs from the raw evidence directory",
+    "deterministic_mtime_note": "tar was built with a fixed deterministic mtime (2026-09-07 00:00:00 UTC). Because that fixed mtime was slightly later than the verifier's wall-clock time at the moment of an immediate post-creation extraction check, tar printed a 'timestamp ... is N s in the future' warning for each extracted file. This is NOT an integrity failure: extraction return code was 0 and every extracted file's SHA256 matched E7_V1_1_CONSOLE_LOGS_RAW.sha256 (12/12 OK). Recorded here so the warning is never later misclassified as corruption.",
+    "directory": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_evidence_storage/",
+    "file": "E7_V1_1_CONSOLE_LOGS.tar.gz",
+    "gpu_archive_verification": {
+      "method": "archive copied to GPU storage directory; sha256sum -c E7_V1_1_CONSOLE_LOGS_ARCHIVE.sha256 run there",
+      "result": "PASS"
+    },
+    "lossless_representation_statement": "The Git archive is a lossless storage representation of the 12 original console logs, validated by extraction followed by SHA256 verification against the raw-log manifest. The archived logs are scientific provenance only; compression does not alter the historical scientific observations.",
+    "restore_verification": {
+      "logs_matched": "12/12",
+      "method": "extracted to a temporary directory outside the repository, then sha256sum -c against E7_V1_1_CONSOLE_LOGS_RAW.sha256",
+      "restore_rc": 0,
+      "result": "PASS"
+    },
+    "sha256": "0f17e4a4c64509fc21ae4363512b16f0eb67443cdc8ab6745b64cc4096d9c690",
+    "size_bytes": 9409820
+  },
+  "e8_status": "READY (per E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json downstream_dependency_classification); NOT started by this task",
+  "frozen_scientific_status": {
+    "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "core_matched_synthetic_banks_produced": "0/3",
+    "note": "referenced from, not altered by, E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json (commit bf4d3ee6d1c95f380c225033899f7f75e9ebd88d). This storage task does NOT reopen E7."
+  },
+  "gpu_scientific_work_performed": false,
+  "llm_api_calls": 0,
+  "no_experiment_run_this_task": true,
+  "preservation_state": {
+    "compressed_archive_committed_to_git": "true AFTER this commit succeeds",
+    "compressed_archive_preserved_on_gpu": true,
+    "compressed_archive_preserved_on_laptop": true,
+    "raw_logs_deleted_after_commit": false,
+    "raw_uncompressed_logs_preserved_on_gpu": true,
+    "raw_uncompressed_logs_preserved_on_laptop": true
+  },
+  "raw_evidence_snapshot": {
+    "directory": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/gpu_evidence/e7_v1_1_reserve/",
+    "extension_counts": {
+      "json": 61,
+      "log": 12,
+      "sha256": 17
+    },
+    "file_count": 90,
+    "laptop_gpu_comparison": {
+      "hash_mismatch": "none",
+      "method": "independent per-file SHA256 hashing on laptop and GPU copies under LC_ALL=C",
+      "mismatch_count": 0,
+      "only_gpu": "none",
+      "only_laptop": "none",
+      "result": "laptop and GPU raw evidence snapshots are byte-identical file-for-file"
+    },
+    "master_evidence_manifest": {
+      "file": "E7_V1_1_THREE_FOLD_TERMINAL_EVIDENCE.sha256",
+      "status": "already verified successfully; not rewritten by this task"
+    },
+    "post_write_full_manifest_check": {
+      "entries_checked": 90,
+      "entries_failed": 0,
+      "entries_ok": 90,
+      "manifest": "E7_V1_1_FULL_RAW_EVIDENCE.sha256",
+      "proves": "this reporting/storage task did not mutate historical evidence",
+      "result": "PASS"
+    },
+    "pre_write_full_manifest_check": {
+      "entries_checked": 90,
+      "entries_failed": 0,
+      "entries_ok": 90,
+      "manifest": "E7_V1_1_FULL_RAW_EVIDENCE.sha256",
+      "result": "PASS"
+    },
+    "symlink_count": 0,
+    "total_bytes": 246968715
+  },
+  "reporting_task_only": true,
+  "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "schema_version": "ext-q1q2-e7-v1-1-evidence-storage-closure-v1",
+  "scientific_closure_commit": "bf4d3ee6d1c95f380c225033899f7f75e9ebd88d",
+  "scientific_stage": "E7-v1.1 three-fold reserve",
+  "scope": "storage / provenance only -- no experiment run, no candidate rendered, no GPAT/detector trained, no LLM called, no historical raw evidence file modified",
+  "storage_policy": {
+    "committed_to_git": [
+      "61 raw evidence JSON artifacts from gpu_evidence/e7_v1_1_reserve/",
+      "17 raw evidence SHA256 manifests from gpu_evidence/e7_v1_1_reserve/",
+      "E7_V1_1_CONSOLE_LOGS.tar.gz",
+      "E7_V1_1_CONSOLE_LOGS_RAW.sha256",
+      "E7_V1_1_CONSOLE_LOGS_ARCHIVE.sha256",
+      "E7_V1_1_FULL_RAW_EVIDENCE.sha256",
+      "E7_V1_1_EVIDENCE_STORAGE_CLOSURE.md",
+      "E7_V1_1_EVIDENCE_STORAGE_CLOSURE.json"
+    ],
+    "git_lfs_used": false,
+    "not_committed_to_git": [
+      "the 12 individual raw *.log console files (superseded, for Git purposes, by the lossless tar.gz archive)"
+    ],
+    "reason": "compressed archive is approximately 9 MB and does not warrant LFS",
+    "recoverability_statement": "the full console process remains recoverable from Git via the archive without putting ~233 MB of duplicate uncompressed text logs into Git history"
+  },
+  "target_access": false
+}

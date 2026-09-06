@@ -1,0 +1,714 @@
+{
+  "assessments": [
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 532,
+          "physics": 238
+        },
+        "LLM": {
+          "gpat": 372,
+          "physics": 18
+        },
+        "RND": {
+          "gpat": 563,
+          "physics": 235
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "STRICT",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 120,
+            "msu_mfsd": 20
+          },
+          "common_capacity": {
+            "casia_fasd": 172,
+            "msu_mfsd": 200
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 292.0,
+            "msu_mfsd": 220.0
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 292,
+            "msu_mfsd": 220
+          },
+          "planned": {
+            "casia_fasd": 730,
+            "msu_mfsd": 550
+          },
+          "quota": {
+            "casia_fasd": 172,
+            "msu_mfsd": 200
+          },
+          "quota_total": 372,
+          "redistribution": [],
+          "route": "gpat",
+          "shortfall": 140
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 287,
+            "msu_mfsd": 207
+          },
+          "common_capacity": {
+            "casia_fasd": 8,
+            "msu_mfsd": 10
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 295.2,
+            "msu_mfsd": 216.8
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 738,
+            "msu_mfsd": 542
+          },
+          "quota": {
+            "casia_fasd": 8,
+            "msu_mfsd": 10
+          },
+          "quota_total": 18,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 494
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 586,
+          "physics": 251
+        },
+        "LLM": {
+          "gpat": 438,
+          "physics": 26
+        },
+        "RND": {
+          "gpat": 611,
+          "physics": 249
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "NOMINAL",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 88
+          },
+          "common_capacity": {
+            "casia_fasd": 204,
+            "msu_mfsd": 234
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 292.0,
+            "msu_mfsd": 220.0
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 292,
+            "msu_mfsd": 220
+          },
+          "planned": {
+            "casia_fasd": 730,
+            "msu_mfsd": 550
+          },
+          "quota": {
+            "casia_fasd": 204,
+            "msu_mfsd": 234
+          },
+          "quota_total": 438,
+          "redistribution": [
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": 0.0,
+              "quota_after": 221
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -1.0,
+              "quota_after": 222
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -2.0,
+              "quota_after": 223
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -3.0,
+              "quota_after": 224
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -4.0,
+              "quota_after": 225
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -5.0,
+              "quota_after": 226
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -6.0,
+              "quota_after": 227
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -7.0,
+              "quota_after": 228
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -8.0,
+              "quota_after": 229
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -9.0,
+              "quota_after": 230
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -10.0,
+              "quota_after": 231
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -11.0,
+              "quota_after": 232
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -12.0,
+              "quota_after": 233
+            },
+            {
+              "capacity": 234,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -13.0,
+              "quota_after": 234
+            }
+          ],
+          "route": "gpat",
+          "shortfall": 74
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 283,
+            "msu_mfsd": 203
+          },
+          "common_capacity": {
+            "casia_fasd": 12,
+            "msu_mfsd": 14
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 295.2,
+            "msu_mfsd": 216.8
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 738,
+            "msu_mfsd": 542
+          },
+          "quota": {
+            "casia_fasd": 12,
+            "msu_mfsd": 14
+          },
+          "quota_total": 26,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 486
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 697,
+          "physics": 485
+        },
+        "LLM": {
+          "gpat": 624,
+          "physics": 182
+        },
+        "RND": {
+          "gpat": 719,
+          "physics": 476
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "PERMISSIVE",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {},
+          "common_capacity": {
+            "casia_fasd": 334,
+            "msu_mfsd": 290
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 292.0,
+            "msu_mfsd": 220.0
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 292,
+            "msu_mfsd": 220
+          },
+          "planned": {
+            "casia_fasd": 730,
+            "msu_mfsd": 550
+          },
+          "quota": {
+            "casia_fasd": 292,
+            "msu_mfsd": 220
+          },
+          "quota_total": 512,
+          "redistribution": [],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 208,
+            "msu_mfsd": 122
+          },
+          "common_capacity": {
+            "casia_fasd": 87,
+            "msu_mfsd": 95
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 295.2,
+            "msu_mfsd": 216.8
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 738,
+            "msu_mfsd": 542
+          },
+          "quota": {
+            "casia_fasd": 87,
+            "msu_mfsd": 95
+          },
+          "quota_total": 182,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 330
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    }
+  ],
+  "fold_id": "EXT-F1",
+  "is_scientific_lock": false,
+  "llm_api_calls": 0,
+  "mask_compatibility_recovery_count": 0,
+  "profile_decision": {
+    "c6_scientific_failed": true,
+    "evaluations": [
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 532,
+            "physics": 238
+          },
+          "LLM": {
+            "gpat": 372,
+            "physics": 18
+          },
+          "RND": {
+            "gpat": 563,
+            "physics": 235
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "STRICT",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 120,
+              "msu_mfsd": 20
+            },
+            "common_capacity": {
+              "casia_fasd": 172,
+              "msu_mfsd": 200
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 292.0,
+              "msu_mfsd": 220.0
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 292,
+              "msu_mfsd": 220
+            },
+            "planned": {
+              "casia_fasd": 730,
+              "msu_mfsd": 550
+            },
+            "quota": {
+              "casia_fasd": 172,
+              "msu_mfsd": 200
+            },
+            "quota_total": 372,
+            "redistribution": [],
+            "route": "gpat",
+            "shortfall": 140
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 287,
+              "msu_mfsd": 207
+            },
+            "common_capacity": {
+              "casia_fasd": 8,
+              "msu_mfsd": 10
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 295.2,
+              "msu_mfsd": 216.8
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 738,
+              "msu_mfsd": 542
+            },
+            "quota": {
+              "casia_fasd": 8,
+              "msu_mfsd": 10
+            },
+            "quota_total": 18,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 494
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 586,
+            "physics": 251
+          },
+          "LLM": {
+            "gpat": 438,
+            "physics": 26
+          },
+          "RND": {
+            "gpat": 611,
+            "physics": 249
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "NOMINAL",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 88
+            },
+            "common_capacity": {
+              "casia_fasd": 204,
+              "msu_mfsd": 234
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 292.0,
+              "msu_mfsd": 220.0
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 292,
+              "msu_mfsd": 220
+            },
+            "planned": {
+              "casia_fasd": 730,
+              "msu_mfsd": 550
+            },
+            "quota": {
+              "casia_fasd": 204,
+              "msu_mfsd": 234
+            },
+            "quota_total": 438,
+            "redistribution": [
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": 0.0,
+                "quota_after": 221
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -1.0,
+                "quota_after": 222
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -2.0,
+                "quota_after": 223
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -3.0,
+                "quota_after": 224
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -4.0,
+                "quota_after": 225
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -5.0,
+                "quota_after": 226
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -6.0,
+                "quota_after": 227
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -7.0,
+                "quota_after": 228
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -8.0,
+                "quota_after": 229
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -9.0,
+                "quota_after": 230
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -10.0,
+                "quota_after": 231
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -11.0,
+                "quota_after": 232
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -12.0,
+                "quota_after": 233
+              },
+              {
+                "capacity": 234,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -13.0,
+                "quota_after": 234
+              }
+            ],
+            "route": "gpat",
+            "shortfall": 74
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 283,
+              "msu_mfsd": 203
+            },
+            "common_capacity": {
+              "casia_fasd": 12,
+              "msu_mfsd": 14
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 295.2,
+              "msu_mfsd": 216.8
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 738,
+              "msu_mfsd": 542
+            },
+            "quota": {
+              "casia_fasd": 12,
+              "msu_mfsd": 14
+            },
+            "quota_total": 26,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 486
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 697,
+            "physics": 485
+          },
+          "LLM": {
+            "gpat": 624,
+            "physics": 182
+          },
+          "RND": {
+            "gpat": 719,
+            "physics": 476
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "PERMISSIVE",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {},
+            "common_capacity": {
+              "casia_fasd": 334,
+              "msu_mfsd": 290
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 292.0,
+              "msu_mfsd": 220.0
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 292,
+              "msu_mfsd": 220
+            },
+            "planned": {
+              "casia_fasd": 730,
+              "msu_mfsd": 550
+            },
+            "quota": {
+              "casia_fasd": 292,
+              "msu_mfsd": 220
+            },
+            "quota_total": 512,
+            "redistribution": [],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 208,
+              "msu_mfsd": 122
+            },
+            "common_capacity": {
+              "casia_fasd": 87,
+              "msu_mfsd": 95
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 295.2,
+              "msu_mfsd": 216.8
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 738,
+              "msu_mfsd": 542
+            },
+            "quota": {
+              "casia_fasd": 87,
+              "msu_mfsd": 95
+            },
+            "quota_total": 182,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 330
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      }
+    ],
+    "on_failure": "\u00a711.4: if no profile qualifies, C6 FAILS. The gate is never widened, no arm gets its own threshold, the target distribution is not altered, the selector is not changed and no candidate is regenerated",
+    "profile_order": [
+      "STRICT",
+      "NOMINAL",
+      "PERMISSIVE"
+    ],
+    "selected_profile": null
+  },
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-tranche-closure-v1",
+  "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+  "target_access": false,
+  "tranche": 1
+}

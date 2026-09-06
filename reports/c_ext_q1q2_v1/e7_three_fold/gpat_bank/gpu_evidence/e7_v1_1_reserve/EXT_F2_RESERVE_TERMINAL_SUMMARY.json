@@ -1,0 +1,34 @@
+{
+  "fold_id": "EXT-F2",
+  "scientific_status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+  "tranche": 4,
+  "implementation_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+  "reserve_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "selected_profile": null,
+  "permissive_arm_route_counts": {
+    "DET": {
+      "gpat": 979,
+      "physics": 964
+    },
+    "LLM": {
+      "gpat": 1098,
+      "physics": 467
+    },
+    "RND": {
+      "gpat": 1071,
+      "physics": 1014
+    }
+  },
+  "permissive_common_quota": {
+    "physics": 467,
+    "gpat": 512
+  },
+  "permissive_shortfall": {
+    "physics": 45,
+    "gpat": 0
+  },
+  "candidate_cap_per_arm_route": 2048,
+  "target_access": false,
+  "llm_api_calls": 0,
+  "scientific_result_of_record": "RESERVE_FINAL_CLOSURE.json"
+}

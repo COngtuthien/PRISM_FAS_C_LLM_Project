@@ -1,0 +1,1374 @@
+{
+  "assessments": [
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 735,
+          "physics": 331
+        },
+        "LLM": {
+          "gpat": 534,
+          "physics": 31
+        },
+        "RND": {
+          "gpat": 788,
+          "physics": 334
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "STRICT",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 56
+          },
+          "common_capacity": {
+            "casia_fasd": 235,
+            "msu_mfsd": 299
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 290.571429,
+            "msu_mfsd": 221.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 291,
+            "msu_mfsd": 221
+          },
+          "planned": {
+            "casia_fasd": 1017,
+            "msu_mfsd": 775
+          },
+          "quota": {
+            "casia_fasd": 235,
+            "msu_mfsd": 277
+          },
+          "quota_total": 512,
+          "redistribution": [
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": 0.428571,
+              "quota_after": 222
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -0.571429,
+              "quota_after": 223
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -1.571429,
+              "quota_after": 224
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -2.571429,
+              "quota_after": 225
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -3.571429,
+              "quota_after": 226
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -4.571429,
+              "quota_after": 227
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -5.571429,
+              "quota_after": 228
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -6.571429,
+              "quota_after": 229
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -7.571429,
+              "quota_after": 230
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -8.571429,
+              "quota_after": 231
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -9.571429,
+              "quota_after": 232
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -10.571429,
+              "quota_after": 233
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -11.571429,
+              "quota_after": 234
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -12.571429,
+              "quota_after": 235
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -13.571429,
+              "quota_after": 236
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -14.571429,
+              "quota_after": 237
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -15.571429,
+              "quota_after": 238
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -16.571429,
+              "quota_after": 239
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -17.571429,
+              "quota_after": 240
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -18.571429,
+              "quota_after": 241
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -19.571429,
+              "quota_after": 242
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -20.571429,
+              "quota_after": 243
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -21.571429,
+              "quota_after": 244
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -22.571429,
+              "quota_after": 245
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -23.571429,
+              "quota_after": 246
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -24.571429,
+              "quota_after": 247
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -25.571429,
+              "quota_after": 248
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -26.571429,
+              "quota_after": 249
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -27.571429,
+              "quota_after": 250
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -28.571429,
+              "quota_after": 251
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -29.571429,
+              "quota_after": 252
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -30.571429,
+              "quota_after": 253
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -31.571429,
+              "quota_after": 254
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -32.571429,
+              "quota_after": 255
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -33.571429,
+              "quota_after": 256
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -34.571429,
+              "quota_after": 257
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -35.571429,
+              "quota_after": 258
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -36.571429,
+              "quota_after": 259
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -37.571429,
+              "quota_after": 260
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -38.571429,
+              "quota_after": 261
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -39.571429,
+              "quota_after": 262
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -40.571429,
+              "quota_after": 263
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -41.571429,
+              "quota_after": 264
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -42.571429,
+              "quota_after": 265
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -43.571429,
+              "quota_after": 266
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -44.571429,
+              "quota_after": 267
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -45.571429,
+              "quota_after": 268
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -46.571429,
+              "quota_after": 269
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -47.571429,
+              "quota_after": 270
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -48.571429,
+              "quota_after": 271
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -49.571429,
+              "quota_after": 272
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -50.571429,
+              "quota_after": 273
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -51.571429,
+              "quota_after": 274
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -52.571429,
+              "quota_after": 275
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -53.571429,
+              "quota_after": 276
+            },
+            {
+              "capacity": 299,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -54.571429,
+              "quota_after": 277
+            }
+          ],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 281,
+            "msu_mfsd": 200
+          },
+          "common_capacity": {
+            "casia_fasd": 14,
+            "msu_mfsd": 17
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 294.857143,
+            "msu_mfsd": 217.142857
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 1032,
+            "msu_mfsd": 760
+          },
+          "quota": {
+            "casia_fasd": 14,
+            "msu_mfsd": 17
+          },
+          "quota_total": 31,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 481
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 810,
+          "physics": 346
+        },
+        "LLM": {
+          "gpat": 625,
+          "physics": 39
+        },
+        "RND": {
+          "gpat": 857,
+          "physics": 353
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "NOMINAL",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {
+            "casia_fasd": 13
+          },
+          "common_capacity": {
+            "casia_fasd": 278,
+            "msu_mfsd": 347
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 290.571429,
+            "msu_mfsd": 221.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 291,
+            "msu_mfsd": 221
+          },
+          "planned": {
+            "casia_fasd": 1017,
+            "msu_mfsd": 775
+          },
+          "quota": {
+            "casia_fasd": 278,
+            "msu_mfsd": 234
+          },
+          "quota_total": 512,
+          "redistribution": [
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": 0.428571,
+              "quota_after": 222
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -0.571429,
+              "quota_after": 223
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -1.571429,
+              "quota_after": 224
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -2.571429,
+              "quota_after": 225
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -3.571429,
+              "quota_after": 226
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -4.571429,
+              "quota_after": 227
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -5.571429,
+              "quota_after": 228
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -6.571429,
+              "quota_after": 229
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -7.571429,
+              "quota_after": 230
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -8.571429,
+              "quota_after": 231
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -9.571429,
+              "quota_after": 232
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -10.571429,
+              "quota_after": 233
+            },
+            {
+              "capacity": 347,
+              "domain": "msu_mfsd",
+              "ideal_minus_quota_before": -11.571429,
+              "quota_after": 234
+            }
+          ],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 277,
+            "msu_mfsd": 196
+          },
+          "common_capacity": {
+            "casia_fasd": 18,
+            "msu_mfsd": 21
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 294.857143,
+            "msu_mfsd": 217.142857
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 1032,
+            "msu_mfsd": 760
+          },
+          "quota": {
+            "casia_fasd": 18,
+            "msu_mfsd": 21
+          },
+          "quota_total": 39,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 473
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    },
+    {
+      "arm_route_counts": {
+        "DET": {
+          "gpat": 969,
+          "physics": 681
+        },
+        "LLM": {
+          "gpat": 870,
+          "physics": 256
+        },
+        "RND": {
+          "gpat": 1027,
+          "physics": 682
+        }
+      },
+      "arms_meet_route_floor": false,
+      "common_quota_feasible": false,
+      "feasible": false,
+      "profile": "PERMISSIVE",
+      "reliability_used_for_selection": false,
+      "route_quotas": {
+        "gpat": {
+          "clipped": {},
+          "common_capacity": {
+            "casia_fasd": 453,
+            "msu_mfsd": 417
+          },
+          "feasible": true,
+          "ideal": {
+            "casia_fasd": 290.571429,
+            "msu_mfsd": 221.428571
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 291,
+            "msu_mfsd": 221
+          },
+          "planned": {
+            "casia_fasd": 1017,
+            "msu_mfsd": 775
+          },
+          "quota": {
+            "casia_fasd": 291,
+            "msu_mfsd": 221
+          },
+          "quota_total": 512,
+          "redistribution": [],
+          "route": "gpat",
+          "shortfall": 0
+        },
+        "physics": {
+          "clipped": {
+            "casia_fasd": 182,
+            "msu_mfsd": 74
+          },
+          "common_capacity": {
+            "casia_fasd": 113,
+            "msu_mfsd": 143
+          },
+          "feasible": false,
+          "ideal": {
+            "casia_fasd": 294.857143,
+            "msu_mfsd": 217.142857
+          },
+          "identical_across_arms": true,
+          "initial_quota": {
+            "casia_fasd": 295,
+            "msu_mfsd": 217
+          },
+          "planned": {
+            "casia_fasd": 1032,
+            "msu_mfsd": 760
+          },
+          "quota": {
+            "casia_fasd": 113,
+            "msu_mfsd": 143
+          },
+          "quota_total": 256,
+          "redistribution": [],
+          "route": "physics",
+          "shortfall": 256
+        }
+      },
+      "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+    }
+  ],
+  "fold_id": "EXT-F1",
+  "is_scientific_lock": false,
+  "llm_api_calls": 0,
+  "mask_compatibility_recovery_count": 0,
+  "profile_decision": {
+    "c6_scientific_failed": true,
+    "evaluations": [
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 735,
+            "physics": 331
+          },
+          "LLM": {
+            "gpat": 534,
+            "physics": 31
+          },
+          "RND": {
+            "gpat": 788,
+            "physics": 334
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "STRICT",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 56
+            },
+            "common_capacity": {
+              "casia_fasd": 235,
+              "msu_mfsd": 299
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 290.571429,
+              "msu_mfsd": 221.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 291,
+              "msu_mfsd": 221
+            },
+            "planned": {
+              "casia_fasd": 1017,
+              "msu_mfsd": 775
+            },
+            "quota": {
+              "casia_fasd": 235,
+              "msu_mfsd": 277
+            },
+            "quota_total": 512,
+            "redistribution": [
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": 0.428571,
+                "quota_after": 222
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -0.571429,
+                "quota_after": 223
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -1.571429,
+                "quota_after": 224
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -2.571429,
+                "quota_after": 225
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -3.571429,
+                "quota_after": 226
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -4.571429,
+                "quota_after": 227
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -5.571429,
+                "quota_after": 228
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -6.571429,
+                "quota_after": 229
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -7.571429,
+                "quota_after": 230
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -8.571429,
+                "quota_after": 231
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -9.571429,
+                "quota_after": 232
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -10.571429,
+                "quota_after": 233
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -11.571429,
+                "quota_after": 234
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -12.571429,
+                "quota_after": 235
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -13.571429,
+                "quota_after": 236
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -14.571429,
+                "quota_after": 237
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -15.571429,
+                "quota_after": 238
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -16.571429,
+                "quota_after": 239
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -17.571429,
+                "quota_after": 240
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -18.571429,
+                "quota_after": 241
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -19.571429,
+                "quota_after": 242
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -20.571429,
+                "quota_after": 243
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -21.571429,
+                "quota_after": 244
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -22.571429,
+                "quota_after": 245
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -23.571429,
+                "quota_after": 246
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -24.571429,
+                "quota_after": 247
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -25.571429,
+                "quota_after": 248
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -26.571429,
+                "quota_after": 249
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -27.571429,
+                "quota_after": 250
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -28.571429,
+                "quota_after": 251
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -29.571429,
+                "quota_after": 252
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -30.571429,
+                "quota_after": 253
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -31.571429,
+                "quota_after": 254
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -32.571429,
+                "quota_after": 255
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -33.571429,
+                "quota_after": 256
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -34.571429,
+                "quota_after": 257
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -35.571429,
+                "quota_after": 258
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -36.571429,
+                "quota_after": 259
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -37.571429,
+                "quota_after": 260
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -38.571429,
+                "quota_after": 261
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -39.571429,
+                "quota_after": 262
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -40.571429,
+                "quota_after": 263
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -41.571429,
+                "quota_after": 264
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -42.571429,
+                "quota_after": 265
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -43.571429,
+                "quota_after": 266
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -44.571429,
+                "quota_after": 267
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -45.571429,
+                "quota_after": 268
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -46.571429,
+                "quota_after": 269
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -47.571429,
+                "quota_after": 270
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -48.571429,
+                "quota_after": 271
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -49.571429,
+                "quota_after": 272
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -50.571429,
+                "quota_after": 273
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -51.571429,
+                "quota_after": 274
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -52.571429,
+                "quota_after": 275
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -53.571429,
+                "quota_after": 276
+              },
+              {
+                "capacity": 299,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -54.571429,
+                "quota_after": 277
+              }
+            ],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 281,
+              "msu_mfsd": 200
+            },
+            "common_capacity": {
+              "casia_fasd": 14,
+              "msu_mfsd": 17
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 294.857143,
+              "msu_mfsd": 217.142857
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 1032,
+              "msu_mfsd": 760
+            },
+            "quota": {
+              "casia_fasd": 14,
+              "msu_mfsd": 17
+            },
+            "quota_total": 31,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 481
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 810,
+            "physics": 346
+          },
+          "LLM": {
+            "gpat": 625,
+            "physics": 39
+          },
+          "RND": {
+            "gpat": 857,
+            "physics": 353
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "NOMINAL",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {
+              "casia_fasd": 13
+            },
+            "common_capacity": {
+              "casia_fasd": 278,
+              "msu_mfsd": 347
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 290.571429,
+              "msu_mfsd": 221.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 291,
+              "msu_mfsd": 221
+            },
+            "planned": {
+              "casia_fasd": 1017,
+              "msu_mfsd": 775
+            },
+            "quota": {
+              "casia_fasd": 278,
+              "msu_mfsd": 234
+            },
+            "quota_total": 512,
+            "redistribution": [
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": 0.428571,
+                "quota_after": 222
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -0.571429,
+                "quota_after": 223
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -1.571429,
+                "quota_after": 224
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -2.571429,
+                "quota_after": 225
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -3.571429,
+                "quota_after": 226
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -4.571429,
+                "quota_after": 227
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -5.571429,
+                "quota_after": 228
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -6.571429,
+                "quota_after": 229
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -7.571429,
+                "quota_after": 230
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -8.571429,
+                "quota_after": 231
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -9.571429,
+                "quota_after": 232
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -10.571429,
+                "quota_after": 233
+              },
+              {
+                "capacity": 347,
+                "domain": "msu_mfsd",
+                "ideal_minus_quota_before": -11.571429,
+                "quota_after": 234
+              }
+            ],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 277,
+              "msu_mfsd": 196
+            },
+            "common_capacity": {
+              "casia_fasd": 18,
+              "msu_mfsd": 21
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 294.857143,
+              "msu_mfsd": 217.142857
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 1032,
+              "msu_mfsd": 760
+            },
+            "quota": {
+              "casia_fasd": 18,
+              "msu_mfsd": 21
+            },
+            "quota_total": 39,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 473
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      },
+      {
+        "arm_route_counts": {
+          "DET": {
+            "gpat": 969,
+            "physics": 681
+          },
+          "LLM": {
+            "gpat": 870,
+            "physics": 256
+          },
+          "RND": {
+            "gpat": 1027,
+            "physics": 682
+          }
+        },
+        "arms_meet_route_floor": false,
+        "common_quota_feasible": false,
+        "feasible": false,
+        "profile": "PERMISSIVE",
+        "reliability_used_for_selection": false,
+        "route_quotas": {
+          "gpat": {
+            "clipped": {},
+            "common_capacity": {
+              "casia_fasd": 453,
+              "msu_mfsd": 417
+            },
+            "feasible": true,
+            "ideal": {
+              "casia_fasd": 290.571429,
+              "msu_mfsd": 221.428571
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 291,
+              "msu_mfsd": 221
+            },
+            "planned": {
+              "casia_fasd": 1017,
+              "msu_mfsd": 775
+            },
+            "quota": {
+              "casia_fasd": 291,
+              "msu_mfsd": 221
+            },
+            "quota_total": 512,
+            "redistribution": [],
+            "route": "gpat",
+            "shortfall": 0
+          },
+          "physics": {
+            "clipped": {
+              "casia_fasd": 182,
+              "msu_mfsd": 74
+            },
+            "common_capacity": {
+              "casia_fasd": 113,
+              "msu_mfsd": 143
+            },
+            "feasible": false,
+            "ideal": {
+              "casia_fasd": 294.857143,
+              "msu_mfsd": 217.142857
+            },
+            "identical_across_arms": true,
+            "initial_quota": {
+              "casia_fasd": 295,
+              "msu_mfsd": 217
+            },
+            "planned": {
+              "casia_fasd": 1032,
+              "msu_mfsd": 760
+            },
+            "quota": {
+              "casia_fasd": 113,
+              "msu_mfsd": 143
+            },
+            "quota_total": 256,
+            "redistribution": [],
+            "route": "physics",
+            "shortfall": 256
+          }
+        },
+        "rule": "\u00a711.4 route floor AND one identical source-domain quota vector per route across RND/DET/LLM. Bank-level reliability is a post-selection closure gate, not a selection objective"
+      }
+    ],
+    "on_failure": "\u00a711.4: if no profile qualifies, C6 FAILS. The gate is never widened, no arm gets its own threshold, the target distribution is not altered, the selector is not changed and no candidate is regenerated",
+    "profile_order": [
+      "STRICT",
+      "NOMINAL",
+      "PERMISSIVE"
+    ],
+    "selected_profile": null
+  },
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-tranche-closure-v1",
+  "status": "NEEDS_NEXT_RESERVE_TRANCHE",
+  "target_access": false,
+  "tranche": 3
+}

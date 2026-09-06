@@ -1,0 +1,24 @@
+{
+  "amendment_name": "E7-v1.1 RESERVE AMENDMENT",
+  "amendment_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+  "fold_id": "EXT-F2",
+  "gpat_checkpoint_sha256": "2fd6e1069a87ef4ac99e40f69a9799927a72235b8a3d6dea04b5dae5ef16cad9",
+  "implementation_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+  "implementation_module_sha256": "9ac88b1fbf38d31fa3ff51363e3b11e59a7db1f2728293aeeaa8aa8454bd92b3",
+  "llm_api_calls": 0,
+  "quality_calibration_sha256": "d20e085c796782f966019ba155e97c34bb2a3c3184d2d04aa43dcc1a46d85900",
+  "quality_profile_identities": {
+    "NOMINAL": "e4f3bc4b90c68feaac8f4b864c262938f6b7e2b271aad222427f354c187af96f",
+    "PERMISSIVE": "b7589bb09af61b00ed1747779c8007b713cfd4dd771150cb5698cef1708103be",
+    "STRICT": "43f412ddffb972872112a8b1d3d5ceb87f4dc99d5ddc2553fa3f37b5045cea83"
+  },
+  "recipe_bank_identities": {
+    "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+    "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+    "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+  },
+  "repository_head_commit": "bd929611b1fe738a01b9ef7d98650917e65463e9",
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-protocol-binding-v1",
+  "source_pair_plan_identity": "90ab79f3fa3924cb19126542b099fa65552e72b31644c0a0f1ab310f7819bf6d",
+  "target_access": false
+}

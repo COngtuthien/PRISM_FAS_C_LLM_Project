@@ -1,0 +1,23 @@
+{
+  "closed_at_tranche": null,
+  "cumulative_counts": {
+    "DET": {
+      "gpat": 2048,
+      "physics": 2048
+    },
+    "LLM": {
+      "gpat": 2048,
+      "physics": 2048
+    },
+    "RND": {
+      "gpat": 2048,
+      "physics": 2048
+    }
+  },
+  "fold_id": "EXT-F2",
+  "llm_api_calls": 0,
+  "next_tranche": null,
+  "schema_version": "ext-q1q2-e7-v1-1-reserve-orchestrator-run-state-v1",
+  "status": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+  "target_access": false
+}
