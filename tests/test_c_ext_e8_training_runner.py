@@ -377,7 +377,7 @@ def test_AB_m9trainer_construction_receives_synthetic_bank_seam(monkeypatch):
 
     trainer = runner.launch_scientific_run(
         spec, candidates_root=Path("/nonexistent"), recipes=(), recipe_bank_identity="x",
-        _trainer_cls=_FakeTrainer,
+        _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
     )
     assert isinstance(trainer, _FakeTrainer)
     assert "synthetic_bank" in calls
@@ -421,3 +421,337 @@ def test_runner_rule_payload_excludes_forbidden_fields():
     blob = json.dumps(payload).lower()
     for forbidden in ("timestamp", "hostname", "/home/", "outcome", "accuracy"):
         assert forbidden not in blob
+
+
+# =========================================================================== #
+# Runner V2 source-package-binding correction tests
+#
+# Root cause: V1 conflated the EXT-F1 GPAT-input package path/identity
+# (a train-only GPAT construction artifact, E7-D fold/source-support
+# identity "955b...") with the detector's canonical runtime source package
+# (M3B, content identity "08d9...", the identity every historical C5
+# GenerationIdentity.package_identity actually binds). V2 separates these
+# two provenance layers explicitly and never conflates them again.
+# =========================================================================== #
+
+M3B_ROOT_REAL = REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+
+
+# --- 1-5. Identity separation -------------------------------------------- #
+
+def test_1_v1_historical_identity_constants_retained_as_provenance_only():
+    assert runner.RUNNER_RULE_NAME == "E8_FIXED_TRACK_G_RUNNER_V1"
+    assert runner.EXT_F1_SOURCE_PACKAGE_IDENTITY == "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+    assert runner.SOURCE_PACKAGE_RELATIVE_PATH == "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
+    # V1's own rule identity is unaffected by the correction (byte-for-byte historical fact)
+    assert runner.runner_rule_identity() == "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0"
+
+
+def test_2_v2_real_package_root_exact():
+    assert runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH == "data/packages/prism_data_v1_m3b"
+
+
+def test_3_v2_m3b_content_identity_exact():
+    assert runner.M3B_CONTENT_IDENTITY == "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9"
+
+
+def test_4_e7d_identity_exact():
+    assert runner.E7D_F1_SOURCE_SUPPORT_IDENTITY == "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+
+
+def test_5_identities_explicitly_distinct():
+    assert runner.E7D_F1_SOURCE_SUPPORT_IDENTITY != runner.M3B_CONTENT_IDENTITY
+
+
+# --- 6. source_package_binding distinguishes the two roles --------------- #
+
+def test_6_source_package_binding_distinguishes_authority_vs_runtime():
+    binding = runner.source_package_binding()
+    assert binding["fold_source_support_authority"]["identity"] == runner.E7D_F1_SOURCE_SUPPORT_IDENTITY
+    assert binding["runtime_detector_package"]["expected_content_identity"] == runner.M3B_CONTENT_IDENTITY
+    assert binding["runtime_detector_package"]["root"] == runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+    assert binding["fold_source_support_authority"]["identity"] != \
+        binding["runtime_detector_package"]["expected_content_identity"]
+
+
+# --- 7-19. Strict M3B validation, real (partial) local package ----------- #
+
+def test_7_real_local_package_lock_valid():
+    result = runner.validate_m3b_package()
+    assert result["lock_present"] is True
+    assert result["lock_status_ok"] is True
+    assert result["lock_schema_ok"] is True
+    assert result["lock_content_identity_ok"] is True
+
+
+def test_8_1440_train_required():
+    assert runner.EXPECTED_M3B_TRAIN_ROWS == 1440
+
+
+def test_9_2079_dev_required():
+    assert runner.EXPECTED_M3B_DEV_ROWS == 2079
+
+
+def test_10_exact_casia_msu_train_counts():
+    assert runner.EXPECTED_M3B_TRAIN_DOMAIN_COUNTS == {"casia_fasd": 960, "msu_mfsd": 480}
+
+
+def test_11_exact_casia_msu_dev_counts():
+    assert runner.EXPECTED_M3B_DEV_DOMAIN_COUNTS == {"casia_fasd": 1439, "msu_mfsd": 640}
+
+
+@pytest.mark.skipif(not (M3B_ROOT_REAL / "manifests" / "source_dev.parquet").is_file(),
+                    reason="real M3B source_dev.parquet not present on this host")
+def test_real_source_dev_matches_expected_counts_and_hash():
+    dev_path = M3B_ROOT_REAL / "manifests" / "source_dev.parquet"
+    assert cc.sha256_file(dev_path) == "28a9ceea5df1e1a888f31881f1e2faa3fdb4910c706f566bb85161e2cb6b7b92"
+    import pandas as pd
+    df = pd.read_parquet(dev_path)
+    assert len(df) == 2079
+    assert df["dataset"].value_counts().to_dict() == {"casia_fasd": 1439, "msu_mfsd": 640}
+    assert set(df["dataset"].unique()) <= {"casia_fasd", "msu_mfsd"}
+    assert df["sample_id"].is_unique
+
+
+def _write_fixture_m3b(tmp_path, *, status="validated", schema="m3b-v1",
+                       content_identity=None, with_train=True, with_dev=True,
+                       train_rows=None, dev_rows=None, siw_in_train=False,
+                       dup_train_ids=False, overlap=False):
+    import pandas as pd
+
+    content_identity = content_identity or runner.M3B_CONTENT_IDENTITY
+    root = tmp_path / "data/packages/prism_data_v1_m3b"
+    (root / "manifests").mkdir(parents=True)
+    lock = {"status": status, "package_schema_version": schema, "content_identity_sha256": content_identity}
+    (root / "PACKAGE_LOCK.json").write_text(json.dumps(lock))
+
+    def _rows(n_casia, n_msu, prefix, extra_domain=None):
+        rows = []
+        for i in range(n_casia):
+            rows.append({"sample_id": f"{prefix}_casia_{i}", "dataset": "casia_fasd"})
+        for i in range(n_msu):
+            rows.append({"sample_id": f"{prefix}_msu_{i}", "dataset": "msu_mfsd"})
+        if extra_domain:
+            rows.append({"sample_id": f"{prefix}_extra", "dataset": extra_domain})
+        return rows
+
+    if with_train:
+        train_data = _rows(960, 480, "train", "siw_mv2" if siw_in_train else None)
+        if dup_train_ids:
+            train_data.append(dict(train_data[0]))
+        if train_rows is not None:
+            train_data = train_data[:train_rows]
+        pd.DataFrame(train_data).to_parquet(root / "manifests" / "source_train.parquet")
+
+    if with_dev:
+        dev_prefix = "train" if overlap else "dev"  # force overlap by reusing train's prefix
+        dev_data = _rows(1439, 640, dev_prefix)
+        if dev_rows is not None:
+            dev_data = dev_data[:dev_rows]
+        pd.DataFrame(dev_data).to_parquet(root / "manifests" / "source_dev.parquet")
+
+    return tmp_path
+
+
+def test_12_no_siw_accepted(tmp_path):
+    _write_fixture_m3b(tmp_path, siw_in_train=True)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["no_siw_in_train"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_13_no_duplicate_train_ids(tmp_path):
+    _write_fixture_m3b(tmp_path, dup_train_ids=True)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["no_duplicate_train_ids"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_14_no_duplicate_dev_ids_field_present():
+    # exercised structurally via the real dev manifest (already proven unique)
+    result = runner.validate_m3b_package()
+    # dev-duplicate detection only runs once train is also present; assert the
+    # field exists in the result contract regardless of local materialization.
+    assert "no_duplicate_dev_ids" in result
+
+
+def test_15_no_train_dev_overlap(tmp_path):
+    _write_fixture_m3b(tmp_path, overlap=True)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["no_train_dev_overlap"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_16_missing_source_dev_hard_fails_readiness(tmp_path):
+    _write_fixture_m3b(tmp_path, with_dev=False)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["source_dev_present"] is False
+    assert result["overall_state"] == runner.M3B_STATE_NOT_MATERIALIZED
+
+
+def test_17_drifted_content_identity_hard_fails(tmp_path):
+    _write_fixture_m3b(tmp_path, content_identity="0" * 64)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["lock_content_identity_ok"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_18_wrong_schema_hard_fails(tmp_path):
+    _write_fixture_m3b(tmp_path, schema="m3b-v2-not-frozen")
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["lock_schema_ok"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_19_non_validated_lock_hard_fails(tmp_path):
+    _write_fixture_m3b(tmp_path, status="pending")
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["lock_status_ok"] is False
+    assert result["overall_state"] == runner.M3B_STATE_INVALID
+
+
+def test_20_laptop_absence_reported_honestly_not_fabricated(tmp_path):
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["overall_state"] == runner.M3B_STATE_NOT_MATERIALIZED
+    assert result["lock_present"] is False
+    assert result["source_train_row_count"] is None  # never fabricated
+
+
+def test_20b_fully_valid_fixture_reports_valid(tmp_path):
+    _write_fixture_m3b(tmp_path)
+    result = runner.validate_m3b_package(root=tmp_path)
+    assert result["overall_state"] == runner.M3B_STATE_VALID
+    assert result["problems"] == []
+
+
+# --- 21-23. launch_scientific_run binding correctness --------------------- #
+
+def test_21_22_23_launch_uses_m3b_root_and_identity_never_e7d(monkeypatch):
+    from prism_fas.evaluation import c_ext_e8_training_adapter as adapter
+
+    calls_trainer = {}
+    calls_adapter = {}
+
+    class _FakeTrainer:
+        def __init__(self, **kwargs):
+            calls_trainer.update(kwargs)
+
+    class _Sentinel:
+        identity = "sentinel"
+
+    def _fake_open_e8_arm_bank(arm, **kwargs):
+        calls_adapter.update(kwargs)
+        return _Sentinel()
+
+    monkeypatch.setattr(adapter, "open_e8_arm_bank", _fake_open_e8_arm_bank)
+    spec = runner.build_run_spec("RND", 20260806)
+    runner.launch_scientific_run(spec, candidates_root=Path("/nonexistent"), recipes=(),
+                                 recipe_bank_identity="x", _trainer_cls=_FakeTrainer,
+                                 _skip_m3b_guard=True)
+
+    # 21: M3B root passed to M9Trainer
+    assert calls_trainer["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+    # 22: M3B content identity passed to the adapter
+    assert calls_adapter["package_identity"] == runner.M3B_CONTENT_IDENTITY
+    # 23: E7-D identity never passed as the C6 package identity
+    assert calls_adapter["package_identity"] != runner.E7D_F1_SOURCE_SUPPORT_IDENTITY
+
+
+# --- 24-25. Adapter untouched; existing M9Trainer seam reused -------------- #
+
+def test_24_adapter_implementation_untouched():
+    assert cc.sha256_file(REPO / "src/prism_fas/evaluation/c_ext_e8_training_adapter.py") == \
+        "7fa4be3beec6be6118faa830b39ef1d579a4715aba11c84a08a7a813a4ebd520"
+
+
+def test_25_existing_m9trainer_seam_reused():
+    source = inspect.getsource(runner)
+    assert "synthetic_bank=e8_bank" in source
+    assert "class M9Trainer" not in source  # never redefined
+
+
+# --- 26-32. Frozen contract unchanged by this correction ------------------- #
+
+def test_26_27_28_29_30_31_32_frozen_contract_unchanged():
+    specs = runner.all_scientific_run_specs()
+    assert len(specs) == 15
+    assert sorted(s.seed for s in specs) == sorted(list(runner.SEEDS) * 3)
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["frozen_schedule"]["total_optimizer_updates"] == 1575
+    assert pf["frozen_schedule"]["synthetic_draws_per_run"] == 10800
+    assert pf["bank_counts"] == {"total": 818, "physics": 354, "gpat": 464}
+    assert pf["target_firewall"]["target_access"] is False
+    assert pf["target_firewall"]["target_labels_accessed"] is False
+
+
+def test_33_no_target_argument():
+    sig = inspect.signature(runner.preflight_e8_run)
+    assert "target" not in " ".join(sig.parameters.keys()).lower()
+
+
+# --- 34-36. No fabrication / no fallback -------------------------------- #
+
+def test_34_35_36_no_auto_source_dev_creation_no_random_split_no_gpat_fallback():
+    source = inspect.getsource(runner.validate_m3b_package) + inspect.getsource(runner.launch_scientific_run)
+    for forbidden in ("random.sample", "np.random", "shutil.copy", "GPAT_INPUT_PACKAGE_RELATIVE_PATH_V1_HISTORICAL"):
+        assert forbidden not in source
+    # launch_scientific_run must not reference the historical GPAT path constant at all
+    launch_source = inspect.getsource(runner.launch_scientific_run)
+    assert "SOURCE_PACKAGE_RELATIVE_PATH" not in launch_source
+    assert "EXT_F1_SOURCE_PACKAGE_IDENTITY" not in launch_source
+
+
+# --- 37-38. Execution-plan + correction identity verified ------------------ #
+
+def test_37_original_execution_plan_identity_still_verified():
+    plan = runner.verify_execution_plan()
+    assert plan["e8_gpu_execution_plan_identity"] == runner.EXPECTED_EXECUTION_PLAN_IDENTITY
+
+
+def test_38_new_correction_identity_verified():
+    assert runner.SOURCE_BINDING_CORRECTION_RELATIVE_PATH.endswith(
+        "runner_correction/E8_RUNNER_SOURCE_BINDING_CORRECTION.json")
+
+
+# --- 39. V2 rule identity deterministic ------------------------------------ #
+
+def test_39_runner_v2_rule_identity_deterministic():
+    id1 = runner.runner_rule_identity_v2()
+    id2 = runner.runner_rule_identity_v2()
+    assert id1 == id2
+    assert len(id1) == 64
+    assert id1 != runner.runner_rule_identity()  # V2 differs from V1
+
+
+# --- 40. Preflight never trains --------------------------------------------- #
+
+def test_40_preflight_v2_does_not_train():
+    spec = runner.build_run_spec("RND", 20260806)
+    result = runner.preflight_e8_run(spec)
+    assert result["training_started"] is False
+    assert "M9Trainer(" not in inspect.getsource(runner.preflight_e8_run)
+
+
+# --- 41-42. Collision policy / smoke isolation unchanged -------------------- #
+
+def test_41_collision_policy_unchanged():
+    assert {s.value for s in runner.RunState} == {
+        "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "FAILED_TECHNICAL", "BLOCKED_COLLISION"}
+
+
+def test_42_smoke_namespace_remains_isolated():
+    result = runner.preflight_e8_smoke("RND", 20260806)
+    assert result["smoke_run_root"].startswith(runner.SMOKE_ROOT_RELATIVE)
+    assert not result["smoke_run_root"].startswith(runner.RUN_ROOT_RELATIVE)
+
+
+# --- Local preflight status for the real (partially materialized) host ---- #
+
+def test_local_preflight_status_honest_for_this_host():
+    spec = runner.build_run_spec("RND", 20260806)
+    result = runner.preflight_e8_run(spec)
+    assert result["local_preflight_status"] in (
+        "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION", "BLOCKED_M3B_PACKAGE_VALIDATION_FAILED")
+    # never silently claims the package is scientifically ready to train from
+    assert result["local_preflight_status"] != "READY_TO_TRAIN"

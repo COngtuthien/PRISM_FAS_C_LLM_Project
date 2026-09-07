@@ -74,11 +74,54 @@ DETECTOR_CONFIG_LOCK_RELATIVE_PATH = "reports/full/c7/DETECTOR_CONFIG_LOCK.json"
 MODEL_CONFIG_RELATIVE_PATH = "configs/models/m9_detector.yaml"
 TRAINING_CONFIG_RELATIVE_PATH = "configs/train/m9_reference.yaml"
 LOADER_CONFIG_RELATIVE_PATH = "configs/data/loader_m4.yaml"
-SOURCE_PACKAGE_RELATIVE_PATH = "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
-EXT_F1_SOURCE_PACKAGE_IDENTITY = "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+# --------------------------------------------------------------------------- #
+# HISTORICAL V1 constants -- retained ONLY as provenance (see
+# reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/
+# E8_RUNNER_SOURCE_BINDING_CORRECTION.{json,md}). V1 incorrectly reused the
+# EXT-F1 GPAT-input package path and the E7-D fold/source-support identity as
+# if they were the detector's canonical runtime source package and its
+# content identity. They are NOT: GPAT_INPUT_PACKAGE_RELATIVE_PATH_V1_HISTORICAL
+# is a train-only GPAT construction package, and
+# E7D_F1_SOURCE_SUPPORT_IDENTITY is the frozen E7-D fold/source-support
+# authority identity, never the M3B content identity written into every
+# historical C5 GenerationIdentity.package_identity. Neither constant is
+# used by launch_scientific_run() any more; both remain defined, unchanged,
+# for historical-report readability only.
+# --------------------------------------------------------------------------- #
+GPAT_INPUT_PACKAGE_RELATIVE_PATH_V1_HISTORICAL = "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
+E7D_F1_SOURCE_SUPPORT_IDENTITY = "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+# Back-compat aliases for the pre-correction names (still the same values as
+# the two constants above; never read by launch_scientific_run() any more).
+SOURCE_PACKAGE_RELATIVE_PATH = GPAT_INPUT_PACKAGE_RELATIVE_PATH_V1_HISTORICAL
+EXT_F1_SOURCE_PACKAGE_IDENTITY = E7D_F1_SOURCE_SUPPORT_IDENTITY
+
+# --------------------------------------------------------------------------- #
+# CORRECTED V2 constants -- the canonical detector runtime package.
+# Every one of the 3072 historical C6-selected candidates' C5
+# GenerationIdentity.package_identity binds M3B_CONTENT_IDENTITY, confirmed
+# both by manual GPU audit (see the runner_correction/ namespace) and,
+# locally in this checkout, directly from
+# runs/full/c5/scientific/candidates/LLM/*/CANDIDATE.json.
+# --------------------------------------------------------------------------- #
+M3B_RUNTIME_PACKAGE_RELATIVE_PATH = "data/packages/prism_data_v1_m3b"
+M3B_CONTENT_IDENTITY = "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9"
+M3B_PACKAGE_SCHEMA_VERSION = "m3b-v1"
+M3B_PACKAGE_LOCK_RELATIVE_PATH = f"{M3B_RUNTIME_PACKAGE_RELATIVE_PATH}/PACKAGE_LOCK.json"
+M3B_SOURCE_TRAIN_RELATIVE_PATH = f"{M3B_RUNTIME_PACKAGE_RELATIVE_PATH}/manifests/source_train.parquet"
+M3B_SOURCE_DEV_RELATIVE_PATH = f"{M3B_RUNTIME_PACKAGE_RELATIVE_PATH}/manifests/source_dev.parquet"
+EXPECTED_M3B_TRAIN_ROWS = 1440
+EXPECTED_M3B_TRAIN_DOMAIN_COUNTS = {"casia_fasd": 960, "msu_mfsd": 480}
+EXPECTED_M3B_DEV_ROWS = 2079
+EXPECTED_M3B_DEV_DOMAIN_COUNTS = {"casia_fasd": 1439, "msu_mfsd": 640}
+
 ALLOWED_SOURCE_DOMAINS = frozenset({"casia_fasd", "msu_mfsd"})
 
 RUNNER_RULE_NAME = "E8_FIXED_TRACK_G_RUNNER_V1"
+RUNNER_RULE_NAME_V2 = "E8_FIXED_TRACK_G_RUNNER_V2_SOURCE_BINDING_FIX"
+SOURCE_BINDING_CORRECTION_RELATIVE_PATH = (
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/"
+    "E8_RUNNER_SOURCE_BINDING_CORRECTION.json"
+)
 FAILURE_MARKER_NAME = "E8_RUN_FAILED.json"
 
 
@@ -294,19 +337,158 @@ def load_frozen_winner_track_g_config(spec: E8RunSpec, synthetic_bank_identity: 
 # Source-package binding (metadata-only preflight; never fabricates presence)
 # --------------------------------------------------------------------------- #
 
-def source_package_binding(root: Path | None = None) -> dict[str, Any]:
+M3B_STATE_NOT_MATERIALIZED = "RUNTIME_ASSET_NOT_MATERIALIZED_ON_THIS_HOST"
+M3B_STATE_VALID = "VALID"
+M3B_STATE_INVALID = "INVALID"
+
+
+def validate_m3b_package(root: Path | None = None) -> dict[str, Any]:
+    """Strict, fail-closed, read-only validation of the canonical detector
+    runtime package (``data/packages/prism_data_v1_m3b``).
+
+    Never fabricates the package and never fails merely because this host
+    intentionally lacks GPU-resident runtime assets -- an absent or
+    partially-materialized package is reported honestly via
+    ``overall_state``, never silently treated as valid.
+    """
     repo = _repo_root(root)
-    package_root = repo / SOURCE_PACKAGE_RELATIVE_PATH
-    manifests = {
-        name: (package_root / "manifests" / name)
-        for name in ("source_train.parquet", "source_dev.parquet")
+    package_root = repo / M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+    lock_path = repo / M3B_PACKAGE_LOCK_RELATIVE_PATH
+    train_path = repo / M3B_SOURCE_TRAIN_RELATIVE_PATH
+    dev_path = repo / M3B_SOURCE_DEV_RELATIVE_PATH
+
+    result: dict[str, Any] = {
+        "package_root": M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        "expected_content_identity": M3B_CONTENT_IDENTITY,
+        "expected_schema": M3B_PACKAGE_SCHEMA_VERSION,
+        "package_root_present": package_root.is_dir(),
+        "lock_present": lock_path.is_file(),
+        "lock_status_ok": False, "lock_schema_ok": False, "lock_content_identity_ok": False,
+        "source_train_present": train_path.is_file(),
+        "source_dev_present": dev_path.is_file(),
+        "source_train_row_count": None, "source_dev_row_count": None,
+        "source_train_domain_counts": None, "source_dev_domain_counts": None,
+        "source_train_counts_ok": False, "source_dev_counts_ok": False,
+        "no_siw_in_train": None, "no_siw_in_dev": None,
+        "no_duplicate_train_ids": None, "no_duplicate_dev_ids": None,
+        "no_train_dev_overlap": None,
+        "problems": [],
     }
+
+    if not result["lock_present"]:
+        result["overall_state"] = M3B_STATE_NOT_MATERIALIZED
+        result["problems"].append(f"{lock_path}: PACKAGE_LOCK.json not present on this host")
+        return result
+
+    lock = cc.read_json(lock_path)
+    result["lock_status_ok"] = lock.get("status") == "validated"
+    result["lock_schema_ok"] = lock.get("package_schema_version") == M3B_PACKAGE_SCHEMA_VERSION
+    result["lock_content_identity_ok"] = lock.get("content_identity_sha256") == M3B_CONTENT_IDENTITY
+    if not result["lock_status_ok"]:
+        result["problems"].append(f"PACKAGE_LOCK.json status {lock.get('status')!r} != 'validated'")
+    if not result["lock_schema_ok"]:
+        result["problems"].append(
+            f"PACKAGE_LOCK.json package_schema_version {lock.get('package_schema_version')!r} != "
+            f"{M3B_PACKAGE_SCHEMA_VERSION!r}")
+    if not result["lock_content_identity_ok"]:
+        result["problems"].append(
+            f"PACKAGE_LOCK.json content_identity_sha256 {lock.get('content_identity_sha256')!r} != "
+            f"frozen expected {M3B_CONTENT_IDENTITY!r}")
+
+    if not result["source_train_present"]:
+        result["problems"].append(f"{train_path}: source_train.parquet not present on this host")
+    if not result["source_dev_present"]:
+        result["problems"].append(f"{dev_path}: source_dev.parquet not present on this host")
+
+    if not (result["lock_present"] and result["source_train_present"] and result["source_dev_present"]):
+        result["overall_state"] = M3B_STATE_NOT_MATERIALIZED
+        return result
+
+    import pandas as pd
+
+    train_df = pd.read_parquet(train_path)
+    dev_df = pd.read_parquet(dev_path)
+    result["source_train_row_count"] = int(len(train_df))
+    result["source_dev_row_count"] = int(len(dev_df))
+    train_domains = train_df["dataset"].value_counts().to_dict() if "dataset" in train_df.columns else {}
+    dev_domains = dev_df["dataset"].value_counts().to_dict() if "dataset" in dev_df.columns else {}
+    result["source_train_domain_counts"] = {k: int(v) for k, v in train_domains.items()}
+    result["source_dev_domain_counts"] = {k: int(v) for k, v in dev_domains.items()}
+
+    result["source_train_counts_ok"] = (
+        result["source_train_row_count"] == EXPECTED_M3B_TRAIN_ROWS
+        and result["source_train_domain_counts"] == EXPECTED_M3B_TRAIN_DOMAIN_COUNTS
+    )
+    result["source_dev_counts_ok"] = (
+        result["source_dev_row_count"] == EXPECTED_M3B_DEV_ROWS
+        and result["source_dev_domain_counts"] == EXPECTED_M3B_DEV_DOMAIN_COUNTS
+    )
+    if not result["source_train_counts_ok"]:
+        result["problems"].append(
+            f"source_train rows/domains {result['source_train_row_count']}/"
+            f"{result['source_train_domain_counts']} != expected {EXPECTED_M3B_TRAIN_ROWS}/"
+            f"{EXPECTED_M3B_TRAIN_DOMAIN_COUNTS}")
+    if not result["source_dev_counts_ok"]:
+        result["problems"].append(
+            f"source_dev rows/domains {result['source_dev_row_count']}/"
+            f"{result['source_dev_domain_counts']} != expected {EXPECTED_M3B_DEV_ROWS}/"
+            f"{EXPECTED_M3B_DEV_DOMAIN_COUNTS}")
+
+    result["no_siw_in_train"] = not (set(train_domains) - ALLOWED_SOURCE_DOMAINS)
+    result["no_siw_in_dev"] = not (set(dev_domains) - ALLOWED_SOURCE_DOMAINS)
+    if not result["no_siw_in_train"]:
+        result["problems"].append(f"source_train carries forbidden domain(s) {set(train_domains) - ALLOWED_SOURCE_DOMAINS}")
+    if not result["no_siw_in_dev"]:
+        result["problems"].append(f"source_dev carries forbidden domain(s) {set(dev_domains) - ALLOWED_SOURCE_DOMAINS}")
+
+    train_ids = train_df["sample_id"] if "sample_id" in train_df.columns else None
+    dev_ids = dev_df["sample_id"] if "sample_id" in dev_df.columns else None
+    result["no_duplicate_train_ids"] = bool(train_ids is not None and train_ids.is_unique)
+    result["no_duplicate_dev_ids"] = bool(dev_ids is not None and dev_ids.is_unique)
+    if not result["no_duplicate_train_ids"]:
+        result["problems"].append("source_train.parquet contains duplicate sample_id values")
+    if not result["no_duplicate_dev_ids"]:
+        result["problems"].append("source_dev.parquet contains duplicate sample_id values")
+
+    if train_ids is not None and dev_ids is not None:
+        overlap = set(train_ids) & set(dev_ids)
+        result["no_train_dev_overlap"] = len(overlap) == 0
+        if overlap:
+            result["problems"].append(f"{len(overlap)} sample_id(s) appear in both source_train and source_dev")
+    else:
+        result["no_train_dev_overlap"] = None
+
+    all_ok = (
+        result["lock_status_ok"] and result["lock_schema_ok"] and result["lock_content_identity_ok"]
+        and result["source_train_counts_ok"] and result["source_dev_counts_ok"]
+        and result["no_siw_in_train"] and result["no_siw_in_dev"]
+        and result["no_duplicate_train_ids"] and result["no_duplicate_dev_ids"]
+        and (result["no_train_dev_overlap"] is True)
+    )
+    result["overall_state"] = M3B_STATE_VALID if all_ok else M3B_STATE_INVALID
+    return result
+
+
+def source_package_binding(root: Path | None = None) -> dict[str, Any]:
+    """Distinguishes the fold/source-support AUTHORITY (E7-D, ``955b...``)
+    from the detector's canonical RUNTIME package (M3B, ``08d9...``). Never
+    conflates the two -- see ``E8_RUNNER_SOURCE_BINDING_CORRECTION.json`` for
+    why this distinction matters."""
+    m3b = validate_m3b_package(root)
     return {
-        "package_root": SOURCE_PACKAGE_RELATIVE_PATH,
-        "package_identity": EXT_F1_SOURCE_PACKAGE_IDENTITY,
+        "fold_source_support_authority": {
+            "identity": E7D_F1_SOURCE_SUPPORT_IDENTITY,
+            "role": "binds EXT-F1 fold/source-support membership (E7-D); NOT the detector runtime "
+                   "package content identity",
+        },
+        "runtime_detector_package": {
+            "root": M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+            "expected_content_identity": M3B_CONTENT_IDENTITY,
+            "role": "the canonical detector runtime source package; its content identity is what "
+                   "every historical C5 GenerationIdentity.package_identity binds",
+            "validation": m3b,
+        },
         "allowed_domains": sorted(ALLOWED_SOURCE_DOMAINS),
-        "package_present_locally": package_root.is_dir(),
-        "manifests_present": {name: path.is_file() for name, path in manifests.items()},
     }
 
 
@@ -399,10 +581,19 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
     run_root = repo / spec.run_root
     state = classify_run_state(run_root)
 
+    m3b_state = source_binding["runtime_detector_package"]["validation"]["overall_state"]
+    if m3b_state == M3B_STATE_VALID:
+        local_preflight_status = "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION"
+    elif m3b_state == M3B_STATE_NOT_MATERIALIZED:
+        local_preflight_status = "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION"
+    else:
+        local_preflight_status = "BLOCKED_M3B_PACKAGE_VALIDATION_FAILED"
+
     return {
         "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
         "run_id": spec.run_id, "arm": spec.arm, "condition": spec.condition, "seed": spec.seed,
         "run_root": spec.run_root, "collision_state": state.value,
+        "local_preflight_status": local_preflight_status,
         "source_package_binding": source_binding,
         "bank_counts": {"total": bank_binding.membership_count, "physics": bank_binding.physics_count,
                         "gpat": bank_binding.gpat_count},
@@ -428,21 +619,44 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
 def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
                           candidates_root: Path | None = None,
                           recipes: Any = None, recipe_bank_identity: str | None = None,
-                          _trainer_cls: Callable[..., Any] | None = None) -> Any:
+                          _trainer_cls: Callable[..., Any] | None = None,
+                          _skip_m3b_guard: bool = False) -> Any:
     """Construct and run the EXISTING ``M9Trainer`` against the E8 bank.
+
+    CORRECTED (V2): ``package_root`` resolves to the canonical M3B runtime
+    package (``M3B_RUNTIME_PACKAGE_RELATIVE_PATH``), and
+    ``adapter.open_e8_arm_bank`` receives ``M3B_CONTENT_IDENTITY`` -- NOT the
+    E7-D fold/source-support identity V1 incorrectly reused for this role.
+    Before any construction, the canonical M3B package is hard-validated
+    (``validate_m3b_package``); any failure raises before
+    ``_trainer_cls``/``M9Trainer`` is even imported. No fallback to the
+    GPAT-input package, no source_dev fabrication, no random split, no
+    download, no SiW.
 
     ``_trainer_cls`` is a test-only constructor-injection seam (defaults to
     the real ``prism_fas.detector.trainer.M9Trainer``); it exists so tests
     can verify the exact construction kwargs without instantiating the full
-    SigLIP2 model. This task does not call this function for real.
+    SigLIP2 model. ``_skip_m3b_guard`` is a test-only seam for exercising the
+    construction-kwargs path against a synthetic bank without requiring the
+    real M3B package to be materialized. This task does not call this
+    function for real.
     """
     repo = _repo_root(root)
     run_root = repo / spec.run_root
     assert_no_collision(run_root)
 
+    if not _skip_m3b_guard:
+        m3b = validate_m3b_package(repo)
+        if m3b["overall_state"] != M3B_STATE_VALID:
+            raise E8RunnerError(
+                f"canonical M3B runtime package is not valid ({m3b['overall_state']}); refusing to "
+                f"launch scientific training. Problems: {m3b['problems']}. No fallback to the "
+                "GPAT-input package, no source_dev fabrication, no random split, no download."
+            )
+
     e8_bank = adapter.open_e8_arm_bank(
         spec.arm, candidates_root=candidates_root, recipes=recipes or (),
-        package_identity=EXT_F1_SOURCE_PACKAGE_IDENTITY,
+        package_identity=M3B_CONTENT_IDENTITY,
         recipe_bank_identity=recipe_bank_identity or "", root=repo,
     )
     training_config, detector_config = load_frozen_winner_track_g_config(
@@ -453,8 +667,12 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
 
     trainer = _trainer_cls(
         config=training_config, detector_config=detector_config,
-        package_root=repo / SOURCE_PACKAGE_RELATIVE_PATH,
-        bank_root=repo / SOURCE_PACKAGE_RELATIVE_PATH,  # unused: synthetic_bank= is supplied
+        package_root=repo / M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        # unused when synthetic_bank= is supplied (M9TrainingDataset never opens bank_root in that
+        # case) -- pointed at the same honest M3B root rather than the wrong GPAT-input path V1 used.
+        bank_root=repo / M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        # recipe_bank_root is OUT OF SCOPE for this source-package-binding correction; unchanged
+        # from V1 pending its own, separately scoped review.
         recipe_bank_root=repo, run_root=run_root, cache_root=run_root / "cache",
         weight_root=repo / "weights", loader_config_path=repo / LOADER_CONFIG_RELATIVE_PATH,
         synthetic_bank=e8_bank,
@@ -524,3 +742,45 @@ def build_runner_rule_payload() -> dict[str, Any]:
 
 def runner_rule_identity() -> str:
     return cc.sha256_bytes(cc.canonical_json_bytes(build_runner_rule_payload()))
+
+
+# --------------------------------------------------------------------------- #
+# Runner rule identity V2 (source-binding correction)
+# --------------------------------------------------------------------------- #
+
+def build_runner_rule_payload_v2() -> dict[str, Any]:
+    """The corrected V2 rule payload. Binds BOTH provenance layers distinctly
+    (E7-D fold/source-support authority vs. M3B runtime content identity) --
+    never conflates them -- plus the source-binding correction artifact's own
+    identity, so a future reader can trace exactly which correction this
+    rule payload was built under."""
+    return {
+        "runner_rule_name": RUNNER_RULE_NAME_V2,
+        "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+        "execution_plan_identity": EXPECTED_EXECUTION_PLAN_IDENTITY,
+        "adapter_implementation_commit": ADAPTER_IMPLEMENTATION_COMMIT,
+        "adapter_rule_identity": EXPECTED_ADAPTER_RULE_IDENTITY,
+        "adapter_source_sha256": "7fa4be3beec6be6118faa830b39ef1d579a4715aba11c84a08a7a813a4ebd520",
+        "membership_sha256": FROZEN_MEMBERSHIP_PARQUET_SHA256,
+        "membership_lock_sha256": FROZEN_MEMBERSHIP_LOCK_SHA256,
+        "selector_rule_identity": SELECTOR_RULE_IDENTITY,
+        "input_binding_rule_identity": INPUT_BINDING_RULE_IDENTITY,
+        "track_g_variant_identity": TRACK_G_VARIANT_IDENTITY,
+        "c7_winner_config_sha256": C7_WINNER_CONFIG_SHA256,
+        "e7d_source_support_identity": E7D_F1_SOURCE_SUPPORT_IDENTITY,
+        "m3b_runtime_package_root": M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        "m3b_content_identity": M3B_CONTENT_IDENTITY,
+        "m3b_package_schema_version": M3B_PACKAGE_SCHEMA_VERSION,
+        "allowed_run_ids": sorted(derive_run_id(arm, seed) for arm in ARMS for seed in SEEDS),
+        "seeds": list(SEEDS),
+        "arms": list(ARMS),
+        "run_root": RUN_ROOT_RELATIVE,
+        "collision_policy": [state.value for state in RunState],
+        "target_firewall": {"target_access": False, "target_labels_accessed": False,
+                            "allowed_domains": sorted(ALLOWED_SOURCE_DOMAINS)},
+        "source_binding_correction_artifact": SOURCE_BINDING_CORRECTION_RELATIVE_PATH,
+    }
+
+
+def runner_rule_identity_v2() -> str:
+    return cc.sha256_bytes(cc.canonical_json_bytes(build_runner_rule_payload_v2()))

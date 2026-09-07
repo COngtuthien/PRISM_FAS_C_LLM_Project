@@ -1,0 +1,75 @@
+{
+  "adapter_implementation_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "allowed_run_ids": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+  "classification": "E8_TRAINING_RUNNER_V2_BINDING",
+  "e7d_source_support_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "execution_plan_identity": "74f9503f1fa22ffe96eca6585ff1184b3f6bc122380a3e39c485a35dc02a39de",
+  "expected_dev_domain_counts": {
+    "casia_fasd": 1439,
+    "msu_mfsd": 640
+  },
+  "expected_dev_rows": 2079,
+  "expected_train_domain_counts": {
+    "casia_fasd": 960,
+    "msu_mfsd": 480
+  },
+  "expected_train_rows": 1440,
+  "historical_runner_commit": "25ffb908e2fe32bf7c27ae0fb91d4546738db6eb",
+  "historical_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+  "historical_runner_source_sha256": "e20309727587c021fddbca46a5d96a5b20766c06ae34dbc7cbd0514ea4e4ea2c",
+  "implementation_commit_note": "this task stops before commit -- no correction commit is recorded yet; a future commit-review step binds the actual correction commit",
+  "implementation_parent_commit": "25ffb908e2fe32bf7c27ae0fb91d4546738db6eb",
+  "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "m3b_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m3b_package_schema_version": "m3b-v1",
+  "m3b_runtime_package_root": "data/packages/prism_data_v1_m3b",
+  "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+  "membership_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "new_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
+  "new_runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V2_SOURCE_BINDING_FIX",
+  "new_runner_source_sha256": "3cf0cb6234121cbbc0e443641193bb8201743d700c05f1954db8edc0a0a8e3cf",
+  "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1",
+  "schema_version": "ext-q1q2-e8-training-runner-v2-binding-v1",
+  "seeds": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "source_binding_correction_artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/E8_RUNNER_SOURCE_BINDING_CORRECTION.json",
+  "source_binding_correction_identity_sha256": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921",
+  "target_firewall": {
+    "allowed_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "track_g_variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+}
