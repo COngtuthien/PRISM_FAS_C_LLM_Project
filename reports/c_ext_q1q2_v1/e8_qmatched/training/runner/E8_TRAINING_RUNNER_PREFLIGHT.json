@@ -1,0 +1,278 @@
+{
+  "adapter_integration_result": {
+    "bank_counts_hard_asserted": {
+      "gpat": 464,
+      "physics": 354,
+      "total": 818
+    },
+    "membership_filtering_duplicated": false,
+    "open_e8_arm_bank_reused": true
+  },
+  "classification": "E8_TRAINING_RUNNER_PREFLIGHT",
+  "collision_state_behavior": {
+    "ambiguous_output_classified_as": "BLOCKED_COLLISION",
+    "launch_guard": "assert_no_collision() raises E8RunnerError for any state other than NOT_STARTED",
+    "never_deletes": true,
+    "never_silently_overwrites": true,
+    "never_silently_resumes": true,
+    "states": [
+      "NOT_STARTED",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "FAILED_TECHNICAL",
+      "BLOCKED_COLLISION"
+    ]
+  },
+  "core_modules_modified": [],
+  "detector_checkpoints_created": false,
+  "detector_training_started": false,
+  "focused_tests": {
+    "broad_c_ext_sweep_run": false,
+    "combined_result": {
+      "failed": 0,
+      "passed": 101,
+      "skipped": 16
+    },
+    "commands": [
+      "pytest -q tests/test_c_ext_e8_training_runner.py",
+      "pytest -q tests/test_c_ext_e8_training_adapter.py",
+      "pytest -q tests/pipeline/test_c6_evidence_and_bank.py tests/test_m4_loader_sampler.py"
+    ],
+    "e7_mutating_test_path_avoided": true,
+    "runner_suite_only": {
+      "failed": 0,
+      "passed": 33,
+      "skipped": 0
+    }
+  },
+  "frozen_track_g_config_enforcement": {
+    "asserted_schedule": {
+      "G1_epochs": 3,
+      "G2_epochs": 2,
+      "G5_epochs": 30,
+      "lambda_risk": 0.05,
+      "lambda_syn": 0.25,
+      "steps_per_epoch": 45,
+      "total_epochs": 35,
+      "warmup_fraction": 0.05,
+      "weight_decay": 0.025
+    },
+    "loaded_via": "prism_fas.detector.config.load_m9_configs (configs/models/m9_detector.yaml + configs/train/m9_reference.yaml)",
+    "lr_note": "backbone_lr/head_lr are NOT re-derived via the LR-anchor-multiplier mechanism (prism_fas.search.lr_decision) -- Track G's component there is UNIQUE_INHERITED_ANCHOR, and this implementation did not conclusively resolve what the recorded learning_rate_multiplier=2.0 means for that interpretation (naive anchor*multiplier disagrees with the value already resolved and frozen in EXT_MODEL_BINDING.json). Instead, the runner asserts the base config's own LR defaults already equal the frozen resolved binding (1e-5/1e-4) and leaves them untouched -- a verified equality, not a guessed derivation.",
+    "winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+    "winner_config_sha256_reasserted": true,
+    "winner_delta_source": "reports/full/c7/DETECTOR_CONFIG_LOCK.json :: tracks.G.winner_config, applied via the SAME dataclasses.replace(base, **overrides) pattern prism_fas.pipeline.adapters.c7._scientific_trial_config already uses"
+  },
+  "gpu_used": false,
+  "implementation_parent_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "llm_api_calls": 0,
+  "preflight_only_behavior": {
+    "never_imports_or_calls_m9trainer": true,
+    "never_opens_pixel_payload": true,
+    "resolves": [
+      "run specification",
+      "source package binding",
+      "E8 bank counts",
+      "frozen training config + hash",
+      "output path",
+      "collision state",
+      "model identity",
+      "target firewall"
+    ],
+    "usable_later_on_gpu": true
+  },
+  "runner_15_run_validation": {
+    "all_15_specs_validate": true,
+    "condition_arm_mapping": {
+      "DET": "G-DET-QMATCH",
+      "LLM": "G-LLM-QMATCH",
+      "RND": "G-RND-QMATCH"
+    },
+    "run_ids": [
+      "e8_ext_f1_g_det_qmatch_s20260806",
+      "e8_ext_f1_g_det_qmatch_s20260807",
+      "e8_ext_f1_g_det_qmatch_s20260808",
+      "e8_ext_f1_g_det_qmatch_s20260809",
+      "e8_ext_f1_g_det_qmatch_s20260810",
+      "e8_ext_f1_g_llm_qmatch_s20260806",
+      "e8_ext_f1_g_llm_qmatch_s20260807",
+      "e8_ext_f1_g_llm_qmatch_s20260808",
+      "e8_ext_f1_g_llm_qmatch_s20260809",
+      "e8_ext_f1_g_llm_qmatch_s20260810",
+      "e8_ext_f1_g_rnd_qmatch_s20260806",
+      "e8_ext_f1_g_rnd_qmatch_s20260807",
+      "e8_ext_f1_g_rnd_qmatch_s20260808",
+      "e8_ext_f1_g_rnd_qmatch_s20260809",
+      "e8_ext_f1_g_rnd_qmatch_s20260810"
+    ],
+    "seeds": [
+      20260806,
+      20260807,
+      20260808,
+      20260809,
+      20260810
+    ]
+  },
+  "runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+  "runner_source_sha256": "e20309727587c021fddbca46a5d96a5b20766c06ae34dbc7cbd0514ea4e4ea2c",
+  "sample_preflight_results": {
+    "e8_ext_f1_g_rnd_qmatch_s20260806": {
+      "arm": "RND",
+      "bank_counts": {
+        "gpat": 464,
+        "physics": 354,
+        "total": 818
+      },
+      "checkpoint_created": false,
+      "collision_state": "NOT_STARTED",
+      "condition": "G-RND-QMATCH",
+      "frozen_schedule": {
+        "steps_per_epoch": 45,
+        "synthetic_draws_per_run": 10800,
+        "total_epochs": 35,
+        "total_optimizer_updates": 1575
+      },
+      "model_identity": "google/siglip2-base-patch16-224",
+      "run_id": "e8_ext_f1_g_rnd_qmatch_s20260806",
+      "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1/e8_ext_f1_g_rnd_qmatch_s20260806",
+      "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
+      "seed": 20260806,
+      "source_package_binding": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "manifests_present": {
+          "source_dev.parquet": false,
+          "source_train.parquet": false
+        },
+        "package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+        "package_present_locally": false,
+        "package_root": "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
+      },
+      "target_firewall": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "target_access": false,
+        "target_labels_accessed": false
+      },
+      "training_config_hash": "f1f9e676c1905270c1bfa13442697f2a390478466c0b9c3e43c3668141b67312",
+      "training_started": false
+    },
+    "e8_ext_f1_g_rnd_qmatch_s20260807": {
+      "arm": "RND",
+      "bank_counts": {
+        "gpat": 464,
+        "physics": 354,
+        "total": 818
+      },
+      "checkpoint_created": false,
+      "collision_state": "NOT_STARTED",
+      "condition": "G-RND-QMATCH",
+      "frozen_schedule": {
+        "steps_per_epoch": 45,
+        "synthetic_draws_per_run": 10800,
+        "total_epochs": 35,
+        "total_optimizer_updates": 1575
+      },
+      "model_identity": "google/siglip2-base-patch16-224",
+      "run_id": "e8_ext_f1_g_rnd_qmatch_s20260807",
+      "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1/e8_ext_f1_g_rnd_qmatch_s20260807",
+      "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
+      "seed": 20260807,
+      "source_package_binding": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "manifests_present": {
+          "source_dev.parquet": false,
+          "source_train.parquet": false
+        },
+        "package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+        "package_present_locally": false,
+        "package_root": "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
+      },
+      "target_firewall": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "target_access": false,
+        "target_labels_accessed": false
+      },
+      "training_config_hash": "72577ffe3dcddcdb3e2bc2b2e7ee4d4d4807d9fc7a0bd719c450a4d3f0eb99a4",
+      "training_started": false
+    },
+    "e8_ext_f1_g_rnd_qmatch_s20260808": {
+      "arm": "RND",
+      "bank_counts": {
+        "gpat": 464,
+        "physics": 354,
+        "total": 818
+      },
+      "checkpoint_created": false,
+      "collision_state": "NOT_STARTED",
+      "condition": "G-RND-QMATCH",
+      "frozen_schedule": {
+        "steps_per_epoch": 45,
+        "synthetic_draws_per_run": 10800,
+        "total_epochs": 35,
+        "total_optimizer_updates": 1575
+      },
+      "model_identity": "google/siglip2-base-patch16-224",
+      "run_id": "e8_ext_f1_g_rnd_qmatch_s20260808",
+      "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1/e8_ext_f1_g_rnd_qmatch_s20260808",
+      "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
+      "seed": 20260808,
+      "source_package_binding": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "manifests_present": {
+          "source_dev.parquet": false,
+          "source_train.parquet": false
+        },
+        "package_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+        "package_present_locally": false,
+        "package_root": "data/processed/c_ext_q1q2_v1/e7_gpat_bank/gpat_input/EXT-F1"
+      },
+      "target_firewall": {
+        "allowed_domains": [
+          "casia_fasd",
+          "msu_mfsd"
+        ],
+        "target_access": false,
+        "target_labels_accessed": false
+      },
+      "training_config_hash": "284b40ffd9abc8700d7606d59391cd44618b0d703a2d3c2981cab8dbe8be8e17",
+      "training_started": false
+    }
+  },
+  "schema_version": "ext-q1q2-e8-training-runner-preflight-v1",
+  "scope": "implementation + focused tests + local source-only preflight only -- no GPU, no file copy, no detector training, no full SigLIP2 instantiation, no target inference, no SiW-Mv2 access, no scientific checkpoint, no E8 membership modification, no adapter modification, no historical Track-G/C6/E7 modification, no LLM call, no stage/commit/push",
+  "smoke_mode_result": {
+    "cannot_collide_with_scientific_run_ids": true,
+    "mechanism": "M9Trainer.smoke(steps=..., resume_steps=..., stage=...) -- an existing, already-frozen engineering mechanism; overrides only execution length, never batch composition/LR/weight-decay/any frozen scientific config value",
+    "namespace": "runs/c_ext_q1q2_v1/e8_qmatched/smoke",
+    "not_launched_by_this_task": true,
+    "smoke_run_id": "e8_ext_f1_adapter_smoke",
+    "status": "SUPPORTED_VIA_M9TRAINER_SMOKE_METHOD"
+  },
+  "status": "READY_FOR_E8_RUNNER_COMMIT_REVIEW",
+  "status_correction_reference": "reports/c_ext_q1q2_v1/e8_qmatched/training/execution/E8_GPU_READINESS_STATUS_CLARIFICATION.json -- this implementation resolves the operational gap identified there (BLOCKED_E8_RUNNER_INTEGRATION_REQUIRED)",
+  "target_access": false,
+  "target_firewall_result": {
+    "allowed_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "no_target_argument_in_public_api": true,
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "target_labels_accessed": false
+}

@@ -1,0 +1,67 @@
+{
+  "adapter_implementation_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "adapter_source_sha256": "7fa4be3beec6be6118faa830b39ef1d579a4715aba11c84a08a7a813a4ebd520",
+  "allowed_run_ids": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+  "classification": "E8_TRAINING_RUNNER_BINDING",
+  "collision_states": [
+    "NOT_STARTED",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "FAILED_TECHNICAL",
+    "BLOCKED_COLLISION"
+  ],
+  "execution_plan_identity": "74f9503f1fa22ffe96eca6585ff1184b3f6bc122380a3e39c485a35dc02a39de",
+  "implementation_commit_note": "this task stops before commit -- no implementation commit is recorded yet; a future commit-review step binds the actual implementation commit",
+  "implementation_parent_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+  "membership_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1",
+  "runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+  "runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V1",
+  "runner_source_path": "src/prism_fas/evaluation/c_ext_e8_training_runner.py",
+  "runner_source_sha256": "e20309727587c021fddbca46a5d96a5b20766c06ae34dbc7cbd0514ea4e4ea2c",
+  "schema_version": "ext-q1q2-e8-training-runner-binding-v1",
+  "seeds": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "smoke_root": "runs/c_ext_q1q2_v1/e8_qmatched/smoke",
+  "source_fold_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "target_firewall": {
+    "allowed_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "track_g_variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+}
