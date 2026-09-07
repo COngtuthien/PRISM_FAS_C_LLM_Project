@@ -1,0 +1,81 @@
+{
+  "amendment_modified": false,
+  "classification": "E8_QMATCH_V1_SELECTOR_IMPLEMENTATION",
+  "e7_modified": false,
+  "e8_input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "e8_qmatch_selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "flow1_flow2_modified": false,
+  "gpu_used": false,
+  "implementation_commit_parent": "acb5c4bf51c53406944be6d3a3d4542d0c218a2a",
+  "llm_api_calls": 0,
+  "membership_written": false,
+  "real_data_reproduction_result": {
+    "empty_bins": [
+      "gpat:bin0",
+      "gpat:bin1",
+      "gpat:bin2",
+      "physics:bin0",
+      "physics:bin1",
+      "physics:bin2"
+    ],
+    "expected_matched": true,
+    "gpat_common_support_total": 464,
+    "input_q_table_sha256_verified": true,
+    "membership_written": false,
+    "n_per_arm": {
+      "DET": 1024,
+      "LLM": 1024,
+      "RND": 1024
+    },
+    "physics_common_support_total": 354,
+    "q_equals_1_0_count": 0,
+    "row_count": 3072,
+    "total_unique_e8_bank_size_per_arm": 818
+  },
+  "schema_version": "ext-q1q2-e8-selector-implementation-report-v1",
+  "source_files": {
+    "created": [
+      "src/prism_fas/evaluation/c_ext_e8_qmatched.py",
+      "tests/pipeline/test_c_ext_e8_qmatched.py"
+    ],
+    "modified": [],
+    "verified_zero_diff_on": [
+      "src/prism_fas/evaluation/c_ext_e7_gpat_bank.py",
+      "src/prism_fas/evaluation/c_ext_e7_reserve_schedule.py",
+      "src/prism_fas/evaluation/c_ext_e7_reserve_orchestrator.py",
+      "src/prism_fas/synthesis/c6_matched_bank.py",
+      "src/prism_fas/synthesis/gate_profiles.py",
+      "src/prism_fas/synthesis/quality_gate.py"
+    ],
+    "zero_modifications_to_existing_scientific_modules": true
+  },
+  "status": "READY_TO_FREEZE_E8_SELECTOR_IMPLEMENTATION",
+  "target_access": false,
+  "target_labels_accessed": false,
+  "tests": {
+    "dedicated_suite": "tests/pipeline/test_c_ext_e8_qmatched.py",
+    "dedicated_suite_result": {
+      "failed": 0,
+      "passed": 44,
+      "skipped": 0
+    },
+    "real_data_reproduction_test": {
+      "gating": "pytest.mark.skipif on parquet presence -- ran (not skipped) because the parquet is present in this checkout; no separate opt-in flag was needed since it does not depend on network/GPU/target access, only a large local artifact that happens to already exist here",
+      "membership_persisted": false,
+      "name": "test_real_data_reproduction_opt_in",
+      "result": "PASSED"
+    },
+    "regression_suites_run": {
+      "tests/pipeline/test_c_ext_e7_reserve_orchestrator.py + test_c_ext_e7_reserve_schedule.py + test_c_ext_protected_manifest.py + test_c_ext_quality_reconstruct.py": {
+        "failed": 0,
+        "passed": 76,
+        "skipped": 0
+      },
+      "tests/unit/test_core.py (stable_json_hash)": {
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0
+      }
+    }
+  }
+}
