@@ -1,0 +1,77 @@
+{
+  "adapter_implementation_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "allowed_run_ids": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "c3_treatment_bank_expected_recipe_count": 256,
+  "c3_treatment_bank_identity_by_arm": {
+    "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+    "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+    "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+  },
+  "c3_treatment_bank_ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "c3_treatment_bank_root_by_arm": {
+    "DET": "assets/recipe_banks/c3/det",
+    "LLM": "assets/recipe_banks/c3/llm",
+    "RND": "assets/recipe_banks/c3/rnd"
+  },
+  "c5_candidates_root": "runs/full/c5/scientific/candidates",
+  "classification": "E8_TRAINING_RUNNER_V2_2_BINDING",
+  "e7d_source_support_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "execution_plan_identity": "74f9503f1fa22ffe96eca6585ff1184b3f6bc122380a3e39c485a35dc02a39de",
+  "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+  "historical_v2_1_runner_rule_identity": "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db",
+  "historical_v2_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
+  "implementation_commit_note": "this task stops before commit -- no V2.2 commit is recorded yet",
+  "implementation_parent_commit": "909bb77962503ff83a85e6e0ee509fdde24af47a",
+  "m3b_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m3b_runtime_package_root": "data/packages/prism_data_v1_m3b",
+  "m7_detector_recipe_bank_id": "prism_recipe_bank_m7_v1",
+  "m7_detector_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+  "m7_detector_recipe_bank_recipe_count": 128,
+  "m7_detector_recipe_bank_root": "assets/recipe_banks/prism_recipe_bank_m7_v1",
+  "membership_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "new_runner_rule_identity": "1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b",
+  "new_runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V2_2_RECIPE_BINDING_FIXED",
+  "new_runner_source_sha256": "60a3c72cbf425f4ab71aacc5a08cfcb831779308517c952db1c44d5501a686ea",
+  "schema_version": "ext-q1q2-e8-training-runner-v2-2-binding-v1",
+  "seeds": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "target_firewall": {
+    "allowed_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "v2_2_recipe_binding_correction_artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_2/E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.json",
+  "v2_2_recipe_binding_correction_sha256": "459fa3a22f1abda5ee59ad8dd9cfe268c94dbf8e37743b0db984278de9cc1896",
+  "v2_source_binding_correction_artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/E8_RUNNER_SOURCE_BINDING_CORRECTION.json",
+  "v2_source_binding_correction_sha256": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921"
+}

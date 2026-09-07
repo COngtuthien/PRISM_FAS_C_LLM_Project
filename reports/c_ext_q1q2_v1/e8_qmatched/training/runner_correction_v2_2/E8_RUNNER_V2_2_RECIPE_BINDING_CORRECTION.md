@@ -1,0 +1,74 @@
+# E8 Runner V2.2 -- Recipe-Binding Correction
+
+**Classification:** `ADDITIVE_INTEGRATION_BINDING_CORRECTION` -- integration/runtime-input binding fix only, not a
+scientific protocol change. Historical V1/V2/V2.1 runner reports remain byte-unchanged.
+
+**Bug classification: `BLOCKED_E8_RUNNER_V2_1_RECIPE_BINDING_BUG`**
+
+launch_scientific_run() passed recipe_bank_root=repo (an invalid, bare repo root -- never a frozen M7 recipe bank) to M9Trainer, and conflated two distinct recipe-bank contracts: Contract A (the arm-specific C3 treatment bank used by C6MatchedBankReader) and Contract B (the shared M7 neutral bank M9Trainer.recipe_bank_root requires). This is an integration/runtime-input binding bug only -- not a scientific protocol change: no C3/M7 bank content, no membership, no selection rule, no hyperparameter changed.
+
+## Identities
+
+| Layer | Identity |
+|---|---|
+| Historical V1 runner rule identity | `81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0` |
+| Historical V2 runner rule identity | `3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570` |
+| Historical V2.1 runner rule identity | `9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db` |
+| V2 source-binding correction identity | `e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921` |
+| **New V2.2 runner rule identity** | **`1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b`** |
+| New V2.2 runner rule name | `E8_FIXED_TRACK_G_RUNNER_V2_2_RECIPE_BINDING_FIXED` |
+| New runner source SHA256 | `60a3c72cbf425f4ab71aacc5a08cfcb831779308517c952db1c44d5501a686ea` |
+| Implementation parent commit | `909bb77962503ff83a85e6e0ee509fdde24af47a` |
+
+## GPU-audited facts (operator-observed, independently re-verified locally)
+
+- C3 treatment banks: RND / DET / LLM at `assets/recipe_banks/c3/{rnd,det,llm}`, 256 recipes each,
+  `scientific_eligible=true`, ontology identity `90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd`.
+- M7 neutral bank: `assets/recipe_banks/prism_recipe_bank_m7_v1`, id `prism_recipe_bank_m7_v1`,
+  content identity `fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb`, 128 recipes.
+- Canonical resolver (`prism_fas.pipeline.adapters.sources.verify_detector_inputs`) resolves the M3B
+  package, the M7 bank, the C5 candidates root, the weight root, and zero target paths/labels, all in
+  agreement (`identities_agree=true`).
+- E8 payload audit: 2454 candidates total (818/arm, 354 Physics + 464 GPAT), zero missing/bad records.
+
+Every one of the above was independently re-verified in this checkout -- see `local_cross_check` in
+`E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.json`.
+
+## Fix summary
+
+- added frozen constants distinguishing the two recipe-bank contracts: C3_TREATMENT_BANK_ROOT_BY_ARM / C3_TREATMENT_BANK_IDENTITY_BY_ARM / C3_TREATMENT_BANK_ONTOLOGY_IDENTITY / C3_EXPECTED_RECIPE_COUNT (Contract A) and M7_DETECTOR_RECIPE_BANK_ROOT / M7_DETECTOR_RECIPE_BANK_ID / M7_DETECTOR_RECIPE_BANK_IDENTITY / M7_EXPECTED_RECIPE_COUNT (Contract B), plus C5_CANDIDATES_ROOT_CANONICAL
+- added resolve_e8_runtime_inputs(spec, root): read-only, resolves BOTH contracts by delegating entirely to prism_fas.pipeline.adapters.sources.verify_detector_inputs (source package, M7 bank, C5 candidates root, weights, target-firewall counts) and prism_fas.synthesis.c5_arm_plan.load_arm_bank (the C3 arm bank) -- duplicates no validation logic of either resolver
+- preflight_e8_run() now calls resolve_e8_runtime_inputs() and reports the full distinction under a new 'runtime_inputs' key
+- launch_scientific_run() rewritten: removed the public candidates_root/recipes/recipe_bank_identity kwargs entirely (production callers can no longer override scientific inputs); added private, test-only _override_detector_inputs/_override_c3_bank injection seams (even when supplied, the same identity/count assertions still run against them)
+- launch_scientific_run() now resolves M9Trainer(recipe_bank_root=...) from the canonical M7 root (never repo, never the C3 root) and wires adapter.open_e8_arm_bank(...) from the arm-specific C3 bank's own recipes/bank_identity (never the M7 identity)
+- exact fail order enforced, each step before M9Trainer import/construction: (1) V2 source-binding correction identity, (3) canonical detector input verification, (4) M3B+M7 identity checks, (5) target firewall zero-check, (6) C3 arm-bank identity/count check, (7) E8 membership + C6 bank opening, (8) frozen Track-G config resolution, (9) collision guard
+- build_runner_rule_payload_v2() now binds the M7 root/identity/count, the C3 root/identity-by-arm/expected-count, and the C5 candidates root, plus explicit historical_v1/_v2/_v2_1_runner_rule_identity fields
+- because the payload's content changed, runner_rule_identity_v2() now computes a NEW identity (1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b); every prior value (V1/V2/V2.1) is retained only as a recorded historical fact, never recomputed from this function again
+
+## Does NOT change
+
+- the 15 frozen run IDs
+- the 5 detector seeds
+- EXT-F1 fold only
+- the E8 membership identities / 818-354-464 per-arm counts
+- the 35 epochs / 45 steps-per-epoch / 1575 optimizer updates / 10800 synthetic draws schedule
+- the frozen Track-G winner config (weight_decay=0.025, warmup=0.05, lambda_syn=0.25, lambda_risk=0.05)
+- the M3B content identity (08d9...)
+- the E7-D source-support identity (955b...)
+- the q-matching rule
+- the quality threshold
+- the C6 locks
+- the target firewall
+- c_ext_e8_training_adapter.py, c6_bank.py, trainer.py, dataset.py, sampler.py, synthetic_bank.py, sources.py, c5_arm_plan.py -- all byte-unchanged
+- the C3 banks, the M7 bank, the C5 candidates, the C6 locks, the C7 lock, the membership artifacts, and every historical V1/V2/V2.1 evidence file -- all byte-unchanged
+- configs/models/m9_detector.yaml -- not modified
+
+## Flags
+
+`scientific_protocol_changed=false`, `train_dev_membership_changed=false`,
+`synthetic_membership_changed=false`, `quality_rule_changed=false`, `hyperparameters_changed=false`,
+`target_access=false`, `target_labels_accessed=false`, `training_performed=false`,
+`smoke_performed=false`, `gpu_used=false`, `llm_calls=0`.
+
+See `E8_TRAINING_RUNNER_V2_2_BINDING.json` / `E8_TRAINING_RUNNER_V2_2_PREFLIGHT.{json,md}` for the
+full V2.2 report.

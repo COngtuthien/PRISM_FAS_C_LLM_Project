@@ -1,0 +1,264 @@
+{
+  "15_run_ids_unchanged": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "bank_counts_unchanged": {
+    "gpat": 464,
+    "physics": 354,
+    "total": 818
+  },
+  "c3_treatment_bank_by_arm": {
+    "expected_recipe_count": 256,
+    "identity_by_arm": {
+      "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+    },
+    "root_by_arm": {
+      "DET": "assets/recipe_banks/c3/det",
+      "LLM": "assets/recipe_banks/c3/llm",
+      "RND": "assets/recipe_banks/c3/rnd"
+    }
+  },
+  "c5_candidates_root": "runs/full/c5/scientific/candidates",
+  "classification": "E8_TRAINING_RUNNER_V2_2_PREFLIGHT",
+  "e7d_identity_unchanged": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "focused_tests": {
+    "broad_c_ext_sweep_run": false,
+    "combined_result": {
+      "failed": 0,
+      "passed": 187,
+      "skipped": 16
+    },
+    "commands": [
+      "pytest -q tests/test_c_ext_e8_training_runner.py",
+      "pytest -q tests/test_c_ext_e8_training_adapter.py",
+      "pytest -q tests/pipeline/test_c6_evidence_and_bank.py tests/test_m4_loader_sampler.py"
+    ],
+    "runner_suite_new_v22_tests": 35,
+    "runner_suite_only": {
+      "failed": 0,
+      "passed": 119,
+      "skipped": 0
+    }
+  },
+  "gpu_used": false,
+  "historical_integrity": {
+    "adapter_unchanged": true,
+    "c3_banks_unchanged": true,
+    "e7_unchanged": true,
+    "historical_c6_unchanged": true,
+    "m7_bank_unchanged": true,
+    "m9_detector_yaml_unchanged": true,
+    "membership_unchanged": true,
+    "v1_execution_plan_and_runner_reports_unchanged": true,
+    "v2_1_correction_reports_unchanged": true,
+    "v2_correction_reports_unchanged": true
+  },
+  "implementation_parent_commit": "909bb77962503ff83a85e6e0ee509fdde24af47a",
+  "launch_order_verified": "verify_source_binding_correction() -> canonical detector input verification (verify_detector_inputs) -> M3B+M7 identity checks -> target firewall zero-check -> C3 arm-bank identity/count check -> E8 membership + C6 bank opening -> frozen Track-G config resolution -> collision guard -- confirmed by test_v21_launch_verifies_correction_identity_before_m3b_and_trainer and the V2.2 test_v22_23/24 failure-order tests",
+  "llm_api_calls": 0,
+  "m3b_identity_unchanged": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m7_detector_recipe_bank": {
+    "identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+    "recipe_count": 128,
+    "root": "assets/recipe_banks/prism_recipe_bank_m7_v1"
+  },
+  "m9_detector_yaml_modified": false,
+  "new_runner_rule_identity": "1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b",
+  "new_runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V2_2_RECIPE_BINDING_FIXED",
+  "new_runner_source_sha256": "60a3c72cbf425f4ab71aacc5a08cfcb831779308517c952db1c44d5501a686ea",
+  "per_arm_c3_treatment_bank_local_resolution": {
+    "DET": {
+      "arm": "DET",
+      "available": true,
+      "error": null,
+      "expected_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "expected_recipe_count": 256,
+      "identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "identity_matches_expected": true,
+      "recipe_count": 256,
+      "root": "assets/recipe_banks/c3/det"
+    },
+    "LLM": {
+      "arm": "LLM",
+      "available": true,
+      "error": null,
+      "expected_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "expected_recipe_count": 256,
+      "identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "identity_matches_expected": true,
+      "recipe_count": 256,
+      "root": "assets/recipe_banks/c3/llm"
+    },
+    "RND": {
+      "arm": "RND",
+      "available": true,
+      "error": null,
+      "expected_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "expected_recipe_count": 256,
+      "identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "identity_matches_expected": true,
+      "recipe_count": 256,
+      "root": "assets/recipe_banks/c3/rnd"
+    }
+  },
+  "runtime_inputs_distinction": {
+    "contract_a_c3_treatment_bank": "arm-specific, per-arm identity, feeds C6MatchedBankReader",
+    "contract_b_m7_neutral_bank": "shared across arms, feeds M9Trainer.recipe_bank_root",
+    "resolver": "resolve_e8_runtime_inputs(spec, root) -- delegates entirely to prism_fas.pipeline.adapters.sources.verify_detector_inputs and prism_fas.synthesis.c5_arm_plan.load_arm_bank"
+  },
+  "sample_preflight_result": {
+    "arm": "RND",
+    "bank_counts": {
+      "gpat": 464,
+      "physics": 354,
+      "total": 818
+    },
+    "checkpoint_created": false,
+    "collision_state": "NOT_STARTED",
+    "condition": "G-RND-QMATCH",
+    "frozen_schedule": {
+      "steps_per_epoch": 45,
+      "synthetic_draws_per_run": 10800,
+      "total_epochs": 35,
+      "total_optimizer_updates": 1575
+    },
+    "local_preflight_status": "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION",
+    "model_identity": "google/siglip2-base-patch16-224",
+    "run_id": "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1/e8_ext_f1_g_rnd_qmatch_s20260806",
+    "runtime_inputs": {
+      "arm": "RND",
+      "c3_treatment_bank": {
+        "arm": "RND",
+        "available": true,
+        "error": null,
+        "expected_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+        "expected_recipe_count": 256,
+        "identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+        "identity_matches_expected": true,
+        "recipe_count": 256,
+        "root": "assets/recipe_banks/c3/rnd"
+      },
+      "c5_candidates": {
+        "root": "runs/full/c5/scientific/candidates"
+      },
+      "canonical_detector_inputs_available": false,
+      "canonical_detector_inputs_error": "the pinned detector backbones are not resolvable under weights: pinned SigLIP2 not found under weights; expected a directory holding ['config.json', 'model.safetensors', 'preprocessor_config.json', 'special_tokens_map.json', 'tokenizer.json', 'tokenizer.model', 'tokenizer_config.json']. A scientific detector binds the frozen SigLIP2 tower and the pinned ConvNeXt V2 Atto weight, never a shape-exact stub and never a silent download",
+      "m7_detector_recipe_bank": {
+        "expected_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+        "expected_recipe_count": 128,
+        "identity": null,
+        "identity_matches_expected": null,
+        "recipe_count": null,
+        "root": "assets/recipe_banks/prism_recipe_bank_m7_v1"
+      },
+      "schema_version": "ext-q1q2-e8-runtime-inputs-v1",
+      "source_package": {
+        "expected_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+        "identity": null,
+        "identity_matches_expected": null,
+        "root": "data/packages/prism_data_v1_m3b"
+      },
+      "target_firewall": {
+        "target_labels_resolved": null,
+        "target_paths_resolved": null
+      },
+      "weights": {
+        "root": "weights"
+      }
+    },
+    "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
+    "seed": 20260806,
+    "source_binding_correction_sha256_verified": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921",
+    "source_package_binding": {
+      "allowed_domains": [
+        "casia_fasd",
+        "msu_mfsd"
+      ],
+      "fold_source_support_authority": {
+        "identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+        "role": "binds EXT-F1 fold/source-support membership (E7-D); NOT the detector runtime package content identity"
+      },
+      "runtime_detector_package": {
+        "expected_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+        "role": "the canonical detector runtime source package; its content identity is what every historical C5 GenerationIdentity.package_identity binds",
+        "root": "data/packages/prism_data_v1_m3b",
+        "validation": {
+          "expected_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+          "expected_schema": "m3b-v1",
+          "lock_content_identity_ok": true,
+          "lock_present": true,
+          "lock_schema_ok": true,
+          "lock_status_ok": true,
+          "no_duplicate_dev_ids": null,
+          "no_duplicate_train_ids": null,
+          "no_siw_in_dev": null,
+          "no_siw_in_train": null,
+          "no_train_dev_overlap": null,
+          "overall_state": "RUNTIME_ASSET_NOT_MATERIALIZED_ON_THIS_HOST",
+          "package_root": "data/packages/prism_data_v1_m3b",
+          "package_root_present": true,
+          "problems": [
+            "/home/cong/PRISM_FAS_C_LLM_Project/data/packages/prism_data_v1_m3b/manifests/source_train.parquet: source_train.parquet not present on this host"
+          ],
+          "source_dev_counts_ok": false,
+          "source_dev_domain_counts": null,
+          "source_dev_present": true,
+          "source_dev_row_count": null,
+          "source_train_counts_ok": false,
+          "source_train_domain_counts": null,
+          "source_train_present": false,
+          "source_train_row_count": null
+        }
+      }
+    },
+    "target_firewall": {
+      "allowed_domains": [
+        "casia_fasd",
+        "msu_mfsd"
+      ],
+      "target_access": false,
+      "target_labels_accessed": false
+    },
+    "training_config_hash": "f1f9e676c1905270c1bfa13442697f2a390478466c0b9c3e43c3668141b67312",
+    "training_started": false
+  },
+  "schedule_unchanged": {
+    "synthetic_draws_per_run": 10800,
+    "total_optimizer_updates": 1575
+  },
+  "schema_version": "ext-q1q2-e8-training-runner-v2-2-preflight-v1",
+  "scope": "additive integration/runtime-input binding correction only -- no GPU, no training, no smoke, no target access, no LLM call, no commit/push",
+  "seeds_unchanged": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "smoke_performed": false,
+  "status": "READY_FOR_E8_RUNNER_V2_2_COMMIT_REVIEW",
+  "target_access": false,
+  "target_firewall_unchanged": {
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "target_labels_accessed": false,
+  "training_performed": false
+}

@@ -40,6 +40,45 @@ def before_hashes():
 
 
 # --------------------------------------------------------------------------- #
+# V2.2 test-only fixture builders -- fake canonical-resolver payloads for the
+# private ``_override_detector_inputs``/``_override_c3_bank`` injection
+# seams. Never used to bypass the identity/count assertions themselves (each
+# still runs against whatever is supplied here); used only so unit tests can
+# exercise launch_scientific_run() without the real SigLIP2/ConvNeXt weights
+# or frozen recipe text cache materialized on this laptop.
+# --------------------------------------------------------------------------- #
+
+def _fake_detector_inputs(arm: str = "RND", *, package_identity: str | None = None,
+                          recipe_bank_identity: str | None = None,
+                          candidates_root: str | None = None,
+                          target_paths_resolved: int = 0, target_labels_resolved: int = 0) -> dict:
+    return {
+        "package_root": runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        "package_identity": package_identity if package_identity is not None else runner.M3B_CONTENT_IDENTITY,
+        "recipe_bank_root": runner.M7_DETECTOR_RECIPE_BANK_ROOT,
+        "recipe_bank_id": runner.M7_DETECTOR_RECIPE_BANK_ID,
+        "recipe_bank_identity": (recipe_bank_identity if recipe_bank_identity is not None
+                                 else runner.M7_DETECTOR_RECIPE_BANK_IDENTITY),
+        "recipe_bank_recipe_count": runner.M7_EXPECTED_RECIPE_COUNT,
+        "candidates_root": candidates_root if candidates_root is not None else runner.C5_CANDIDATES_ROOT_CANONICAL,
+        "weight_root": "weights",
+        "target_paths_resolved": target_paths_resolved,
+        "target_labels_resolved": target_labels_resolved,
+    }
+
+
+def _fake_c3_bank(arm: str = "RND", *, bank_identity: str | None = None, recipe_count: int | None = None) -> dict:
+    identity = bank_identity if bank_identity is not None else runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM[arm]
+    count = runner.C3_EXPECTED_RECIPE_COUNT if recipe_count is None else recipe_count
+    return {
+        "arm": arm,
+        "root": runner.C3_TREATMENT_BANK_ROOT_BY_ARM[arm],
+        "bank_identity": identity,
+        "recipes": [{"recipe_id": f"fake_recipe_{arm}_{i}"} for i in range(count)],
+    }
+
+
+# --------------------------------------------------------------------------- #
 # A/B. All 15 frozen run specs validate; exactly 15 unique IDs
 # --------------------------------------------------------------------------- #
 
@@ -376,8 +415,9 @@ def test_AB_m9trainer_construction_receives_synthetic_bank_seam(monkeypatch):
     assert not run_root.exists()  # sanity: no real scientific dir exists yet
 
     trainer = runner.launch_scientific_run(
-        spec, candidates_root=Path("/nonexistent"), recipes=(), recipe_bank_identity="x",
-        _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
+        spec, _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"),
+        _override_c3_bank=_fake_c3_bank("RND"),
     )
     assert isinstance(trainer, _FakeTrainer)
     assert "synthetic_bank" in calls
@@ -645,9 +685,9 @@ def test_21_22_23_launch_uses_m3b_root_and_identity_never_e7d(monkeypatch):
 
     monkeypatch.setattr(adapter, "open_e8_arm_bank", _fake_open_e8_arm_bank)
     spec = runner.build_run_spec("RND", 20260806)
-    runner.launch_scientific_run(spec, candidates_root=Path("/nonexistent"), recipes=(),
-                                 recipe_bank_identity="x", _trainer_cls=_FakeTrainer,
-                                 _skip_m3b_guard=True)
+    runner.launch_scientific_run(spec, _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
+                                 _override_detector_inputs=_fake_detector_inputs("RND"),
+                                 _override_c3_bank=_fake_c3_bank("RND"))
 
     # 21: M3B root passed to M9Trainer
     assert calls_trainer["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
@@ -818,8 +858,9 @@ def test_v21_launch_verifies_correction_identity_before_m3b_and_trainer(monkeypa
             calls.append("trainer")
 
     spec = runner.build_run_spec("RND", 20260806)
-    runner.launch_scientific_run(spec, candidates_root=Path("/nonexistent"), recipes=(),
-                                 recipe_bank_identity="x", _trainer_cls=_FakeTrainer)
+    runner.launch_scientific_run(spec, _trainer_cls=_FakeTrainer,
+                                 _override_detector_inputs=_fake_detector_inputs("RND"),
+                                 _override_c3_bank=_fake_c3_bank("RND"))
     assert calls[0] == "correction"
     assert calls.index("correction") < calls.index("m3b")
     assert calls.index("correction") < calls.index("bank")
@@ -900,4 +941,402 @@ def test_v21_no_training_smoke_gpu_llm_performed():
     source = inspect.getsource(runner)
     assert "import torch" not in source
     assert "openai" not in source.lower()
+
+
+# =========================================================================== #
+# Runner V2.2 -- recipe-binding correction
+#
+# Root cause (BLOCKED_E8_RUNNER_V2_1_RECIPE_BINDING_BUG): launch_scientific_run
+# passed recipe_bank_root=repo (an invalid, bare repo root -- never a frozen M7
+# recipe bank) to M9Trainer, and conflated two distinct recipe-bank contracts:
+# Contract A (arm-specific C3 treatment bank, for C6MatchedBankReader) vs
+# Contract B (shared M7 neutral bank, for M9Trainer.recipe_bank_root). V2.2
+# resolves both from the canonical resolvers only and never substitutes one
+# for the other.
+# =========================================================================== #
+
+HISTORICAL_V2_1_IDENTITY = "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db"
+
+
+class _V22FakeTrainer:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+def _v22_patch_open_e8_arm_bank(monkeypatch, recorder: dict):
+    from prism_fas.evaluation import c_ext_e8_training_adapter as adapter
+
+    class _Sentinel:
+        identity = "v22-sentinel-bank-identity"
+
+    def _fake(arm, **kwargs):
+        recorder.update(kwargs)
+        recorder["arm"] = arm
+        return _Sentinel()
+
+    monkeypatch.setattr(adapter, "open_e8_arm_bank", _fake)
+    return _Sentinel
+
+
+# --- 1-3. Per-arm C3 identity resolution via load_arm_bank (never hand-parsed) --- #
+
+def test_v22_1_c3_bank_root_by_arm_matches_frozen_assets():
+    assert runner.C3_TREATMENT_BANK_ROOT_BY_ARM == {
+        "RND": "assets/recipe_banks/c3/rnd",
+        "DET": "assets/recipe_banks/c3/det",
+        "LLM": "assets/recipe_banks/c3/llm",
+    }
+
+
+def test_v22_2_c3_bank_identity_by_arm_matches_frozen_values():
+    assert runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM == {
+        "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+        "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+        "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+    }
+
+
+def test_v22_3_resolve_e8_runtime_inputs_uses_load_arm_bank_per_arm():
+    for arm in runner.ARMS:
+        spec = runner.build_run_spec(arm, runner.SEEDS[0])
+        result = runner.resolve_e8_runtime_inputs(spec)
+        c3 = result["c3_treatment_bank"]
+        assert c3["arm"] == arm
+        assert c3["available"] is True, c3["error"]
+        assert c3["identity"] == runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM[arm]
+        assert c3["identity_matches_expected"] is True
+        assert c3["recipe_count"] == runner.C3_EXPECTED_RECIPE_COUNT
+
+
+# --- 4-5. 256-recipe requirement; wrong/missing C3 hard-fails ------------------- #
+
+def test_v22_4_c3_expected_recipe_count_is_256():
+    assert runner.C3_EXPECTED_RECIPE_COUNT == 256
+
+
+def test_v22_5_launch_rejects_wrong_c3_bank_identity():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad_c3 = _fake_c3_bank("RND", bank_identity="0" * 64)
+    with pytest.raises(runner.E8RunnerError, match="treatment bank identity"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=bad_c3,
+        )
+
+
+def test_v22_6_launch_rejects_wrong_c3_recipe_count():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad_c3 = _fake_c3_bank("RND", recipe_count=10)
+    with pytest.raises(runner.E8RunnerError, match="256"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=bad_c3,
+        )
+
+
+def test_v22_7_launch_hard_fails_when_c3_bank_unavailable(monkeypatch):
+    from prism_fas.synthesis import c5_arm_plan
+
+    def _raise(repo, arm):
+        raise c5_arm_plan.ArmPlanError("fixture: C3 bank not usable")
+
+    monkeypatch.setattr(c5_arm_plan, "load_arm_bank", _raise)
+    monkeypatch.setattr(runner, "load_arm_bank", _raise, raising=False)
+    spec = runner.build_run_spec("RND", 20260806)
+    with pytest.raises(runner.E8RunnerError, match="not usable"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=_fake_detector_inputs("RND"),
+        )
+
+
+# --- 8-10. M7 root / identity / recipe count -------------------------------- #
+
+def test_v22_8_m7_bank_root_matches_frozen_asset():
+    assert runner.M7_DETECTOR_RECIPE_BANK_ROOT == "assets/recipe_banks/prism_recipe_bank_m7_v1"
+
+
+def test_v22_9_m7_bank_identity_matches_frozen_value():
+    assert runner.M7_DETECTOR_RECIPE_BANK_IDENTITY == \
+        "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+
+
+def test_v22_10_m7_bank_recipe_count_is_128():
+    assert runner.M7_EXPECTED_RECIPE_COUNT == 128
+
+
+def test_v22_11_launch_rejects_wrong_m7_identity():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad = _fake_detector_inputs("RND", recipe_bank_identity="0" * 64)
+    with pytest.raises(runner.E8RunnerError, match="M7 identity"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+        )
+
+
+# --- 12-13. M9Trainer receives the M7 root, never the repo root, never C3 --- #
+
+def test_v22_12_m9trainer_receives_m7_root_not_repo_root(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert trainer.kwargs["recipe_bank_root"] == REPO / runner.M7_DETECTOR_RECIPE_BANK_ROOT
+    assert trainer.kwargs["recipe_bank_root"] != REPO  # the V2.1 bug: bare repo root
+
+
+def test_v22_13_m9trainer_never_receives_c3_root_as_recipe_bank_root(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    c3_root = REPO / runner.C3_TREATMENT_BANK_ROOT_BY_ARM["RND"]
+    assert trainer.kwargs["recipe_bank_root"] != c3_root
+
+
+# --- 14-16. C6 reader receives the C3 recipes/identity, never the M7 identity --- #
+
+def test_v22_14_c6_reader_receives_c3_recipes_and_identity(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    c3_bank = _fake_c3_bank("RND")
+    runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=c3_bank,
+    )
+    assert calls["recipes"] == c3_bank["recipes"]
+    assert calls["recipe_bank_identity"] == c3_bank["bank_identity"]
+
+
+def test_v22_15_c6_reader_never_receives_m7_identity(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert calls["recipe_bank_identity"] != runner.M7_DETECTOR_RECIPE_BANK_IDENTITY
+    assert calls["recipe_bank_identity"] == runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM["RND"]
+
+
+def test_v22_16_c6_reader_receives_m3b_package_identity(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert calls["package_identity"] == runner.M3B_CONTENT_IDENTITY
+
+
+# --- 17-18. C5 candidates root from the canonical resolver, never hardcoded --- #
+
+def test_v22_17_bank_root_kwarg_sourced_from_canonical_candidates_root(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    fake_inputs = _fake_detector_inputs("RND", candidates_root="runs/full/c5/scientific/candidates")
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=fake_inputs, _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert trainer.kwargs["bank_root"] == REPO / "runs/full/c5/scientific/candidates"
+
+
+def test_v22_18_candidates_root_constant_matches_canonical_resolver_default():
+    assert runner.C5_CANDIDATES_ROOT_CANONICAL == "runs/full/c5/scientific/candidates"
+
+
+# --- 19. Package root remains M3B --------------------------------------------- #
+
+def test_v22_19_package_root_remains_m3b(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert trainer.kwargs["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+
+
+# --- 20. Weight root from the canonical resolver ------------------------------- #
+
+def test_v22_20_weight_root_sourced_from_canonical_resolver(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+    )
+    assert trainer.kwargs["weight_root"] == REPO / "weights"
+
+
+# --- 21-22. Target counts must be zero; nonzero hard-fails --------------------- #
+
+def test_v22_21_resolve_e8_runtime_inputs_target_firewall_fields_present():
+    spec = runner.build_run_spec("RND", 20260806)
+    result = runner.resolve_e8_runtime_inputs(spec)
+    assert "target_paths_resolved" in result["target_firewall"]
+    assert "target_labels_resolved" in result["target_firewall"]
+
+
+def test_v22_22_launch_rejects_nonzero_target_paths():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad = _fake_detector_inputs("RND", target_paths_resolved=3)
+    with pytest.raises(runner.E8RunnerError, match="target"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+        )
+
+
+def test_v22_22b_launch_rejects_nonzero_target_labels():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad = _fake_detector_inputs("RND", target_labels_resolved=1)
+    with pytest.raises(runner.E8RunnerError, match="target"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+        )
+
+
+# --- 23-24. Canonical/C3 validation failures block trainer construction ------- #
+
+def test_v22_23_canonical_detector_inputs_failure_blocks_trainer_construction():
+    spec = runner.build_run_spec("RND", 20260806)
+    # no _override_detector_inputs supplied -- resolves for real on this host,
+    # which lacks the pinned SigLIP2/ConvNeXt weights, so this must fail
+    # BEFORE any trainer is constructed.
+    with pytest.raises(runner.E8RunnerError):
+        runner.launch_scientific_run(spec, _trainer_cls=_V22FakeTrainer)
+
+
+def test_v22_24_bad_package_identity_blocks_trainer_construction():
+    spec = runner.build_run_spec("RND", 20260806)
+    bad = _fake_detector_inputs("RND", package_identity="0" * 64)
+    with pytest.raises(runner.E8RunnerError, match="package_identity"):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+            _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+        )
+
+
+# --- 25. Caller cannot override scientific inputs via the public API ---------- #
+
+def test_v22_25_public_api_has_no_candidates_root_recipes_or_recipe_bank_identity_kwargs():
+    sig = inspect.signature(runner.launch_scientific_run)
+    public_params = {name for name in sig.parameters if not name.startswith("_")}
+    assert "candidates_root" not in public_params
+    assert "recipes" not in public_params
+    assert "recipe_bank_identity" not in public_params
+    # every parameter besides spec/root is explicitly test-only (leading underscore)
+    assert public_params == {"spec", "root"}
+
+
+def test_v22_25b_launch_rejects_unknown_public_kwargs():
+    spec = runner.build_run_spec("RND", 20260806)
+    with pytest.raises(TypeError):
+        runner.launch_scientific_run(spec, candidates_root=Path("/nonexistent"))  # type: ignore[call-arg]
+
+
+# --- 26-31. All frozen scientific facts unchanged by this correction ---------- #
+
+def test_v22_26_31_frozen_contract_unchanged():
+    specs = runner.all_scientific_run_specs()
+    assert len(specs) == 15
+    assert runner.SEEDS == (20260806, 20260807, 20260808, 20260809, 20260810)
+    assert set(runner.ARMS) == {"RND", "DET", "LLM"}
+    binding = runner.resolve_e8_bank_counts(runner.build_run_spec("RND", 20260806))
+    assert (binding.membership_count, binding.physics_count, binding.gpat_count) == (818, 354, 464)
+    pf = runner.preflight_e8_run(runner.build_run_spec("RND", 20260806))
+    assert pf["frozen_schedule"]["total_optimizer_updates"] == 1575
+    assert pf["frozen_schedule"]["synthetic_draws_per_run"] == 10800
+    assert runner.M3B_CONTENT_IDENTITY == "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9"
+    assert runner.E7D_F1_SOURCE_SUPPORT_IDENTITY == \
+        "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+
+
+# --- 32-33. V1/V2/V2.1 historical evidence byte-identical --------------------- #
+
+def _v22_historical_report_paths() -> list[Path]:
+    base = REPO / "reports/c_ext_q1q2_v1/e8_qmatched/training"
+    return [
+        base / "runner" / "E8_TRAINING_RUNNER_BINDING.json",
+        base / "runner" / "E8_TRAINING_RUNNER_PREFLIGHT.json",
+        base / "runner_correction" / "E8_RUNNER_SOURCE_BINDING_CORRECTION.json",
+        base / "runner_correction" / "E8_TRAINING_RUNNER_V2_BINDING.json",
+        base / "runner_correction_v2_1" / "E8_RUNNER_V2_1_PROVENANCE_CORRECTION.json",
+        base / "runner_correction_v2_1" / "E8_TRAINING_RUNNER_V2_1_BINDING.json",
+    ]
+
+
+def test_v22_32_historical_v1_v2_v21_report_files_still_present():
+    for path in _v22_historical_report_paths():
+        assert path.is_file(), f"historical evidence missing: {path}"
+
+
+def test_v22_33_v21_source_binding_correction_identity_still_bound():
+    # the V2.1 historical identity remains recorded verbatim in the current payload
+    payload = runner.build_runner_rule_payload_v2()
+    assert payload["historical_v2_1_runner_rule_identity"] == HISTORICAL_V2_1_IDENTITY
+    assert payload["historical_v1_runner_rule_identity"] == HISTORICAL_V1_IDENTITY
+    assert payload["historical_v2_runner_rule_identity"] == HISTORICAL_V2_IDENTITY
+
+
+# --- 34. V2.2 identity changes if M7/C3-arm/C5-candidates identity changes ---- #
+
+def test_v22_34_rule_identity_changes_if_m7_identity_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    monkeypatch.setattr(runner, "M7_DETECTOR_RECIPE_BANK_IDENTITY", "0" * 64)
+    assert runner.runner_rule_identity_v2() != base
+
+
+def test_v22_34b_rule_identity_changes_if_c3_arm_identity_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    changed = dict(runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM)
+    changed["RND"] = "0" * 64
+    monkeypatch.setattr(runner, "C3_TREATMENT_BANK_IDENTITY_BY_ARM", changed)
+    assert runner.runner_rule_identity_v2() != base
+
+
+def test_v22_34c_rule_identity_changes_if_c5_candidates_root_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    monkeypatch.setattr(runner, "C5_CANDIDATES_ROOT_CANONICAL", "runs/somewhere/else")
+    assert runner.runner_rule_identity_v2() != base
+
+
+def test_v22_34d_rule_identity_new_value_differs_from_all_historical():
+    new_id = runner.runner_rule_identity_v2()
+    assert new_id not in (HISTORICAL_V1_IDENTITY, HISTORICAL_V2_IDENTITY, HISTORICAL_V2_1_IDENTITY)
+    assert len(new_id) == 64
+    int(new_id, 16)
+    assert new_id == runner.runner_rule_identity_v2()  # deterministic
+    assert runner.build_runner_rule_payload_v2()["runner_rule_name"] == runner.RUNNER_RULE_NAME_V2_2
+
+
+# --- 35. No target/GPU/smoke/training/LLM access performed by these tests ----- #
+
+def test_v22_35_no_target_gpu_smoke_training_llm_access():
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["target_firewall"]["target_access"] is False
+    assert pf["target_firewall"]["target_labels_accessed"] is False
+    assert pf["training_started"] is False
+    source = inspect.getsource(runner)
+    assert "import torch" not in source
+    assert "cuda" not in source.lower()
+    assert "openai" not in source.lower()
+    assert "gemini" not in source.lower()
     assert "anthropic" not in source.lower()

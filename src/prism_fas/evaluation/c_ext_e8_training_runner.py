@@ -114,11 +114,46 @@ EXPECTED_M3B_TRAIN_DOMAIN_COUNTS = {"casia_fasd": 960, "msu_mfsd": 480}
 EXPECTED_M3B_DEV_ROWS = 2079
 EXPECTED_M3B_DEV_DOMAIN_COUNTS = {"casia_fasd": 1439, "msu_mfsd": 640}
 
+# --------------------------------------------------------------------------- #
+# CORRECTED V2.2 constants -- the TWO distinct recipe-bank contracts.
+#
+# Contract A: the arm-specific C3 TREATMENT bank (recipe metadata for
+# C6MatchedBankReader / the synthetic samples themselves) -- different per arm.
+# Contract B: the shared M7 NEUTRAL detector recipe/prompt-support bank
+# (M9Trainer.recipe_bank_root, read via prism_fas.recipes.bank.load_bank) --
+# identical for every arm. Never substitute one for the other; see
+# reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_2/
+# E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.{json,md}.
+# --------------------------------------------------------------------------- #
+C3_TREATMENT_BANK_ROOT_BY_ARM = {
+    "RND": "assets/recipe_banks/c3/rnd",
+    "DET": "assets/recipe_banks/c3/det",
+    "LLM": "assets/recipe_banks/c3/llm",
+}
+C3_TREATMENT_BANK_IDENTITY_BY_ARM = {
+    "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+    "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+    "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+}
+C3_TREATMENT_BANK_ONTOLOGY_IDENTITY = "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd"
+C3_EXPECTED_RECIPE_COUNT = 256
+
+M7_DETECTOR_RECIPE_BANK_ROOT = "assets/recipe_banks/prism_recipe_bank_m7_v1"
+M7_DETECTOR_RECIPE_BANK_ID = "prism_recipe_bank_m7_v1"
+M7_DETECTOR_RECIPE_BANK_IDENTITY = "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+M7_EXPECTED_RECIPE_COUNT = 128
+
+# Canonical C5 candidate tree root, per prism_fas.pipeline.adapters.sources
+# (reported here for read-only preflight display only; production launch
+# always re-resolves this from the canonical resolver, never this constant).
+C5_CANDIDATES_ROOT_CANONICAL = "runs/full/c5/scientific/candidates"
+
 ALLOWED_SOURCE_DOMAINS = frozenset({"casia_fasd", "msu_mfsd"})
 
 RUNNER_RULE_NAME = "E8_FIXED_TRACK_G_RUNNER_V1"
 RUNNER_RULE_NAME_V2 = "E8_FIXED_TRACK_G_RUNNER_V2_SOURCE_BINDING_FIX"
 RUNNER_RULE_NAME_V2_1 = "E8_FIXED_TRACK_G_RUNNER_V2_1_CORRECTION_IDENTITY_BOUND"
+RUNNER_RULE_NAME_V2_2 = "E8_FIXED_TRACK_G_RUNNER_V2_2_RECIPE_BINDING_FIXED"
 SOURCE_BINDING_CORRECTION_RELATIVE_PATH = (
     "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/"
     "E8_RUNNER_SOURCE_BINDING_CORRECTION.json"
@@ -604,6 +639,7 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
     repo = _repo_root(root)
     verified_correction_sha256 = verify_source_binding_correction(repo)
     source_binding = source_package_binding(repo)
+    runtime_inputs = resolve_e8_runtime_inputs(spec, repo)
     bank_binding = resolve_e8_bank_counts(spec, repo)
     training_config, detector_config = load_frozen_winner_track_g_config(
         spec, synthetic_bank_identity=bank_binding.c6_bank_lock_sha256, root=repo)
@@ -625,6 +661,7 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
         "local_preflight_status": local_preflight_status,
         "source_binding_correction_sha256_verified": verified_correction_sha256,
         "source_package_binding": source_binding,
+        "runtime_inputs": runtime_inputs,
         "bank_counts": {"total": bank_binding.membership_count, "physics": bank_binding.physics_count,
                         "gpat": bank_binding.gpat_count},
         "frozen_schedule": {
@@ -643,41 +680,192 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
 
 
 # --------------------------------------------------------------------------- #
+# Runtime input resolution -- delegates ENTIRELY to the canonical, existing
+# resolvers; duplicates no validation logic of its own.
+# --------------------------------------------------------------------------- #
+
+def resolve_e8_runtime_inputs(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any]:
+    """Read-only. Resolves BOTH recipe contracts explicitly, never conflating
+    them:
+
+    * ``m7_detector_recipe_bank`` -- the shared M7 neutral bank
+      ``M9Trainer.recipe_bank_root`` requires (identical for every arm);
+    * ``c3_treatment_bank`` -- the arm-specific C3 bank that supplies
+      recipe metadata to ``C6MatchedBankReader`` (different per arm).
+
+    Uses only the canonical, existing resolvers, called exactly once each:
+    ``prism_fas.pipeline.adapters.sources.verify_detector_inputs`` (source
+    package, M7 bank, C5 candidates root, weights, target-firewall counts)
+    and ``prism_fas.synthesis.c5_arm_plan.load_arm_bank`` (the C3 arm bank).
+    Never duplicates either resolver's own validation.
+    """
+    from prism_fas.pipeline.adapters.sources import DetectorInputsUnavailable, verify_detector_inputs
+    from prism_fas.synthesis.c5_arm_plan import ArmPlanError, load_arm_bank
+
+    repo = _repo_root(root)
+
+    detector_inputs: dict[str, Any] | None = None
+    detector_inputs_error: str | None = None
+    try:
+        detector_inputs = verify_detector_inputs(repo, arms=(spec.arm,))
+    except DetectorInputsUnavailable as exc:
+        detector_inputs_error = str(exc)
+
+    c3_bank: dict[str, Any] | None = None
+    c3_error: str | None = None
+    try:
+        c3_bank = load_arm_bank(repo, spec.arm)
+    except ArmPlanError as exc:
+        c3_error = str(exc)
+
+    expected_c3_identity = C3_TREATMENT_BANK_IDENTITY_BY_ARM[spec.arm]
+
+    return {
+        "schema_version": "ext-q1q2-e8-runtime-inputs-v1",
+        "arm": spec.arm,
+        "canonical_detector_inputs_available": detector_inputs is not None,
+        "canonical_detector_inputs_error": detector_inputs_error,
+        "source_package": {
+            "root": detector_inputs["package_root"] if detector_inputs else M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+            "identity": detector_inputs["package_identity"] if detector_inputs else None,
+            "expected_identity": M3B_CONTENT_IDENTITY,
+            "identity_matches_expected": (
+                detector_inputs["package_identity"] == M3B_CONTENT_IDENTITY if detector_inputs else None),
+        },
+        "m7_detector_recipe_bank": {
+            "root": detector_inputs["recipe_bank_root"] if detector_inputs else M7_DETECTOR_RECIPE_BANK_ROOT,
+            "identity": detector_inputs["recipe_bank_identity"] if detector_inputs else None,
+            "expected_identity": M7_DETECTOR_RECIPE_BANK_IDENTITY,
+            "identity_matches_expected": (
+                detector_inputs["recipe_bank_identity"] == M7_DETECTOR_RECIPE_BANK_IDENTITY
+                if detector_inputs else None),
+            "recipe_count": detector_inputs["recipe_bank_recipe_count"] if detector_inputs else None,
+            "expected_recipe_count": M7_EXPECTED_RECIPE_COUNT,
+        },
+        "c5_candidates": {
+            "root": detector_inputs["candidates_root"] if detector_inputs else C5_CANDIDATES_ROOT_CANONICAL,
+        },
+        "weights": {
+            "root": detector_inputs["weight_root"] if detector_inputs else "weights",
+        },
+        "c3_treatment_bank": {
+            "arm": spec.arm,
+            "root": C3_TREATMENT_BANK_ROOT_BY_ARM[spec.arm],
+            "available": c3_bank is not None,
+            "error": c3_error,
+            "identity": c3_bank["bank_identity"] if c3_bank else None,
+            "expected_identity": expected_c3_identity,
+            "identity_matches_expected": (
+                c3_bank["bank_identity"] == expected_c3_identity if c3_bank else None),
+            "recipe_count": len(c3_bank["recipes"]) if c3_bank else None,
+            "expected_recipe_count": C3_EXPECTED_RECIPE_COUNT,
+        },
+        "target_firewall": {
+            "target_paths_resolved": detector_inputs["target_paths_resolved"] if detector_inputs else None,
+            "target_labels_resolved": detector_inputs["target_labels_resolved"] if detector_inputs else None,
+        },
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Scientific launch (implemented, never invoked by this task)
 # --------------------------------------------------------------------------- #
 
 def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
-                          candidates_root: Path | None = None,
-                          recipes: Any = None, recipe_bank_identity: str | None = None,
                           _trainer_cls: Callable[..., Any] | None = None,
-                          _skip_m3b_guard: bool = False) -> Any:
+                          _skip_m3b_guard: bool = False,
+                          _override_detector_inputs: dict[str, Any] | None = None,
+                          _override_c3_bank: dict[str, Any] | None = None) -> Any:
     """Construct and run the EXISTING ``M9Trainer`` against the E8 bank.
 
-    CORRECTED (V2): ``package_root`` resolves to the canonical M3B runtime
-    package (``M3B_RUNTIME_PACKAGE_RELATIVE_PATH``), and
-    ``adapter.open_e8_arm_bank`` receives ``M3B_CONTENT_IDENTITY`` -- NOT the
-    E7-D fold/source-support identity V1 incorrectly reused for this role.
-    Before any construction, the canonical M3B package is hard-validated
-    (``validate_m3b_package``); any failure raises before
-    ``_trainer_cls``/``M9Trainer`` is even imported. No fallback to the
-    GPAT-input package, no source_dev fabrication, no random split, no
-    download, no SiW.
+    CORRECTED (V2.2): resolves BOTH recipe contracts from the canonical
+    resolvers only -- the shared M7 neutral bank for ``M9Trainer.
+    recipe_bank_root`` and the arm-specific C3 treatment bank for
+    ``C6MatchedBankReader`` -- never conflated, never a caller-supplied
+    substitute. Production callers no longer have a public
+    ``candidates_root``/``recipes``/``recipe_bank_identity`` surface to
+    override scientific inputs with; ``_override_detector_inputs`` and
+    ``_override_c3_bank`` are explicitly private, test-only injection seams
+    (documented, leading-underscore) used only where the real canonical
+    assets (SigLIP2/ConvNeXt weights, the frozen recipe text cache) are not
+    materialized on this host -- even when supplied, the SAME identity/count
+    assertions below still run against them, so a test cannot silently swap
+    in a wrong identity undetected.
+
+    Fail order, each before ``M9Trainer`` import/construction:
+      1. V2 source-binding correction identity (``verify_source_binding_correction``)
+      2. (no explicit V2.1 provenance-report verifier exists; skipped)
+      3. canonical detector input verification (``verify_detector_inputs``)
+      4. M3B package identity check
+      5. target firewall / zero-target assertion
+      6. C3 arm-bank identity / recipe-count / eligibility
+      7. E8 membership + C6 filtered-bank opening
+      8. frozen Track-G config resolution
+      9. collision guard (unchanged; never deletes or resumes)
 
     ``_trainer_cls`` is a test-only constructor-injection seam (defaults to
     the real ``prism_fas.detector.trainer.M9Trainer``); it exists so tests
     can verify the exact construction kwargs without instantiating the full
-    SigLIP2 model. ``_skip_m3b_guard`` is a test-only seam for exercising the
-    construction-kwargs path against a synthetic bank without requiring the
-    real M3B package to be materialized. This task does not call this
-    function for real.
+    SigLIP2 model. ``_skip_m3b_guard`` is a test-only seam for the legacy
+    (now redundant, still defense-in-depth) ``validate_m3b_package`` check.
+    This task does not call this function for real.
     """
     repo = _repo_root(root)
-    run_root = repo / spec.run_root
-    assert_no_collision(run_root)
 
-    # Verified BEFORE M3B package validation, synthetic-bank opening, or any
-    # M9Trainer import/construction -- see BLOCKED_E8_RUNNER_V2_CORRECTION_IDENTITY_NOT_BOUND.
+    # 1. V2 source-binding correction identity.
     verify_source_binding_correction(repo)
+
+    # 3. Canonical detector input verification (source package, M7 bank, C5
+    # candidates root, weights, target-firewall counts) -- fail-closed.
+    if _override_detector_inputs is not None:
+        detector_inputs = _override_detector_inputs
+    else:
+        from prism_fas.pipeline.adapters.sources import DetectorInputsUnavailable, verify_detector_inputs
+        try:
+            detector_inputs = verify_detector_inputs(repo, arms=(spec.arm,))
+        except DetectorInputsUnavailable as exc:
+            raise E8RunnerError(f"canonical detector inputs unavailable: {exc}") from exc
+
+    # 4. M3B package identity check.
+    if detector_inputs["package_identity"] != M3B_CONTENT_IDENTITY:
+        raise E8RunnerError(
+            f"canonical detector inputs resolved package_identity "
+            f"{detector_inputs['package_identity']!r} != frozen expected {M3B_CONTENT_IDENTITY!r}"
+        )
+    if detector_inputs["recipe_bank_identity"] != M7_DETECTOR_RECIPE_BANK_IDENTITY:
+        raise E8RunnerError(
+            f"canonical detector inputs resolved recipe_bank_identity "
+            f"{detector_inputs['recipe_bank_identity']!r} != frozen expected M7 identity "
+            f"{M7_DETECTOR_RECIPE_BANK_IDENTITY!r}"
+        )
+
+    # 5. Target firewall / zero-target assertion.
+    if detector_inputs["target_paths_resolved"] != 0 or detector_inputs["target_labels_resolved"] != 0:
+        raise E8RunnerError(
+            "canonical detector inputs resolved a nonzero target path/label count -- refusing to launch"
+        )
+
+    # 6. C3 arm-bank identity / recipe-count / eligibility (eligibility is
+    # enforced inside load_arm_bank itself; it raises ArmPlanError otherwise).
+    if _override_c3_bank is not None:
+        c3_bank = _override_c3_bank
+    else:
+        from prism_fas.synthesis.c5_arm_plan import ArmPlanError, load_arm_bank
+        try:
+            c3_bank = load_arm_bank(repo, spec.arm)
+        except ArmPlanError as exc:
+            raise E8RunnerError(f"the {spec.arm} C3 treatment bank is not usable: {exc}") from exc
+    expected_c3_identity = C3_TREATMENT_BANK_IDENTITY_BY_ARM[spec.arm]
+    if c3_bank["bank_identity"] != expected_c3_identity:
+        raise E8RunnerError(
+            f"{spec.arm} C3 treatment bank identity {c3_bank['bank_identity']!r} != frozen expected "
+            f"{expected_c3_identity!r}"
+        )
+    if len(c3_bank["recipes"]) != C3_EXPECTED_RECIPE_COUNT:
+        raise E8RunnerError(
+            f"{spec.arm} C3 treatment bank holds {len(c3_bank['recipes'])} recipes != frozen expected "
+            f"{C3_EXPECTED_RECIPE_COUNT}"
+        )
 
     if not _skip_m3b_guard:
         m3b = validate_m3b_package(repo)
@@ -688,27 +876,36 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
                 "GPAT-input package, no source_dev fabrication, no random split, no download."
             )
 
+    # 7. E8 membership + C6 filtered-bank opening -- arm-specific C3 recipes
+    # and identity go to the adapter; the M7 bank is NEVER passed here.
     e8_bank = adapter.open_e8_arm_bank(
-        spec.arm, candidates_root=candidates_root, recipes=recipes or (),
-        package_identity=M3B_CONTENT_IDENTITY,
-        recipe_bank_identity=recipe_bank_identity or "", root=repo,
+        spec.arm, candidates_root=repo / detector_inputs["candidates_root"],
+        recipes=c3_bank["recipes"],
+        package_identity=detector_inputs["package_identity"],
+        recipe_bank_identity=c3_bank["bank_identity"], root=repo,
     )
+
+    # 8. Frozen Track-G config resolution.
     training_config, detector_config = load_frozen_winner_track_g_config(
         spec, synthetic_bank_identity=e8_bank.identity, root=repo)
+
+    # 9. Collision guard -- unchanged semantics; never deletes or resumes.
+    run_root = repo / spec.run_root
+    assert_no_collision(run_root)
 
     if _trainer_cls is None:
         from prism_fas.detector.trainer import M9Trainer as _trainer_cls  # noqa: N806
 
     trainer = _trainer_cls(
         config=training_config, detector_config=detector_config,
-        package_root=repo / M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
+        package_root=repo / detector_inputs["package_root"],
         # unused when synthetic_bank= is supplied (M9TrainingDataset never opens bank_root in that
-        # case) -- pointed at the same honest M3B root rather than the wrong GPAT-input path V1 used.
-        bank_root=repo / M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
-        # recipe_bank_root is OUT OF SCOPE for this source-package-binding correction; unchanged
-        # from V1 pending its own, separately scoped review.
-        recipe_bank_root=repo, run_root=run_root, cache_root=run_root / "cache",
-        weight_root=repo / "weights", loader_config_path=repo / LOADER_CONFIG_RELATIVE_PATH,
+        # case) -- pointed at the canonical C5 candidates root, matching historical C7 wiring.
+        bank_root=repo / detector_inputs["candidates_root"],
+        # the SHARED M7 neutral bank -- never the arm-specific C3 root.
+        recipe_bank_root=repo / detector_inputs["recipe_bank_root"],
+        run_root=run_root, cache_root=run_root / "cache",
+        weight_root=repo / detector_inputs["weight_root"], loader_config_path=repo / LOADER_CONFIG_RELATIVE_PATH,
         synthetic_bank=e8_bank,
     )
     return trainer
@@ -783,30 +980,28 @@ def runner_rule_identity() -> str:
 # --------------------------------------------------------------------------- #
 
 def build_runner_rule_payload_v2() -> dict[str, Any]:
-    """The V2.1 rule payload. Binds BOTH provenance layers distinctly (E7-D
-    fold/source-support authority vs. M3B runtime content identity) -- never
-    conflates them -- plus the source-binding correction artifact's own
-    PATH *and* frozen content IDENTITY, so a future reader can trace exactly
-    which correction this rule payload was built under and verify it was not
-    silently swapped.
+    """The V2.2 rule payload. Binds every provenance layer distinctly --
+    E7-D fold/source-support authority, M3B runtime content identity, the
+    source-binding correction artifact's path+identity, the SHARED M7
+    neutral detector recipe bank, and the per-arm C3 treatment banks --
+    never conflating any of them.
 
-    CORRECTED (V2.1): the original V2 payload (commit
-    ``eb6797aab6a3c46013b2f0a7b34c81bd9fb0c3c9``) bound only the correction
-    artifact's PATH, never its content identity -- see
-    ``BLOCKED_E8_RUNNER_V2_CORRECTION_IDENTITY_NOT_BOUND`` in
-    ``reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_1/
-    E8_RUNNER_V2_1_PROVENANCE_CORRECTION.{json,md}``. Because this payload's
-    content changed, ``runner_rule_identity_v2()`` now computes a NEW
-    identity; the prior value
-    (``3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570``) is
-    retained ONLY as a recorded historical fact (see
-    ``historical_v2_runner_rule_identity`` below and the V2.1 report), never
-    recomputed from this function again.
+    CORRECTED (V2.2): V2.1 (identity `9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db`)
+    still bound no recipe-bank contract at all, and the actual scientific
+    launch code used ``recipe_bank_root=repo`` -- invalid for
+    ``M9Trainer`` -- see ``BLOCKED_E8_RUNNER_V2_1_RECIPE_BINDING_BUG`` in
+    ``reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_2/
+    E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.{json,md}``. Because this
+    payload's content changed again, ``runner_rule_identity_v2()`` now
+    computes a NEW identity; every prior value
+    (V1/V2/V2.1) is retained ONLY as a recorded historical fact below and in
+    the V2.2 report, never recomputed from this function again.
     """
     return {
-        "runner_rule_name": RUNNER_RULE_NAME_V2_1,
+        "runner_rule_name": RUNNER_RULE_NAME_V2_2,
         "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
         "historical_v2_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
+        "historical_v2_1_runner_rule_identity": "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db",
         "execution_plan_identity": EXPECTED_EXECUTION_PLAN_IDENTITY,
         "adapter_implementation_commit": ADAPTER_IMPLEMENTATION_COMMIT,
         "adapter_rule_identity": EXPECTED_ADAPTER_RULE_IDENTITY,
@@ -821,6 +1016,13 @@ def build_runner_rule_payload_v2() -> dict[str, Any]:
         "m3b_runtime_package_root": M3B_RUNTIME_PACKAGE_RELATIVE_PATH,
         "m3b_content_identity": M3B_CONTENT_IDENTITY,
         "m3b_package_schema_version": M3B_PACKAGE_SCHEMA_VERSION,
+        "m7_detector_recipe_bank_root": M7_DETECTOR_RECIPE_BANK_ROOT,
+        "m7_detector_recipe_bank_identity": M7_DETECTOR_RECIPE_BANK_IDENTITY,
+        "m7_detector_recipe_bank_recipe_count": M7_EXPECTED_RECIPE_COUNT,
+        "c3_treatment_bank_root_by_arm": dict(sorted(C3_TREATMENT_BANK_ROOT_BY_ARM.items())),
+        "c3_treatment_bank_identity_by_arm": dict(sorted(C3_TREATMENT_BANK_IDENTITY_BY_ARM.items())),
+        "c3_treatment_bank_expected_recipe_count": C3_EXPECTED_RECIPE_COUNT,
+        "c5_candidates_root": C5_CANDIDATES_ROOT_CANONICAL,
         "allowed_run_ids": sorted(derive_run_id(arm, seed) for arm in ARMS for seed in SEEDS),
         "seeds": list(SEEDS),
         "arms": list(ARMS),
