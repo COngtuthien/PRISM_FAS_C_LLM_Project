@@ -1,0 +1,476 @@
+{
+  "amendment_scope": {
+    "applies_to": "E8 primary deployment: EXT-F1 x 5 detector seeds ONLY",
+    "auto_extends_to_f2_f3": false,
+    "e8_source_population": "the exact historical frozen F1/C6 NOMINAL final accepted/selected synthetic population that produced the E2 q-distribution trigger (reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTED.parquet)",
+    "f2_f3_note": "if E8 later materially changes ranking and the spec requires considering F2/F3, those folds need a SEPARATE input-binding decision, because no equivalent historical frozen F2/F3 bank exists (F2/F3 introduce SiW-Mv2 as a SOURCE domain, which the original Version-C/Flow-1 pipeline never did)"
+  },
+  "classification": "E8_FROZEN_F1_INPUT_BINDING_CLARIFICATION",
+  "compatibility_audit_A_to_F": {
+    "A_historical_flow1_c6_source_domains": {
+      "evidence": "reports/full/c6/C6_MATCHED_BANKS.json banks.RND.exposure.{physics,gpat}.by_source_domain = {casia_fasd, msu_mfsd} only, for every arm/route; no siw_mv2 key present anywhere in the bank's exposure records",
+      "result": "VERIFIED"
+    },
+    "B_ext_f1_source_target_split": {
+      "evidence": "EXT_F1_RESERVE_FINAL_CLOSURE.json's fold record and E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json both bind EXT-F1 domain_pair = 'CASIA-FASD + MSU-MFSD -> SiW-Mv2', and c_ext_e7_gpat_bank.py's FOLD_SOURCE_DATASET_SLUGS['EXT-F1'] = ('casia_fasd','msu_mfsd') -- an EXACT match to (A)'s source-domain pair and held-out target",
+      "result": "VERIFIED"
+    },
+    "C_ext_f1_reuses_frozen_version_c_construction": {
+      "evidence": "c_ext_e7_gpat_bank.py's module docstring: 'every scientific primitive below is REUSED VERBATIM' (GPAT fitting, pairing rules, candidate generation, quality gate, matched bank -- prism_fas.synthesis.c6_matched_bank). build_effective_fold_quality_calibration_binding()'s own docstring/note states explicitly: \"configs/synthesis/quality_gate_m8.yaml's calibration_population.allowed_datasets/live_samples/spoof_samples describe EXT-F1's historical population only\" -- i.e. the frozen quality-gate config's historical calibration population IS EXT-F1's own CASIA+MSU population. EXT-F1 is the one fold whose source pair requires no new SiW-as-source adapter code (unlike EXT-F2/F3), so it is the 'legacy'/unmodified case relative to the original Version-C construction.",
+      "result": "VERIFIED"
+    },
+    "D_historical_c6_bank_source_only": {
+      "evidence": "same C6_MATCHED_BANKS.json exposure.by_source_domain evidence as (A): every one of the 3072 selected samples is attributed only to casia_fasd or msu_mfsd; zero siw_mv2 (target-domain) samples appear in the historical bank",
+      "result": "VERIFIED"
+    },
+    "E_historical_c6_q_reconstruction_target_blind": {
+      "evidence": "reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTION_LOCK.json: target_labels_accessed=false, gpu_used=false, gpu_forward_used=false, llm_api_calls=0, historical_consistency.status=CONSISTENT (checked=3072, disagreement_count=0, count_mismatches_by_arm=[])",
+      "result": "VERIFIED"
+    },
+    "F_track_g_model_binding_compatible": {
+      "evidence": "c_ext_e0_freeze.py's frozen model binding records c7_winner_config_sha256=97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd for the whole extension (Track-G architecture/training config, fold-independent); this identical identity appears as the leaderboard/selected winner config in reports/full/c7/C7_FULL.json and DETECTOR_CONFIG_LOCK.json -- the SAME frozen training configuration that originally trained Version-C's Track-G detector using (among its inputs) this exact historical F1/C6 bank. No architecture, hyperparameter, or preprocessing change is introduced by binding E8 to this population.",
+      "result": "VERIFIED"
+    },
+    "overall_result": "ALL VERIFIED -- amendment is NOT blocked on frozen-F1 compatibility"
+  },
+  "current_implementation_commit": "86c32a2a870f4ceda47c26de30a161eb19550219",
+  "data_integrity_rules_observed": {
+    "arm_specific_quality_threshold_introduced": false,
+    "candidate_regeneration": false,
+    "detector_training_performed": false,
+    "e7_gate_change": false,
+    "final_bank_membership_selected": false,
+    "gpu_run": false,
+    "llm_api_calls": 0,
+    "new_candidate_generation": false,
+    "q_value_changed": false,
+    "scientific_code_modified": false,
+    "scientific_historical_artifact_modified": false,
+    "target_access": false,
+    "target_labels_accessed": false,
+    "threshold_relaxation": false
+  },
+  "disclosure": {
+    "claimed_as_e0_preregistration": false,
+    "created_after_observing": "E7-v1.1 source-only fold-specific bank infeasibility (0/3 folds, SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP)",
+    "created_before_e8_detector_training": true,
+    "created_before_e8_membership_selection": true,
+    "created_before_e8_target_inference_or_scoring": true,
+    "note": "this is a clarification of an underspecified input binding, made after E7 source-only feasibility failure and before any E8 selection/training. It is NOT an E7 rescue and does NOT reopen E7."
+  },
+  "dry_run_feasibility": {
+    "empty_bins": [
+      "physics:bin0",
+      "physics:bin1",
+      "physics:bin2",
+      "gpat:bin0",
+      "gpat:bin1",
+      "gpat:bin2"
+    ],
+    "final_bank_membership_written": false,
+    "gpat_common_support_total": 464,
+    "limiting_arms_per_bin": {
+      "gpat|0": [
+        "RND",
+        "DET",
+        "LLM"
+      ],
+      "gpat|1": [
+        "RND",
+        "DET"
+      ],
+      "gpat|2": [
+        "RND",
+        "DET"
+      ],
+      "gpat|3": [
+        "RND"
+      ],
+      "gpat|4": [
+        "RND"
+      ],
+      "gpat|5": [
+        "DET"
+      ],
+      "gpat|6": [
+        "RND"
+      ],
+      "gpat|7": [
+        "DET"
+      ],
+      "gpat|8": [
+        "RND"
+      ],
+      "gpat|9": [
+        "LLM"
+      ],
+      "physics|0": [
+        "RND",
+        "LLM"
+      ],
+      "physics|1": [
+        "RND",
+        "DET",
+        "LLM"
+      ],
+      "physics|2": [
+        "RND",
+        "DET"
+      ],
+      "physics|3": [
+        "RND"
+      ],
+      "physics|4": [
+        "DET"
+      ],
+      "physics|5": [
+        "RND"
+      ],
+      "physics|6": [
+        "DET"
+      ],
+      "physics|7": [
+        "DET"
+      ],
+      "physics|8": [
+        "LLM"
+      ],
+      "physics|9": [
+        "LLM"
+      ]
+    },
+    "max_q": 0.9415737390518188,
+    "min_q": 0.08555334806442261,
+    "per_route_bin_arm_counts": {
+      "gpat": {
+        "0": {
+          "counts": {
+            "DET": 0,
+            "LLM": 0,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "1": {
+          "counts": {
+            "DET": 0,
+            "LLM": 1,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "2": {
+          "counts": {
+            "DET": 0,
+            "LLM": 2,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "3": {
+          "counts": {
+            "DET": 4,
+            "LLM": 7,
+            "RND": 2
+          },
+          "n_b": 2
+        },
+        "4": {
+          "counts": {
+            "DET": 19,
+            "LLM": 22,
+            "RND": 17
+          },
+          "n_b": 17
+        },
+        "5": {
+          "counts": {
+            "DET": 33,
+            "LLM": 43,
+            "RND": 43
+          },
+          "n_b": 33
+        },
+        "6": {
+          "counts": {
+            "DET": 115,
+            "LLM": 107,
+            "RND": 95
+          },
+          "n_b": 95
+        },
+        "7": {
+          "counts": {
+            "DET": 178,
+            "LLM": 182,
+            "RND": 212
+          },
+          "n_b": 178
+        },
+        "8": {
+          "counts": {
+            "DET": 152,
+            "LLM": 143,
+            "RND": 134
+          },
+          "n_b": 134
+        },
+        "9": {
+          "counts": {
+            "DET": 11,
+            "LLM": 5,
+            "RND": 9
+          },
+          "n_b": 5
+        }
+      },
+      "physics": {
+        "0": {
+          "counts": {
+            "DET": 2,
+            "LLM": 0,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "1": {
+          "counts": {
+            "DET": 0,
+            "LLM": 0,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "2": {
+          "counts": {
+            "DET": 0,
+            "LLM": 4,
+            "RND": 0
+          },
+          "n_b": 0
+        },
+        "3": {
+          "counts": {
+            "DET": 4,
+            "LLM": 11,
+            "RND": 3
+          },
+          "n_b": 3
+        },
+        "4": {
+          "counts": {
+            "DET": 12,
+            "LLM": 23,
+            "RND": 24
+          },
+          "n_b": 12
+        },
+        "5": {
+          "counts": {
+            "DET": 38,
+            "LLM": 74,
+            "RND": 30
+          },
+          "n_b": 30
+        },
+        "6": {
+          "counts": {
+            "DET": 72,
+            "LLM": 134,
+            "RND": 80
+          },
+          "n_b": 72
+        },
+        "7": {
+          "counts": {
+            "DET": 136,
+            "LLM": 165,
+            "RND": 161
+          },
+          "n_b": 136
+        },
+        "8": {
+          "counts": {
+            "DET": 190,
+            "LLM": 98,
+            "RND": 168
+          },
+          "n_b": 98
+        },
+        "9": {
+          "counts": {
+            "DET": 58,
+            "LLM": 3,
+            "RND": 46
+          },
+          "n_b": 3
+        }
+      }
+    },
+    "performed": true,
+    "physics_common_support_total": 354,
+    "q_equals_1_0_count": 0,
+    "read_only": true,
+    "source_domain_composition": "not available at per-sample/per-bin granularity in the reconstructed parquet (no source-domain column); the whole-bank aggregate is known from C6_MATCHED_BANKS.json exposure.by_source_domain = {casia_fasd, msu_mfsd} only, per route/arm (see compatibility item A/D)",
+    "source_table": "reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTED.parquet",
+    "total_unique_e8_bank_size_per_arm": 818
+  },
+  "e7_status_unaffected": {
+    "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "core_matched_synthetic_banks_produced": "0/3",
+    "e7_evidence_modified": false,
+    "e7_reopened": false
+  },
+  "e8_input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "e8_input_binding_rule_identity_material": {
+    "input_population_identity": "9fc202cb1c348d2860cece4aba569b82f6a8154bf0919834fa8a1100ff2c44cb",
+    "min_count_rule": "n_b = min(accepted_count_RND, accepted_count_DET, accepted_count_LLM) per route x bin",
+    "primary_fold": "EXT-F1",
+    "profile": "NOMINAL",
+    "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+    "q_bins": [
+      "[0.0,0.1)",
+      "[0.1,0.2)",
+      "[0.2,0.3)",
+      "[0.3,0.4)",
+      "[0.4,0.5)",
+      "[0.5,0.6)",
+      "[0.6,0.7)",
+      "[0.7,0.8)",
+      "[0.8,0.9)",
+      "[0.9,1.0]"
+    ],
+    "q_equals_one_rule": "include q==1.0 in the final closed bin [0.9,1.0]",
+    "quality_threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+    "routes": [
+      "physics",
+      "gpat"
+    ],
+    "schema_version": "ext-q1q2-e8-input-binding-rule-v1",
+    "stable_hash_rule": "sample_id||QMATCH-v1",
+    "target_firewall_rule": "no target-domain label, sample, or metric may influence profile choice, bin counts, selection, or bank size; input population is source-only (casia_fasd+msu_mfsd), target_labels_accessed=false",
+    "training_seeds": [
+      20260806,
+      20260807,
+      20260808,
+      20260809,
+      20260810
+    ]
+  },
+  "governing_spec_identity": {
+    "not_modified_by_this_amendment": true,
+    "path": "/home/cong/PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx",
+    "sha256": "692291d67ffa6a4877202dd18f586bee7dc138e7d74c198840cad982055dedb2"
+  },
+  "q_match_rule_frozen_exactly": {
+    "min_count_rule": "n_b = min(accepted_count_RND, accepted_count_DET, accepted_count_LLM) per route x bin",
+    "q_bins": [
+      "[0.0,0.1)",
+      "[0.1,0.2)",
+      "[0.2,0.3)",
+      "[0.3,0.4)",
+      "[0.4,0.5)",
+      "[0.5,0.6)",
+      "[0.6,0.7)",
+      "[0.7,0.8)",
+      "[0.8,0.9)",
+      "[0.9,1.0]"
+    ],
+    "q_equals_one_rule": "include q==1.0 in the final closed bin [0.9,1.0]; never dropped",
+    "q_equals_one_rule_clarification_note": "recorded as an explicit amendment clarification because the original spec's interval notation is underspecified at the right endpoint for every bin except the last, which the spec itself already writes closed ('[0.9,1.0]')",
+    "routes": [
+      "physics",
+      "gpat"
+    ],
+    "selection_ordering_rule": "stable hash of sample_id || 'QMATCH-v1'; select exactly n_b per arm/route/bin",
+    "target_information_rule": "no target information enters selection",
+    "tie_break_rule": "no quality score enters the tie-break beyond bin membership"
+  },
+  "quality_profile_binding": {
+    "bound_profile": "NOMINAL",
+    "confirmed_e0_froze_nominal_before_target_results": true,
+    "confirmed_e2_reconstructed_under_nominal": true,
+    "confirmed_frozen_f1_bank_that_fired_e8_was_nominal_final_selected_bank": true,
+    "permissive_excluded": true,
+    "permissive_exclusion_reason": "PERMISSIVE was introduced as an E7-v1.1 reserve feasibility fallback for a different scientific purpose (E7's own fold-specific 512-common-quota problem) and is not retroactively imported into E8"
+  },
+  "resolved_input_artifacts": {
+    "image_crop_data_locator_for_later_training": "not resolved by this amendment -- the reconstructed q-parquet carries candidate_id/source_artifact_identity only (sufficient for q-matched MEMBERSHIP selection); the actual image/crop bytes referenced by each candidate_id live under the frozen Flow-1 C6 package artifacts on the GPU host and were not required for, and are out of scope of, this dry-run membership/feasibility amendment. Resolving them is a prerequisite for E8 TRAINING (not attempted in this task) and is deferred to the (not-yet-written) E8 selector/training implementation.",
+    "per_sample_q_table": {
+      "columns": [
+        "candidate_id",
+        "arm",
+        "route",
+        "historical_passed",
+        "historical_selected",
+        "q",
+        "source_artifact_identity",
+        "reconstruction_method"
+      ],
+      "note": "every row has historical_passed=True AND historical_selected=True -- this table is already the FINAL SELECTED 1024/arm bank (512 physics + 512 gpat), not a broader quality-gate-pass superset; 'accepted' for this frozen population therefore coincides exactly with 'selected'",
+      "path": "reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTED.parquet",
+      "row_count": 3072,
+      "sample_id_field": "candidate_id (used as the E8 stable-hash sample_id)",
+      "sha256": "87fdc8ea594a487bfef5206c5a0f0c763c7d19451a5f915e67e2237fd7431cd9"
+    },
+    "quality_gate_config_filename": "QUALITY_GATE_CONFIG_FILENAME_UNRESOLVED_BUT_THRESHOLD_IDENTITY_BOUND",
+    "quality_gate_config_filename_note": "three quality_gate_m8*.yaml files exist (unversioned, _v2, _v3); E0's own config_binding_status='NEEDS_CONFIRMATION' flag on which produced quality_threshold_identity=8fa26486... was never resolved anywhere in persisted E2 artifacts. Per this amendment's own instruction, this filename ambiguity alone does not block E8: the effective threshold identity (8fa26486...) and profile semantics (NOMINAL) are uniquely bound, cryptographically identified, and reproducible from C6_PROFILE_SELECTION_LOCK.json / C6_MATCHED_BANKS.json / the reconstruction lock, independent of which literal filename produced them. No filename was guessed.",
+    "quality_threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19",
+    "reconstruction_lock": {
+      "lock_identity": "9fc202cb1c348d2860cece4aba569b82f6a8154bf0919834fa8a1100ff2c44cb",
+      "path": "reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTION_LOCK.json",
+      "sha256": "c2b5cd55fc2fc9f0662580d6cb64f8c8fb8ae05d67bcbe904b14e7092a8e08c6"
+    },
+    "selected_bank_membership_and_provenance": {
+      "C6_BANK_LOCK_files": {
+        "DET": {
+          "path": "reports/full/c6/C6_BANK_LOCK_DET.json",
+          "sha256": "bacd544d7d25e411592262c80f092099ba16e5abaa442b00ebe5514eac79b96d"
+        },
+        "LLM": {
+          "path": "reports/full/c6/C6_BANK_LOCK_LLM.json",
+          "sha256": "ff57043ac3b2aa1591e630b48fb76e588e7fb3ce39a4894093750c01c5c0893a"
+        },
+        "RND": {
+          "path": "reports/full/c6/C6_BANK_LOCK_RND.json",
+          "sha256": "451964130e59a084470edfac754dc097658b678d4a4f0811ba964c2cfbbe7d92"
+        }
+      },
+      "C6_MATCHED_BANKS.json": {
+        "path": "reports/full/c6/C6_MATCHED_BANKS.json",
+        "per_arm_selected_set_sha256": {
+          "DET": "32f6e0e129da277d0be76abc0758bc3d63ad16caba111efc801ac92de291f5b0",
+          "LLM": "b7edd00b7ea87e558814b96955452f3bf4bdbeda0da4374461b4ed4ddd29525b",
+          "RND": "1a5be34ad5104b9c8fe18f90778e86b6710180e757ea066c4f931565928d50ba"
+        },
+        "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+        "selected_profile": "NOMINAL",
+        "sha256": "7a134b6c125f5eb30d8f51932d844363e683fec45ba9a28c0bb52874d3241293"
+      },
+      "C6_PROFILE_SELECTION_LOCK.json": {
+        "nominal_feasible": true,
+        "path": "reports/full/c6/C6_PROFILE_SELECTION_LOCK.json",
+        "profile_identity": "fb3346a6e31a144807b8650eaf4da27f1f894bce73962fa93ff7671bedd9f610",
+        "selected_profile": "NOMINAL",
+        "sha256": "9bb5d4fcac97c630d05f239be43e8322b0d08f791c79bde0abe06ba6983907fc",
+        "strict_feasible": false,
+        "target_access": 0,
+        "threshold_identity": "8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19"
+      }
+    }
+  },
+  "schema_version": "ext-q1q2-e8-frozen-f1-input-binding-amendment-v1",
+  "status": "RATIFIED_READY_FOR_E8_SELECTOR_IMPLEMENTATION",
+  "terminology": {
+    "correct_name": "E8 frozen-F1 q-matched ablation",
+    "forbidden_names": [
+      "E7 reserve bank",
+      "E7 rescue bank",
+      "E7 matched-bank continuation",
+      "fold-local E7-v1.1 q-match"
+    ],
+    "note": "E8 uses a different, pre-existing frozen-F1 synthetic population solely because that exact population is the one on which the pre-specified E2 q-confound trigger was observed."
+  }
+}

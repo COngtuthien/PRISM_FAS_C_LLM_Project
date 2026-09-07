@@ -1,0 +1,161 @@
+{
+  "classification": "AUDIT_PROTOCOL_BINDING_DRY_RUN_ONLY",
+  "current_implementation_commit": "86c32a2a870f4ceda47c26de30a161eb19550219",
+  "data_integrity_rules_observed": {
+    "arm_specific_quality_threshold_introduced": false,
+    "balancing_beyond_e8_min_count_rule": false,
+    "candidate_regeneration": false,
+    "e7_gate_change": false,
+    "gpu_run": false,
+    "llm_api_calls": 0,
+    "new_candidate_generation": false,
+    "q_value_changed": false,
+    "target_domain_metric_influenced_bank_size": false,
+    "target_domain_metric_influenced_bin_counts": false,
+    "target_domain_metric_influenced_profile_choice": false,
+    "target_domain_metric_influenced_selection": false,
+    "target_labels_accessed": false,
+    "threshold_relaxation": false
+  },
+  "dry_run_feasibility": {
+    "f1_available_aggregate_data_for_reference_only": {
+      "NOMINAL": {
+        "DET": {
+          "gpat": 928,
+          "physics": 394
+        },
+        "LLM": {
+          "gpat": 705,
+          "physics": 45
+        },
+        "RND": {
+          "gpat": 964,
+          "physics": 409
+        }
+      },
+      "PERMISSIVE": {
+        "DET": {
+          "gpat": 1105,
+          "physics": 774
+        },
+        "LLM": {
+          "gpat": 968,
+          "physics": 295
+        },
+        "RND": {
+          "gpat": 1155,
+          "physics": 783
+        }
+      },
+      "STRICT": {
+        "DET": {
+          "gpat": 848,
+          "physics": 376
+        },
+        "LLM": {
+          "gpat": 601,
+          "physics": 35
+        },
+        "RND": {
+          "gpat": 891,
+          "physics": 387
+        }
+      },
+      "note": "aggregate-only, NOT a per-bin table; provided for audit transparency, not as an E8 feasibility answer"
+    },
+    "performed": false,
+    "reason": "input binding did not resolve uniquely (see input_binding_audit); per this task's own instruction, the dry-run feasibility computation is performed ONLY if E8 input binding resolves uniquely"
+  },
+  "e7_evidence_modified": false,
+  "e7_reopened": false,
+  "e7_scientific_status_referenced_not_altered": {
+    "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "note": "this audit does not reopen E7; E8 is a separate pre-specified ablation, never an E7 rescue"
+  },
+  "e8_trigger_verification": {
+    "E8_TRIGGER_FROM_E2": true,
+    "cross_checked_against": "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json",
+    "e2_e8_required_persisted": "TRUE",
+    "expected_historical_values_from_task_prompt": {
+      "LLM_vs_DET": 0.364,
+      "LLM_vs_RND": 0.326
+    },
+    "frozen_at": "E0",
+    "frozen_rule": "|SMD(q)| >= 0.25 between LLM and RND OR between LLM and DET on the final accepted q distribution, at any fold or frozen F1 bank",
+    "note": "persisted artifacts are authoritative; the observed values above were read directly from E2_QUALITY_ANALYSIS.json / not recomputed, not overwritten",
+    "observed_smd": {
+      "LLM_vs_DET": {
+        "abs_smd_ge_0p25": true,
+        "n_a": 1024,
+        "n_b": 1024,
+        "smd": -0.364035596978209
+      },
+      "LLM_vs_RND": {
+        "abs_smd_ge_0p25": true,
+        "n_a": 1024,
+        "n_b": 1024,
+        "smd": -0.3258321159351046
+      },
+      "RND_vs_DET": {
+        "abs_smd_ge_0p25": false,
+        "n_a": 1024,
+        "n_b": 1024,
+        "smd": -0.04616823819654724
+      }
+    },
+    "persisted_values_match_expected": true,
+    "source_artifact": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json"
+  },
+  "existing_e8_implementation_status": {
+    "classification": "ABSENT",
+    "constraint_observed": "no E7 selector code was read for modification and none was modified; any future E8 implementation must live in an additive namespace (e.g. src/prism_fas/evaluation/c_ext_e8_qmatched.py) and must not reuse or mutate E7 scientific state",
+    "evidence": "repository-wide search for 'E8', 'qmatched', 'q_match', 'QMATCH-v1', 'quality matched', 'quality_matched' under src/prism_fas/evaluation/ and tests/pipeline/ finds only incidental word-matches (module docstrings mentioning the E8 milestone name, e.g. c_ext_e0_freeze.py's milestone_order list, and 'q_match' as a substring inside unrelated identifiers). 'QMATCH-v1' as a literal string exists ONLY inside the E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.{md,json} downstream-dependency text produced by a prior reporting task -- never inside any executable module. No c_ext_e8_*.py module, no q-binning function, no QMATCH stable-hash selector, and no test_c_ext_e8_*.py file exist anywhere in the repository.",
+    "reusable_frozen_utilities_identified": {
+      "candidate_loading": "prism_fas.evaluation.c_ext_common.read_json / read_jsonl; parquet manifest I/O helpers used throughout c_ext_e7_gpat_bank.py (read_manifest/write_manifest pattern) for any future fold-specific per-sample table, once such a table exists",
+      "detector_bank_manifests": "historical Flow-1 prism_fas/synthesis/c6_matched_bank.py + gate_profiles.py (STRICT/NOMINAL/PERMISSIVE selection logic) for the non-fold-specific bank; no fold-specific equivalent manifest exists for EXT-F1/F2/F3 (see input-binding audit below)",
+      "fold_identities": "prism_fas.evaluation.c_ext_e7_gpat_bank.py's fold/source-domain binding helpers (build_fold_source_binding and related) and the three folds' own RESERVE_FINAL_CLOSURE.json fold_id fields",
+      "quality_fields_and_q_extraction": "prism_fas.synthesis.quality_gate.evaluate (the frozen 8-criterion gate); prism_fas.synthesis.quality_calibration; the E2-side reconstruction path in prism_fas.evaluation.c_ext_quality_reconstruct and c_ext_quality_analysis.build_q_distribution() (reads a per-sample q/arm/route parquet and computes SMD via c_ext_common.standardized_mean_difference)",
+      "stable_hashing": "prism_fas.utils.core.stable_json_hash; prism_fas.recipes.canonical.stable_hash; prism_fas.evaluation.c_ext_common.sha256_bytes/sha256_json/identity_hash -- any of these can implement the spec's 'stable hash of sample_id || QMATCH-v1' rule without new cryptographic logic"
+    }
+  },
+  "input_binding_audit": {
+    "conclusion": "The quality-gate PROFILE question is substantially resolved (NOMINAL, dual E0/E2 authority) with one open sub-item (exact YAML confirmation). The CANDIDATE-POOL IDENTITY question (fold-specific EXT-F1 pool vs. the single historical Flow-1 bank) is NOT uniquely resolved by the spec, E0, E2, existing configs, or code. And independent of both questions, the per-sample q table required to execute E8's own 9-step method for ANY fold-specific candidate pool, under ANY profile, does not exist in this repository. A dry-run bin-count table cannot be honestly computed under these conditions without inventing data that is not present.",
+    "question_A_candidate_table": {
+      "finding": "No persisted per-sample candidate table (sample_id, arm, route, q, quality-gate acceptance state, fold/source-domain identity) exists in this repository for EXT-F1, EXT-F2, or EXT-F3's own fold-specific reserve-tranche candidates. RESERVE_FINAL_CLOSURE.json and every RESERVE_TRANCHE*_CLOSURE.json contain only AGGREGATE counts (arm_route_counts, route_quotas) and quota-redistribution math -- never a per-candidate row. `runs/c_ext_q1q2_v1/EXT-F1/`, `EXT-F2/`, `EXT-F3/` contain only empty placeholder directories (verified: zero files under any of them). The ONLY real per-sample q table present locally is `reports/c_ext_q1q2_v1/e2_quality/reconstructed_q/C6_Q_RECONSTRUCTED.parquet` (3072 rows = 1024/arm), which is the single historical Flow-1/Version-C matched bank (`reports/full/c6/C6_BANK_LOCK_{arm}.json`), NOT any EXT-Q1Q2 fold-specific candidate pool."
+    },
+    "question_B_which_frozen_artifact": {
+      "candidate_1": "E7-v1.1's own cumulative reserve-accepted candidates for EXT-F1 (fold-specific, source-only, LODO-consistent, the pool that actually trained EXT-F1's G-RND/G-DET/G-LLM detectors) -- but only aggregate counts are persisted for this pool, at every profile (STRICT/NOMINAL/PERMISSIVE); no per-sample record exists.",
+      "candidate_2": "the pre-extension, non-fold-specific historical Flow-1/C6 NOMINAL bank (1024/arm, 3072 total) -- per-sample q IS available locally for this one (C6_Q_RECONSTRUCTED.parquet), and it is in fact the exact bank the real, persisted E2 trigger computation used. But this bank was built under the ORIGINAL Version-C protocol (not the three-fold LODO extension), predates EXT-F1/F2/F3 entirely, and was never used to train any fold's Track-G detector under this extension -- using it as E8's training input would decouple E8 from the very E7 comparison it is meant to quality-control for.",
+      "resolution": "NOT UNIQUELY DETERMINED BY THE SPEC TEXT. Spec section 15's 9-step method and the 'Primary deployment: EXT-F1 x 5 seeds' line name neither artifact explicitly. Nothing in E0's freeze artifacts, E2's records, existing configs, protocol locks, or code comments states which of the two candidate pools is authoritative for E8's own construction. Candidate 2 is authoritative ONLY for the trigger decision (whether to run E8 at all) -- it is not stated anywhere to also be authoritative for E8's bank-construction input."
+    },
+    "question_C_quality_profile": {
+      "if_fold_specific_pool_is_intended": "even granting NOMINAL as the profile, EXT-F1's own NOMINAL-profile aggregate accepted counts are recorded in EXT_F1_RESERVE_FINAL_CLOSURE.json's assessments array: physics {RND: 409, DET: 394, LLM: 45}, gpat {RND: 964, DET: 928, LLM: 705} -- but, per question A above, no per-sample q breakdown exists for these counts, so they cannot be binned into the 10 q-bins E8 requires.",
+      "resolved_component": "NOMINAL, with two independent, E0-era pieces of authority: (1) src/prism_fas/evaluation/c_ext_e0_freeze.py's build_model_binding()-equivalent quality_gate block explicitly records {'rule': 'exact 8-criterion hard gate + q geometric-mean weight; NOMINAL profile', 'profile': 'NOMINAL', 'profile_source': 'reports/full/c6/C6_PROFILE_SELECTION_LOCK.json (STRICT infeasible)'} as the extension-wide frozen quality-gate binding, recorded before any target result and before the E7-v1.1 reserve amendment existed; (2) the REAL, persisted E2 q-reconstruction (C6_Q_RECONSTRUCTION_LOCK.json) that actually fired the E8 trigger used quality_profile='NOMINAL' for every arm. PERMISSIVE never appears in E0's frozen binding at all -- it is an ad hoc fallback profile that E7-v1.1's reserve mechanism additionally introduced later, specific to E7's own 512-common-quota feasibility problem. This audit does NOT infer PERMISSIVE from E7's convenience, per instruction; NOMINAL is the profile with actual frozen, pre-registered authority.",
+      "unresolved_component": "E0 itself flags 'config_binding_status': 'NEEDS_CONFIRMATION' for exactly which quality_gate_m8*.yaml file (of three present: quality_gate_m8.yaml, _v2, _v3) produced quality_threshold_identity=8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19, stating this 'must be confirmed against C6_GATE_PROFILES.json at E2 before any q value is consumed.' A repository-wide search finds this confirmation was never recorded anywhere in the persisted E2 artifacts (E2_QUALITY_ANALYSIS.json, C6_Q_RECONSTRUCTION_LOCK.json, E2_Q_RECONSTRUCTION_AUDIT.json) -- only the identity hash is repeated, never a resolution against a specific YAML file."
+    }
+  },
+  "no_detector_checkpoint_written": true,
+  "no_scientific_artifact_written": true,
+  "no_selected_bank_written": true,
+  "q_bin_definition": {
+    "bins": [
+      "[0.0,0.1)",
+      "[0.1,0.2)",
+      "[0.2,0.3)",
+      "[0.3,0.4)",
+      "[0.4,0.5)",
+      "[0.5,0.6)",
+      "[0.6,0.7)",
+      "[0.7,0.8)",
+      "[0.8,0.9)",
+      "[0.9,1.0]"
+    ],
+    "q_equals_1_0_rule": "the spec's own bin notation writes the final bin closed on both ends, '[0.9,1.0]' (unlike the preceding nine half-open bins), so q=1.0 is explicitly included in bin 10 by the literal spec text -- it is never dropped and never double-counted, since bin 10 is the only bin whose upper bound is closed."
+  },
+  "schema_version": "ext-q1q2-e8-input-binding-audit-v1",
+  "scientific_code_modified": false,
+  "status": "BLOCKED_PROTOCOL_GAP_E8_INPUT_BINDING",
+  "status_reason": "the authoritative E8 input candidate pool (fold-specific EXT-F1 reserve-accepted candidates vs. the single historical Flow-1/C6 NOMINAL bank already used for the trigger) is not uniquely determined by the governing spec, E0 freeze artifacts, E2 records, existing configs, protocol locks, or code; and, independently, no per-sample candidate-level q table exists in this repository for any EXT-F1/F2/F3 fold-specific candidate pool under any quality-gate profile. Per instruction, this audit does not choose a profile or candidate pool itself and does not compute a dry-run bin-count table under these conditions."
+}
