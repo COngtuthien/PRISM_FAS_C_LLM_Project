@@ -1,0 +1,85 @@
+{
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "adapter_source_sha256": "7fa4be3beec6be6118faa830b39ef1d579a4715aba11c84a08a7a813a4ebd520",
+  "classification": "E8_TRAINING_ADAPTER_PREFLIGHT",
+  "files_created": [
+    "src/prism_fas/evaluation/c_ext_e8_training_adapter.py",
+    "tests/test_c_ext_e8_training_adapter.py",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/adapter/E8_TRAINING_ADAPTER_BINDING.json",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/adapter/E8_TRAINING_ADAPTER_PREFLIGHT.json",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/adapter/E8_TRAINING_ADAPTER_PREFLIGHT.md",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/adapter/E8_TRAINING_ADAPTER_EVIDENCE.sha256"
+  ],
+  "files_modified": [],
+  "focused_tests": {
+    "broad_c_ext_sweep_reason_skipped": "explicitly instructed not to run it in this task; a prior broad sweep is known to regenerate 3 tracked E7 planning artifacts as a side effect via test_c_ext_e7_gpat_bank.py, which was deliberately not invoked here",
+    "broad_c_ext_sweep_run": false,
+    "combined_result": {
+      "failed": 0,
+      "passed": 68,
+      "skipped": 16
+    },
+    "commands": [
+      "pytest -q tests/test_c_ext_e8_training_adapter.py",
+      "pytest -q tests/pipeline/test_c6_evidence_and_bank.py",
+      "pytest -q tests/test_m4_loader_sampler.py"
+    ],
+    "e8_adapter_suite_only": {
+      "failed": 0,
+      "passed": 40,
+      "skipped": 0
+    }
+  },
+  "implementation_parent_commit": "c8c87620462df4c670c876f2ceaa052fad5f2454",
+  "integrity_check_after_implementation": {
+    "detector_training_started": false,
+    "e7_raw_evidence": "90/90 PASS",
+    "e7_unchanged": true,
+    "flow1_flow2_protected_manifest": "170/170 PASS",
+    "gpu_used": false,
+    "historical_c6_locks_unchanged": true,
+    "llm_api_calls": 0,
+    "membership_evidence_manifest": "PASS (5/5)",
+    "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+    "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+    "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "schema_version": "ext-q1q2-e8-training-adapter-preflight-v1",
+  "scope": "implementation + focused tests + source-only preflight only -- no commit, no push, no GPU, no detector training, no scientific checkpoint, no target inference, no SiW-Mv2 access, no E8 membership regeneration, no historical C6/E7 modification, no LLM call",
+  "status": "READY_FOR_E8_ADAPTER_COMMIT_REVIEW",
+  "validation_results": {
+    "all_three_arms_adapt_successfully": true,
+    "c6_matched_bank_reader_compatibility": "PASS (test_R_c6_matched_bank_reader_can_consume_e8_filtered_view, tiny synthetic fixture -- 224x224 zero images, real encode_png/encode_npz round-trip, sample()/validate() succeed)",
+    "deterministic_historical_ordering": "PASS (test_output_order_is_historical_subsequence, all 3 arms)",
+    "exact_membership_818_818_818": true,
+    "frozen_artifact_hashes_unchanged": "PASS (see integrity_check below)",
+    "identity_set_equality": "PASS (test_identity_set_equals_canonical_membership, all 3 arms)",
+    "no_historical_core_scientific_source_modified": true,
+    "per_arm": {
+      "DET": {
+        "c6_bank_lock_sha256": "bacd544d7d25e411592262c80f092099ba16e5abaa442b00ebe5514eac79b96d",
+        "gpat_count": 464,
+        "membership_count": 818,
+        "physics_count": 354
+      },
+      "LLM": {
+        "c6_bank_lock_sha256": "ff57043ac3b2aa1591e630b48fb76e588e7fb3ce39a4894093750c01c5c0893a",
+        "gpat_count": 464,
+        "membership_count": 818,
+        "physics_count": 354
+      },
+      "RND": {
+        "c6_bank_lock_sha256": "451964130e59a084470edfac754dc097658b678d4a4f0811ba964c2cfbbe7d92",
+        "gpat_count": 464,
+        "membership_count": 818,
+        "physics_count": 354
+      }
+    },
+    "retained_records_unchanged": "PASS (test_retained_records_unchanged, all 3 arms)",
+    "route_split_354_464_each_arm": true,
+    "sampler_818_bank_compatibility": "PASS (test_sampler_818_bank_compatibility_smoke: 30 epochs x 45 steps x 8 synthetic = 10800 draws from an 818-position pool [354 physics + 464 gpat], all indices in [0,817], no fixed-1024 assumption, same-seed determinism verified, different-seed divergence verified, >700/818 unique positions touched within 30 epochs demonstrating heavy reuse -- no SigLIP2 instantiated)",
+    "target_firewall": "PASS (target_access=false, target_labels_accessed=false throughout; source_domain firewall enforced in filter_bank_lock_to_e8, verified only casia_fasd/msu_mfsd present in all 3 arms' filtered output)"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "adapter_rule_name": "E8_TRACK_G_QMATCH_ADAPTER_V1",
+  "adapter_source_path": "src/prism_fas/evaluation/c_ext_e8_training_adapter.py",
+  "adapter_source_sha256": "7fa4be3beec6be6118faa830b39ef1d579a4715aba11c84a08a7a813a4ebd520",
+  "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+  "classification": "E8_TRAINING_ADAPTER_BINDING",
+  "identifier_contract": "membership.sample_id == c6_bank_lock.selected[].candidate_id",
+  "implementation_commit_note": "this task stops before commit -- no implementation commit is recorded yet; the scientific execution preflight, after review and commit, binds the actual implementation commit",
+  "implementation_parent_commit": "c8c87620462df4c670c876f2ceaa052fad5f2454",
+  "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+  "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+  "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "ordering_policy": "filtered selected list is a subsequence of the historical C6 selected order; C6MatchedBankReader.open() subsequently sorts by synthetic_id unconditionally (pre-existing, unmodified reader behavior)",
+  "per_arm": {
+    "DET": {
+      "c6_bank_lock_sha256": "bacd544d7d25e411592262c80f092099ba16e5abaa442b00ebe5514eac79b96d",
+      "condition": "G-DET-QMATCH",
+      "gpat_count": 464,
+      "membership_count": 818,
+      "physics_count": 354
+    },
+    "LLM": {
+      "c6_bank_lock_sha256": "ff57043ac3b2aa1591e630b48fb76e588e7fb3ce39a4894093750c01c5c0893a",
+      "condition": "G-LLM-QMATCH",
+      "gpat_count": 464,
+      "membership_count": 818,
+      "physics_count": 354
+    },
+    "RND": {
+      "c6_bank_lock_sha256": "451964130e59a084470edfac754dc097658b678d4a4f0811ba964c2cfbbe7d92",
+      "condition": "G-RND-QMATCH",
+      "gpat_count": 464,
+      "membership_count": 818,
+      "physics_count": 354
+    }
+  },
+  "physical_bank_view_files_note": "C6MatchedBankReader.open() takes bank_lock as an in-memory mapping (see prism_fas.detector.c6_bank.open_arm_bank, which reads the historical JSON into a dict before passing it the same way) -- no physical E8 bank-view JSON file is required by the reader's own API, so none was written; this binding + the adapter's pure functions are the complete, reproducible provenance",
+  "physical_bank_view_files_required_by_reader_api": false,
+  "reader_class": "prism_fas.detector.c6_bank.C6MatchedBankReader",
+  "reader_class_path": "src/prism_fas/detector/c6_bank.py",
+  "reader_modified": false,
+  "schema_version": "ext-q1q2-e8-training-adapter-binding-v1",
+  "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "target_access": false,
+  "target_labels_accessed": false,
+  "track_g_variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+}

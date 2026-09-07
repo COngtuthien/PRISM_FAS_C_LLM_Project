@@ -1,0 +1,706 @@
+{
+  "adapter_implemented": false,
+  "asset_locator_audit": {
+    "byte_level_caveat": "identity/manifest-level resolution is 100% deterministic and complete; the actual rendered PIXEL PAYLOADS (synthetic.png/exact_mask.png/artifact_map.npz) were NOT verified byte-for-byte from this laptop checkout -- see gpu_asset_availability_plan for their expected location. This does not change the RESOLVED classification: assets are not missing or unresolvable, only not locally co-located for byte verification, which is the GPU-plan's job, not this audit's",
+    "no_missing_sample_ids": true,
+    "per_arm": {
+      "DET": {
+        "duplicate_locator_count": 0,
+        "gpat_asset_count": 464,
+        "locator_missing": 0,
+        "locator_present": 818,
+        "membership_rows": 818,
+        "physics_asset_count": 354,
+        "source_domains": {
+          "casia_fasd": 465,
+          "msu_mfsd": 353
+        },
+        "unique_physical_asset_count": 818
+      },
+      "LLM": {
+        "duplicate_locator_count": 0,
+        "gpat_asset_count": 464,
+        "locator_missing": 0,
+        "locator_present": 818,
+        "membership_rows": 818,
+        "physics_asset_count": 354,
+        "source_domains": {
+          "casia_fasd": 430,
+          "msu_mfsd": 388
+        },
+        "unique_physical_asset_count": 818
+      },
+      "RND": {
+        "duplicate_locator_count": 0,
+        "gpat_asset_count": 464,
+        "locator_missing": 0,
+        "locator_present": 818,
+        "membership_rows": 818,
+        "physics_asset_count": 354,
+        "source_domains": {
+          "casia_fasd": 451,
+          "msu_mfsd": 367
+        },
+        "unique_physical_asset_count": 818
+      }
+    },
+    "resolution_basis": "every E8-selected sample_id is a verified subset of C6_Q_RECONSTRUCTED.parquet, itself verified CONSISTENT (0 disagreements across all 3072 rows) against the same reports/full/c6/C6_BANK_LOCK_{RND,DET,LLM}.json 'selected' sets during the ratified E8 amendment; this audit additionally re-verified the 2454-row subset directly against those same bank-lock files here",
+    "status": "RESOLVED_AT_IDENTITY_LEVEL",
+    "totals": {
+      "duplicate_locator_count": 0,
+      "locator_missing": 0,
+      "locator_present": 2454,
+      "membership_rows": 2454
+    }
+  },
+  "baseline_training_exposure": {
+    "derivation": "mixed_epochs(30) * steps_per_epoch(45) * synthetic_per_step(8) = 10800",
+    "effective_exposure_over_bank_size_ratio": 13.2029,
+    "historical_comparison": "the same 10800-draw schedule was already used, unmodified, against the historical 1024-sample banks (10800/1024 ~= 10.55x reuse); E8's 818-sample bank requires ~13.20x reuse under the IDENTICAL schedule -- no optimizer-update count is changed to force a clean pass over 818",
+    "replacement_sampling_mechanism": {
+      "already_per_route_independent": true,
+      "already_seed_controlled": true,
+      "behavior": "each pool (keyed by route, e.g. physics/gpat) is drawn as a deterministic, seeded permutation (without replacement) per cycle; once the cursor exhausts a cycle, _Stream._reshuffle() reseeds and repeats -- functionally equivalent to sampling with replacement at the multi-cycle scale this schedule already requires",
+      "evidence": "grep for '1024' and '512' across sampler.py, dataset.py, config.py, contracts.py returns zero matches -- pool size is fully generic",
+      "hardcoded_pool_size_dependency_found": false,
+      "location": "src/prism_fas/detector/sampler.py :: _Stream / M9BatchSampler"
+    },
+    "status": "RESOLVED",
+    "steps_per_epoch": 45,
+    "synthetic_draws_occur_only_during": "G5 (mixed_epochs=30) -- G1/G2's 5 warmup epochs draw zero synthetic samples",
+    "total_epochs": 35,
+    "total_optimizer_updates_per_run": 1575,
+    "total_synthetic_draws_per_run": 10800,
+    "unique_synthetic_bank_size_e8": 818
+  },
+  "classification": "READ_ONLY_TRAINING_INTEGRATION_AUDIT_PLUS_PREFLIGHT_PLAN",
+  "detector_seeds": {
+    "seeds": [
+      20260806,
+      20260807,
+      20260808,
+      20260809,
+      20260810
+    ],
+    "shuffle_seeds_excluded": [
+      20260911,
+      20260912,
+      20260913
+    ],
+    "shuffle_seeds_note": "these are E6/E9 perturbation-mask seeds (P1/P2/P3), never detector seeds; not used here",
+    "source": "reports/c_ext_q1q2_v1/e0/EXT_SEED_REGISTRY.json (detector_seeds) and reports/c_ext_q1q2_v1/e0/EXT_MODEL_BINDING.json (detector_seeds), both agree",
+    "status": "RESOLVED"
+  },
+  "firewall_verification": {
+    "canonical_membership_sha256_verified": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+    "head_at_start": "c8c87620462df4c670c876f2ceaa052fad5f2454",
+    "input_binding_rule_identity_verified": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+    "membership_evidence_manifest": "PASS (5/5)",
+    "selector_implementation_commit": "1bc21807564650141d22b401003d91c6b10d7b32",
+    "selector_rule_identity_verified": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126"
+  },
+  "gpu_asset_availability_plan": {
+    "categories": {
+      "A_already_git_trackable": [
+        {
+          "immutable": true,
+          "path": "reports/c_ext_q1q2_v1/e8_qmatched/membership/E8_QMATCH_SELECTED_MEMBERSHIP.parquet",
+          "sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+          "transfer_method": "git pull"
+        },
+        {
+          "immutable": true,
+          "path": "reports/c_ext_q1q2_v1/e8_qmatched/membership/E8_QMATCH_MEMBERSHIP_LOCK.json",
+          "sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+          "transfer_method": "git pull"
+        },
+        {
+          "immutable": true,
+          "path": "src/prism_fas/evaluation/c_ext_e8_qmatched.py",
+          "sha256": null,
+          "transfer_method": "git pull"
+        },
+        {
+          "immutable": true,
+          "path": "reports/full/c6/C6_BANK_LOCK_RND.json",
+          "sha256": "451964130e59a084470edfac754dc097658b678d4a4f0811ba964c2cfbbe7d92",
+          "transfer_method": "git pull (already tracked, historical)"
+        },
+        {
+          "immutable": true,
+          "path": "reports/full/c6/C6_BANK_LOCK_DET.json",
+          "sha256": "bacd544d7d25e411592262c80f092099ba16e5abaa442b00ebe5514eac79b96d",
+          "transfer_method": "git pull (already tracked, historical)"
+        },
+        {
+          "immutable": true,
+          "path": "reports/full/c6/C6_BANK_LOCK_LLM.json",
+          "sha256": "ff57043ac3b2aa1591e630b48fb76e588e7fb3ce39a4894093750c01c5c0893a",
+          "transfer_method": "git pull (already tracked, historical)"
+        },
+        {
+          "immutable": true,
+          "path": "configs/train/m9_reference.yaml",
+          "sha256": null,
+          "transfer_method": "git pull"
+        },
+        {
+          "immutable": true,
+          "path": "configs/data/loader_m4.yaml",
+          "sha256": null,
+          "transfer_method": "git pull"
+        },
+        {
+          "immutable": true,
+          "path": "reports/c_ext_q1q2_v1/e0/EXT_MODEL_BINDING.json",
+          "sha256": null,
+          "transfer_method": "git pull"
+        }
+      ],
+      "B_present_only_on_laptop": [
+        {
+          "note": "none identified beyond what is already committed to this branch and pushed"
+        }
+      ],
+      "C_expected_already_on_gpu_from_historical_version_c": [
+        {
+          "expected_identity": "per-row payload_sha256 recorded in each candidate's C5 CANDIDATE.json (payload_sha256.synthetic.png / .exact_mask.png / .artifact_map.npz)",
+          "immutable": true,
+          "note": "the 2454 E8-selected candidates' rendered payloads -- laptop holds only C5 CANDIDATE.json metadata for the LLM arm (3072 records, no pixel payload files present); RND/DET have zero local candidate directories at all. These bytes are expected already present on GPU, since this exact historical bank already trained Version-C's original Track-G detector there. NOT to be regenerated.",
+          "path": "runs/full/c5/scientific/candidates/{RND,DET,LLM}/<candidate_id>/{synthetic.png,exact_mask.png,artifact_map.npz}",
+          "transfer_method": "already present (verify, do not regenerate)"
+        }
+      ],
+      "D_large_artifacts_checkpoints_weights": [
+        {
+          "identity_sha256": "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822",
+          "immutable": true,
+          "path": "weights/pretrained/m9/siglip2",
+          "pin": "google/siglip2-base-patch16-224",
+          "transfer_method": "already present (shared/frozen across all Track-G runs)"
+        }
+      ],
+      "E_source_casia_msu_data": [
+        {
+          "evidence": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/GPAT_FOLD_SOURCE_BINDING.json (EXT-F1: frozen==observed package identity, match=true, e7d_status=CLOSED_VALID)",
+          "identity_sha256": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+          "immutable": true,
+          "note": "EXT-F1 source_train/source_dev package, frozen_package_identity",
+          "transfer_method": "already present (E7-D CLOSED_VALID)"
+        }
+      ],
+      "F_frozen_synthetic_assets_selected_by_e8": [
+        {
+          "note": "same 2454-row set as category C -- listed once there to avoid duplication"
+        }
+      ],
+      "G_source_train_dev_manifests": [
+        {
+          "immutable": true,
+          "path": "EXT-F1 manifests/source_train.parquet, manifests/source_dev.parquet (fold-scoped M3B package built by c_ext_e7_gpat_bank.py)",
+          "transfer_method": "already present (E7-D CLOSED_VALID)"
+        }
+      ],
+      "H_warmup_base_checkpoint": [
+        {
+          "note": "not applicable -- no warm-up/base checkpoint distinct from the frozen SigLIP2 backbone pin (category D) is referenced anywhere in the Track-G binding"
+        }
+      ]
+    },
+    "note": "classification only -- no transfer executed by this task"
+  },
+  "gpu_used": false,
+  "integrity_validation_after_audit": {
+    "e7_raw_evidence": "90/90 PASS",
+    "e7_unchanged": true,
+    "e8_input_binding_amendment_unchanged": true,
+    "e8_membership_canonical_sha256_unchanged": true,
+    "e8_membership_evidence": "PASS (5/5)",
+    "e8_selector_unchanged": true,
+    "flow1_flow2_protected_manifest": "170/170 PASS",
+    "historical_c6_unchanged": true,
+    "note_side_effect_cleaned": "a prior turn's broader pytest -k c_ext regression sweep had regenerated 3 tracked non-scientific planning artifacts under reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/ (EXECUTION_PLAN.json, QUALITY_GATE_BINDING.json, READINESS.json) as a known, documented test side effect; found still dirty in the working tree at the start of this task and restored via 'git checkout --' to their committed state before writing this report -- this task itself performed no writes to E7",
+    "pre_existing_unrelated_untouched": [
+      ".gitignore",
+      "src/prism_fas/detector/dataset.py"
+    ],
+    "scientific_source_code_modifications_this_task": 0
+  },
+  "llm_api_calls": 0,
+  "loader_audit": {
+    "A_expected_input": "M9TrainingDataset accepts either bank_root+SyntheticBankReader.open() (the single fail-closed M9-reference bank) OR a pre-built, pre-verified 'bank' object passed in directly -- documented in dataset.py as 'the Version-C seam: C7/C8 train against one arm's frozen C6 matched bank ... opened by its own fail-closed reader (detector.c6_bank)'",
+    "B_direct_parquet_jsonl_consumption": false,
+    "B_note": "neither E8_QMATCH_SELECTED_MEMBERSHIP.parquet nor .jsonl can be passed directly -- they carry only sample_id/arm/route/q/qmatch_hash/source_locator, not the full row shape C6MatchedBankReader assembles (base_position, canonical_tie_hash, recipe_ordinal, selection_step, source_domain_quota, plus the C5-record-derived image/mask/artifact_map locators and hashes)",
+    "C_locator_sufficiency": "membership's sample_id (==candidate_id) is sufficient as a JOIN KEY, not as a standalone locator -- resolution is a two-stage join (see D)",
+    "D_required_join": "stage 1: reports/full/c6/C6_BANK_LOCK_{RND,DET,LLM}.json 'selected' array, keyed by candidate_id (recovers route/q/recipe_id/source_domain/canonical_tie_hash/etc.); stage 2: that arm's C5 CANDIDATE.json record at candidate_dir(candidates_root, arm, candidate_id)/CANDIDATE.json (recovers image_relative_path/mask_relative_path/artifact_map_relative_path + their SHA-256, exactly what src/prism_fas/detector/c6_bank.py:C6MatchedBankReader.open() already performs for the historical arm banks)",
+    "E_join_determinism": "VERIFIED 1:1 and complete -- all 2454 E8-selected sample_ids (818/arm) were found exactly once in their arm's C6_BANK_LOCK_<ARM>.json 'selected' list (0 missing, 0 duplicates, per arm and overall)",
+    "F_note": "qbar = mean(quality_weight[synthetic]) scales only the synthetic loss bracket; quality_weight is carried on SyntheticSample and on C6MatchedBankReader rows",
+    "F_q_used_as_loss_weight": true,
+    "G_note": "route flows from bank_lock entry -> assembled row -> SyntheticSample.route, validated against {physics, gpat}; sampler pools are keyed per route (contract.routes, require_both_routes)",
+    "G_route_metadata_preserved": true,
+    "H_fixed_1024_dependency": false,
+    "I_replacement_default": "without replacement within each deterministic reshuffle cycle; cycles repeat (functionally with-replacement) once a cycle is exhausted -- see baseline_training_exposure.replacement_sampling_mechanism",
+    "J_would_changing_loader_affect_historical_behavior": "N/A -- NO change to sampler.py or dataset.py is required; the existing 'bank=' seam in M9TrainingDataset.__init__ is explicitly documented for exactly this purpose and accepts any duck-typed, pre-verified reader object",
+    "additive_e8_adapter_required": true,
+    "additive_e8_adapter_scope": "a thin, additive function that filters an arm's real C6_BANK_LOCK_<ARM>.json 'selected' list down to that arm's 818 E8-selected candidate_ids (all other lock fields preserved verbatim), then calls the EXISTING, UNMODIFIED prism_fas.detector.c6_bank.C6MatchedBankReader.open() with that filtered bank_lock -- no new reader class is required, and dataset.py/sampler.py are not touched",
+    "not_modified_this_task": [
+      "src/prism_fas/detector/dataset.py",
+      "src/prism_fas/detector/sampler.py",
+      "src/prism_fas/detector/c6_bank.py",
+      "src/prism_fas/detector/synthetic_bank.py"
+    ]
+  },
+  "membership_regenerated": false,
+  "planned_15_run_matrix": [
+    {
+      "arm": "RND",
+      "condition": "G-RND-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-RND-QMATCH-s20260806",
+      "seed": 20260806,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "RND",
+      "condition": "G-RND-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-RND-QMATCH-s20260807",
+      "seed": 20260807,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "RND",
+      "condition": "G-RND-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-RND-QMATCH-s20260808",
+      "seed": 20260808,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "RND",
+      "condition": "G-RND-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-RND-QMATCH-s20260809",
+      "seed": 20260809,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "RND",
+      "condition": "G-RND-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-RND-QMATCH-s20260810",
+      "seed": 20260810,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "DET",
+      "condition": "G-DET-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-DET-QMATCH-s20260806",
+      "seed": 20260806,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "DET",
+      "condition": "G-DET-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-DET-QMATCH-s20260807",
+      "seed": 20260807,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "DET",
+      "condition": "G-DET-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-DET-QMATCH-s20260808",
+      "seed": 20260808,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "DET",
+      "condition": "G-DET-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-DET-QMATCH-s20260809",
+      "seed": 20260809,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "DET",
+      "condition": "G-DET-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-DET-QMATCH-s20260810",
+      "seed": 20260810,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "LLM",
+      "condition": "G-LLM-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-LLM-QMATCH-s20260806",
+      "seed": 20260806,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "LLM",
+      "condition": "G-LLM-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-LLM-QMATCH-s20260807",
+      "seed": 20260807,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "LLM",
+      "condition": "G-LLM-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-LLM-QMATCH-s20260808",
+      "seed": 20260808,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "LLM",
+      "condition": "G-LLM-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-LLM-QMATCH-s20260809",
+      "seed": 20260809,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    },
+    {
+      "arm": "LLM",
+      "condition": "G-LLM-QMATCH",
+      "fold": "EXT-F1",
+      "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+      "membership_jsonl_sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070",
+      "membership_lock_sha256": "16a25b0d777c37c9dc9ec775e7581e45d34c3b6ced77e328b4d94f72ebe33c07",
+      "membership_parquet_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+      "planned_optimizer_updates": 1575,
+      "planned_synthetic_draws": 10800,
+      "run_id": "EXT-F1-G-LLM-QMATCH-s20260810",
+      "seed": 20260810,
+      "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+      "source_split_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+      "target_access": false,
+      "training_config_identity": {
+        "c7_winner_config_sha256": "97d32c36745e1f4758cbc342b5f83f2fa9c87d69f4ba91605678164d32b5b5dd",
+        "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+      }
+    }
+  ],
+  "run_id_naming_convention": {
+    "source": "EXT-Q1Q2 Detailed Spec v1.0 Appendix A naming convention '{fold}-{track}-{condition}-{bank_or_variant}-s{seed}' (example given in spec: 'EXT-F2-G-LLM-FROZENBANK-s20260808'); 'QMATCH' is substituted for 'FROZENBANK' as the bank_or_variant token because E8 draws from the q-matched bank, not the plain frozen E7 bank -- no competing naming convention was invented",
+    "used": "{fold}-{track}-{arm}-QMATCH-s{seed}"
+  },
+  "schema_version": "ext-q1q2-e8-training-integration-audit-v1",
+  "scope": "no training code modified, no adapter created, no GPU access, no training, no inference, no target labels accessed, no calibration performed, no E8 membership regenerated, no LLM call, no commit/push performed by this task",
+  "source_target_firewall": {
+    "calibration_uses_only": "source_dev (calibration.uses_target=false, explicit in EXT_MODEL_BINDING.json)",
+    "checkpoint_selection_uses_only": "source_dev (checkpoint_selection.uses_target=false, explicit in EXT_MODEL_BINDING.json)",
+    "ext_f1_source_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "ext_f1_target_domain": "siw_mv2",
+    "result": "PASS",
+    "target_access": false,
+    "target_labels_accessed": false,
+    "target_package_imported_by_training_dataloader_checkpoint_calibration": false,
+    "training_uses_only": "source_train + E8 synthetic (verified: E8's ratified input population is casia_fasd/msu_mfsd only; per-arm source_domain composition confirms zero siw_mv2 rows in all 2454 selected samples)"
+  },
+  "status": "READY_FOR_E8_TRAINING_INTEGRATION_IMPLEMENTATION",
+  "target_access": false,
+  "target_labels_accessed": false,
+  "track_g_binding": {
+    "batch_contract": {
+      "accumulation_steps": 1,
+      "batch_size": 32,
+      "domain_balance": true,
+      "mixed_G5": {
+        "real_live": 12,
+        "real_spoof": 12,
+        "synthetic": 8
+      },
+      "require_both_routes": true,
+      "steps_per_epoch": 45,
+      "steps_per_epoch_derivation": "ceil(1440 / 32) -- source_train real-pool size, constant across stages",
+      "warmup_G1_G2": {
+        "real_live": 16,
+        "real_spoof": 16,
+        "synthetic": 0
+      }
+    },
+    "calibration": {
+      "split": "source_dev only",
+      "temperature": "T = softplus(raw)+1e-6; raw minimized by Adam(lr=0.05, 500 iters, float64) on source_dev BCE-with-logits(logit/T, y)",
+      "threshold": "tau* = argmin over {0, every distinct calibrated p_hat, 1, p_hat+1e-9} of (round(ACER,12), round(APCER,12), tau)",
+      "uses_target": false
+    },
+    "checkpoint_selection": {
+      "every_steps": 250,
+      "rule": "lexicographic minimize (source_dev/acer, source_dev/bpcer, source_dev/nll)",
+      "tolerance": 1e-12,
+      "uses_target": false
+    },
+    "detector_architecture": {
+      "backbone": "SigLIP2 (pin google/siglip2-base-patch16-224), frozen, 0 trainable params",
+      "backbone_identity_sha256": "7e059e40dcc34913b51fc8d7bd25e6f0c023bc238261effee9bfb87b33f04822",
+      "fusion": "single_logit",
+      "head": "global_logit = Linear(256->1)(LayerNorm(Linear(dim->256)(z_global))); z_global = frozen SigLIP2 pooler_output",
+      "module": "src/prism_fas/detector/prism_detector.py",
+      "variant_identity": "1e26c31bba8922bff9fc15ce2e163d2f82f5a353614c55b52bc0db33b39fac8d"
+    },
+    "determinism": {
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
+      "dataloader": {
+        "num_workers": 0,
+        "persistent_workers": false,
+        "pin_memory": false,
+        "prefetch_factor": null
+      },
+      "python_hash_independent": true,
+      "sampler_seed_material": "sha256(schema|pool_identity|seed|epoch|pool)"
+    },
+    "objective": {
+      "L_total": "L_cls_real + lambda_syn*qbar*L_cls_syn + lambda_risk*L_risk",
+      "classification": "BCEWithLogits, masked-mean, no label smoothing, no class weights",
+      "lambda_risk_winner": 0.05,
+      "lambda_syn_winner": 0.25,
+      "note_generic_vs_winner": "configs/train/m9_reference.yaml's generic loss.weights.lambda_syn=0.50 is the UNTUNED M9 reference default; EXT_MODEL_BINDING.json's lambda_syn_winner=0.25 is the C7-search WINNER value actually bound for Track G -- the winner value governs, not the generic reference default",
+      "qbar": "mean(quality_weight[synthetic]) -- scales ONLY the synthetic bracket",
+      "risk_domain_groups": [
+        "casia_fasd",
+        "msu_mfsd"
+      ]
+    },
+    "optimizer": {
+      "amp": "bf16 if supported else fp16; fp32 on CPU",
+      "backbone_lr": 1e-05,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "gradient_clip_norm": 1.0,
+      "head_lr": 0.0001,
+      "name": "AdamW",
+      "note_generic_vs_winner": "m9_reference.yaml's generic weight_decay=0.05 is the anchor; EXT_MODEL_BINDING.json's weight_decay_winner=0.025 is the bound value",
+      "weight_decay_winner": 0.025
+    },
+    "preprocessing": {
+      "backbone_input_contract": "x_norm = 2*x - 1 (map [0,1] -> [-1,1])",
+      "channels_first": true,
+      "color": "rgb",
+      "decoder": "opencv",
+      "dtype": "float32",
+      "size": [
+        224,
+        224
+      ],
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "quality_gate_config_filename_gap": {
+      "note": "identical to the gap already ratified as non-blocking in E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json: the effective quality_threshold_identity 8fa2648643cd526730497ae2d717e17684dda3ecea361fc84929db07ac03bb19 is cryptographically bound and reproducible independent of which of the three quality_gate_m8*.yaml files produced it",
+      "status": "NEEDS_CONFIRMATION (pre-existing, non-blocking)"
+    },
+    "scheduler": {
+      "formula": "scale(t) = (t+1)/t_warmup if t<t_warmup else min_lr + (1-min_lr)*0.5*(1+cos(pi*progress))",
+      "min_lr_scale": 0.0,
+      "name": "cosine",
+      "warmup_fraction_winner": 0.05
+    },
+    "sources_read": [
+      "reports/c_ext_q1q2_v1/e0/EXT_MODEL_BINDING.json",
+      "reports/c_ext_q1q2_v1/e0/EXT_SEED_REGISTRY.json",
+      "configs/train/m9_reference.yaml",
+      "configs/data/loader_m4.yaml",
+      "reports/full/c7/DETECTOR_CONFIG_LOCK.json (referenced by EXT_MODEL_BINDING.json's _source fields)"
+    ],
+    "stage_schedule": {
+      "calibration_stage_G6": "source_dev calibration only, not additional optimizer-update epochs",
+      "flow": [
+        "G1",
+        "G2",
+        "G5",
+        "G6"
+      ],
+      "manifold_note": "manifold branch is OFF for Track G (variant_flags.manifold='off'); G2's 2 epochs still count toward total_epochs but carry no manifold loss for this variant",
+      "manifold_warmup_epochs_G2": 2,
+      "mixed_epochs_G5": 30,
+      "total_epochs": 35,
+      "warmup_detector_epochs_G1": 3,
+      "warmup_phase_scope": "m9_reference.yaml's explicit SPEC_UNDERSPECIFIED comment resolves this: 'G1/G2 read Source real live/spoof (Table 39), so the warm-up batch drops the synthetic quarter' -- BOTH G1 (3 epochs) AND G2 (2 epochs) use the real-only warmup batch (16 live/16 real_spoof/0 synthetic); only G5's 30 epochs draw synthetic samples"
+    },
+    "status": "RESOLVED",
+    "warmup_checkpoint_policy": "none beyond the frozen pretrained SigLIP2 backbone pin -- no separate warm-up/base checkpoint is referenced anywhere in the binding"
+  },
+  "training_performed": false
+}
