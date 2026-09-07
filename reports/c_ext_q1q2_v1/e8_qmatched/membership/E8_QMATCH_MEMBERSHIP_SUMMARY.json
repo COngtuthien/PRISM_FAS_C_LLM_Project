@@ -1,0 +1,404 @@
+{
+  "classification": "E8_FROZEN_F1_QMATCH_MEMBERSHIP_SUMMARY",
+  "e7_status": {
+    "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "core_matched_synthetic_banks_produced": "0/3"
+  },
+  "empty_bins": [
+    "gpat:bin0",
+    "gpat:bin1",
+    "gpat:bin2",
+    "physics:bin0",
+    "physics:bin1",
+    "physics:bin2"
+  ],
+  "gpat_total": 464,
+  "gpu_status": "not used",
+  "grand_total": 2454,
+  "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "input_q_table_sha256": "87fdc8ea594a487bfef5206c5a0f0c763c7d19451a5f915e67e2237fd7431cd9",
+  "llm_api_calls": 0,
+  "physics_total": 354,
+  "q_equals_1_0_count": 0,
+  "q_max": 0.9415737390518188,
+  "q_min": 0.08555334806442261,
+  "route_q_bin_count_table": [
+    {
+      "count_DET": 2,
+      "count_LLM": 0,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "LLM",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 0,
+      "q_lower": 0.0,
+      "q_upper": 0.1,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 0,
+      "count_LLM": 0,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "DET",
+        "LLM",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 1,
+      "q_lower": 0.1,
+      "q_upper": 0.2,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 0,
+      "count_LLM": 4,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "DET",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 2,
+      "q_lower": 0.2,
+      "q_upper": 0.3,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 4,
+      "count_LLM": 11,
+      "count_RND": 3,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 3,
+      "q_bin": 3,
+      "q_lower": 0.3,
+      "q_upper": 0.4,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 3,
+      "selected_LLM": 3,
+      "selected_RND": 3
+    },
+    {
+      "count_DET": 12,
+      "count_LLM": 23,
+      "count_RND": 24,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "DET"
+      ],
+      "n_b": 12,
+      "q_bin": 4,
+      "q_lower": 0.4,
+      "q_upper": 0.5,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 12,
+      "selected_LLM": 12,
+      "selected_RND": 12
+    },
+    {
+      "count_DET": 38,
+      "count_LLM": 74,
+      "count_RND": 30,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 30,
+      "q_bin": 5,
+      "q_lower": 0.5,
+      "q_upper": 0.6,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 30,
+      "selected_LLM": 30,
+      "selected_RND": 30
+    },
+    {
+      "count_DET": 72,
+      "count_LLM": 134,
+      "count_RND": 80,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "DET"
+      ],
+      "n_b": 72,
+      "q_bin": 6,
+      "q_lower": 0.6,
+      "q_upper": 0.7,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 72,
+      "selected_LLM": 72,
+      "selected_RND": 72
+    },
+    {
+      "count_DET": 136,
+      "count_LLM": 165,
+      "count_RND": 161,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "DET"
+      ],
+      "n_b": 136,
+      "q_bin": 7,
+      "q_lower": 0.7,
+      "q_upper": 0.8,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 136,
+      "selected_LLM": 136,
+      "selected_RND": 136
+    },
+    {
+      "count_DET": 190,
+      "count_LLM": 98,
+      "count_RND": 168,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "LLM"
+      ],
+      "n_b": 98,
+      "q_bin": 8,
+      "q_lower": 0.8,
+      "q_upper": 0.9,
+      "q_upper_inclusive": false,
+      "route": "physics",
+      "selected_DET": 98,
+      "selected_LLM": 98,
+      "selected_RND": 98
+    },
+    {
+      "count_DET": 58,
+      "count_LLM": 3,
+      "count_RND": 46,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "LLM"
+      ],
+      "n_b": 3,
+      "q_bin": 9,
+      "q_lower": 0.9,
+      "q_upper": 1.0,
+      "q_upper_inclusive": true,
+      "route": "physics",
+      "selected_DET": 3,
+      "selected_LLM": 3,
+      "selected_RND": 3
+    },
+    {
+      "count_DET": 0,
+      "count_LLM": 0,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "DET",
+        "LLM",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 0,
+      "q_lower": 0.0,
+      "q_upper": 0.1,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 0,
+      "count_LLM": 1,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "DET",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 1,
+      "q_lower": 0.1,
+      "q_upper": 0.2,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 0,
+      "count_LLM": 2,
+      "count_RND": 0,
+      "empty_common_support": true,
+      "limiting_arm": [
+        "DET",
+        "RND"
+      ],
+      "n_b": 0,
+      "q_bin": 2,
+      "q_lower": 0.2,
+      "q_upper": 0.3,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 0,
+      "selected_LLM": 0,
+      "selected_RND": 0
+    },
+    {
+      "count_DET": 4,
+      "count_LLM": 7,
+      "count_RND": 2,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 2,
+      "q_bin": 3,
+      "q_lower": 0.3,
+      "q_upper": 0.4,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 2,
+      "selected_LLM": 2,
+      "selected_RND": 2
+    },
+    {
+      "count_DET": 19,
+      "count_LLM": 22,
+      "count_RND": 17,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 17,
+      "q_bin": 4,
+      "q_lower": 0.4,
+      "q_upper": 0.5,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 17,
+      "selected_LLM": 17,
+      "selected_RND": 17
+    },
+    {
+      "count_DET": 33,
+      "count_LLM": 43,
+      "count_RND": 43,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "DET"
+      ],
+      "n_b": 33,
+      "q_bin": 5,
+      "q_lower": 0.5,
+      "q_upper": 0.6,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 33,
+      "selected_LLM": 33,
+      "selected_RND": 33
+    },
+    {
+      "count_DET": 115,
+      "count_LLM": 107,
+      "count_RND": 95,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 95,
+      "q_bin": 6,
+      "q_lower": 0.6,
+      "q_upper": 0.7,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 95,
+      "selected_LLM": 95,
+      "selected_RND": 95
+    },
+    {
+      "count_DET": 178,
+      "count_LLM": 182,
+      "count_RND": 212,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "DET"
+      ],
+      "n_b": 178,
+      "q_bin": 7,
+      "q_lower": 0.7,
+      "q_upper": 0.8,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 178,
+      "selected_LLM": 178,
+      "selected_RND": 178
+    },
+    {
+      "count_DET": 152,
+      "count_LLM": 143,
+      "count_RND": 134,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "RND"
+      ],
+      "n_b": 134,
+      "q_bin": 8,
+      "q_lower": 0.8,
+      "q_upper": 0.9,
+      "q_upper_inclusive": false,
+      "route": "gpat",
+      "selected_DET": 134,
+      "selected_LLM": 134,
+      "selected_RND": 134
+    },
+    {
+      "count_DET": 11,
+      "count_LLM": 5,
+      "count_RND": 9,
+      "empty_common_support": false,
+      "limiting_arm": [
+        "LLM"
+      ],
+      "n_b": 5,
+      "q_bin": 9,
+      "q_lower": 0.9,
+      "q_upper": 1.0,
+      "q_upper_inclusive": true,
+      "route": "gpat",
+      "selected_DET": 5,
+      "selected_LLM": 5,
+      "selected_RND": 5
+    }
+  ],
+  "schema_version": "ext-q1q2-e8-qmatch-membership-summary-v1",
+  "selector_implementation_commit": "1bc21807564650141d22b401003d91c6b10d7b32",
+  "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "source_domain_composition": "not available at per-sample/per-bin granularity in the reconstructed parquet (no source-domain column); whole-bank aggregate is casia_fasd + msu_mfsd only (see E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json compatibility A/D)",
+  "statement": "This is the official E8 frozen-F1 QMATCH membership. It is NOT an E7 rescue bank.",
+  "target_firewall_status": "PASS -- target_access=false, target_labels_accessed=false, no siw_mv2 sample present in the frozen input population",
+  "total_per_arm": 818
+}

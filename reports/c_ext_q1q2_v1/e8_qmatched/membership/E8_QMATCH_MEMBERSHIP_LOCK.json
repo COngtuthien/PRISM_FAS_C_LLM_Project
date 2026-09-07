@@ -1,0 +1,50 @@
+{
+  "classification": "E8_QMATCH_SCIENTIFIC_MEMBERSHIP_LOCK",
+  "conditions": [
+    "G-RND-QMATCH",
+    "G-DET-QMATCH",
+    "G-LLM-QMATCH"
+  ],
+  "counts_per_arm": {
+    "gpat": 464,
+    "physics": 354,
+    "total": 818
+  },
+  "e7_status": {
+    "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+    "core_matched_synthetic_banks_produced": "0/3"
+  },
+  "fold": "EXT-F1",
+  "gpu_used": false,
+  "grand_total": 2454,
+  "implementation_commit": "1bc21807564650141d22b401003d91c6b10d7b32",
+  "input_binding_rule_identity": "8223df2d5acb38483b7cfe94bbd0a293489a9200b20fd309fb679ea6621cc7d8",
+  "input_population": "FROZEN_F1_C6_NOMINAL",
+  "input_q_table_sha256": "87fdc8ea594a487bfef5206c5a0f0c763c7d19451a5f915e67e2237fd7431cd9",
+  "llm_api_calls": 0,
+  "membership_artifact_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "membership_artifacts": {
+    "E8_QMATCH_SELECTED_MEMBERSHIP.jsonl": {
+      "canonical": true,
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/membership/E8_QMATCH_SELECTED_MEMBERSHIP.jsonl",
+      "proven_row_identical_to_parquet": true,
+      "row_count": 2454,
+      "sha256": "0122a47129dbaeac8950e47fb9a77e3bf884a45149433cf20a16a50ca2c27070"
+    },
+    "E8_QMATCH_SELECTED_MEMBERSHIP.parquet": {
+      "canonical": true,
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/membership/E8_QMATCH_SELECTED_MEMBERSHIP.parquet",
+      "row_count": 2454,
+      "sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d"
+    }
+  },
+  "membership_written": true,
+  "not_an_e7_rescue": true,
+  "profile": "NOMINAL",
+  "schema_version": "ext-q1q2-e8-qmatch-membership-lock-v1",
+  "selector_rule_identity": "95d60b94e3ff69be420eaf9d7e9cfd636cfe0adc667b30db05aadaeabe430126",
+  "target_access": false,
+  "target_labels_accessed": false
+}
