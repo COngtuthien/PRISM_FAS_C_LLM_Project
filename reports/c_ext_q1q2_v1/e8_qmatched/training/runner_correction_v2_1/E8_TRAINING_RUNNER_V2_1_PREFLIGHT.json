@@ -1,0 +1,166 @@
+{
+  "15_run_ids_unchanged": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "bank_counts_unchanged": {
+    "gpat": 464,
+    "physics": 354,
+    "total": 818
+  },
+  "classification": "E8_TRAINING_RUNNER_V2_1_PREFLIGHT",
+  "correction_verified": {
+    "matches_frozen_expected": true,
+    "verify_source_binding_correction_result": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921"
+  },
+  "e7d_identity_unchanged": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "focused_tests": {
+    "broad_c_ext_sweep_run": false,
+    "combined_result": {
+      "failed": 0,
+      "passed": 152,
+      "skipped": 16
+    },
+    "commands": [
+      "pytest -q tests/test_c_ext_e8_training_runner.py",
+      "pytest -q tests/test_c_ext_e8_training_adapter.py",
+      "pytest -q tests/pipeline/test_c6_evidence_and_bank.py tests/test_m4_loader_sampler.py"
+    ],
+    "runner_suite_only": {
+      "failed": 0,
+      "passed": 84,
+      "skipped": 0
+    }
+  },
+  "gpu_used": false,
+  "historical_integrity": {
+    "adapter_unchanged": true,
+    "e7_unchanged": true,
+    "flow1_flow2_unchanged": "170/170 PASS",
+    "historical_c6_unchanged": true,
+    "m9_detector_yaml_unchanged": true,
+    "membership_unchanged": true,
+    "v1_execution_plan_and_runner_reports_unchanged": true,
+    "v2_correction_reports_unchanged": true
+  },
+  "implementation_parent_commit": "eb6797aab6a3c46013b2f0a7b34c81bd9fb0c3c9",
+  "launch_order_verified": "verify_source_binding_correction() called before validate_m3b_package(), before adapter.open_e8_arm_bank(), and before any M9Trainer import -- confirmed by test_v21_launch_verifies_correction_identity_before_m3b_and_trainer",
+  "llm_api_calls": 0,
+  "m3b_identity_unchanged": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m9_detector_yaml_modified": false,
+  "new_runner_rule_identity": "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db",
+  "new_runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V2_1_CORRECTION_IDENTITY_BOUND",
+  "new_runner_source_sha256": "b9556da6275a2fc8ce6f1545e61dbbd1c4a1c454544226ebcff23b8bd0fc9058",
+  "preflight_includes_correction_verification": true,
+  "sample_preflight_result": {
+    "arm": "RND",
+    "bank_counts": {
+      "gpat": 464,
+      "physics": 354,
+      "total": 818
+    },
+    "checkpoint_created": false,
+    "collision_state": "NOT_STARTED",
+    "condition": "G-RND-QMATCH",
+    "frozen_schedule": {
+      "steps_per_epoch": 45,
+      "synthetic_draws_per_run": 10800,
+      "total_epochs": 35,
+      "total_optimizer_updates": 1575
+    },
+    "local_preflight_status": "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION",
+    "model_identity": "google/siglip2-base-patch16-224",
+    "run_id": "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "run_root": "runs/c_ext_q1q2_v1/e8_qmatched/ext_f1/e8_ext_f1_g_rnd_qmatch_s20260806",
+    "schema_version": "ext-q1q2-e8-training-runner-preflight-result-v1",
+    "seed": 20260806,
+    "source_binding_correction_sha256_verified": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921",
+    "source_package_binding": {
+      "allowed_domains": [
+        "casia_fasd",
+        "msu_mfsd"
+      ],
+      "fold_source_support_authority": {
+        "identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+        "role": "binds EXT-F1 fold/source-support membership (E7-D); NOT the detector runtime package content identity"
+      },
+      "runtime_detector_package": {
+        "expected_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+        "role": "the canonical detector runtime source package; its content identity is what every historical C5 GenerationIdentity.package_identity binds",
+        "root": "data/packages/prism_data_v1_m3b",
+        "validation": {
+          "expected_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+          "expected_schema": "m3b-v1",
+          "lock_content_identity_ok": true,
+          "lock_present": true,
+          "lock_schema_ok": true,
+          "lock_status_ok": true,
+          "no_duplicate_dev_ids": null,
+          "no_duplicate_train_ids": null,
+          "no_siw_in_dev": null,
+          "no_siw_in_train": null,
+          "no_train_dev_overlap": null,
+          "overall_state": "RUNTIME_ASSET_NOT_MATERIALIZED_ON_THIS_HOST",
+          "package_root": "data/packages/prism_data_v1_m3b",
+          "package_root_present": true,
+          "problems": [
+            "/home/cong/PRISM_FAS_C_LLM_Project/data/packages/prism_data_v1_m3b/manifests/source_train.parquet: source_train.parquet not present on this host"
+          ],
+          "source_dev_counts_ok": false,
+          "source_dev_domain_counts": null,
+          "source_dev_present": true,
+          "source_dev_row_count": null,
+          "source_train_counts_ok": false,
+          "source_train_domain_counts": null,
+          "source_train_present": false,
+          "source_train_row_count": null
+        }
+      }
+    },
+    "target_firewall": {
+      "allowed_domains": [
+        "casia_fasd",
+        "msu_mfsd"
+      ],
+      "target_access": false,
+      "target_labels_accessed": false
+    },
+    "training_config_hash": "f1f9e676c1905270c1bfa13442697f2a390478466c0b9c3e43c3668141b67312",
+    "training_started": false
+  },
+  "schedule_unchanged": {
+    "synthetic_draws_per_run": 10800,
+    "total_optimizer_updates": 1575
+  },
+  "schema_version": "ext-q1q2-e8-training-runner-v2-1-preflight-v1",
+  "scope": "additive provenance correction only -- no GPU, no training, no smoke, no target access, no LLM call, no commit/push",
+  "seeds_unchanged": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "smoke_performed": false,
+  "status": "READY_FOR_E8_RUNNER_V2_1_COMMIT_REVIEW",
+  "target_access": false,
+  "target_firewall_unchanged": {
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "target_labels_accessed": false,
+  "training_performed": false
+}

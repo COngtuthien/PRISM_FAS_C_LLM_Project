@@ -755,3 +755,149 @@ def test_local_preflight_status_honest_for_this_host():
         "READY_FOR_GPU_RUNTIME_ASSET_REVALIDATION", "BLOCKED_M3B_PACKAGE_VALIDATION_FAILED")
     # never silently claims the package is scientifically ready to train from
     assert result["local_preflight_status"] != "READY_TO_TRAIN"
+
+
+# =========================================================================== #
+# Runner V2.1 -- source-binding correction IDENTITY binding
+#
+# Root cause: V2's rule payload named the correction artifact by PATH only,
+# never by content identity, contradicting the payload's own docstring and
+# the correction contract (BLOCKED_E8_RUNNER_V2_CORRECTION_IDENTITY_NOT_BOUND).
+# =========================================================================== #
+
+HISTORICAL_V1_IDENTITY = "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0"
+HISTORICAL_V2_IDENTITY = "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570"
+
+
+def test_v21_correct_correction_file_passes():
+    verified = runner.verify_source_binding_correction()
+    assert verified == runner.SOURCE_BINDING_CORRECTION_SHA256
+
+
+def test_v21_one_byte_changed_correction_file_fails(tmp_path):
+    real_path = REPO / runner.SOURCE_BINDING_CORRECTION_RELATIVE_PATH
+    fixture_dir = tmp_path / Path(runner.SOURCE_BINDING_CORRECTION_RELATIVE_PATH).parent
+    fixture_dir.mkdir(parents=True)
+    corrupted = real_path.read_bytes()[:-1] + b"\x00"  # flip the trailing byte
+    (fixture_dir / Path(runner.SOURCE_BINDING_CORRECTION_RELATIVE_PATH).name).write_bytes(corrupted)
+    with pytest.raises(runner.E8RunnerError, match="SHA256"):
+        runner.verify_source_binding_correction(root=tmp_path)
+
+
+def test_v21_missing_correction_file_fails(tmp_path):
+    with pytest.raises(runner.E8RunnerError, match="not present"):
+        runner.verify_source_binding_correction(root=tmp_path)
+
+
+def test_v21_preflight_verifies_correction_identity():
+    spec = runner.build_run_spec("RND", 20260806)
+    result = runner.preflight_e8_run(spec)
+    assert result["source_binding_correction_sha256_verified"] == runner.SOURCE_BINDING_CORRECTION_SHA256
+
+
+def test_v21_launch_verifies_correction_identity_before_m3b_and_trainer(monkeypatch):
+    from prism_fas.evaluation import c_ext_e8_training_adapter as adapter
+
+    calls = []
+    monkeypatch.setattr(runner, "verify_source_binding_correction",
+                        lambda root=None: calls.append("correction") or "ok")
+    monkeypatch.setattr(runner, "validate_m3b_package",
+                        lambda root=None: calls.append("m3b") or {"overall_state": runner.M3B_STATE_VALID,
+                                                                   "problems": []})
+
+    def _fake_open_e8_arm_bank(arm, **kwargs):
+        calls.append("bank")
+        class _S:
+            identity = "s"
+        return _S()
+
+    monkeypatch.setattr(adapter, "open_e8_arm_bank", _fake_open_e8_arm_bank)
+
+    class _FakeTrainer:
+        def __init__(self, **kwargs):
+            calls.append("trainer")
+
+    spec = runner.build_run_spec("RND", 20260806)
+    runner.launch_scientific_run(spec, candidates_root=Path("/nonexistent"), recipes=(),
+                                 recipe_bank_identity="x", _trainer_cls=_FakeTrainer)
+    assert calls[0] == "correction"
+    assert calls.index("correction") < calls.index("m3b")
+    assert calls.index("correction") < calls.index("bank")
+    assert calls.index("correction") < calls.index("trainer")
+
+
+def test_v21_rule_payload_contains_exact_correction_sha():
+    payload = runner.build_runner_rule_payload_v2()
+    assert payload["source_binding_correction_sha256"] == runner.SOURCE_BINDING_CORRECTION_SHA256
+    assert payload["source_binding_correction_artifact"] == runner.SOURCE_BINDING_CORRECTION_RELATIVE_PATH
+    assert payload["historical_v1_runner_rule_identity"] == HISTORICAL_V1_IDENTITY
+    assert payload["historical_v2_runner_rule_identity"] == HISTORICAL_V2_IDENTITY
+
+
+def test_v21_rule_identity_changes_if_correction_sha_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    monkeypatch.setattr(runner, "SOURCE_BINDING_CORRECTION_SHA256", "0" * 64)
+    changed = runner.runner_rule_identity_v2()
+    assert changed != base
+
+
+def test_v21_new_identity_differs_from_historical_v1_and_v2():
+    new_id = runner.runner_rule_identity_v2()
+    assert new_id != HISTORICAL_V1_IDENTITY
+    assert new_id != HISTORICAL_V2_IDENTITY
+    assert len(new_id) == 64
+    int(new_id, 16)
+    assert new_id == runner.runner_rule_identity_v2()  # deterministic
+
+
+def test_v21_15_run_ids_unchanged():
+    specs = runner.all_scientific_run_specs()
+    assert len(specs) == 15
+    assert len({s.run_id for s in specs}) == 15
+
+
+def test_v21_seeds_unchanged():
+    assert runner.SEEDS == (20260806, 20260807, 20260808, 20260809, 20260810)
+
+
+def test_v21_m3b_identity_unchanged():
+    assert runner.M3B_CONTENT_IDENTITY == "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9"
+
+
+def test_v21_e7d_identity_unchanged():
+    assert runner.E7D_F1_SOURCE_SUPPORT_IDENTITY == "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b"
+
+
+def test_v21_bank_counts_unchanged():
+    binding = runner.resolve_e8_bank_counts(runner.build_run_spec("RND", 20260806))
+    assert binding.membership_count == 818
+    assert binding.physics_count == 354
+    assert binding.gpat_count == 464
+
+
+def test_v21_schedule_unchanged():
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["frozen_schedule"]["total_optimizer_updates"] == 1575
+    assert pf["frozen_schedule"]["synthetic_draws_per_run"] == 10800
+
+
+def test_v21_target_firewall_unchanged():
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["target_firewall"]["target_access"] is False
+    assert pf["target_firewall"]["target_labels_accessed"] is False
+
+
+def test_v21_no_training_smoke_gpu_llm_performed():
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["training_started"] is False
+    smoke = runner.preflight_e8_smoke("RND", 20260806)
+    assert smoke["is_scientific_result"] is False
+    assert smoke["target_access"] is False
+    # structural: this module never imports torch/cuda/an LLM client at module scope
+    source = inspect.getsource(runner)
+    assert "import torch" not in source
+    assert "openai" not in source.lower()
+    assert "anthropic" not in source.lower()

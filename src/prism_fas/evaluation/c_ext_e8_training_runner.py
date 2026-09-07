@@ -118,15 +118,43 @@ ALLOWED_SOURCE_DOMAINS = frozenset({"casia_fasd", "msu_mfsd"})
 
 RUNNER_RULE_NAME = "E8_FIXED_TRACK_G_RUNNER_V1"
 RUNNER_RULE_NAME_V2 = "E8_FIXED_TRACK_G_RUNNER_V2_SOURCE_BINDING_FIX"
+RUNNER_RULE_NAME_V2_1 = "E8_FIXED_TRACK_G_RUNNER_V2_1_CORRECTION_IDENTITY_BOUND"
 SOURCE_BINDING_CORRECTION_RELATIVE_PATH = (
     "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/"
     "E8_RUNNER_SOURCE_BINDING_CORRECTION.json"
 )
+# The frozen, expected content identity of the file at
+# SOURCE_BINDING_CORRECTION_RELATIVE_PATH. V2's rule payload named this
+# artifact by path only, never by identity -- see
+# reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_1/
+# E8_RUNNER_V2_1_PROVENANCE_CORRECTION.{json,md} for why this is bound here.
+SOURCE_BINDING_CORRECTION_SHA256 = "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921"
 FAILURE_MARKER_NAME = "E8_RUN_FAILED.json"
 
 
 class E8RunnerError(RuntimeError):
     """The E8 training runner refuses to proceed."""
+
+
+def verify_source_binding_correction(root: Path | None = None) -> str:
+    """Fail-closed, read-only verification of the V2 source-binding
+    correction artifact's content identity.
+
+    Reads exactly ``SOURCE_BINDING_CORRECTION_RELATIVE_PATH``, requires it
+    to exist, computes its SHA256, and requires exact equality with the
+    frozen ``SOURCE_BINDING_CORRECTION_SHA256``. Performs no writes. Returns
+    the verified SHA256 on success."""
+    repo = _repo_root(root)
+    path = repo / SOURCE_BINDING_CORRECTION_RELATIVE_PATH
+    if not path.is_file():
+        raise E8RunnerError(f"{path}: source-binding correction artifact not present")
+    actual = cc.sha256_file(path)
+    if actual != SOURCE_BINDING_CORRECTION_SHA256:
+        raise E8RunnerError(
+            f"{path}: SHA256 {actual} != frozen expected {SOURCE_BINDING_CORRECTION_SHA256} -- "
+            "refusing to proceed against a drifted or unbound source-binding correction"
+        )
+    return actual
 
 
 class RunState(str, Enum):
@@ -574,6 +602,7 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
     model identity and the target firewall -- then STOP. Never imports
     ``M9Trainer`` and never opens a pixel payload."""
     repo = _repo_root(root)
+    verified_correction_sha256 = verify_source_binding_correction(repo)
     source_binding = source_package_binding(repo)
     bank_binding = resolve_e8_bank_counts(spec, repo)
     training_config, detector_config = load_frozen_winner_track_g_config(
@@ -594,6 +623,7 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
         "run_id": spec.run_id, "arm": spec.arm, "condition": spec.condition, "seed": spec.seed,
         "run_root": spec.run_root, "collision_state": state.value,
         "local_preflight_status": local_preflight_status,
+        "source_binding_correction_sha256_verified": verified_correction_sha256,
         "source_package_binding": source_binding,
         "bank_counts": {"total": bank_binding.membership_count, "physics": bank_binding.physics_count,
                         "gpat": bank_binding.gpat_count},
@@ -644,6 +674,10 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
     repo = _repo_root(root)
     run_root = repo / spec.run_root
     assert_no_collision(run_root)
+
+    # Verified BEFORE M3B package validation, synthetic-bank opening, or any
+    # M9Trainer import/construction -- see BLOCKED_E8_RUNNER_V2_CORRECTION_IDENTITY_NOT_BOUND.
+    verify_source_binding_correction(repo)
 
     if not _skip_m3b_guard:
         m3b = validate_m3b_package(repo)
@@ -749,14 +783,30 @@ def runner_rule_identity() -> str:
 # --------------------------------------------------------------------------- #
 
 def build_runner_rule_payload_v2() -> dict[str, Any]:
-    """The corrected V2 rule payload. Binds BOTH provenance layers distinctly
-    (E7-D fold/source-support authority vs. M3B runtime content identity) --
-    never conflates them -- plus the source-binding correction artifact's own
-    identity, so a future reader can trace exactly which correction this
-    rule payload was built under."""
+    """The V2.1 rule payload. Binds BOTH provenance layers distinctly (E7-D
+    fold/source-support authority vs. M3B runtime content identity) -- never
+    conflates them -- plus the source-binding correction artifact's own
+    PATH *and* frozen content IDENTITY, so a future reader can trace exactly
+    which correction this rule payload was built under and verify it was not
+    silently swapped.
+
+    CORRECTED (V2.1): the original V2 payload (commit
+    ``eb6797aab6a3c46013b2f0a7b34c81bd9fb0c3c9``) bound only the correction
+    artifact's PATH, never its content identity -- see
+    ``BLOCKED_E8_RUNNER_V2_CORRECTION_IDENTITY_NOT_BOUND`` in
+    ``reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_1/
+    E8_RUNNER_V2_1_PROVENANCE_CORRECTION.{json,md}``. Because this payload's
+    content changed, ``runner_rule_identity_v2()`` now computes a NEW
+    identity; the prior value
+    (``3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570``) is
+    retained ONLY as a recorded historical fact (see
+    ``historical_v2_runner_rule_identity`` below and the V2.1 report), never
+    recomputed from this function again.
+    """
     return {
-        "runner_rule_name": RUNNER_RULE_NAME_V2,
+        "runner_rule_name": RUNNER_RULE_NAME_V2_1,
         "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+        "historical_v2_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
         "execution_plan_identity": EXPECTED_EXECUTION_PLAN_IDENTITY,
         "adapter_implementation_commit": ADAPTER_IMPLEMENTATION_COMMIT,
         "adapter_rule_identity": EXPECTED_ADAPTER_RULE_IDENTITY,
@@ -779,6 +829,7 @@ def build_runner_rule_payload_v2() -> dict[str, Any]:
         "target_firewall": {"target_access": False, "target_labels_accessed": False,
                             "allowed_domains": sorted(ALLOWED_SOURCE_DOMAINS)},
         "source_binding_correction_artifact": SOURCE_BINDING_CORRECTION_RELATIVE_PATH,
+        "source_binding_correction_sha256": SOURCE_BINDING_CORRECTION_SHA256,
     }
 
 
