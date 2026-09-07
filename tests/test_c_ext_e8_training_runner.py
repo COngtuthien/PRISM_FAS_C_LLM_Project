@@ -79,6 +79,17 @@ def _fake_c3_bank(arm: str = "RND", *, bank_identity: str | None = None, recipe_
 
 
 # --------------------------------------------------------------------------- #
+# V2.3 test-only fixture: a private ``_device_resolver`` injection seam that
+# always reports CUDA available, so tests that need launch_scientific_run()/
+# launch_e8_engineering_smoke() to reach past device resolution can do so on
+# this GPU-less laptop, without touching the real (private) C7 CUDA gate.
+# --------------------------------------------------------------------------- #
+
+def _cuda_device_resolver() -> str:
+    return "cuda"
+
+
+# --------------------------------------------------------------------------- #
 # A/B. All 15 frozen run specs validate; exactly 15 unique IDs
 # --------------------------------------------------------------------------- #
 
@@ -418,6 +429,7 @@ def test_AB_m9trainer_construction_receives_synthetic_bank_seam(monkeypatch):
         spec, _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"),
         _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert isinstance(trainer, _FakeTrainer)
     assert "synthetic_bank" in calls
@@ -687,7 +699,8 @@ def test_21_22_23_launch_uses_m3b_root_and_identity_never_e7d(monkeypatch):
     spec = runner.build_run_spec("RND", 20260806)
     runner.launch_scientific_run(spec, _trainer_cls=_FakeTrainer, _skip_m3b_guard=True,
                                  _override_detector_inputs=_fake_detector_inputs("RND"),
-                                 _override_c3_bank=_fake_c3_bank("RND"))
+                                 _override_c3_bank=_fake_c3_bank("RND"),
+                                 _device_resolver=_cuda_device_resolver)
 
     # 21: M3B root passed to M9Trainer
     assert calls_trainer["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
@@ -857,11 +870,18 @@ def test_v21_launch_verifies_correction_identity_before_m3b_and_trainer(monkeypa
         def __init__(self, **kwargs):
             calls.append("trainer")
 
+    def _device_resolver():
+        calls.append("device")
+        return "cuda"
+
     spec = runner.build_run_spec("RND", 20260806)
     runner.launch_scientific_run(spec, _trainer_cls=_FakeTrainer,
                                  _override_detector_inputs=_fake_detector_inputs("RND"),
-                                 _override_c3_bank=_fake_c3_bank("RND"))
+                                 _override_c3_bank=_fake_c3_bank("RND"),
+                                 _device_resolver=_device_resolver)
     assert calls[0] == "correction"
+    assert calls.index("correction") < calls.index("device")
+    assert calls.index("device") < calls.index("m3b")
     assert calls.index("correction") < calls.index("m3b")
     assert calls.index("correction") < calls.index("bank")
     assert calls.index("correction") < calls.index("trainer")
@@ -1021,6 +1041,7 @@ def test_v22_5_launch_rejects_wrong_c3_bank_identity():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=bad_c3,
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1031,6 +1052,7 @@ def test_v22_6_launch_rejects_wrong_c3_recipe_count():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=bad_c3,
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1047,6 +1069,7 @@ def test_v22_7_launch_hard_fails_when_c3_bank_unavailable(monkeypatch):
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=_fake_detector_inputs("RND"),
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1072,6 +1095,7 @@ def test_v22_11_launch_rejects_wrong_m7_identity():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1084,6 +1108,7 @@ def test_v22_12_m9trainer_receives_m7_root_not_repo_root(monkeypatch):
     trainer = runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert trainer.kwargs["recipe_bank_root"] == REPO / runner.M7_DETECTOR_RECIPE_BANK_ROOT
     assert trainer.kwargs["recipe_bank_root"] != REPO  # the V2.1 bug: bare repo root
@@ -1096,6 +1121,7 @@ def test_v22_13_m9trainer_never_receives_c3_root_as_recipe_bank_root(monkeypatch
     trainer = runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     c3_root = REPO / runner.C3_TREATMENT_BANK_ROOT_BY_ARM["RND"]
     assert trainer.kwargs["recipe_bank_root"] != c3_root
@@ -1111,6 +1137,7 @@ def test_v22_14_c6_reader_receives_c3_recipes_and_identity(monkeypatch):
     runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=c3_bank,
+        _device_resolver=_cuda_device_resolver,
     )
     assert calls["recipes"] == c3_bank["recipes"]
     assert calls["recipe_bank_identity"] == c3_bank["bank_identity"]
@@ -1123,6 +1150,7 @@ def test_v22_15_c6_reader_never_receives_m7_identity(monkeypatch):
     runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert calls["recipe_bank_identity"] != runner.M7_DETECTOR_RECIPE_BANK_IDENTITY
     assert calls["recipe_bank_identity"] == runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM["RND"]
@@ -1135,6 +1163,7 @@ def test_v22_16_c6_reader_receives_m3b_package_identity(monkeypatch):
     runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert calls["package_identity"] == runner.M3B_CONTENT_IDENTITY
 
@@ -1149,6 +1178,7 @@ def test_v22_17_bank_root_kwarg_sourced_from_canonical_candidates_root(monkeypat
     trainer = runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=fake_inputs, _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert trainer.kwargs["bank_root"] == REPO / "runs/full/c5/scientific/candidates"
 
@@ -1166,6 +1196,7 @@ def test_v22_19_package_root_remains_m3b(monkeypatch):
     trainer = runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert trainer.kwargs["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
 
@@ -1179,6 +1210,7 @@ def test_v22_20_weight_root_sourced_from_canonical_resolver(monkeypatch):
     trainer = runner.launch_scientific_run(
         spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
         _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
     )
     assert trainer.kwargs["weight_root"] == REPO / "weights"
 
@@ -1199,6 +1231,7 @@ def test_v22_22_launch_rejects_nonzero_target_paths():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1209,6 +1242,7 @@ def test_v22_22b_launch_rejects_nonzero_target_labels():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1218,9 +1252,12 @@ def test_v22_23_canonical_detector_inputs_failure_blocks_trainer_construction():
     spec = runner.build_run_spec("RND", 20260806)
     # no _override_detector_inputs supplied -- resolves for real on this host,
     # which lacks the pinned SigLIP2/ConvNeXt weights, so this must fail
-    # BEFORE any trainer is constructed.
-    with pytest.raises(runner.E8RunnerError):
-        runner.launch_scientific_run(spec, _trainer_cls=_V22FakeTrainer)
+    # BEFORE any trainer is constructed. _device_resolver is overridden so
+    # this fails specifically at canonical detector input resolution (step 3),
+    # not earlier at CUDA device resolution (step 2).
+    with pytest.raises(runner.E8RunnerError, match="canonical detector inputs"):
+        runner.launch_scientific_run(spec, _trainer_cls=_V22FakeTrainer,
+                                     _device_resolver=_cuda_device_resolver)
 
 
 def test_v22_24_bad_package_identity_blocks_trainer_construction():
@@ -1230,6 +1267,7 @@ def test_v22_24_bad_package_identity_blocks_trainer_construction():
         runner.launch_scientific_run(
             spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
             _override_detector_inputs=bad, _override_c3_bank=_fake_c3_bank("RND"),
+            _device_resolver=_cuda_device_resolver,
         )
 
 
@@ -1323,7 +1361,7 @@ def test_v22_34d_rule_identity_new_value_differs_from_all_historical():
     assert len(new_id) == 64
     int(new_id, 16)
     assert new_id == runner.runner_rule_identity_v2()  # deterministic
-    assert runner.build_runner_rule_payload_v2()["runner_rule_name"] == runner.RUNNER_RULE_NAME_V2_2
+    assert runner.build_runner_rule_payload_v2()["runner_rule_name"] == runner.RUNNER_RULE_NAME_V2_3
 
 
 # --- 35. No target/GPU/smoke/training/LLM access performed by these tests ----- #
@@ -1335,8 +1373,382 @@ def test_v22_35_no_target_gpu_smoke_training_llm_access():
     assert pf["target_firewall"]["target_labels_accessed"] is False
     assert pf["training_started"] is False
     source = inspect.getsource(runner)
+    # the runner never imports/touches torch directly -- CUDA availability is
+    # resolved entirely by delegating to the historical C7 gate; "cuda" as a
+    # required-device string/identifier/docstring reference is expected
+    # (V2.3), a live torch.cuda touch from this module is not.
     assert "import torch" not in source
-    assert "cuda" not in source.lower()
+    assert "torch.cuda" not in source
     assert "openai" not in source.lower()
     assert "gemini" not in source.lower()
     assert "anthropic" not in source.lower()
+
+
+# =========================================================================== #
+# Runner V2.3 -- CUDA execution binding correction
+#
+# Root cause (BLOCKED_E8_RUNNER_V2_2_GPU_DEVICE_NOT_BOUND): launch_scientific_run
+# constructed M9Trainer(...) with no device= argument, silently inheriting
+# M9Trainer's device: str = "cpu" default. V2.3 resolves the frozen
+# CUDA-required scientific device contract via the historical C7 gate
+# (prism_fas.pipeline.adapters.c7._scientific_device) before any canonical
+# detector input verification, C3 bank validation, or M9Trainer
+# import/construction, and passes device="cuda" explicitly. Also adds the
+# ONE official engineering smoke launcher, sharing the exact same runtime
+# input resolution as the scientific launcher.
+# =========================================================================== #
+
+HISTORICAL_V2_2_IDENTITY = "1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b"
+
+
+# --- 1-3. Scientific device contract: CUDA required, no CPU fallback, reuses C7 --- #
+
+def test_v23_1_scientific_device_required_is_cuda():
+    assert runner.SCIENTIFIC_DEVICE_REQUIRED == "cuda"
+
+
+def test_v23_2_cpu_fallback_not_permitted():
+    assert runner.SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED is False
+
+
+def test_v23_3_device_resolver_delegates_to_historical_c7_gate(monkeypatch):
+    from prism_fas.pipeline.adapters import c7
+
+    assert runner.SCIENTIFIC_DEVICE_RESOLVER_QUALNAME == "prism_fas.pipeline.adapters.c7._scientific_device"
+    calls = []
+
+    def _tracking():
+        calls.append("called")
+        return "cuda"
+
+    monkeypatch.setattr(c7, "_scientific_device", _tracking)
+    device = runner.resolve_e8_scientific_device()
+    assert calls == ["called"]
+    assert device == "cuda"
+
+
+# --- 4-5. CUDA unavailable hard-fails; no trainer construction after failure --- #
+
+def test_v23_4_cuda_unavailable_hard_fails():
+    from prism_fas.pipeline.adapters.c7 import ScientificDeviceUnavailable
+
+    def _raise():
+        raise ScientificDeviceUnavailable("fixture: no CUDA on this host")
+
+    with pytest.raises(runner.E8RunnerError, match="CUDA"):
+        runner.resolve_e8_scientific_device(_device_resolver=_raise)
+
+
+def test_v23_5_no_trainer_construction_after_cuda_failure():
+    constructed = []
+
+    class _T:
+        def __init__(self, **kwargs):
+            constructed.append(kwargs)
+
+    spec = runner.build_run_spec("RND", 20260806)
+    with pytest.raises(runner.E8RunnerError):
+        runner.launch_scientific_run(
+            spec, _trainer_cls=_T, _skip_m3b_guard=True,
+            _override_detector_inputs=_fake_detector_inputs("RND"),
+            _override_c3_bank=_fake_c3_bank("RND"),
+            _device_resolver=lambda: "cpu",
+        )
+    assert constructed == []
+
+
+# --- 6-7. Scientific trainer receives device="cuda", never "cpu" --- #
+
+def test_v23_6_7_scientific_trainer_receives_cuda_never_cpu(monkeypatch):
+    calls = {}
+    _v22_patch_open_e8_arm_bank(monkeypatch, calls)
+    spec = runner.build_run_spec("RND", 20260806)
+    trainer = runner.launch_scientific_run(
+        spec, _trainer_cls=_V22FakeTrainer, _skip_m3b_guard=True,
+        _override_detector_inputs=_fake_detector_inputs("RND"), _override_c3_bank=_fake_c3_bank("RND"),
+        _device_resolver=_cuda_device_resolver,
+    )
+    assert trainer.kwargs["device"] == "cuda"
+    assert trainer.kwargs["device"] != "cpu"
+
+
+# --- 8. No public scientific device= override exists --- #
+
+def test_v23_8_no_public_device_override():
+    sig = inspect.signature(runner.launch_scientific_run)
+    public_params = {name for name in sig.parameters if not name.startswith("_")}
+    assert "device" not in public_params
+    assert public_params == {"spec", "root"}
+
+
+# --- 9-10. V2.3 rule payload binds CUDA-required/no-CPU-fallback; identity sensitivity --- #
+
+def test_v23_9_rule_payload_binds_cuda_required_no_cpu_fallback():
+    payload = runner.build_runner_rule_payload_v2()
+    assert payload["scientific_device_required"] == "cuda"
+    assert payload["cpu_fallback_permitted"] is False
+    assert payload["scientific_device_resolver"] == runner.SCIENTIFIC_DEVICE_RESOLVER_QUALNAME
+    assert payload["runner_rule_name"] == runner.RUNNER_RULE_NAME_V2_3
+
+
+def test_v23_10_rule_identity_changes_if_required_device_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    monkeypatch.setattr(runner, "SCIENTIFIC_DEVICE_REQUIRED", "mps")
+    assert runner.runner_rule_identity_v2() != base
+
+
+def test_v23_10b_rule_identity_changes_if_cpu_fallback_flag_changes(monkeypatch):
+    base = runner.runner_rule_identity_v2()
+    monkeypatch.setattr(runner, "SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED", True)
+    assert runner.runner_rule_identity_v2() != base
+
+
+def test_v23_10c_new_identity_differs_from_all_historical():
+    new_id = runner.runner_rule_identity_v2()
+    assert new_id not in (HISTORICAL_V1_IDENTITY, HISTORICAL_V2_IDENTITY, HISTORICAL_V2_1_IDENTITY,
+                          HISTORICAL_V2_2_IDENTITY)
+    assert len(new_id) == 64
+    int(new_id, 16)
+    assert new_id == runner.runner_rule_identity_v2()  # deterministic
+    payload = runner.build_runner_rule_payload_v2()
+    assert payload["historical_v2_2_runner_rule_identity"] == HISTORICAL_V2_2_IDENTITY
+
+
+# --- 11-15. Frozen run IDs / seeds / bank counts / schedule unchanged --- #
+
+def test_v23_11_15_frozen_run_ids_seeds_counts_schedule_unchanged():
+    specs = runner.all_scientific_run_specs()
+    assert len(specs) == 15
+    assert len({s.run_id for s in specs}) == 15
+    assert runner.SEEDS == (20260806, 20260807, 20260808, 20260809, 20260810)
+    binding = runner.resolve_e8_bank_counts(runner.build_run_spec("RND", 20260806))
+    assert (binding.membership_count, binding.physics_count, binding.gpat_count) == (818, 354, 464)
+    pf = runner.preflight_e8_run(runner.build_run_spec("RND", 20260806))
+    assert pf["frozen_schedule"]["total_optimizer_updates"] == 1575
+    assert pf["frozen_schedule"]["synthetic_draws_per_run"] == 10800
+
+
+# --- 16. M3B/M7/C3/C5 bindings unchanged from V2.2 ----------------------------- #
+
+def test_v23_16_m3b_m7_c3_c5_bindings_unchanged_from_v22():
+    assert runner.M3B_CONTENT_IDENTITY == "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9"
+    assert runner.M7_DETECTOR_RECIPE_BANK_IDENTITY == \
+        "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb"
+    assert runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM == {
+        "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+        "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+        "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+    }
+    assert runner.C5_CANDIDATES_ROOT_CANONICAL == "runs/full/c5/scientific/candidates"
+
+
+# --- 17. Target paths/labels remain zero --------------------------------------- #
+
+def test_v23_17_target_paths_labels_remain_zero():
+    spec = runner.build_run_spec("RND", 20260806)
+    pf = runner.preflight_e8_run(spec)
+    assert pf["target_firewall"]["target_access"] is False
+    assert pf["target_firewall"]["target_labels_accessed"] is False
+
+
+# --------------------------------------------------------------------------- #
+# V2.3 engineering smoke fixtures -- fake canonical resolvers for
+# launch_e8_engineering_smoke(), which exposes only _trainer_cls/
+# _device_resolver (no _override_detector_inputs/_override_c3_bank surface),
+# so the shared canonical resolvers themselves are monkeypatched instead.
+# --------------------------------------------------------------------------- #
+
+def _patch_smoke_dependencies(monkeypatch, *, bank_calls: dict | None = None):
+    from prism_fas.pipeline.adapters import sources
+    from prism_fas.synthesis import c5_arm_plan
+    from prism_fas.evaluation import c_ext_e8_training_adapter as adapter
+
+    fake_inputs = _fake_detector_inputs("RND")
+    fake_c3 = _fake_c3_bank("RND")
+    bank_calls = {} if bank_calls is None else bank_calls
+
+    monkeypatch.setattr(sources, "verify_detector_inputs", lambda repo, arms=(): fake_inputs)
+    monkeypatch.setattr(c5_arm_plan, "load_arm_bank", lambda repo, arm: fake_c3)
+    monkeypatch.setattr(runner, "validate_m3b_package",
+                        lambda root=None: {"overall_state": runner.M3B_STATE_VALID, "problems": []})
+
+    class _Sentinel:
+        identity = "smoke-sentinel-bank"
+
+    def _fake_open_e8_arm_bank(arm, **kwargs):
+        bank_calls.update(kwargs)
+        bank_calls["arm"] = arm
+        return _Sentinel()
+
+    monkeypatch.setattr(adapter, "open_e8_arm_bank", _fake_open_e8_arm_bank)
+    return fake_inputs, fake_c3, bank_calls
+
+
+def _make_smoke_trainer_cls(captured: dict, smoke_result: dict | None = None):
+    class _SmokeTrainer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def smoke(self, *, steps, resume_steps, stage):
+            captured["smoke_call"] = {"steps": steps, "resume_steps": resume_steps, "stage": stage}
+            return dict(smoke_result) if smoke_result else {"ok": True}
+
+    return _SmokeTrainer
+
+
+# --- 18. Smoke root disjoint from every scientific run root -------------------- #
+
+def test_v23_18_smoke_root_disjoint_from_every_scientific_run_root():
+    smoke_root = runner.smoke_run_root()
+    for spec in runner.all_scientific_run_specs():
+        scientific_root = REPO / spec.run_root
+        assert smoke_root != scientific_root
+        assert scientific_root not in smoke_root.parents
+        assert smoke_root not in scientific_root.parents
+
+
+# --- 19-23. Smoke frozen parameters --------------------------------------------- #
+
+def test_v23_19_20_smoke_fixed_arm_and_seed():
+    assert runner.SMOKE_ARM == "RND"
+    assert runner.SMOKE_SEED == 20260806
+
+
+def test_v23_21_22_23_smoke_fixed_steps_resume_stage():
+    assert runner.SMOKE_STEPS == 5
+    assert runner.SMOKE_RESUME_STEPS == 6
+    assert runner.SMOKE_STAGE == "G5"
+
+
+# --- 24. Smoke trainer receives device="cuda" ----------------------------------- #
+
+def test_v23_24_smoke_trainer_receives_device_cuda(monkeypatch):
+    captured: dict = {}
+    _patch_smoke_dependencies(monkeypatch)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    result = runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    assert captured["device"] == "cuda"
+    assert result["device"] == "cuda"
+
+
+# --- 25. Smoke uses the exact same M3B/M7/C3/C5/E8 bank bindings --------------- #
+
+def test_v23_25_smoke_uses_same_bindings_as_scientific_rnd_run(monkeypatch):
+    captured: dict = {}
+    bank_calls: dict = {}
+    _patch_smoke_dependencies(monkeypatch, bank_calls=bank_calls)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    assert captured["package_root"] == REPO / runner.M3B_RUNTIME_PACKAGE_RELATIVE_PATH
+    assert captured["recipe_bank_root"] == REPO / runner.M7_DETECTOR_RECIPE_BANK_ROOT
+    assert captured["bank_root"] == REPO / runner.C5_CANDIDATES_ROOT_CANONICAL
+    assert bank_calls["arm"] == "RND"
+    assert bank_calls["package_identity"] == runner.M3B_CONTENT_IDENTITY
+    assert bank_calls["recipe_bank_identity"] == runner.C3_TREATMENT_BANK_IDENTITY_BY_ARM["RND"]
+
+
+# --- 26. Smoke config hash equals scientific config hash after run-id relabel --- #
+
+def test_v23_26_smoke_config_hash_equals_scientific_config_hash(monkeypatch):
+    captured: dict = {}
+    _patch_smoke_dependencies(monkeypatch)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    result = runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    assert result["scientific_config_hash"] == result["smoke_config_hash"]
+    assert captured["config"].run_id == runner.SMOKE_RUN_ID
+    assert captured["config"].hash() == result["smoke_config_hash"]
+
+
+# --- 27. Smoke calls the EXISTING M9Trainer.smoke, never a new loop ------------ #
+
+def test_v23_27_smoke_calls_existing_m9trainer_smoke_method_not_new_loop(monkeypatch):
+    captured: dict = {}
+    _patch_smoke_dependencies(monkeypatch)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    assert captured["smoke_call"] == {"steps": 5, "resume_steps": 6, "stage": "G5"}
+    source = inspect.getsource(runner.launch_e8_engineering_smoke)
+    assert ".smoke(steps=SMOKE_STEPS, resume_steps=SMOKE_RESUME_STEPS, stage=SMOKE_STAGE)" in source
+    assert "for step in range" not in source
+    assert "for epoch in range" not in source
+    assert "optimizer.step()" not in source
+
+
+# --- 28. Smoke result is marked non-scientific ---------------------------------- #
+
+def test_v23_28_smoke_result_marked_non_scientific(monkeypatch):
+    captured: dict = {}
+    _patch_smoke_dependencies(monkeypatch)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    result = runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    assert result["is_scientific_result"] is False
+    assert result["eligible_for_scientific_tables"] is False
+    assert result["target_access"] is False
+    assert result["target_labels_accessed"] is False
+
+
+# --- 29. Existing smoke output blocks; never overwritten/resumed --------------- #
+
+def test_v23_29_existing_smoke_output_blocks_not_overwrites(monkeypatch):
+    _patch_smoke_dependencies(monkeypatch)
+    captured: dict = {}
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    smoke_root = runner.smoke_run_root()
+    assert not smoke_root.exists()  # sanity: no real smoke output before this test
+    smoke_root.mkdir(parents=True)
+    (smoke_root / "run.json").write_text("{}")
+    try:
+        with pytest.raises(runner.E8RunnerError, match="NOT_STARTED"):
+            runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+        assert (smoke_root / "run.json").is_file()  # never overwritten or deleted
+        assert captured == {}  # trainer never constructed
+    finally:
+        import shutil
+        shutil.rmtree(smoke_root)
+
+
+# --- 30. Scientific run roots remain untouched during smoke fixture tests ------ #
+
+def test_v23_30_scientific_run_roots_untouched_during_smoke_fixture_tests():
+    for spec in runner.all_scientific_run_specs():
+        assert not (REPO / spec.run_root).exists()
+
+
+# --- 31. Historical V1/V2/V2.1/V2.2 evidence remains byte-identical ------------ #
+
+def _v23_historical_report_paths() -> list[Path]:
+    base = REPO / "reports/c_ext_q1q2_v1/e8_qmatched/training"
+    return _v22_historical_report_paths() + [
+        base / "runner_correction_v2_2" / "E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.json",
+        base / "runner_correction_v2_2" / "E8_TRAINING_RUNNER_V2_2_BINDING.json",
+    ]
+
+
+def test_v23_31_historical_v1_v2_v21_v22_report_files_still_present():
+    for path in _v23_historical_report_paths():
+        assert path.is_file(), f"historical evidence missing: {path}"
+
+
+def test_v23_31b_v22_identity_still_recorded_verbatim():
+    payload = runner.build_runner_rule_payload_v2()
+    assert payload["historical_v2_2_runner_rule_identity"] == HISTORICAL_V2_2_IDENTITY
+    assert payload["historical_v2_1_runner_rule_identity"] == HISTORICAL_V2_1_IDENTITY
+    assert payload["historical_v1_runner_rule_identity"] == HISTORICAL_V1_IDENTITY
+    assert payload["historical_v2_runner_rule_identity"] == HISTORICAL_V2_IDENTITY
+
+
+# --- 32. These tests never use real GPU/train/smoke/target/LLM ---------------- #
+
+def test_v23_32_tests_never_use_real_gpu_train_smoke_target_llm(monkeypatch):
+    captured: dict = {}
+    _patch_smoke_dependencies(monkeypatch)
+    trainer_cls = _make_smoke_trainer_cls(captured)
+    result = runner.launch_e8_engineering_smoke(_trainer_cls=trainer_cls, _device_resolver=_cuda_device_resolver)
+    # the device came from the injected test seam, never real hardware
+    assert result["device"] == "cuda"
+    assert result["target_access"] is False
+    assert result["target_labels_accessed"] is False
+    source = inspect.getsource(runner)
+    assert "import torch" not in source
+    assert "openai" not in source.lower()
+    assert "gemini" not in source.lower()

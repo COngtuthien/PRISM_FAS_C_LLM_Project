@@ -150,10 +150,32 @@ C5_CANDIDATES_ROOT_CANONICAL = "runs/full/c5/scientific/candidates"
 
 ALLOWED_SOURCE_DOMAINS = frozenset({"casia_fasd", "msu_mfsd"})
 
+# --------------------------------------------------------------------------- #
+# CORRECTED V2.3 constants -- the frozen scientific device contract. Reuses
+# the historical C7 CUDA gate (prism_fas.pipeline.adapters.c7._scientific_device
+# / ScientificDeviceUnavailable) rather than inventing a second policy. The
+# contract is CUDA-required, never a particular GPU model, VRAM amount, or
+# driver version -- those are runtime observations, never the scientific
+# rule. See reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_3/
+# E8_RUNNER_V2_3_DEVICE_BINDING_CORRECTION.{json,md}.
+# --------------------------------------------------------------------------- #
+SCIENTIFIC_DEVICE_REQUIRED = "cuda"
+SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED = False
+SCIENTIFIC_DEVICE_RESOLVER_QUALNAME = "prism_fas.pipeline.adapters.c7._scientific_device"
+
+# Frozen engineering smoke parameters -- the ONE official smoke launcher's
+# constants; never one of the 15 scientific (arm, seed) runs.
+SMOKE_ARM = "RND"
+SMOKE_SEED = 20260806
+SMOKE_STEPS = 5
+SMOKE_RESUME_STEPS = 6
+SMOKE_STAGE = "G5"
+
 RUNNER_RULE_NAME = "E8_FIXED_TRACK_G_RUNNER_V1"
 RUNNER_RULE_NAME_V2 = "E8_FIXED_TRACK_G_RUNNER_V2_SOURCE_BINDING_FIX"
 RUNNER_RULE_NAME_V2_1 = "E8_FIXED_TRACK_G_RUNNER_V2_1_CORRECTION_IDENTITY_BOUND"
 RUNNER_RULE_NAME_V2_2 = "E8_FIXED_TRACK_G_RUNNER_V2_2_RECIPE_BINDING_FIXED"
+RUNNER_RULE_NAME_V2_3 = "E8_FIXED_TRACK_G_RUNNER_V2_3_CUDA_EXECUTION_BOUND"
 SOURCE_BINDING_CORRECTION_RELATIVE_PATH = (
     "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/"
     "E8_RUNNER_SOURCE_BINDING_CORRECTION.json"
@@ -190,6 +212,42 @@ def verify_source_binding_correction(root: Path | None = None) -> str:
             "refusing to proceed against a drifted or unbound source-binding correction"
         )
     return actual
+
+
+def resolve_e8_scientific_device(*, _device_resolver: Callable[[], str] | None = None) -> str:
+    """Fail-closed, read-only CUDA-only device resolution.
+
+    Reuses the historical, already-frozen C7 scientific device gate
+    (``prism_fas.pipeline.adapters.c7._scientific_device``) rather than
+    implementing a second CUDA-selection policy -- imported here, inside
+    the function, because it is private. Never returns ``"cpu"``, never
+    silently falls back, never chooses CUDA based on target or scientific
+    results, performs no writes.
+
+    ``_device_resolver`` is a private, test-only injection seam (defaults to
+    the real C7 gate); even when supplied, its return value is still
+    hard-asserted to be exactly ``"cuda"`` below -- a test seam that returns
+    ``"cpu"`` or anything else is treated exactly like a real CUDA-unavailable
+    host and hard-fails here.
+    """
+    from prism_fas.pipeline.adapters.c7 import ScientificDeviceUnavailable
+
+    if _device_resolver is not None:
+        resolver = _device_resolver
+    else:
+        from prism_fas.pipeline.adapters.c7 import _scientific_device as resolver
+
+    try:
+        device = resolver()
+    except ScientificDeviceUnavailable as exc:
+        raise E8RunnerError(f"scientific CUDA device unavailable: {exc}") from exc
+
+    if device != SCIENTIFIC_DEVICE_REQUIRED:
+        raise E8RunnerError(
+            f"resolved scientific device {device!r} != required {SCIENTIFIC_DEVICE_REQUIRED!r} -- "
+            "refusing to launch; CPU fallback is never permitted for scientific E8 execution"
+        )
+    return device
 
 
 class RunState(str, Enum):
@@ -672,10 +730,31 @@ def preflight_e8_run(spec: E8RunSpec, root: Path | None = None) -> dict[str, Any
         },
         "training_config_hash": training_config.hash(),
         "model_identity": "google/siglip2-base-patch16-224",
+        "scientific_device_contract": {
+            "required_device": SCIENTIFIC_DEVICE_REQUIRED,
+            "cpu_fallback_permitted": SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED,
+            "resolver": SCIENTIFIC_DEVICE_RESOLVER_QUALNAME,
+        },
         "target_firewall": {"target_access": False, "target_labels_accessed": False,
                             "allowed_domains": sorted(ALLOWED_SOURCE_DOMAINS)},
         "training_started": False,
         "checkpoint_created": False,
+    }
+
+
+def preflight_e8_scientific_device(*, _device_resolver: Callable[[], str] | None = None) -> dict[str, Any]:
+    """Separate, read-only RUNTIME probe -- unlike ``preflight_e8_run``
+    (metadata-only, never requires a real GPU), this actually invokes the
+    canonical C7 CUDA gate via ``resolve_e8_scientific_device`` and may
+    hard-fail (raise ``E8RunnerError``) on a non-CUDA host. Never fabricates
+    CUDA availability."""
+    device = resolve_e8_scientific_device(_device_resolver=_device_resolver)
+    return {
+        "schema_version": "ext-q1q2-e8-scientific-device-preflight-v1",
+        "resolved_device": device,
+        "required_device": SCIENTIFIC_DEVICE_REQUIRED,
+        "cpu_fallback_permitted": SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED,
+        "resolver": SCIENTIFIC_DEVICE_RESOLVER_QUALNAME,
     }
 
 
@@ -768,52 +847,51 @@ def resolve_e8_runtime_inputs(spec: E8RunSpec, root: Path | None = None) -> dict
 
 
 # --------------------------------------------------------------------------- #
-# Scientific launch (implemented, never invoked by this task)
+# Shared runtime-input + bank + config resolution -- used by BOTH the
+# scientific launcher and the engineering smoke launcher, so they can never
+# drift into two separate implementations. Stops short of the collision
+# guard and M9Trainer construction (steps 9-10), which differ between a
+# scientific run_root and the smoke run_root and so remain each caller's own
+# responsibility.
 # --------------------------------------------------------------------------- #
 
-def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
-                          _trainer_cls: Callable[..., Any] | None = None,
-                          _skip_m3b_guard: bool = False,
-                          _override_detector_inputs: dict[str, Any] | None = None,
-                          _override_c3_bank: dict[str, Any] | None = None) -> Any:
-    """Construct and run the EXISTING ``M9Trainer`` against the E8 bank.
+def _resolve_e8_launch_bindings(spec: E8RunSpec, *, root: Path | None = None,
+                                _trainer_cls: Callable[..., Any] | None = None,
+                                _skip_m3b_guard: bool = False,
+                                _override_detector_inputs: dict[str, Any] | None = None,
+                                _override_c3_bank: dict[str, Any] | None = None,
+                                _device_resolver: Callable[[], str] | None = None) -> dict[str, Any]:
+    """Resolve, in order:
 
-    CORRECTED (V2.2): resolves BOTH recipe contracts from the canonical
-    resolvers only -- the shared M7 neutral bank for ``M9Trainer.
-    recipe_bank_root`` and the arm-specific C3 treatment bank for
-    ``C6MatchedBankReader`` -- never conflated, never a caller-supplied
-    substitute. Production callers no longer have a public
-    ``candidates_root``/``recipes``/``recipe_bank_identity`` surface to
-    override scientific inputs with; ``_override_detector_inputs`` and
-    ``_override_c3_bank`` are explicitly private, test-only injection seams
-    (documented, leading-underscore) used only where the real canonical
-    assets (SigLIP2/ConvNeXt weights, the frozen recipe text cache) are not
-    materialized on this host -- even when supplied, the SAME identity/count
-    assertions below still run against them, so a test cannot silently swap
-    in a wrong identity undetected.
-
-    Fail order, each before ``M9Trainer`` import/construction:
       1. V2 source-binding correction identity (``verify_source_binding_correction``)
-      2. (no explicit V2.1 provenance-report verifier exists; skipped)
+      2. CUDA scientific device resolution (``resolve_e8_scientific_device``)
       3. canonical detector input verification (``verify_detector_inputs``)
-      4. M3B package identity check
+      4. M3B/M7 package identity checks
       5. target firewall / zero-target assertion
       6. C3 arm-bank identity / recipe-count / eligibility
       7. E8 membership + C6 filtered-bank opening
       8. frozen Track-G config resolution
-      9. collision guard (unchanged; never deletes or resumes)
 
-    ``_trainer_cls`` is a test-only constructor-injection seam (defaults to
-    the real ``prism_fas.detector.trainer.M9Trainer``); it exists so tests
-    can verify the exact construction kwargs without instantiating the full
-    SigLIP2 model. ``_skip_m3b_guard`` is a test-only seam for the legacy
-    (now redundant, still defense-in-depth) ``validate_m3b_package`` check.
-    This task does not call this function for real.
+    Returns a plain mapping (``repo``, ``device``, ``detector_inputs``,
+    ``c3_bank``, ``e8_bank``, ``training_config``, ``detector_config``,
+    ``trainer_cls``) that both ``launch_scientific_run`` and
+    ``launch_e8_engineering_smoke`` build their own construction on --
+    identical runtime inputs, only ``run_root``/``cache_root``/the run-id
+    label differ between them.
+
+    ``_trainer_cls``/``_skip_m3b_guard``/``_override_detector_inputs``/
+    ``_override_c3_bank``/``_device_resolver`` are private, test-only
+    injection seams (documented, leading-underscore); even when supplied,
+    the SAME identity/count/device assertions still run against them, so a
+    test cannot silently swap in a wrong identity or device undetected.
     """
     repo = _repo_root(root)
 
     # 1. V2 source-binding correction identity.
     verify_source_binding_correction(repo)
+
+    # 2. CUDA scientific device resolution -- before any input/bank I/O.
+    device = resolve_e8_scientific_device(_device_resolver=_device_resolver)
 
     # 3. Canonical detector input verification (source package, M7 bank, C5
     # candidates root, weights, target-firewall counts) -- fail-closed.
@@ -826,7 +904,7 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
         except DetectorInputsUnavailable as exc:
             raise E8RunnerError(f"canonical detector inputs unavailable: {exc}") from exc
 
-    # 4. M3B package identity check.
+    # 4. M3B / M7 package identity checks.
     if detector_inputs["package_identity"] != M3B_CONTENT_IDENTITY:
         raise E8RunnerError(
             f"canonical detector inputs resolved package_identity "
@@ -889,15 +967,27 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
     training_config, detector_config = load_frozen_winner_track_g_config(
         spec, synthetic_bank_identity=e8_bank.identity, root=repo)
 
-    # 9. Collision guard -- unchanged semantics; never deletes or resumes.
-    run_root = repo / spec.run_root
-    assert_no_collision(run_root)
-
     if _trainer_cls is None:
         from prism_fas.detector.trainer import M9Trainer as _trainer_cls  # noqa: N806
 
-    trainer = _trainer_cls(
-        config=training_config, detector_config=detector_config,
+    return {
+        "repo": repo, "device": device, "detector_inputs": detector_inputs, "c3_bank": c3_bank,
+        "e8_bank": e8_bank, "training_config": training_config, "detector_config": detector_config,
+        "trainer_cls": _trainer_cls,
+    }
+
+
+def _construct_e8_trainer(bindings: dict[str, Any], *, run_root: Path,
+                          training_config: Any) -> Any:
+    """Shared ``M9Trainer`` construction -- identical runtime inputs
+    (package/bank/recipe-bank/weight roots, the E8 bank, the CUDA device)
+    for both the scientific launcher and the engineering smoke launcher;
+    only ``run_root``/``cache_root``/``training_config`` (the run-id label)
+    differ between them."""
+    repo = bindings["repo"]
+    detector_inputs = bindings["detector_inputs"]
+    return bindings["trainer_cls"](
+        config=training_config, detector_config=bindings["detector_config"],
         package_root=repo / detector_inputs["package_root"],
         # unused when synthetic_bank= is supplied (M9TrainingDataset never opens bank_root in that
         # case) -- pointed at the canonical C5 candidates root, matching historical C7 wiring.
@@ -906,9 +996,144 @@ def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
         recipe_bank_root=repo / detector_inputs["recipe_bank_root"],
         run_root=run_root, cache_root=run_root / "cache",
         weight_root=repo / detector_inputs["weight_root"], loader_config_path=repo / LOADER_CONFIG_RELATIVE_PATH,
-        synthetic_bank=e8_bank,
+        synthetic_bank=bindings["e8_bank"],
+        # step 10: never the M9Trainer device= default ("cpu"); hard-asserted
+        # "cuda" by resolve_e8_scientific_device() inside _resolve_e8_launch_bindings.
+        device=bindings["device"],
     )
-    return trainer
+
+
+# --------------------------------------------------------------------------- #
+# Scientific launch (implemented, never invoked by this task)
+# --------------------------------------------------------------------------- #
+
+def launch_scientific_run(spec: E8RunSpec, *, root: Path | None = None,
+                          _trainer_cls: Callable[..., Any] | None = None,
+                          _skip_m3b_guard: bool = False,
+                          _override_detector_inputs: dict[str, Any] | None = None,
+                          _override_c3_bank: dict[str, Any] | None = None,
+                          _device_resolver: Callable[[], str] | None = None) -> Any:
+    """Construct and run the EXISTING ``M9Trainer`` against the E8 bank.
+
+    CORRECTED (V2.3): resolves the frozen CUDA-required scientific device
+    contract (never CPU, never a silent fallback) via
+    ``resolve_e8_scientific_device`` -- reusing the historical C7 gate --
+    BEFORE any canonical detector input verification, C3 bank validation, or
+    ``M9Trainer`` import/construction, and passes ``device="cuda"``
+    explicitly into ``M9Trainer``. There is no production scientific
+    execution path on which ``M9Trainer`` receives its default CPU device.
+
+    Delegates steps 1-8 entirely to ``_resolve_e8_launch_bindings`` (shared
+    with ``launch_e8_engineering_smoke``, so the two can never drift into
+    separate implementations), then performs the collision guard (step 9,
+    unchanged; never deletes, overwrites, or resumes) and ``M9Trainer``
+    construction (step 10) against the SCIENTIFIC run root.
+
+    ``_trainer_cls``/``_skip_m3b_guard``/``_override_detector_inputs``/
+    ``_override_c3_bank``/``_device_resolver`` are private, test-only
+    injection seams; see ``_resolve_e8_launch_bindings`` for their exact
+    semantics. This task does not call this function for real.
+    """
+    bindings = _resolve_e8_launch_bindings(
+        spec, root=root, _trainer_cls=_trainer_cls, _skip_m3b_guard=_skip_m3b_guard,
+        _override_detector_inputs=_override_detector_inputs, _override_c3_bank=_override_c3_bank,
+        _device_resolver=_device_resolver,
+    )
+
+    # 9. Collision guard -- unchanged semantics; never deletes or resumes.
+    run_root = bindings["repo"] / spec.run_root
+    assert_no_collision(run_root)
+
+    # 10. M9Trainer import/construction with device="cuda".
+    return _construct_e8_trainer(bindings, run_root=run_root, training_config=bindings["training_config"])
+
+
+# --------------------------------------------------------------------------- #
+# Engineering smoke launch -- the ONE official smoke wrapper. Uses ONLY the
+# existing, already-frozen M9Trainer.smoke() mechanism; implements no new
+# shortened training loop. Never redirects a scientific E8RunSpec; never
+# monkeypatches run_root.
+# --------------------------------------------------------------------------- #
+
+def launch_e8_engineering_smoke(*, root: Path | None = None,
+                                _trainer_cls: Callable[..., Any] | None = None,
+                                _device_resolver: Callable[[], str] | None = None) -> dict[str, Any]:
+    """Build the REAL frozen RND/20260806 E8 config and bindings via
+    ``_resolve_e8_launch_bindings`` -- the exact same shared resolver
+    ``launch_scientific_run`` uses, so smoke can never drift onto different
+    M3B/M7/C3/C5/E8 bank bindings or a different CUDA device policy than the
+    scientific RND run. For the smoke artifact ONLY, the run label is then
+    replaced with ``SMOKE_RUN_ID`` via ``dataclasses.replace`` -- proven,
+    by hard assertion below, not to change ``M9TrainingConfig.hash()`` (which
+    excludes ``run_id``), so the smoke label can never create a different
+    optimizer/model/scientific configuration.
+
+    The engineering shortening comes ONLY from the existing
+    ``M9Trainer.smoke(steps=SMOKE_STEPS, resume_steps=SMOKE_RESUME_STEPS,
+    stage=SMOKE_STAGE)`` mechanism -- never a new shortened training loop,
+    never a different E8 bank, optimizer config, batch composition, learning
+    rate, weight decay, loss weights, or model.
+
+    Smoke output lives ONLY at ``smoke_run_root()``
+    (``runs/c_ext_q1q2_v1/e8_qmatched/smoke/e8_ext_f1_adapter_smoke``),
+    verified disjoint from every scientific run root; if ANY existing smoke
+    output is not ``NOT_STARTED`` this hard-fails -- never deletes,
+    overwrites, or auto-resumes an old smoke.
+
+    Returns a result mapping with ``is_scientific_result=False``,
+    ``eligible_for_scientific_tables=False``, and zero target access -- this
+    is engineering evidence only, never one of the 15 scientific runs.
+    """
+    repo = _repo_root(root)
+    scientific_spec = build_run_spec(SMOKE_ARM, SMOKE_SEED, root=repo)
+
+    bindings = _resolve_e8_launch_bindings(
+        scientific_spec, root=repo, _trainer_cls=_trainer_cls, _device_resolver=_device_resolver,
+    )
+
+    scientific_config = bindings["training_config"]
+    smoke_config = replace(scientific_config, run_id=SMOKE_RUN_ID)
+    if smoke_config.hash() != scientific_config.hash():
+        raise E8RunnerError(
+            "smoke run-id relabel changed the training config hash -- refusing to launch; the smoke "
+            "label must never create a different optimizer/model/scientific configuration"
+        )
+
+    smoke_root = smoke_run_root(repo)
+    scientific_run_root = repo / scientific_spec.run_root
+    if smoke_root == scientific_run_root:
+        raise E8RunnerError("smoke output must never collide with a scientific run root")
+    for scientific_run in all_scientific_run_specs(repo):
+        candidate = repo / scientific_run.run_root
+        if smoke_root == candidate or candidate in smoke_root.parents or smoke_root in candidate.parents:
+            raise E8RunnerError(f"smoke root {smoke_root} is not disjoint from scientific run root {candidate}")
+
+    # Smoke collision guard -- same NOT_STARTED-only policy as scientific
+    # runs; never deletes, overwrites, or auto-resumes an old smoke.
+    smoke_state = classify_run_state(smoke_root)
+    if smoke_state is not RunState.NOT_STARTED:
+        raise E8RunnerError(
+            f"{smoke_root}: smoke state is {smoke_state.value}, not NOT_STARTED -- refusing to launch. "
+            "No automatic overwrite, resume, or deletion is ever performed by this smoke launcher."
+        )
+
+    trainer = _construct_e8_trainer(bindings, run_root=smoke_root, training_config=smoke_config)
+    smoke_result = trainer.smoke(steps=SMOKE_STEPS, resume_steps=SMOKE_RESUME_STEPS, stage=SMOKE_STAGE)
+
+    return {
+        "schema_version": "ext-q1q2-e8-engineering-smoke-result-v1",
+        "smoke_run_id": SMOKE_RUN_ID, "smoke_run_root": str(smoke_root.relative_to(repo)),
+        "arm": SMOKE_ARM, "seed": SMOKE_SEED,
+        "steps": SMOKE_STEPS, "resume_steps": SMOKE_RESUME_STEPS, "stage": SMOKE_STAGE,
+        "device": bindings["device"],
+        "scientific_config_hash": scientific_config.hash(),
+        "smoke_config_hash": smoke_config.hash(),
+        "trainer_smoke_result": smoke_result,
+        "is_scientific_result": False,
+        "eligible_for_scientific_tables": False,
+        "target_access": False,
+        "target_labels_accessed": False,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -980,28 +1205,34 @@ def runner_rule_identity() -> str:
 # --------------------------------------------------------------------------- #
 
 def build_runner_rule_payload_v2() -> dict[str, Any]:
-    """The V2.2 rule payload. Binds every provenance layer distinctly --
+    """The V2.3 rule payload. Binds every provenance layer distinctly --
     E7-D fold/source-support authority, M3B runtime content identity, the
     source-binding correction artifact's path+identity, the SHARED M7
-    neutral detector recipe bank, and the per-arm C3 treatment banks --
-    never conflating any of them.
+    neutral detector recipe bank, the per-arm C3 treatment banks, and the
+    frozen CUDA-required scientific device contract -- never conflating any
+    of them.
 
-    CORRECTED (V2.2): V2.1 (identity `9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db`)
-    still bound no recipe-bank contract at all, and the actual scientific
-    launch code used ``recipe_bank_root=repo`` -- invalid for
-    ``M9Trainer`` -- see ``BLOCKED_E8_RUNNER_V2_1_RECIPE_BINDING_BUG`` in
-    ``reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_2/
-    E8_RUNNER_V2_2_RECIPE_BINDING_CORRECTION.{json,md}``. Because this
+    CORRECTED (V2.3): V2.2 (identity `1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b`)
+    still bound no device contract at all, and the actual scientific launch
+    code constructed ``M9Trainer(...)`` with no ``device=`` argument, so it
+    silently inherited ``M9Trainer``'s ``device: str = "cpu"`` default -- see
+    ``BLOCKED_E8_RUNNER_V2_2_GPU_DEVICE_NOT_BOUND`` in
+    ``reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_3/
+    E8_RUNNER_V2_3_DEVICE_BINDING_CORRECTION.{json,md}``. Because this
     payload's content changed again, ``runner_rule_identity_v2()`` now
     computes a NEW identity; every prior value
-    (V1/V2/V2.1) is retained ONLY as a recorded historical fact below and in
-    the V2.2 report, never recomputed from this function again.
+    (V1/V2/V2.1/V2.2) is retained ONLY as a recorded historical fact below
+    and in the V2.3 report, never recomputed from this function again.
     """
     return {
-        "runner_rule_name": RUNNER_RULE_NAME_V2_2,
+        "runner_rule_name": RUNNER_RULE_NAME_V2_3,
         "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
         "historical_v2_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
         "historical_v2_1_runner_rule_identity": "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db",
+        "historical_v2_2_runner_rule_identity": "1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b",
+        "scientific_device_required": SCIENTIFIC_DEVICE_REQUIRED,
+        "cpu_fallback_permitted": SCIENTIFIC_DEVICE_CPU_FALLBACK_PERMITTED,
+        "scientific_device_resolver": SCIENTIFIC_DEVICE_RESOLVER_QUALNAME,
         "execution_plan_identity": EXPECTED_EXECUTION_PLAN_IDENTITY,
         "adapter_implementation_commit": ADAPTER_IMPLEMENTATION_COMMIT,
         "adapter_rule_identity": EXPECTED_ADAPTER_RULE_IDENTITY,

@@ -1,0 +1,85 @@
+{
+  "adapter_implementation_commit": "9fb4e2fc7d30ad940e42999524f0d09b81bbf0e5",
+  "adapter_rule_identity": "56e649a49ba03febbadce6fc62d4362be753d95ccd0fce03d1886f8c5384bbdb",
+  "allowed_run_ids": [
+    "e8_ext_f1_g_det_qmatch_s20260806",
+    "e8_ext_f1_g_det_qmatch_s20260807",
+    "e8_ext_f1_g_det_qmatch_s20260808",
+    "e8_ext_f1_g_det_qmatch_s20260809",
+    "e8_ext_f1_g_det_qmatch_s20260810",
+    "e8_ext_f1_g_llm_qmatch_s20260806",
+    "e8_ext_f1_g_llm_qmatch_s20260807",
+    "e8_ext_f1_g_llm_qmatch_s20260808",
+    "e8_ext_f1_g_llm_qmatch_s20260809",
+    "e8_ext_f1_g_llm_qmatch_s20260810",
+    "e8_ext_f1_g_rnd_qmatch_s20260806",
+    "e8_ext_f1_g_rnd_qmatch_s20260807",
+    "e8_ext_f1_g_rnd_qmatch_s20260808",
+    "e8_ext_f1_g_rnd_qmatch_s20260809",
+    "e8_ext_f1_g_rnd_qmatch_s20260810"
+  ],
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "c3_treatment_bank_identity_by_arm": {
+    "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+    "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+    "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+  },
+  "c5_candidates_root": "runs/full/c5/scientific/candidates",
+  "classification": "E8_TRAINING_RUNNER_V2_3_BINDING",
+  "e7d_source_support_identity": "955b630fec438c80f284ecbcb30fbf10c83251a23fd31d8ab1a52e0f8ce8383b",
+  "execution_plan_identity": "74f9503f1fa22ffe96eca6585ff1184b3f6bc122380a3e39c485a35dc02a39de",
+  "historical_v1_runner_rule_identity": "81842bd81d43c8c942773a0fefed31a0e76bfce1bbbeebc845cd15993dbbdcf0",
+  "historical_v2_1_runner_rule_identity": "9dd689dfa013f75a5641f566493216718f7a8bfc6b617b06250b63d1cb3e68db",
+  "historical_v2_2_runner_rule_identity": "1e4a66fb2f49d5ad7b512ab01293fa8dd66e9b5ccaa75af3fa95b2a99689130b",
+  "historical_v2_runner_rule_identity": "3293994d312be82969fba884da5b7d13445aa6c1a9d43742f21434991c1b5570",
+  "implementation_commit_note": "this task stops before commit -- no V2.3 commit is recorded yet",
+  "implementation_parent_commit": "1645603dc18300b918ca2836f91fdf352d589b6c",
+  "m3b_content_identity": "08d9d289eb4b462006afcff37cd4750a7c4eeb402c83de5599eda38df44168c9",
+  "m3b_runtime_package_root": "data/packages/prism_data_v1_m3b",
+  "m7_detector_recipe_bank_identity": "fa989938cafdc4887518cc45c35d559d00278358439dc68c2486da10309210cb",
+  "m7_detector_recipe_bank_root": "assets/recipe_banks/prism_recipe_bank_m7_v1",
+  "membership_sha256": "d2f91738c8a250997491eaabf869a2901f3d759ad19b2fb194df806becba656d",
+  "new_runner_rule_identity": "027eb07d1be935adf440eb6f10db20e464c43febd0cb7a6354393c985adb0880",
+  "new_runner_rule_name": "E8_FIXED_TRACK_G_RUNNER_V2_3_CUDA_EXECUTION_BOUND",
+  "new_runner_source_sha256": "25bba8fbb89bce2ddc620d79d0a153c4a700aeffea78ec85d525789d42031d8c",
+  "schema_version": "ext-q1q2-e8-training-runner-v2-3-binding-v1",
+  "scientific_device_contract": {
+    "cpu_fallback_permitted": false,
+    "required_device": "cuda",
+    "resolver": "prism_fas.pipeline.adapters.c7._scientific_device"
+  },
+  "seeds": [
+    20260806,
+    20260807,
+    20260808,
+    20260809,
+    20260810
+  ],
+  "smoke_contract": {
+    "eligible_for_scientific_tables": false,
+    "is_scientific_result": false,
+    "smoke_arm": "RND",
+    "smoke_resume_steps": 6,
+    "smoke_run_id": "e8_ext_f1_adapter_smoke",
+    "smoke_run_root": "runs/c_ext_q1q2_v1/e8_qmatched/smoke/e8_ext_f1_adapter_smoke",
+    "smoke_seed": 20260806,
+    "smoke_stage": "G5",
+    "smoke_steps": 5
+  },
+  "target_firewall": {
+    "allowed_domains": [
+      "casia_fasd",
+      "msu_mfsd"
+    ],
+    "target_access": false,
+    "target_labels_accessed": false
+  },
+  "v2_3_device_binding_correction_artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction_v2_3/E8_RUNNER_V2_3_DEVICE_BINDING_CORRECTION.json",
+  "v2_3_device_binding_correction_sha256": "2a5e0452e5bd6e21b5123f8d1080483d24cbf15defb66df4d0a870c4437c7b62",
+  "v2_source_binding_correction_artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/runner_correction/E8_RUNNER_SOURCE_BINDING_CORRECTION.json",
+  "v2_source_binding_correction_sha256": "e018cf5bd1d23a88bd5018bb7c86a82dc6e209d9342cf078063a6de869a7f921"
+}
