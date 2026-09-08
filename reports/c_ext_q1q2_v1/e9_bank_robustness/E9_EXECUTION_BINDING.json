@@ -1,0 +1,58 @@
+{
+  "base_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "base_commit_is_ancestor_of_execution_commit": true,
+  "e9_module_path": "src/prism_fas/evaluation/c_ext_e9_bank_robustness.py",
+  "e9_module_sha256": "99e2097ea5d28c48aeaff59c82ed1d6add62c1ab716e0b3c6f54c6e20d52ee62",
+  "e9_test_path": "tests/pipeline/test_c_ext_e9_bank_robustness.py",
+  "e9_test_sha256": "66cae71d1b1a2f1cf04759057e6189e1ef734418ede1435f23459cde01bf73ab",
+  "execution_binding_identity": "abf1cd9800f78e3cf5ec3f69a776cfccc85659803471e24bbf12121d4e78accc",
+  "execution_commit": "c3e4ca40ed3e163035692d95f517057d332d0b0b",
+  "frozen_pools": {
+    "DET": {
+      "file_sha256": "82035ff67ce129bd36fe411a93c05bf0209e45c66462698b2027f0565c9786c7",
+      "head_blob_sha256": "82035ff67ce129bd36fe411a93c05bf0209e45c66462698b2027f0565c9786c7",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/DET_POOL_384.jsonl",
+      "pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+      "tracked_at_execution_commit": true
+    },
+    "LLM": {
+      "file_sha256": "ff231c59320f511ddba1741bf54b4056bf1f3ae89010042cc7a99d9962a603b1",
+      "head_blob_sha256": "ff231c59320f511ddba1741bf54b4056bf1f3ae89010042cc7a99d9962a603b1",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/LLM_POOL_384.jsonl",
+      "pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+      "tracked_at_execution_commit": true
+    },
+    "RND": {
+      "file_sha256": "d72c8ef480dbc66f570e53fdd0bca422495c79d19e4a595e5b42b156dde39fd1",
+      "head_blob_sha256": "d72c8ef480dbc66f570e53fdd0bca422495c79d19e4a595e5b42b156dde39fd1",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/RND_POOL_384.jsonl",
+      "pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+      "tracked_at_execution_commit": true
+    }
+  },
+  "immutability": {
+    "rewrite_permitted": false,
+    "rule": "immutable once frozen; identical recomputation is an idempotent no-op; different bytes fail closed and are never silently rewritten"
+  },
+  "implementation_source_commit": "f62679d5116b025cc1d259305f1aba41d90a1039",
+  "implementation_source_commit_is_ancestor_of_execution_commit": true,
+  "input_binding_file_sha256": "d8abecb28789148dbee98eb0f19bcf6823c862b4e4d1dfd7490ae0c647283854",
+  "input_binding_identity": "30de9389949b25686ae15fd74e32f615a5051f74f4cbf85e815962bf5e9ffb94",
+  "input_binding_path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_INPUT_BINDING.json",
+  "milestone": "E9",
+  "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+  "pool_identity_by_arm": {
+    "DET": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+    "LLM": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+    "RND": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5"
+  },
+  "post_run_archive_rule": "E9_EXECUTION_BINDING.json, membership, selection results, stability and closure may be committed in a LATER additive evidence commit; that commit is NOT execution_commit and must not cause a scientific rerun.",
+  "protocol_lock_file_sha256": "aadeee47ababa269ac313b95497c14fae737ac31f105b5f373fba01cdb9d4a89",
+  "protocol_lock_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+  "protocol_lock_path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_PROTOCOL_LOCK.json",
+  "purpose": "Frozen runtime evidence: pins execution_commit (the clean committed HEAD from which the nine scientific selections run) plus every code / input identity. base_commit and implementation_source_commit are proven ANCESTORS of execution_commit, never required to equal it. This file need NOT be committed before --run; it is immutable evidence and may be archived in a later additive evidence commit.",
+  "schema_version": "e9-execution-binding-v2",
+  "selector_module_path": "src/prism_fas/recipes/selection.py",
+  "selector_module_sha256": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1",
+  "status": "FROZEN"
+}

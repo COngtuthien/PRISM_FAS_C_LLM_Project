@@ -1,0 +1,9 @@
+classification=PROVENANCE_GATE_REFUSAL
+stage=PRE_SELECTION_EXECUTION_BINDING_VERIFICATION
+exit_code=1
+scientific_selection_started=false
+milp_selection_count=0
+reason=execution binding pins c3e4ca but current HEAD is d588ec
+scientific_effect=none
+rerun_required=false
+resolution=execute from frozen execution_commit in a separate clean worktree

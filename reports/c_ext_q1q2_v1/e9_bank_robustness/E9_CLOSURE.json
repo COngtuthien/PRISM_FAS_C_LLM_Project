@@ -1,0 +1,56 @@
+{
+  "any_realization_retried": false,
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "bank_size_ever_lowered": false,
+  "base_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "base_commit_is_ancestor_of_execution_commit": true,
+  "e9_module_sha256": "99e2097ea5d28c48aeaff59c82ed1d6add62c1ab716e0b3c6f54c6e20d52ee62",
+  "e9_protocol_amendment_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+  "e9_test_sha256": "66cae71d1b1a2f1cf04759057e6189e1ef734418ede1435f23459cde01bf73ab",
+  "evidence_sha256": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_EVIDENCE.sha256",
+  "execution_binding_file_sha256": "7c8bfd7575a843de7a11965c33726d2c7dda69d618c889d718813c3848683bcd",
+  "execution_binding_identity": "abf1cd9800f78e3cf5ec3f69a776cfccc85659803471e24bbf12121d4e78accc",
+  "execution_commit": "c3e4ca40ed3e163035692d95f517057d332d0b0b",
+  "implementation_source_commit": "f62679d5116b025cc1d259305f1aba41d90a1039",
+  "implementation_source_commit_is_ancestor_of_execution_commit": true,
+  "input_binding_identity": "30de9389949b25686ae15fd74e32f615a5051f74f4cbf85e815962bf5e9ffb94",
+  "llm_calls": 0,
+  "milestone": "E9",
+  "perturbation_seeds": {
+    "P1": 20260921,
+    "P2": 20260922,
+    "P3": 20260923
+  },
+  "pool_identity_by_arm": {
+    "DET": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+    "LLM": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+    "RND": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5"
+  },
+  "post_run_archive_rule": "E9_EXECUTION_BINDING.json, E9_PERTURBATION_MEMBERSHIP.jsonl, E9_SELECTION_RESULTS.jsonl, E9_BANK_STABILITY.*, E9_EVIDENCE.sha256 and this closure may be committed in a LATER additive evidence commit. That commit is NOT execution_commit and must not trigger a scientific rerun (the run gate refuses any HEAD != execution_commit).",
+  "protocol_lock_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+  "realizations_blocked": 0,
+  "realizations_ok": 9,
+  "realizations_total": 9,
+  "retained_fraction_changed_after_outcomes": false,
+  "schema_version": "e9-closure-v3",
+  "selector": {
+    "final_bank_size_per_arm": 256,
+    "minimum_eligible_pool_per_arm": 320,
+    "raw_candidate_slots_per_arm": 384,
+    "reused_not_reimplemented": true,
+    "selection_version": "prism_c3_selection_v1",
+    "selector_callable": "prism_fas.recipes.selection.select",
+    "selector_module": "prism_fas.recipes.selection",
+    "selector_module_file": "selection.py",
+    "selector_module_sha256": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1"
+  },
+  "selector_module_sha256": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1",
+  "status": "CLOSED",
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_labels_accessed": false
+}
