@@ -1,0 +1,131 @@
+{
+  "classification": "EVIDENCE_ONLY_DECISION_GATE",
+  "criteria": [
+    {
+      "criterion_id": "C1_CROSS_DOMAIN_SIGNAL",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: downstream_dependency_classification.E7_detector_experiment.target_acer_by_fold (LLM/DET/RND, all 3 folds)"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "Frozen LLM bank is not ranked last in at least 2/3 held-out folds; prefer LLM <= DET/RND in ACER.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 core matched synthetic bank: '0 / 3'; all folds {'EXT-F1': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP', 'EXT-F2': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP', 'EXT-F3': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP'}",
+        "E7 per-condition: G-LLM=BLOCKED_BY_E7_CORE_BANK, G-RND=BLOCKED_BY_E7_CORE_BANK, G-DET=BLOCKED_BY_E7_CORE_BANK",
+        "E7 is_target_acer_evidence = False",
+        "DESCRIPTIVE, single fold (EXT-F1), q-matched E8 ablation -- NOT a 2/3-fold cross-domain result and NOT counted for this criterion: ACER LLM=0.3487 DET=0.3506 RND=0.3516 (LLM ranked 1st (best) of 3; inferential_status=NOT_CLAIMED)",
+        "DESCRIPTIVE, single fold (EXT-F1), E4 threshold-transfer re-analysis of the frozen historical Flow-1 Track-G target evaluation -- NOT an E7 3-fold result and NOT counted for this criterion."
+      ],
+      "positively_established": false,
+      "reason": "The G-LLM / G-RND / G-DET detector trainings this criterion needs are BLOCKED_BY_E7_CORE_BANK: 0/3 folds produced a valid core matched synthetic bank (all folds SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP), so no per-fold cross-domain LLM/DET/RND target ACER exists. The only per-fold LLM/DET/RND ACERs anywhere are EXT-F1-only and from non-E7 designs (E8 q-matched; E4 historical re-analysis) and cannot satisfy a 2/3-fold requirement. Missing evidence is NOT a negative LLM result.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED",
+      "title": "CROSS-DOMAIN SIGNAL"
+    },
+    {
+      "criterion_id": "C2_VALUE_OVER_REAL_ONLY",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: matched G-LLM target ACER (BLOCKED_BY_E7_CORE_BANK, 0/3 folds)",
+        "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json :: REAL-ONLY target ACER for EXT-F2 and EXT-F3 (E5 is EXT-F1 only)"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json",
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "LLM is better than REAL-ONLY in at least 2/3 folds by descriptive mean ACER.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E5 REAL-ONLY target evaluation: PARTIAL_EXT_F1_ONLY, fold='EXT-F1', ACER mean=0.1999 (sd 0.0046, 5 seeds), target_threshold_fitted=False -- EXT-F1 only; no REAL-ONLY ACER exists for EXT-F2/EXT-F3.",
+        "E7 G-LLM (the matched LLM comparator): BLOCKED_BY_E7_CORE_BANK -- 0/3 folds; no per-fold matched LLM target ACER.",
+        "Only LLM target ACER that exists: E8 q-matched EXT-F1 LLM=0.3487 (5 seeds; a DIFFERENT ablation than the matched LLM-vs-REAL-ONLY design). Descriptively WORSE (higher ACER) than E5 REAL-ONLY EXT-F1 (0.1999).",
+        "E4 threshold-transfer (EXT-F1, frozen historical Flow-1 Track-G re-analysis, NOT a controlled EXT LLM-vs-REAL-ONLY comparison) records a small T0-vs-oracle ACER gap (LLM 0.0045)."
+      ],
+      "positively_established": false,
+      "reason": "The frozen 2/3-fold LLM-vs-REAL-ONLY comparison (EXT-H3) cannot be formed: E5 supplies REAL-ONLY target ACER for EXT-F1 only (mean ACER 0.1999), the matched LLM comparator (E7 G-LLM) is BLOCKED_BY_E7_CORE_BANK in all 3 folds, and no REAL-ONLY result exists for EXT-F2/EXT-F3. At most one fold could ever be compared, so the >= 2/3 requirement is unreachable; and where the closest available LLM number (E8 q-matched EXT-F1) touches this contrast it is descriptively worse than REAL-ONLY, not better. No positive evidence of LLM value over REAL-ONLY. Missing folds are due to the upstream E7 block, not an LLM failure.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_2_OF_3_UNREACHABLE_MATCHED_COMPARATOR_BLOCKED",
+      "status": "NOT_ESTABLISHED",
+      "title": "VALUE OVER REAL-ONLY"
+    },
+    {
+      "criterion_id": "C3_SEMANTIC_ABLATION",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: target_acer_by_fold for G-LLM and G-LLM-SHUFFLE-A",
+        "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json :: a feasible LLM_SHUFFLE_A matched bank + paired detector target ACER"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+        "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "LLM-original is better than LLM-SHUFFLE-A in at least 2/3 folds, OR the effect is clear in EXT-F1 and does not strongly reverse in the other folds.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 per-condition: G-LLM=BLOCKED_BY_E7_CORE_BANK, G-LLM-SHUFFLE-A=BLOCKED_BY_E7_CORE_BANK",
+        "E6-v2: status='CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY', ready_for_training=False (SHUFFLE_PHYSICS_MATCHED_BANK_INFEASIBLE_UNDER_FROZEN_DOMAIN_QUOTA)",
+        "E7 Shuffle-A generation was never attempted (0/3 folds closed their core anchor bank); E6-v2 proved the frozen SHUFFLE-A matched Physics bank infeasible under the frozen per-source-domain quota."
+      ],
+      "positively_established": false,
+      "reason": "Both routes to an LLM-original vs LLM-SHUFFLE-A detector target-ACER contrast are blocked upstream: E7 G-LLM-SHUFFLE-A is BLOCKED_BY_E7_CORE_BANK and E6-v2 closed CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY with E6_V2_READY_FOR_TRAINING = false. No semantic-ablation detector result exists in any fold, and none may be fabricated. Absence of evidence is not a negative result.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED",
+      "title": "SEMANTIC ABLATION"
+    },
+    {
+      "criterion_id": "C4_QUALITY_CONFOUND",
+      "evidence_artifacts_missing": [],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json",
+        "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "There is no large q confound, OR the q-matched ablation still preserves the direction of an LLM advantage.",
+      "missing_evidence_due_to_upstream_scientific_block": false,
+      "observed_facts": [
+        "E2 pairwise SMD(q): {'LLM_vs_RND': -0.3258321159351046, 'LLM_vs_DET': -0.364035596978209, 'RND_vs_DET': -0.04616823819654724}; LLM q mean 0.7056 vs {'LLM': '0.7056', 'DET': '0.7498', 'RND': '0.7444'}; |SMD(q)| >= 0.25 trigger fired = True",
+        "E8 q-matched target evaluation (EXT-F1, 5 detector seeds/arm), authoritative mean ACER read from artifact: LLM=0.3487 DET=0.3506 RND=0.3516; LLM <= DET and LLM <= RND (direction retained) = True",
+        "E8 mean paired ACER deltas: DET-LLM=0.0020 (LLM better in 2/5 seeds), RND-LLM=0.0029 (LLM better in 3/5 seeds)",
+        "E8 inferential_status='NOT_CLAIMED', statistical_significance_claimed=False, llm_superiority_supported=False",
+        "Scope: EXT-F1 only; descriptive margins ~0.002 ACER."
+      ],
+      "positively_established": true,
+      "reason": "Branch (b) of the frozen rule is satisfied: the completed E8 q-matched detector ablation DESCRIPTIVELY retains the direction of an LLM advantage -- after q-matching (which removes the q confound by construction) the LLM arm still has the lowest mean target ACER (0.3487 vs DET 0.3506 vs RND 0.3516) and its mean paired ACER delta is favourable vs both DET and RND. QUALIFIER: DESCRIPTIVE_ONLY / NO_SIGNIFICANCE_CLAIM -- the frozen rule requires neither inferential significance (E8 inferential_status=NOT_CLAIMED) nor a pre-q-match baseline; the effect is small (~0.002 ACER), EXT-F1 only, and no LLM-superiority claim is made.",
+      "required": true,
+      "resolution_label": "PASS_DESCRIPTIVE_ONLY_NO_SIGNIFICANCE_CLAIM",
+      "status": "PASS",
+      "title": "QUALITY CONFOUND"
+    },
+    {
+      "criterion_id": "C5_INTEGRITY",
+      "evidence_artifacts_missing": [],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json",
+        "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json",
+        "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json"
+      ],
+      "frozen_criterion_text": "BA controls / threshold analysis do not reveal a bug or label leakage that invalidates the core evaluation.",
+      "missing_evidence_due_to_upstream_scientific_block": false,
+      "observed_facts": [
+        "E8 label-use record: uses_target_labels_in_training_or_g7=False, G8 structurally isolated from training and G7=True, is_first_ever_blind_reveal=False -> no label leakage detected.",
+        "E8 closure framing: inferential_status='NOT_CLAIMED', statistical_significance_claimed=False, llm_superiority_supported=False -> no over-claiming / no inferential bug.",
+        "E5 REAL-ONLY: target_threshold_fitted=False, threshold_rule='FROZEN_ROOT_CALIBRATION_SOURCE_DEV' -> no target-guided calibration.",
+        "E4 threshold-transfer (EXT-F1): T0(source-dev) vs T3(target-oracle, diagnostic-only) mean video ACER gap small (LLM 0.0045, DET 0.0068, RND 0.0140); target_labels_accessed=True (frozen label-derived aggregates only, no new inference) -> no threshold-transfer anomaly detected.",
+        "E3 BA controls: status='FEASIBILITY_AUDIT_DONE_PLUS_CPU_SAFE_HISTORICAL_RESUMMARY'; the historical BA_sep re-summary produced no invalidating finding; target_labels_accessed=False.",
+        "LIMITATION: E3 discriminating BA controls C0/C1/C3 are NOT_RUN_GPU_REQUIRED and C2 is UNSUPPORTED, so delta_BA_excess is not computed -- whether the synthetic/real separation is a generator fingerprint or a domain/pipeline confound is NOT affirmatively resolved (limitation, not an invalidating finding).",
+        "LIMITATION: E4 threshold-transfer covers EXT-F1 only (EXT-F2/F3 = 'GPU_REQUIRED').",
+        "LIMITATION: No completed core 3-fold cross-domain detector evaluation exists (E7 blocked); the only completed target evaluation is E8's EXT-F1 q-matched ablation."
+      ],
+      "positively_established": true,
+      "reason": "The BA-control / threshold-transfer / label-use provenance evidence that was produced detects NO bug and NO label leakage that invalidates the core evaluation: E8's G8 target scoring is structurally isolated from training and G7 (uses_target_labels_in_training_or_g7=false), calibration is source-dev-only with no target threshold fitting (E5 and E8), E8's closure claims no significance and no LLM superiority, E4's EXT-F1 source-derived operating point sits close to the target oracle with no anomaly, and E3's historical BA_sep re-summary produced no invalidating finding. LIMITATIONS (recorded, not invalidating): E3 discriminating BA controls C0/C1/C3 are NOT_RUN_GPU_REQUIRED and C2 is UNSUPPORTED, so delta_BA_excess is not computed -- whether the synthetic/real separation is a generator fingerprint or a domain/pipeline confound is NOT affirmatively resolved (limitation, not an invalidating finding). | E4 threshold-transfer covers EXT-F1 only (EXT-F2/F3 = 'GPU_REQUIRED'). | No completed core 3-fold cross-domain detector evaluation exists (E7 blocked); the only completed target evaluation is E8's EXT-F1 q-matched ablation.",
+      "required": true,
+      "resolution_label": "PASS_WITH_LIMITATIONS_NO_INVALIDATING_BUG_OR_LEAKAGE",
+      "status": "PASS",
+      "title": "INTEGRITY"
+    }
+  ],
+  "frozen_criteria_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx Section 17",
+  "milestone": "E10",
+  "schema_version": "ext-q1q2-e10-gate-v3"
+}

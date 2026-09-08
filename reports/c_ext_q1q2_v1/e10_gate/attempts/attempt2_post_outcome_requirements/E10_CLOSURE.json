@@ -1,0 +1,249 @@
+{
+  "attempt": 2,
+  "classification": "EVIDENCE_ONLY_DECISION_GATE",
+  "corrections_vs_attempt1": [
+    {
+      "attempt1": "NOT_EXECUTED -- inferred from the ABSENCE of E8's git-ignored target_eval_v1/ artifacts in an incomplete checkout.",
+      "attempt2": "EXECUTED_AND_SCORED -- verified from the restored authoritative artifacts (E8_TARGET_EVALUATION_CLOSURE.json, E8_TARGET_SCORE_RESULT.json, E8_TARGET_PAIRED_COMPARISONS.json, E8_TARGET_LABEL_USE_RECORD.json, E8_TARGET_PREDICTION_LOCKSET.json). E8 q-matched Track-G target evaluation COMPLETED for EXT-F1 (5 detector seeds/arm); results DESCRIPTIVE ONLY, inferential significance NOT CLAIMED, no LLM superiority supported.",
+      "fix": "E10 now classifies an absent E8 target evaluation as EVIDENCE_NOT_PRESENT_IN_CHECKOUT, never NOT_EXECUTED; a 'completed' verdict requires the artifacts present and readable.",
+      "topic": "E8 classification"
+    },
+    {
+      "attempt1": "NOT_PRESENT_IN_CHECKOUT (report subtrees absent locally).",
+      "attempt2": "E3 = FEASIBILITY_AUDIT_ONLY_GPU_GATED (BA controls: only a descriptive historical re-summary; C0/C1/C3 GPU-required, C2 unsupported); E4 = PARTIAL_EXT_F1_ONLY (EXT-F1-only threshold transfer on the frozen historical Flow-1 eval); E5 = PARTIAL_EXT_F1_ONLY (REAL-ONLY target eval COMPLETED for EXT-F1 only, mean ACER 0.1999).",
+      "topic": "E3 / E4 / E5 classification"
+    },
+    {
+      "attempt1": "Prompt-supplied claim 'E8 descriptive ranking DET best, LLM middle, RND worst' recorded as UNVERIFIED.",
+      "attempt2": "Now verified from E8_TARGET_EVALUATION_CLOSURE.json: descriptive mean ACER LLM=0.3487 < DET=0.3506 < RND=0.3516 -- i.e. LLM is the lowest-ACER (descriptively best) arm, DET middle, RND worst. The prompt's earlier informal claim was inaccurate; the artifact is authoritative. Differences are ~0.002 ACER, inferential significance NOT CLAIMED.",
+      "topic": "Unverified external ranking claim"
+    }
+  ],
+  "decision_reason": "E11 is NOT authorized. The gate is conjunctive and fail-closed and 5 of 5 required criteria are not positively established: C1_CROSS_DOMAIN_SIGNAL = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C2_VALUE_OVER_REAL_ONLY = NOT_ESTABLISHED [NOT_ESTABLISHED_2_OF_3_UNREACHABLE_MATCHED_COMPARATOR_BLOCKED]; C3_SEMANTIC_ABLATION = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C4_QUALITY_CONFOUND = NOT_ESTABLISHED [NOT_ESTABLISHED_QMATCH_DIRECTION_DESCRIPTIVE_ONLY]; C5_INTEGRITY = NOT_ESTABLISHED [NOT_ESTABLISHED_CONTROLS_INCOMPLETE]. Per the frozen decision rule: do NOT call the LLM again; E11_AUTHORIZED = false. Unavailable / upstream-blocked evidence is not evidence that the LLM failed.",
+  "e11_authorized": false,
+  "e11_work_permitted": false,
+  "gate_identity": "7209fa092a8e96c0c8ac271772021e4e5d19ede8b07899a1abbbf80c1855f5ba",
+  "inputs_digest": {
+    "reports/c_ext_q1q2_v1/e0/EXT_E0_VALIDATION.json": "e98042d4795d8ebe1aa431c28b71079bd3b9f5a727d979c65057ea133056f8ed",
+    "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json": "c89ac58928370852a909fdf0927f1db987e83460f2a19648af035ec799fa5fd8",
+    "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json": "1b427f18e42eee63c3a6fe5cfda64937bd57a45a2299a1c3c1ae322989250a6c",
+    "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json": "7ae512a1911541edd4a69348a8c668901136afd165b91a92fce1f7895641f544",
+    "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json": "52ea63f9a0a3f10432691ee914f5265c865ef3b012c095ccf4987d53f94772ee",
+    "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json": "d04ad34aa7c33a760ae08e6fd71b744e9f2e1ed081b6971de4d143b96dd6843d",
+    "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json": "776e9d81423cd0ab7b5b4308b37d7ee1fbb861f9edf3e1fa13c86e359586eadc",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154",
+    "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b",
+    "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json": "9958ecba104fcf2a40387d6e24bac1f18ddeb045cd938787f6064c093c9c1ff0",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json": "eb2d98c14deff5e8ca1d56db3168fa383a68cde6aaa58c0de003e54bc21745ec",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PAIRED_COMPARISONS.json": "a0dbe7fe324b0a5d630a61a700932c261f0d647e36ca63722c904da2386d4263",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PREDICTION_LOCKSET.json": "996aa1e3afeea649592050013f230b1ffc974c9f729092522a3d36045e950938",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json": "d08a4a3368eec632bef51221deb90f04acee679f3ee8e75a54bf52d4fe41ab7e",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+  },
+  "llm_calls": 0,
+  "milestone": "E10",
+  "milestone_status_audit": {
+    "E0": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "claim_ceiling_without_e11": "conditional on the frozen recipe-bank realization(s); NO 'LLM generation mechanism is generally superior' claim",
+      "e8_trigger_rule": "|SMD(q)| >= 0.25 between LLM and RND OR between LLM and DET on the final accepted q distribution, at any fold or frozen F1 bank",
+      "evidence_present": true,
+      "primary_hypotheses": [
+        "EXT-H1:LLM vs RND",
+        "EXT-H2:LLM vs DET",
+        "EXT-H3:LLM vs REAL-ONLY",
+        "EXT-H4:LLM-original vs LLM-SHUFFLE"
+      ],
+      "scientific_content_status": "COMPLETE_AND_LOCKED",
+      "status": "COMPLETE"
+    },
+    "E1": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "evidence_present": false,
+      "note": "Recipe analysis. Not consulted by any E10 criterion. Not present in this checkout; not a failure.",
+      "status": "EVIDENCE_NOT_PRESENT_IN_CHECKOUT"
+    },
+    "E2": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "evidence_present": true,
+      "large_q_confound_present": true,
+      "note": "q reconstruction + analysis. The frozen E8 trigger (|SMD(q)| >= 0.25) fired between LLM and both RND and DET (LLM accepted-candidate q is systematically lower).",
+      "pairwise_smd_q": {
+        "LLM_vs_DET": -0.364035596978209,
+        "LLM_vs_RND": -0.3258321159351046,
+        "RND_vs_DET": -0.04616823819654724
+      },
+      "q_mean_by_arm": {
+        "DET": 0.7498160130198812,
+        "LLM": 0.7055624212807743,
+        "RND": 0.7444091921497602
+      },
+      "status": "COMPLETE"
+    },
+    "E3": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "controls_complete": [
+        "historical_ba_sep_resummary_ddof1"
+      ],
+      "controls_gpu_required_not_run": [
+        "C0_same_dataset_null",
+        "C1_cross_domain_real",
+        "C3_matched_domain_syn_real"
+      ],
+      "controls_unsupported": [
+        "C2_pipeline_noop"
+      ],
+      "delta_ba_excess_computable": false,
+      "e3_status_field": "FEASIBILITY_AUDIT_DONE_PLUS_CPU_SAFE_HISTORICAL_RESUMMARY",
+      "evidence_present": true,
+      "note": "BA negative controls: only a descriptive CPU re-summary of historical BA_sep was completed. The discriminating controls C0/C1/C3 are NOT_RUN_GPU_REQUIRED and C2 is UNSUPPORTED; delta_BA_excess (generator-fingerprint vs domain/pipeline confound) cannot be computed. GPU-gated, not scientifically impossible.",
+      "status": "FEASIBILITY_AUDIT_ONLY_GPU_GATED",
+      "target_labels_accessed": false
+    },
+    "E4": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "e4_status_field": "FEASIBILITY_AUDIT_DONE_PLUS_CPU_SAFE_EXT_F1_T0_VS_T3_ORACLE_PLUS_TARGET_SCORE_DIST_PLUS_T1_T2",
+      "evidence_present": true,
+      "f2_f3_status": "GPU_REQUIRED",
+      "fold_scope": "EXT-F1 (source CASIA-FASD+MSU-MFSD, target SiW-Mv2)",
+      "note": "Threshold transfer: EXT-F1 only, computed on the frozen historical Flow-1 Track-G target evaluation (not a new EXT run). T0(source-dev) sits close to the T3 target oracle (diagnostic-only) for EXT-F1. EXT-F2/F3 GPU_REQUIRED.",
+      "status": "PARTIAL_EXT_F1_ONLY",
+      "t0_minus_oracle_acer_gap_video_mean": {
+        "DET": 0.006827468587936364,
+        "LLM": 0.004450245379555184,
+        "RND": 0.013951480978733777
+      },
+      "target_labels_accessed": true
+    },
+    "E5": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "acer_mean": 0.19985868922070238,
+      "acer_sample_sd": 0.004639321303298836,
+      "arm": "REAL_ONLY",
+      "evidence_present": true,
+      "fold_scope": "EXT-F1",
+      "note": "REAL-ONLY target evaluation COMPLETED for EXT-F1 only (mean ACER 0.1999, 5 detector seeds, frozen source-dev calibration). No REAL-ONLY result exists for EXT-F2/F3.",
+      "roc_auc_mean": 0.8850264870697158,
+      "seed_count": 5,
+      "status": "PARTIAL_EXT_F1_ONLY",
+      "target_scoring_executed": true,
+      "target_threshold_fitted": false
+    },
+    "E6": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "detector_trained": false,
+      "disposition": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+      "evidence_present": true,
+      "llm_api_calls": 0,
+      "note": "E6-v2 paired original/shuffle rerender: the frozen LLM_SHUFFLE_A matched Physics bank is infeasible under the frozen per-source-domain quota. No detector trained; supplies no semantic-ablation detector target ACER.",
+      "ready_for_training": false,
+      "status": "CLOSED",
+      "target_access": false,
+      "training_block_reason": "SHUFFLE_PHYSICS_MATCHED_BANK_INFEASIBLE_UNDER_FROZEN_DOMAIN_QUOTA"
+    },
+    "E7": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "all_folds_status": {
+        "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+        "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+        "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP"
+      },
+      "core_matched_banks_produced": "0 / 3",
+      "detector_trained": false,
+      "evidence_present": true,
+      "is_target_acer_evidence": false,
+      "note": "E7 unified 3-fold core synthetic evaluation terminated SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP in all 3 folds; 0/3 valid core matched synthetic banks; terminally blocked before any target ACER scoring. G-RND/G-DET/G-LLM/G-LLM-SHUFFLE-A are BLOCKED_BY_E7_CORE_BANK; G-REALONLY was READY (evaluated separately as E5).",
+      "per_condition_disposition": {
+        "G-DET": "BLOCKED_BY_E7_CORE_BANK",
+        "G-LLM": "BLOCKED_BY_E7_CORE_BANK",
+        "G-LLM-SHUFFLE-A": "BLOCKED_BY_E7_CORE_BANK",
+        "G-REALONLY": "READY",
+        "G-RND": "BLOCKED_BY_E7_CORE_BANK"
+      },
+      "status": "SCIENTIFICALLY_BLOCKED"
+    },
+    "E8": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "acer_means_by_arm": {
+        "DET": 0.35062824127249315,
+        "LLM": 0.3486714698409384,
+        "RND": 0.3515533744039539
+      },
+      "best_arm_by_acer_mean_descriptive_only": "LLM",
+      "detector_trained": true,
+      "evidence_present": true,
+      "fold_scope": "EXT-F1",
+      "inferential_status": "NOT_CLAIMED",
+      "label_use": {
+        "g8_structurally_isolated_from_training_and_g7": true,
+        "is_first_ever_blind_reveal": false,
+        "uses_target_labels_in_training_or_g7": false
+      },
+      "llm_superiority_supported": false,
+      "note": "E8 q-matched Track-G target evaluation COMPLETED for EXT-F1 (5 detector seeds/arm, 15 runs, scored against the frozen held-out target). Results are DESCRIPTIVE ONLY: inferential_status=NOT_CLAIMED, statistical_significance_claimed=false, llm_superiority_supported=false. Descriptive ACER rank: LLM (lowest) < DET < RND, margins ~0.002 ACER. G8 structurally isolated from training and G7; no target labels in training/G7; source-dev-only calibration.",
+      "paired_deltas": {
+        "DET_vs_LLM": {
+          "count_negative": 3,
+          "count_positive": 2,
+          "mean_delta": 0.0019567714315547715,
+          "n": 5
+        },
+        "RND_vs_DET": {
+          "count_negative": 2,
+          "count_positive": 3,
+          "mean_delta": 0.0009251331314607758,
+          "n": 5
+        },
+        "RND_vs_LLM": {
+          "count_negative": 2,
+          "count_positive": 3,
+          "mean_delta": 0.002881904563015547,
+          "n": 5
+        }
+      },
+      "pre_qmatch_comparison_available": false,
+      "statistical_significance_claimed": false,
+      "status": "EXECUTED_AND_SCORED"
+    },
+    "E9": {
+      "absence_rule": "reports/c_ext_q1q2_v1 is a git-ignored tree; an absent artifact here means 'not present in this checkout', never 'not executed' and never an LLM failure.",
+      "evidence_present": true,
+      "is_detector_performance_evidence": false,
+      "llm_calls": 0,
+      "note": "E9 conditional bank-selection robustness closed 9/9 realizations OK. Measures ONLY the structural stability of the frozen 384->256 recipe selection under deterministic pool perturbations (descriptive Jaccard). Explicitly NOT a claim of downstream detector superiority and NOT independent LLM generation replication; supplies NO detector-performance / target-ACER evidence.",
+      "realizations_blocked": 0,
+      "realizations_ok": 9,
+      "realizations_total": 9,
+      "status": "CLOSED",
+      "target_access": false
+    }
+  },
+  "module_relpath": "src/prism_fas/evaluation/c_ext_e10_gate.py",
+  "new_llm_calls_authorized": false,
+  "no_e3_e9_rerun": true,
+  "no_experiment_run": true,
+  "no_gpu": true,
+  "no_llm_call": true,
+  "no_training": true,
+  "output_subtree": "reports/c_ext_q1q2_v1/e10_gate",
+  "per_criterion_status": {
+    "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+    "C2_VALUE_OVER_REAL_ONLY": "NOT_ESTABLISHED",
+    "C3_SEMANTIC_ABLATION": "BLOCKED",
+    "C4_QUALITY_CONFOUND": "NOT_ESTABLISHED",
+    "C5_INTEGRITY": "NOT_ESTABLISHED"
+  },
+  "q1_mechanism_claim_status": "NOT_SUPPORTED",
+  "q1_mechanism_claim_supported": false,
+  "schema_version": "ext-q1q2-e10-gate-v2",
+  "status": "CLOSED",
+  "supersedes": "reports/c_ext_q1q2_v1/e10_gate/attempts/attempt1_incomplete_checkout",
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_labels_accessed": false,
+  "test_relpath": "tests/pipeline/test_c_ext_e10_gate.py"
+}

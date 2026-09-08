@@ -1,0 +1,124 @@
+{
+  "classification": "EVIDENCE_ONLY_DECISION_GATE",
+  "criteria": [
+    {
+      "criterion_id": "C1_CROSS_DOMAIN_SIGNAL",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: downstream_dependency_classification.E7_detector_experiment.target_acer_by_fold (LLM/DET/RND per fold)"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "Frozen LLM bank is not ranked last in at least 2/3 held-out folds; prefer LLM <= DET/RND in ACER.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 core matched synthetic bank: '0 / 3' produced; every fold {'EXT-F1': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP', 'EXT-F2': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP', 'EXT-F3': 'SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP'}",
+        "E7 per-condition dispositions: G-LLM=BLOCKED_BY_E7_CORE_BANK, G-RND=BLOCKED_BY_E7_CORE_BANK, G-DET=BLOCKED_BY_E7_CORE_BANK",
+        "E7 closure records is_target_acer_evidence = False"
+      ],
+      "positively_established": false,
+      "reason": "The G-LLM / G-RND / G-DET detector trainings this criterion needs are BLOCKED_BY_E7_CORE_BANK: 0/3 folds produced a valid core matched synthetic bank (SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP). No per-fold target ACER exists. Missing evidence is NOT a negative LLM result.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED",
+      "title": "CROSS-DOMAIN SIGNAL"
+    },
+    {
+      "criterion_id": "C2_VALUE_OVER_REAL_ONLY",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: target_acer_by_fold for arm G-LLM (BLOCKED_BY_E7_CORE_BANK)",
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: target_acer_by_fold for arm G-REALONLY (READY in E7 but never trained; E7 terminated before any Track-G detector training)"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "LLM is better than REAL-ONLY in at least 2/3 folds by descriptive mean ACER.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 per-condition: G-LLM=BLOCKED_BY_E7_CORE_BANK, G-REALONLY=READY",
+        "E7 terminated SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP in all 3 folds; no detector was trained, so G-REALONLY produced no target ACER either."
+      ],
+      "positively_established": false,
+      "reason": "The G-LLM training is BLOCKED_BY_E7_CORE_BANK and no G-REALONLY detector was ever trained (E7 stopped before Track-G training). The LLM-vs-REAL-ONLY target-ACER contrast cannot be formed. This is absence of evidence, not evidence LLM failed.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED",
+      "title": "VALUE OVER REAL-ONLY"
+    },
+    {
+      "criterion_id": "C3_SEMANTIC_ABLATION",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json :: target_acer_by_fold for G-LLM and G-LLM-SHUFFLE-A",
+        "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json :: a feasible LLM_SHUFFLE_A matched bank + paired detector target ACER"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+        "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "LLM-original is better than LLM-SHUFFLE-A in at least 2/3 folds, OR the effect is clear in EXT-F1 and does not strongly reverse in the other folds.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 per-condition: G-LLM=BLOCKED_BY_E7_CORE_BANK, G-LLM-SHUFFLE-A=BLOCKED_BY_E7_CORE_BANK",
+        "E6-v2 status = 'CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY', ready_for_training = False (SHUFFLE_PHYSICS_MATCHED_BANK_INFEASIBLE_UNDER_FROZEN_DOMAIN_QUOTA)",
+        "E7 Shuffle-A generation was never attempted (0/3 folds closed their core anchor bank); E6-v2 proved the frozen SHUFFLE-A matched Physics bank infeasible by 33 CASIA candidates."
+      ],
+      "positively_established": false,
+      "reason": "Both routes to LLM-original vs LLM-SHUFFLE-A detector target ACER are blocked upstream: E7 G-LLM-SHUFFLE-A is BLOCKED_BY_E7_CORE_BANK and E6-v2 closed CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY with E6_V2_READY_FOR_TRAINING = false. No semantic-ablation detector contrast exists. Absence of evidence is not a negative result.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED",
+      "title": "SEMANTIC ABLATION"
+    },
+    {
+      "criterion_id": "C4_QUALITY_CONFOUND",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json (E8 q-matched target evaluation closure -- acer_means_by_arm)",
+        "a measured |SMD(q)| below the frozen 0.25 trigger"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json",
+        "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json"
+      ],
+      "frozen_criterion_text": "There is no large q confound, OR the q-matched ablation still preserves the direction of an LLM advantage.",
+      "missing_evidence_due_to_upstream_scientific_block": false,
+      "observed_facts": [
+        "E8 training_performed = False; integration-audit status = 'READY_FOR_E8_TRAINING_INTEGRATION_IMPLEMENTATION'",
+        "E7_E8_TRIGGER_RECORD: E8_EXECUTED = False, E8_TRIGGER_FROM_E2 (|SMD(q)| >= 0.25 already fired) = True",
+        "E8 GPU readiness operational_correction = 'BLOCKED_E8_RUNNER_INTEGRATION_REQUIRED'",
+        "E8 target evaluation closure present = False"
+      ],
+      "positively_established": false,
+      "reason": "The frozen E0/E2 q-distribution trigger has already fired (|SMD(q)| >= 0.25), so 'no large q confound' cannot be asserted; and the E8 q-matched detector ablation that would test whether an LLM advantage survives q-matching was never executed (training_performed = false, no target evaluation closure). Neither branch of the frozen criterion is satisfiable from available evidence. This is an unexecuted milestone, not a negative LLM result.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_EVIDENCE_NOT_PRODUCED",
+      "status": "NOT_ESTABLISHED",
+      "title": "QUALITY CONFOUND"
+    },
+    {
+      "criterion_id": "C5_INTEGRITY",
+      "evidence_artifacts_missing": [
+        "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json (BA-controls / threshold-transfer / label-leakage diagnostics)",
+        "a completed core target evaluation for those diagnostics to run against"
+      ],
+      "evidence_artifacts_used": [
+        "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json"
+      ],
+      "frozen_criterion_text": "BA controls / threshold analysis do not reveal a bug or label leakage that invalidates the core evaluation.",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "observed_facts": [
+        "E7 closure integrity_and_leakage_statement (generation-feasibility scope): target_access=False, llm_api_calls=0, selector_changed=False, quality_threshold_lowered=False",
+        "E7 is_target_acer_evidence = False; core target evaluation completed = False",
+        "No BA-control / threshold-transfer / leakage diagnostic artifact exists in the extension evidence tree."
+      ],
+      "positively_established": false,
+      "reason": "There is no completed core target evaluation (E7 records is_target_acer_evidence = false; E8 target scoring never ran), and therefore no BA-controls / threshold-transfer / leakage diagnostics over one. Integrity of the core evaluation cannot be positively certified. No integrity red flag was observed either -- every consulted closure records target_access = false and llm_api_calls = 0 -- but the criterion needs a completed evaluation to clear, which does not exist.",
+      "required": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "NOT_ESTABLISHED",
+      "title": "INTEGRITY"
+    }
+  ],
+  "frozen_criteria_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx Section 17",
+  "milestone": "E10",
+  "schema_version": "ext-q1q2-e10-gate-v1"
+}

@@ -1,0 +1,9 @@
+classification=SUPERSEDED_ADDED_POST_OUTCOME_REQUIREMENTS
+reason=E10 attempt 2 evaluated C4 and C5 against stricter conditions than the FROZEN spec wording. C4 required a pre-q-match baseline and treated the descriptive q-matched LLM direction as insufficient; C5 required every BA control to be complete. The frozen spec (Section 17) requires only: C4 = no large q confound OR q-matched ablation retains the direction of LLM advantage (no significance / no baseline mandated); C5 = BA controls / threshold analysis do not detect a bug / label leakage that invalidates the core evaluation (does not require every control to be run).
+scientific_claim=false
+e11_authorized=false
+llm_calls=0
+target_raw_access=false
+retry_allowed=true
+resolution=re-evaluate C4 / C5 strictly against the frozen wording; C1/C2/C3 unchanged; conjunctive gate still fails.
+superseded_by=../.. (attempt 3, top-level E10_* artifacts)

@@ -1,0 +1,8 @@
+classification=INCOMPLETE_EVIDENCE_DISCOVERY
+reason=E10 attempt1 evaluated a checkout missing git-ignored historical E0/E2/E3/E4/E5 and authoritative E8 target-evaluation artifacts
+scientific_claim=false
+e11_authorized=false
+llm_calls=0
+target_raw_access=false
+retry_allowed=true
+resolution=restore historical evidence read-only and re-evaluate E10 gate

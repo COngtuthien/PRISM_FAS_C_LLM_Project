@@ -1,0 +1,111 @@
+{
+  "criteria_not_established": [
+    {
+      "criterion_id": "C1_CROSS_DOMAIN_SIGNAL",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED"
+    },
+    {
+      "criterion_id": "C2_VALUE_OVER_REAL_ONLY",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED"
+    },
+    {
+      "criterion_id": "C3_SEMANTIC_ABLATION",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED"
+    },
+    {
+      "criterion_id": "C4_QUALITY_CONFOUND",
+      "missing_evidence_due_to_upstream_scientific_block": false,
+      "resolution_label": "NOT_ESTABLISHED_EVIDENCE_NOT_PRODUCED",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "criterion_id": "C5_INTEGRITY",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "NOT_ESTABLISHED"
+    }
+  ],
+  "criteria_positively_established": [],
+  "decision_reason": "E11 is NOT authorized. The gate is conjunctive and fail-closed and 5 of 5 required criteria are not positively established: C1_CROSS_DOMAIN_SIGNAL = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C2_VALUE_OVER_REAL_ONLY = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C3_SEMANTIC_ABLATION = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C4_QUALITY_CONFOUND = NOT_ESTABLISHED [NOT_ESTABLISHED_EVIDENCE_NOT_PRODUCED]; C5_INTEGRITY = NOT_ESTABLISHED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]. Per the frozen decision rule: do NOT call the LLM again; E11_AUTHORIZED = false. Unavailable / upstream-blocked evidence is not evidence that the LLM failed.",
+  "e11_authorized": false,
+  "e9_counts_as_detector_performance_evidence": false,
+  "evidence_available_but_negative": false,
+  "gate_is_conjunctive": true,
+  "gate_is_fail_closed": true,
+  "interpretation_rule": "Unavailable evidence is not evidence that the LLM failed. Criteria whose upstream evidence is scientifically blocked or was never produced are NOT_ESTABLISHED / BLOCKED, never FAIL.",
+  "llm_calls": 0,
+  "new_llm_calls_authorized": false,
+  "per_criterion_status": {
+    "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+    "C2_VALUE_OVER_REAL_ONLY": "BLOCKED",
+    "C3_SEMANTIC_ABLATION": "BLOCKED",
+    "C4_QUALITY_CONFOUND": "NOT_ESTABLISHED",
+    "C5_INTEGRITY": "NOT_ESTABLISHED"
+  },
+  "q1_mechanism_claim_supported": false,
+  "required_criteria_total": 5,
+  "schema_version": "ext-q1q2-e10-gate-v1",
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_firewall_rollup": {
+    "any_consulted_artifact_reports_llm_calls": false,
+    "any_consulted_artifact_reports_target_access": false,
+    "consulted_artifacts": [
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+        "llm_calls": null,
+        "target_access": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json",
+        "llm_calls": 0,
+        "target_access": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+        "llm_calls": 0,
+        "target_access": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json",
+        "llm_calls": 0,
+        "target_access": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/execution/E8_GPU_READINESS_STATUS_CLARIFICATION.json",
+        "llm_calls": 0,
+        "target_access": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json",
+        "llm_calls": null,
+        "target_access": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+        "llm_calls": 0,
+        "target_access": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json",
+        "llm_calls": 0,
+        "target_access": false
+      }
+    ],
+    "e10_self": {
+      "llm_calls": 0,
+      "reads_only": "frozen reports/results JSON under reports/c_ext_q1q2_v1/",
+      "target_access": false,
+      "target_features_accessed": false,
+      "target_labels_accessed": false
+    }
+  },
+  "target_labels_accessed": false,
+  "training_performed": false
+}

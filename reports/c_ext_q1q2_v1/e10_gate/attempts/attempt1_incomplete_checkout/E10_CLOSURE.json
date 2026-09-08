@@ -1,0 +1,113 @@
+{
+  "classification": "EVIDENCE_ONLY_DECISION_GATE",
+  "decision_reason": "E11 is NOT authorized. The gate is conjunctive and fail-closed and 5 of 5 required criteria are not positively established: C1_CROSS_DOMAIN_SIGNAL = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C2_VALUE_OVER_REAL_ONLY = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C3_SEMANTIC_ABLATION = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C4_QUALITY_CONFOUND = NOT_ESTABLISHED [NOT_ESTABLISHED_EVIDENCE_NOT_PRODUCED]; C5_INTEGRITY = NOT_ESTABLISHED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]. Per the frozen decision rule: do NOT call the LLM again; E11_AUTHORIZED = false. Unavailable / upstream-blocked evidence is not evidence that the LLM failed.",
+  "e11_authorized": false,
+  "e11_work_permitted": false,
+  "gate_identity": "fc6eaf925c244c317be6c7a3edc9027e45fcc55052919a145963963ee10f53c7",
+  "inputs_digest": {
+    "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154",
+    "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b",
+    "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81",
+    "reports/c_ext_q1q2_v1/e8_qmatched/E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json": "c5a57348aedd416b0034f7410fc2f1fc7818456a5c6bded1f905f73e8f7e23fb",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/execution/E8_GPU_READINESS_STATUS_CLARIFICATION.json": "ecc066db2821ebb3bb667b088760a9b5bc48adc37a145bb110bfc80000782379",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+  },
+  "llm_calls": 0,
+  "milestone": "E10",
+  "milestone_status_audit": {
+    "E3": {
+      "note": "No report subtree for this extension sub-milestone exists in this checkout (reports/* is git-ignored and this subtree is not force-added). Its status cannot be resolved from artifacts here; this is NOT a scientific failure.",
+      "report_subtree": "reports/c_ext_q1q2_v1/e3",
+      "status": "NOT_PRESENT_IN_CHECKOUT"
+    },
+    "E4": {
+      "note": "No report subtree for this extension sub-milestone exists in this checkout (reports/* is git-ignored and this subtree is not force-added). Its status cannot be resolved from artifacts here; this is NOT a scientific failure.",
+      "report_subtree": "reports/c_ext_q1q2_v1/e4",
+      "status": "NOT_PRESENT_IN_CHECKOUT"
+    },
+    "E5": {
+      "note": "No report subtree for this extension sub-milestone exists in this checkout (reports/* is git-ignored and this subtree is not force-added). Its status cannot be resolved from artifacts here; this is NOT a scientific failure.",
+      "report_subtree": "reports/c_ext_q1q2_v1/e5",
+      "status": "NOT_PRESENT_IN_CHECKOUT"
+    },
+    "E6": {
+      "detector_trained": false,
+      "disposition": "CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY",
+      "llm_api_calls": 0,
+      "note": "E6-v2 paired original/shuffle rerender. The frozen LLM_SHUFFLE_A matched Physics bank is infeasible under the frozen per-source-domain quota (CASIA deficit of 33). No detector was trained. Supplies no semantic-ablation detector target ACER.",
+      "ready_for_training": false,
+      "status": "CLOSED",
+      "target_access": false,
+      "training_block_reason": "SHUFFLE_PHYSICS_MATCHED_BANK_INFEASIBLE_UNDER_FROZEN_DOMAIN_QUOTA"
+    },
+    "E7": {
+      "all_folds_status": {
+        "EXT-F1": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+        "EXT-F2": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP",
+        "EXT-F3": "SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP"
+      },
+      "core_matched_banks_produced": "0 / 3",
+      "detector_trained": false,
+      "is_target_acer_evidence": false,
+      "note": "E7 unified 3-fold core synthetic evaluation terminated SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP in all three folds; 0/3 valid core matched synthetic banks; terminally blocked before any target ACER scoring. G-RND/G-DET/G-LLM/G-LLM-SHUFFLE-A are BLOCKED_BY_E7_CORE_BANK; G-REALONLY was READY but never trained.",
+      "per_condition_disposition": {
+        "G-DET": "BLOCKED_BY_E7_CORE_BANK",
+        "G-LLM": "BLOCKED_BY_E7_CORE_BANK",
+        "G-LLM-SHUFFLE-A": "BLOCKED_BY_E7_CORE_BANK",
+        "G-REALONLY": "READY",
+        "G-RND": "BLOCKED_BY_E7_CORE_BANK"
+      },
+      "status": "CLOSED"
+    },
+    "E8": {
+      "detector_trained": false,
+      "gpu_readiness_operational_correction": "BLOCKED_E8_RUNNER_INTEGRATION_REQUIRED",
+      "integration_audit_status": "READY_FOR_E8_TRAINING_INTEGRATION_IMPLEMENTATION",
+      "note": "E8 q-matched selector, membership, training adapter and fixed-config runner are implemented and frozen, but NO E8 detector training, target inference, target scoring or closure was ever executed in this repository (training_performed = false; no target_eval_v1 artifacts). Any external claim that 'E8 q-matched EXT-F1 completed' or of a specific DET/LLM/RND descriptive ranking is UNVERIFIED -- no corroborating artifact exists -- and must not be read as a negative LLM result.",
+      "status": "NOT_EXECUTED",
+      "target_evaluation_closure_present": false,
+      "training_performed": false,
+      "trigger_record_E8_EXECUTED": false
+    },
+    "E9": {
+      "is_detector_performance_evidence": false,
+      "llm_calls": 0,
+      "note": "E9 conditional bank-selection robustness closed with 9/9 realizations OK. It measures ONLY the structural stability of the frozen 384->256 recipe selection under deterministic pool perturbations (descriptive Jaccard). It is explicitly NOT a claim of downstream detector superiority and NOT independent LLM generation replication; it supplies NO detector-performance / target-ACER evidence to any E10 criterion.",
+      "realizations_blocked": 0,
+      "realizations_ok": 9,
+      "realizations_total": 9,
+      "stability_metric_note": "Descriptive only. Structural selection stability is NOT a claim of downstream detector superiority and this is NOT independent LLM generation replication.",
+      "status": "CLOSED",
+      "target_access": false,
+      "target_features_accessed": false,
+      "target_labels_accessed": false
+    }
+  },
+  "module_relpath": "src/prism_fas/evaluation/c_ext_e10_gate.py",
+  "new_llm_calls_authorized": false,
+  "no_e7_e8_e9_rerun": true,
+  "no_experiment_run": true,
+  "no_gpu": true,
+  "no_llm_call": true,
+  "no_training": true,
+  "output_subtree": "reports/c_ext_q1q2_v1/e10_gate",
+  "per_criterion_status": {
+    "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+    "C2_VALUE_OVER_REAL_ONLY": "BLOCKED",
+    "C3_SEMANTIC_ABLATION": "BLOCKED",
+    "C4_QUALITY_CONFOUND": "NOT_ESTABLISHED",
+    "C5_INTEGRITY": "NOT_ESTABLISHED"
+  },
+  "q1_mechanism_claim_supported": false,
+  "schema_version": "ext-q1q2-e10-gate-v1",
+  "status": "CLOSED",
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_labels_accessed": false,
+  "test_relpath": "tests/pipeline/test_c_ext_e10_gate.py"
+}

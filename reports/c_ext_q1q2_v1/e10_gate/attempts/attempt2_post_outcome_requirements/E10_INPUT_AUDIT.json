@@ -1,0 +1,214 @@
+{
+  "absence_semantics": "An artifact absent under reports/c_ext_q1q2_v1 is EVIDENCE_NOT_PRESENT_IN_CHECKOUT -- never NOT_EXECUTED, never a failure.",
+  "attempt": 2,
+  "consumed_frozen_artifacts": [
+    {
+      "key": "e0_hypothesis_family",
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json",
+      "present": true,
+      "readable": true,
+      "role": "Frozen hypothesis family, E8 trigger rule, claim ceiling.",
+      "sha256": "c89ac58928370852a909fdf0927f1db987e83460f2a19648af035ec799fa5fd8"
+    },
+    {
+      "key": "e0_validation",
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_E0_VALIDATION.json",
+      "present": true,
+      "readable": true,
+      "role": "E0 completion status.",
+      "sha256": "e98042d4795d8ebe1aa431c28b71079bd3b9f5a727d979c65057ea133056f8ed"
+    },
+    {
+      "key": "e2_quality_analysis",
+      "path": "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json",
+      "present": true,
+      "readable": true,
+      "role": "C4: pairwise |SMD(q)| -- the q confound magnitude.",
+      "sha256": "1b427f18e42eee63c3a6fe5cfda64937bd57a45a2299a1c3c1ae322989250a6c"
+    },
+    {
+      "key": "e3_ba_controls",
+      "path": "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json",
+      "present": true,
+      "readable": true,
+      "role": "C5: BA negative controls (feasibility audit + historical resummary).",
+      "sha256": "7ae512a1911541edd4a69348a8c668901136afd165b91a92fce1f7895641f544"
+    },
+    {
+      "key": "e4_threshold_transfer",
+      "path": "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json",
+      "present": true,
+      "readable": true,
+      "role": "C5 + C1/C2 descriptive: EXT-F1 threshold-transfer diagnostic.",
+      "sha256": "52ea63f9a0a3f10432691ee914f5265c865ef3b012c095ccf4987d53f94772ee"
+    },
+    {
+      "key": "e5_target_scoring_result",
+      "path": "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json",
+      "present": true,
+      "readable": true,
+      "role": "C2: REAL-ONLY target ACER (EXT-F1 only).",
+      "sha256": "776e9d81423cd0ab7b5b4308b37d7ee1fbb861f9edf3e1fa13c86e359586eadc"
+    },
+    {
+      "key": "e5_real_only_lock",
+      "path": "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json",
+      "present": true,
+      "readable": true,
+      "role": "C2 provenance: E5 real-only lock.",
+      "sha256": "d04ad34aa7c33a760ae08e6fd71b744e9f2e1ed081b6971de4d143b96dd6843d"
+    },
+    {
+      "key": "e6_v2_final_closure",
+      "path": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+      "present": true,
+      "readable": true,
+      "role": "C3: E6-v2 paired original/shuffle matched-bank feasibility.",
+      "sha256": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154"
+    },
+    {
+      "key": "e7_three_fold_scientific_closure",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+      "present": true,
+      "readable": true,
+      "role": "C1/C2/C3/C5: E7 core-bank block + per-condition dispositions.",
+      "sha256": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81"
+    },
+    {
+      "key": "e7_e8_trigger_record",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json",
+      "present": true,
+      "readable": true,
+      "role": "C4: E0/E2 |SMD(q)| trigger record.",
+      "sha256": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b"
+    },
+    {
+      "key": "e8_training_integration_audit",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json",
+      "present": true,
+      "readable": true,
+      "role": "E8 audit: integration status.",
+      "sha256": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d"
+    },
+    {
+      "key": "e8_target_evaluation_closure",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json",
+      "present": true,
+      "readable": true,
+      "role": "C4 + E8 audit: authoritative q-matched target closure.",
+      "sha256": "9958ecba104fcf2a40387d6e24bac1f18ddeb045cd938787f6064c093c9c1ff0"
+    },
+    {
+      "key": "e8_target_score_result",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json",
+      "present": true,
+      "readable": true,
+      "role": "C4: per-arm / per-run q-matched target metrics.",
+      "sha256": "d08a4a3368eec632bef51221deb90f04acee679f3ee8e75a54bf52d4fe41ab7e"
+    },
+    {
+      "key": "e8_target_paired_comparisons",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PAIRED_COMPARISONS.json",
+      "present": true,
+      "readable": true,
+      "role": "C4: descriptive per-seed paired ACER deltas.",
+      "sha256": "a0dbe7fe324b0a5d630a61a700932c261f0d647e36ca63722c904da2386d4263"
+    },
+    {
+      "key": "e8_target_label_use_record",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json",
+      "present": true,
+      "readable": true,
+      "role": "C5: E8 label-use / firewall provenance.",
+      "sha256": "eb2d98c14deff5e8ca1d56db3168fa383a68cde6aaa58c0de003e54bc21745ec"
+    },
+    {
+      "key": "e8_target_prediction_lockset",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PREDICTION_LOCKSET.json",
+      "present": true,
+      "readable": true,
+      "role": "C5: E8 frozen target prediction lockset.",
+      "sha256": "996aa1e3afeea649592050013f230b1ffc974c9f729092522a3d36045e950938"
+    },
+    {
+      "key": "e9_closure",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+      "present": true,
+      "readable": true,
+      "role": "E9 audit: closure status, realization counts.",
+      "sha256": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+    },
+    {
+      "key": "e9_bank_stability",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json",
+      "present": true,
+      "readable": true,
+      "role": "E9 audit: proves E9 is descriptive selection-stability only.",
+      "sha256": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24"
+    }
+  ],
+  "corrections_vs_attempt1": [
+    {
+      "attempt1": "NOT_EXECUTED -- inferred from the ABSENCE of E8's git-ignored target_eval_v1/ artifacts in an incomplete checkout.",
+      "attempt2": "EXECUTED_AND_SCORED -- verified from the restored authoritative artifacts (E8_TARGET_EVALUATION_CLOSURE.json, E8_TARGET_SCORE_RESULT.json, E8_TARGET_PAIRED_COMPARISONS.json, E8_TARGET_LABEL_USE_RECORD.json, E8_TARGET_PREDICTION_LOCKSET.json). E8 q-matched Track-G target evaluation COMPLETED for EXT-F1 (5 detector seeds/arm); results DESCRIPTIVE ONLY, inferential significance NOT CLAIMED, no LLM superiority supported.",
+      "fix": "E10 now classifies an absent E8 target evaluation as EVIDENCE_NOT_PRESENT_IN_CHECKOUT, never NOT_EXECUTED; a 'completed' verdict requires the artifacts present and readable.",
+      "topic": "E8 classification"
+    },
+    {
+      "attempt1": "NOT_PRESENT_IN_CHECKOUT (report subtrees absent locally).",
+      "attempt2": "E3 = FEASIBILITY_AUDIT_ONLY_GPU_GATED (BA controls: only a descriptive historical re-summary; C0/C1/C3 GPU-required, C2 unsupported); E4 = PARTIAL_EXT_F1_ONLY (EXT-F1-only threshold transfer on the frozen historical Flow-1 eval); E5 = PARTIAL_EXT_F1_ONLY (REAL-ONLY target eval COMPLETED for EXT-F1 only, mean ACER 0.1999).",
+      "topic": "E3 / E4 / E5 classification"
+    },
+    {
+      "attempt1": "Prompt-supplied claim 'E8 descriptive ranking DET best, LLM middle, RND worst' recorded as UNVERIFIED.",
+      "attempt2": "Now verified from E8_TARGET_EVALUATION_CLOSURE.json: descriptive mean ACER LLM=0.3487 < DET=0.3506 < RND=0.3516 -- i.e. LLM is the lowest-ACER (descriptively best) arm, DET middle, RND worst. The prompt's earlier informal claim was inaccurate; the artifact is authoritative. Differences are ~0.002 ACER, inferential significance NOT CLAIMED.",
+      "topic": "Unverified external ranking claim"
+    }
+  ],
+  "ext_root": "reports/c_ext_q1q2_v1",
+  "git_ignored_evidence_tree": true,
+  "inputs_digest": {
+    "reports/c_ext_q1q2_v1/e0/EXT_E0_VALIDATION.json": "e98042d4795d8ebe1aa431c28b71079bd3b9f5a727d979c65057ea133056f8ed",
+    "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json": "c89ac58928370852a909fdf0927f1db987e83460f2a19648af035ec799fa5fd8",
+    "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json": "1b427f18e42eee63c3a6fe5cfda64937bd57a45a2299a1c3c1ae322989250a6c",
+    "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json": "7ae512a1911541edd4a69348a8c668901136afd165b91a92fce1f7895641f544",
+    "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json": "52ea63f9a0a3f10432691ee914f5265c865ef3b012c095ccf4987d53f94772ee",
+    "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json": "d04ad34aa7c33a760ae08e6fd71b744e9f2e1ed081b6971de4d143b96dd6843d",
+    "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json": "776e9d81423cd0ab7b5b4308b37d7ee1fbb861f9edf3e1fa13c86e359586eadc",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154",
+    "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b",
+    "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json": "9958ecba104fcf2a40387d6e24bac1f18ddeb045cd938787f6064c093c9c1ff0",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json": "eb2d98c14deff5e8ca1d56db3168fa383a68cde6aaa58c0de003e54bc21745ec",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PAIRED_COMPARISONS.json": "a0dbe7fe324b0a5d630a61a700932c261f0d647e36ca63722c904da2386d4263",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PREDICTION_LOCKSET.json": "996aa1e3afeea649592050013f230b1ffc974c9f729092522a3d36045e950938",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json": "d08a4a3368eec632bef51221deb90f04acee679f3ee8e75a54bf52d4fe41ab7e",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+  },
+  "milestone": "E10",
+  "milestone_subtrees_present": {
+    "E0": true,
+    "E1": false,
+    "E2": true,
+    "E3": true,
+    "E4": true,
+    "E5": true,
+    "E6": true,
+    "E7": true,
+    "E8": true,
+    "E9": true
+  },
+  "optional_positive_evidence_artifacts": [
+    {
+      "absence_meaning": "Would carry a POSITIVE certification for its criterion if produced. Absent -> the criterion resolves from the upstream-block / incomplete-controls analysis. Absence is reported, never fabricated, never a negative result.",
+      "key": "e10_integrity_diagnostics",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json",
+      "present": false,
+      "sha256": null
+    }
+  ],
+  "schema_version": "ext-q1q2-e10-gate-v2"
+}

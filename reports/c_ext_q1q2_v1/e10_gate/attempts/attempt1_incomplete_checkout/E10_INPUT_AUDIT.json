@@ -1,0 +1,118 @@
+{
+  "consumed_frozen_artifacts": [
+    {
+      "key": "e7_three_fold_scientific_closure",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+      "present": true,
+      "role": "C1/C2/C3 primary: E7 core-bank + per-condition dispositions + (optional) target_acer_by_fold; C5: integrity_and_leakage_statement.",
+      "sha256": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81"
+    },
+    {
+      "key": "e7_e8_trigger_record",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json",
+      "present": true,
+      "role": "C4: records the E0/E2 |SMD(q)| >= 0.25 trigger firing and E8 execution flags.",
+      "sha256": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b"
+    },
+    {
+      "key": "e6_v2_final_closure",
+      "path": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+      "present": true,
+      "role": "C3 alternate route: E6-v2 paired original/shuffle matched-bank feasibility (SHUFFLE-A infeasible).",
+      "sha256": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154"
+    },
+    {
+      "key": "e8_training_integration_audit",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json",
+      "present": true,
+      "role": "C4 + E8 audit: E8 training_performed flag and integration status.",
+      "sha256": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d"
+    },
+    {
+      "key": "e8_gpu_readiness_status_clarification",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/training/execution/E8_GPU_READINESS_STATUS_CLARIFICATION.json",
+      "present": true,
+      "role": "C4 + E8 audit: E8 operational correction status.",
+      "sha256": "ecc066db2821ebb3bb667b088760a9b5bc48adc37a145bb110bfc80000782379"
+    },
+    {
+      "key": "e8_frozen_f1_input_binding_amendment",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json",
+      "present": true,
+      "role": "C4: E8 q-matched construction binding / any measured |SMD(q)|.",
+      "sha256": "c5a57348aedd416b0034f7410fc2f1fc7818456a5c6bded1f905f73e8f7e23fb"
+    },
+    {
+      "key": "e9_closure",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+      "present": true,
+      "role": "E9 audit: closure status, realization counts, firewall flags.",
+      "sha256": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+    },
+    {
+      "key": "e9_bank_stability",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json",
+      "present": true,
+      "role": "E9 audit: proves E9 is descriptive selection-stability only, NOT detector-performance evidence.",
+      "sha256": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24"
+    }
+  ],
+  "ext_root": "reports/c_ext_q1q2_v1",
+  "inputs_digest": {
+    "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154",
+    "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b",
+    "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81",
+    "reports/c_ext_q1q2_v1/e8_qmatched/E8_FROZEN_F1_INPUT_BINDING_AMENDMENT.json": "c5a57348aedd416b0034f7410fc2f1fc7818456a5c6bded1f905f73e8f7e23fb",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json": "ABSENT",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json": "36852d6f4ee4a1081942bd3a587f8b4bd50cb3ee002362fb4b74f6e2e6bbae0d",
+    "reports/c_ext_q1q2_v1/e8_qmatched/training/execution/E8_GPU_READINESS_STATUS_CLARIFICATION.json": "ecc066db2821ebb3bb667b088760a9b5bc48adc37a145bb110bfc80000782379",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24",
+    "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+  },
+  "milestone": "E10",
+  "milestone_subtrees_present": {
+    "E3": false,
+    "E4": false,
+    "E5": false,
+    "E6": true,
+    "E7": true,
+    "E8": true,
+    "E9": true
+  },
+  "optional_positive_evidence_artifacts": [
+    {
+      "absence_meaning": "Would carry POSITIVE comparative evidence for a criterion if a real, authorized upstream run produced it. Absent here -> the criterion resolves from the upstream-block / not-produced analysis. Absence is reported, never fabricated, and is not a negative result.",
+      "key": "e8_target_evaluation_closure",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json",
+      "present": false,
+      "sha256": null
+    },
+    {
+      "absence_meaning": "Would carry POSITIVE comparative evidence for a criterion if a real, authorized upstream run produced it. Absent here -> the criterion resolves from the upstream-block / not-produced analysis. Absence is reported, never fabricated, and is not a negative result.",
+      "key": "e8_target_score_result",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json",
+      "present": false,
+      "sha256": null
+    },
+    {
+      "absence_meaning": "Would carry POSITIVE comparative evidence for a criterion if a real, authorized upstream run produced it. Absent here -> the criterion resolves from the upstream-block / not-produced analysis. Absence is reported, never fabricated, and is not a negative result.",
+      "key": "e10_integrity_diagnostics",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_INTEGRITY_DIAGNOSTICS.json",
+      "present": false,
+      "sha256": null
+    }
+  ],
+  "schema_version": "ext-q1q2-e10-gate-v1",
+  "unverified_external_claims": [
+    {
+      "claim": "E8 q-matched EXT-F1 completed.",
+      "verification": "NOT CORROBORATED by any artifact in this repository. E8_TRAINING_INTEGRATION_AUDIT.training_performed = false; E7_E8_TRIGGER_RECORD.E8_EXECUTED = false; no reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/ artifacts exist."
+    },
+    {
+      "claim": "E8 descriptive ranking was DET best, LLM middle, RND worst.",
+      "verification": "NO SUCH ARTIFACT EXISTS. Treated as an unverified external claim; explicitly NOT converted into a negative scientific result for the LLM arm."
+    }
+  ]
+}

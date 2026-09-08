@@ -1,0 +1,162 @@
+{
+  "criteria_not_established": [
+    {
+      "criterion_id": "C1_CROSS_DOMAIN_SIGNAL",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED"
+    },
+    {
+      "criterion_id": "C2_VALUE_OVER_REAL_ONLY",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_2_OF_3_UNREACHABLE_MATCHED_COMPARATOR_BLOCKED",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "criterion_id": "C3_SEMANTIC_ABLATION",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE",
+      "status": "BLOCKED"
+    },
+    {
+      "criterion_id": "C4_QUALITY_CONFOUND",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_QMATCH_DIRECTION_DESCRIPTIVE_ONLY",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "criterion_id": "C5_INTEGRITY",
+      "missing_evidence_due_to_upstream_scientific_block": true,
+      "resolution_label": "NOT_ESTABLISHED_CONTROLS_INCOMPLETE",
+      "status": "NOT_ESTABLISHED"
+    }
+  ],
+  "criteria_positively_established": [],
+  "decision_reason": "E11 is NOT authorized. The gate is conjunctive and fail-closed and 5 of 5 required criteria are not positively established: C1_CROSS_DOMAIN_SIGNAL = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C2_VALUE_OVER_REAL_ONLY = NOT_ESTABLISHED [NOT_ESTABLISHED_2_OF_3_UNREACHABLE_MATCHED_COMPARATOR_BLOCKED]; C3_SEMANTIC_ABLATION = BLOCKED [NOT_ESTABLISHED_DUE_TO_BLOCKED_EVIDENCE]; C4_QUALITY_CONFOUND = NOT_ESTABLISHED [NOT_ESTABLISHED_QMATCH_DIRECTION_DESCRIPTIVE_ONLY]; C5_INTEGRITY = NOT_ESTABLISHED [NOT_ESTABLISHED_CONTROLS_INCOMPLETE]. Per the frozen decision rule: do NOT call the LLM again; E11_AUTHORIZED = false. Unavailable / upstream-blocked evidence is not evidence that the LLM failed.",
+  "e11_authorized": false,
+  "e9_counts_as_detector_performance_evidence": false,
+  "evidence_available_but_negative": false,
+  "gate_is_conjunctive": true,
+  "gate_is_fail_closed": true,
+  "interpretation_rule": "Unavailable evidence is not evidence that the LLM failed. Criteria whose upstream evidence is scientifically blocked or is simply not present in this checkout are NOT_ESTABLISHED / BLOCKED, never FAIL and never NOT_EXECUTED-from-absence.",
+  "llm_calls": 0,
+  "new_llm_calls_authorized": false,
+  "per_criterion_status": {
+    "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+    "C2_VALUE_OVER_REAL_ONLY": "NOT_ESTABLISHED",
+    "C3_SEMANTIC_ABLATION": "BLOCKED",
+    "C4_QUALITY_CONFOUND": "NOT_ESTABLISHED",
+    "C5_INTEGRITY": "NOT_ESTABLISHED"
+  },
+  "q1_mechanism_claim_reason": "The Q1 mechanism claim is NOT supported: 0/5 (or not all) gate criteria are positively established. E8 completed but is explicitly descriptive only (inferential_status=NOT_CLAIMED, statistical_significance_claimed=false, llm_superiority_supported=false); the mechanism-testing hypotheses EXT-H1/EXT-H2 need E7 (blocked) and EXT-H4 needs the SHUFFLE-A ablation (blocked); and E0's frozen claim ceiling forbids a general 'LLM generation mechanism is superior' claim without E11.",
+  "q1_mechanism_claim_status": "NOT_SUPPORTED",
+  "q1_mechanism_claim_supported": false,
+  "required_criteria_total": 5,
+  "schema_version": "ext-q1q2-e10-gate-v2",
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_firewall_rollup": {
+    "consulted_artifacts": [
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e0/EXT_E0_VALIDATION.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json",
+        "llm_calls": 0,
+        "target_access_or_labels": true
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json",
+        "llm_calls": null,
+        "target_access_or_labels": true
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/training/E8_TRAINING_INTEGRATION_AUDIT.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PAIRED_COMPARISONS.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json",
+        "llm_calls": null,
+        "target_access_or_labels": null
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PREDICTION_LOCKSET.json",
+        "llm_calls": null,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      },
+      {
+        "artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json",
+        "llm_calls": 0,
+        "target_access_or_labels": false
+      }
+    ],
+    "e10_self": {
+      "llm_calls": 0,
+      "note": "Upstream E4/E5/E8 DID open target labels for their own authorized G8 scoring; E10 consumes only their frozen derived summaries and opens no raw target artifact itself.",
+      "reads_only": "frozen reports/results JSON under reports/c_ext_q1q2_v1/",
+      "target_access": false,
+      "target_features_accessed": false,
+      "target_labels_accessed": false
+    }
+  },
+  "target_labels_accessed": false,
+  "training_performed": false
+}
