@@ -1,0 +1,15 @@
+classification=TECHNICAL_RECONSTRUCTION_PIPELINE_MISMATCH
+stage=E9_FROZEN_POOL_MATERIALIZATION
+attempt=1
+implementation_commit=db33865019092d62df22e39eba514a351a040dfa
+failure_arm=LLM
+failure_type=MISSING_SYSTEM_ASSIGNED_RECIPE_ID
+root_cause=E9 reconstruction called parse_recipe directly on historical provider semantic payloads; historical C3 pipeline assigns recipe_id system-side before typed validation
+scientific_selection_started=false
+milp_selection_count=0
+target_access=false
+target_labels_accessed=false
+target_features_accessed=false
+llm_calls=0
+raw_provider_archives_modified=false
+retry_policy=NOT_ALLOWED_UNTIL_RECONSTRUCTION_PATH_IS_CORRECTED_AND_TESTED

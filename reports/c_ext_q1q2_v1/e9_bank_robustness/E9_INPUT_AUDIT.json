@@ -179,7 +179,88 @@
       "was": "execution binding could be frozen before the LLM pool existed."
     }
   },
-  "schema_version": "e9-input-audit-v3",
+  "provenance_correction_4": {
+    "applied": "fourth review pass -- attempt-1 LLM reconstruction bug",
+    "attempt1": {
+      "attempt1_rnd_det_pools_still_correct": "YES -- the corrected evaluate_pool replay produces byte-identical RND/DET pool files (same sha256); future writes are idempotent no-ops. Not deleted, not overwritten.",
+      "class": "TECHNICAL_RECONSTRUCTION_PIPELINE_MISMATCH",
+      "classification_file": "reports/c_ext_q1q2_v1/e9_bank_robustness/attempts/E9_MATERIALIZE_ATTEMPT1_CLASSIFICATION.txt",
+      "failure_arm": "LLM",
+      "files_attempt1_wrote_before_crash": {
+        "E9_INPUT_BINDING.json": "(regenerated)",
+        "E9_PREFLIGHT.json": "(regenerated)",
+        "LLM_POOL_384.jsonl": "NOT WRITTEN (crash occurred on the LLM arm)",
+        "frozen_pools/DET_POOL_384.jsonl": "82035ff67ce129bd36fe411a93c05bf0209e45c66462698b2027f0565c9786c7",
+        "frozen_pools/RND_POOL_384.jsonl": "d72c8ef480dbc66f570e53fdd0bca422495c79d19e4a595e5b42b156dde39fd1"
+      },
+      "milp_selection_count": 0,
+      "root_cause": "_reconstruct_llm_pool called prism_fas.recipes.schema.parse_recipe directly on historical provider semantic payloads. Historical provider payloads carry NO recipe_id (it is system-owned, SYSTEM_OWNED_KEYS), so parse_recipe raised RecipeSchemaError: RecipeV11.recipe_id Field required. This was an approximate parser, not the historical C3 ingestion.",
+      "scientific_selection_started": false
+    },
+    "correction": {
+      "code": "c_ext_e9_bank_robustness.py: _reconstruct_llm_pool / _reconstruct_control_pool now delegate to _replay_c3_eligible_pool, which reproduces scripts/c3_scientific_arms verbatim: _llm_slots_from_frozen_archives (12 archives in C3_LIVE_GENERATION_STATE order) or _control_slots_from_frozen_schedule (draft_schedule), then prism_fas.recipes.eligibility.evaluate_pool with the frozen ontology + c2c_route_policy. Fails closed on ANY rejection, on eligible_pool_identity != the frozen constant, or on any selected-256 identity missing from the pool. Removed the direct parse_recipe path and _positional_recipe_id / _assert_pool_identity.",
+      "identity_proof": {
+        "DET_384": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2 (MATCH)",
+        "LLM_384": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978 (MATCH)",
+        "RND_384": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5 (MATCH)",
+        "equivalence_to_script": "byte-identical recipe stream to scripts/c3_scientific_arms.build_pools() for RND/DET/LLM (test_13)",
+        "llm_count": 384,
+        "llm_rejected": 0,
+        "selected_256_members": "256/256 for all three arms"
+      }
+    },
+    "historical_c3_ingestion_contract": {
+      "authoritative_replay_script": "scripts/c3_scientific_arms.py (stage=eligibility|freeze)",
+      "authoritative_validator": "prism_fas.recipes.eligibility.evaluate_pool",
+      "duplicate_detection": "evaluate_pool keeps seen_content: dict[content_identity -> slot_id] across the WHOLE 384 stream; content_identity = RecipePlanner.content_identity (canonical JSON with recipe_id removed). A later slot duplicating an earlier slot's content is rejected at 'deduplication' with duplicate_of_slot_id pointing back.",
+      "eligible_pool_identity_algo": "prism_fas.llm.bank_lock.sha256_text(canonical_text(sorted([verdict.canonical_sha256 for verdict in pool.verdicts if verdict.eligible]))); canonical_text = json.dumps(x, sort_keys=True, separators=(',',':'), ensure_ascii=False)",
+      "index_starts_at": 0,
+      "ledger_artifacts": [
+        "reports/c3/live/C3_LIVE_GENERATION_STATE.json (12 records, slot_start/slot_end, COMPLETED_VALID)",
+        "reports/c3/scientific/C3_ELIGIBILITY.json (0 rejected/384)",
+        "reports/c3/scientific/C3_FAIRNESS_AUDIT.json",
+        "assets/recipe_banks/c3/llm/C3_BANK.json (eligible_pool_identity 4032a7f8..., selected_recipe_identities)"
+      ],
+      "llm_slot_source": "reports/c3/live/raw_responses/<logical_request_id>.json, iterated in the FROZEN PLAN ORDER of reports/c3/live/C3_LIVE_GENERATION_STATE.json (record.logical_request_index 0..11); NOT filesystem enumeration order.",
+      "next_recipe_index_per_slot": "record.slot_start (== 32 * logical_request_index)",
+      "raw_archive_structure": "{attempt_count, logical_request_id, logical_request_index, raw_response (JSON string {'recipes':[32 objects]}), request_identity, result{...,raw_response_sha256,slot_id,...}, slot_start, slot_end}",
+      "recipe_id_assignment": "SYSTEM-OWNED. evaluate_pool does prepared = {**payload, 'recipe_id': assign_recipe_id(index)} BEFORE validate_payload; assign_recipe_id(index) = 'R-%06d' % index where index is the FLAT slot index 0..383 (prism_fas.llm.pipeline.assign_recipe_id). Provider forbidden to supply it; prism_fas.llm.pipeline.RecipePlanner._validate_candidate rejects a supplied one as REJECTED_SYSTEM_OWNED_FIELD during live generation.",
+      "recipes_requested_per_slot": 32,
+      "rejections": "0 of 384 for every arm (reports/c3/scientific/C3_ELIGIBILITY.json)",
+      "route_policy": "configs/version_c/llm/c2c_route_policy.yaml, route_policy_identity 209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7, allowed_scientific_generator_route = (physics, gpat)",
+      "selected_recipe_id_map": "selected R-000032 -> 028c8979c3bf5fae..., R-000150 -> 01d19bdb1e036f4b..., R-000341 -> 00bc1db0b70278fa...; each is eligible and in the historical selected 256.",
+      "twelve_slots": "logical_request_index 0..11; slot_start = 32*index; slot_end = slot_start+31; slot_count = 32; each raw_response parses to exactly 32 recipes; all 12 result.ok=True finish_reason=completed; raw_response_sha256 self-consistent."
+    },
+    "raw_archives": {
+      "not_modified": true,
+      "restored_into_worktree": "reports/c3/live/raw_responses/c3-llm-req-01..12.json (git-ignored)",
+      "sha256": {
+        "c3-llm-req-01.json": "ca75e7e5a3aad4973d9b7ecf87e7663ace2796988a0c786f87b12a6b31eee443",
+        "c3-llm-req-02.json": "fcd7ee55cda09f8bccbc92dde3a58edf6a3a19f4610f131716c82bb217110d32",
+        "c3-llm-req-03.json": "9b9e84475c3c3f75a256ac5e91d2e8a31f239ca88b30bf77224489b02af331df",
+        "c3-llm-req-04.json": "9ae160c1007f9ed9d0e80282ac884ac556b073e5dc5de5b4767ecec2c7fc317a",
+        "c3-llm-req-05.json": "e71cf29613e4fb78a05ca8e6b461bd80014ee1aac4aa9cf08810b6702e0648a5",
+        "c3-llm-req-06.json": "f18c42b94d4b98e1c65bc232adc5ef4cb2d68c35c27cd03b9e20fa544db68699",
+        "c3-llm-req-07.json": "8b0219c4e8b08189af10756e0c247f30e3665c301aacf9dc75977ee78a6a0b46",
+        "c3-llm-req-08.json": "a602130029cb598941b031e92f25d251526edc8d34202bf83403da46b6d9f3de",
+        "c3-llm-req-09.json": "27c7cc30688543247bd70254792a505b620284979267c23ae7817ac3f69e8754",
+        "c3-llm-req-10.json": "f03c611d3afb75b8751215005845d13ef2580e2d9590c663dd2af1ff78f52526",
+        "c3-llm-req-11.json": "8af59554d843a8ffedae2a8dbb693eef4b3e0f1871ee7a8f26d4ee8c19371159",
+        "c3-llm-req-12.json": "a611e66b20bf46079a53cf56cf110b760b36c6b139c1520a85dd1847b9da4c09"
+      },
+      "source": "/home/cong/PRISM_FAS_C_GPU_FINAL_SNAPSHOT/reports/c3/live/raw_responses/"
+    },
+    "state": {
+      "correction_is_additive_new_commit": true,
+      "implementation_commit_at_this_audit": "db33865019092d62df22e39eba514a351a040dfa",
+      "llm_calls": 0,
+      "milp_scientific_selection_count": 0,
+      "target_access": false,
+      "target_features_accessed": false,
+      "target_labels_accessed": false
+    }
+  },
+  "schema_version": "e9-input-audit-v4",
   "scientific_execution_performed": false,
   "target_access": false,
   "target_features_accessed": false,

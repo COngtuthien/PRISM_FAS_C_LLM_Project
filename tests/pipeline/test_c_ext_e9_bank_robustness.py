@@ -443,25 +443,51 @@ PROTECTED = [
 ]
 
 
-def _hashes():
+def _hashes(root=REPO):
     out = {}
     for rel in PROTECTED:
-        p = REPO / rel
+        p = root / rel
         if p.exists():
             out[rel] = hashlib.sha256(p.read_bytes()).hexdigest()
     return out
 
 
-def test_preflight_does_not_mutate_protected_artifacts():
-    before = _hashes()
-    e9.preflight(REPO)
-    assert _hashes() == before
+def _materialize_fixture(tmp_path):
+    """A hermetic repo copy carrying everything preflight/materialize read, so
+    the tests never write into REPO's (git-ignored) E9 namespace."""
+    root = tmp_path / "repo"
+    for rel in (*e9.PROTECTED_HISTORICAL_RELPATHS,
+                e9.C3_ROUTE_POLICY_RELPATH,
+                e9.C3_LLM_LIVE_STATE_RELPATH,
+                e9.C3_SCIENTIFIC_BANK_LOCK_RELPATH,
+                "reports/c3/scientific/C3_ELIGIBILITY.json",
+                "assets/recipe_banks/c3/rnd/recipes.jsonl",
+                "assets/recipe_banks/c3/det/recipes.jsonl",
+                "assets/recipe_banks/c3/llm/recipes.jsonl"):
+        src = REPO / rel
+        if src.exists():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, root / rel)
+    raw = REPO / "reports/c3/live/raw_responses"
+    if raw.exists():
+        (root / "reports/c3/live/raw_responses").mkdir(parents=True, exist_ok=True)
+        for f in raw.glob("c3-llm-req-*.json"):
+            shutil.copy2(f, root / "reports/c3/live/raw_responses" / f.name)
+    return root
 
 
-def test_materialize_does_not_mutate_protected_artifacts():
-    before = _hashes()
-    e9.materialize_frozen_pools(REPO)
-    assert _hashes() == before
+def test_preflight_does_not_mutate_protected_artifacts(tmp_path):
+    root = _materialize_fixture(tmp_path)
+    before = _hashes(root)
+    e9.preflight(root)
+    assert _hashes(root) == before
+
+
+def test_materialize_does_not_mutate_protected_artifacts(tmp_path):
+    root = _materialize_fixture(tmp_path)
+    before = _hashes(root)
+    e9.materialize_frozen_pools(root)
+    assert _hashes(root) == before
 
 
 def test_e9_write_paths_are_confined_to_the_e9_subtree():
@@ -521,23 +547,239 @@ def test_successful_realization_preserves_objective_and_trace(monkeypatch):
 @pytest.mark.parametrize("arm", ["RND", "DET"])
 def test_reconstructed_pool_identity_equals_c3_eligible_pool_identity(arm):
     recon = e9._reconstruct_control_pool(REPO, arm)
-    from prism_fas.recipes.canonical import recipe_hash
-    from prism_fas.evaluation.c_ext_common import sha256_json
-
-    ids = sorted(recipe_hash(r) for r in recon["recipes"])
-    assert len(ids) == 384
+    assert recon["method"] == "historical_c3_evaluate_pool_replay"
+    assert len(recon["recipes"]) == 384
+    assert recon["pool_identity"] == e9.C3_ELIGIBLE_POOL_IDENTITY[arm]
     bank = json.loads((REPO / e9.C3_BANK_RELPATHS[arm]).read_text())
-    assert sha256_json(ids) == bank["eligible_pool_identity"]
-    assert recon["provenance"]["schedule_identity"] == \
-        recon["provenance"]["frozen_schedule_identity"]
+    assert recon["pool_identity"] == bank["eligible_pool_identity"]
+    p = recon["provenance"]
+    assert p["schedule_identity"] == p["frozen_schedule_identity"]
+    assert p["rejected_count"] == 0 and p["eligible_count"] == 384
+    assert p["route_policy_identity"] == e9.C3_ROUTE_POLICY_IDENTITY
 
 
-def test_llm_reconstruction_blocks_without_raw_archives():
-    raw = REPO / "reports/c3/live/raw_responses"
-    if raw.exists() and len(list(raw.glob("c3-llm-req-*.json"))) == 12:
-        pytest.skip("LLM raw archives present -- the BLOCKED path is not exercised here")
-    with pytest.raises(e9.E9Blocked):
-        e9._reconstruct_llm_pool(REPO)
+_RAW = REPO / "reports/c3/live/raw_responses"
+_HAVE_LLM_ARCHIVES = _RAW.exists() and len(list(_RAW.glob("c3-llm-req-*.json"))) == 12
+
+
+def test_llm_reconstruction_blocks_without_raw_archives(tmp_path):
+    # exercised on a repo layout with NO raw_responses/ present
+    fake_repo = tmp_path / "repo"
+    (fake_repo / "reports/c3/live").mkdir(parents=True)
+    shutil.copy2(REPO / e9.C3_LLM_LIVE_STATE_RELPATH, fake_repo / e9.C3_LLM_LIVE_STATE_RELPATH)
+    _copy_real(fake_repo, e9.ONTOLOGY_RELPATH)
+    _copy_real(fake_repo, e9.C3_ROUTE_POLICY_RELPATH)
+    with pytest.raises(e9.E9Blocked) as exc:
+        e9._reconstruct_llm_pool(fake_repo)
+    assert "archives are absent" in str(exc.value) or "restore them" in str(exc.value)
+
+
+# --------------------------------------------------------------------------- #
+# 18. historical C3 ingestion replay -- the attempt-1 correction
+# --------------------------------------------------------------------------- #
+
+from prism_fas.recipes.eligibility import evaluate_pool as _evaluate_pool  # noqa: E402
+from prism_fas.llm.pipeline import assign_recipe_id as _assign_recipe_id  # noqa: E402
+from prism_fas.recipes.ontology import load_ontology as _load_ontology  # noqa: E402
+from prism_fas.llm.route_policy import load_route_policy as _load_route_policy  # noqa: E402
+
+
+def _ont_and_rp():
+    ont = _load_ontology(REPO / e9.ONTOLOGY_RELPATH)
+    rp = _load_route_policy(REPO / e9.C3_ROUTE_POLICY_RELPATH)
+    rp.validate_against(ont)
+    return ont, rp
+
+
+def _one_raw_slot_payload():
+    """A single historical provider semantic payload (no recipe_id) from archive 1."""
+    stored = json.loads((_RAW / "c3-llm-req-01.json").read_text())
+    return json.loads(stored["raw_response"])["recipes"][0]
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_1_historical_payload_without_recipe_id_is_valid_replay_input():
+    payload = _one_raw_slot_payload()
+    assert "recipe_id" not in payload                       # historical: provider never supplies it
+    ont, rp = _ont_and_rp()
+    pool = _evaluate_pool(arm="LLM", candidates=[payload], slot_ids=["LLM_SLOT_000"],
+                          ontology=ont, route_policy=rp, bank_id="c3_llm",
+                          raw_slots=1, minimum_required=1)
+    assert len(pool.recipes) == 1                           # accepted, not rejected for missing id
+    assert pool.verdicts[0].eligible is True
+    assert pool.verdicts[0].recipe_id == "R-000000"
+
+
+def test_2_recipe_id_is_system_assigned_R6_by_flat_index():
+    assert _assign_recipe_id(0) == "R-000000"
+    assert _assign_recipe_id(32) == "R-000032"
+    assert _assign_recipe_id(341) == "R-000341"
+    assert _assign_recipe_id(383) == "R-000383"
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_3_provider_supplied_recipe_id_is_forbidden():
+    from prism_fas.llm.pipeline import (CandidateOutcome, RecipePlanner,
+                                        SYSTEM_OWNED_KEYS)
+
+    assert "recipe_id" in SYSTEM_OWNED_KEYS                  # system-owned, not provider
+    # every historical archive payload complies (no recipe_id supplied by the model)
+    for f in sorted(_RAW.glob("c3-llm-req-*.json")):
+        for item in json.loads(json.loads(f.read_text())["raw_response"])["recipes"]:
+            assert "recipe_id" not in item
+    # and the live-generation validator rejects a candidate that DOES supply one
+    import types
+    ont, _rp = _ont_and_rp()
+    cfg = types.SimpleNamespace(allow_ontology_aliases=False,
+                                quota=types.SimpleNamespace(billing_tier="free"))
+    planner = RecipePlanner(provider=object(), config=cfg, ontology=ont)
+    res = planner._validate_candidate({**_one_raw_slot_payload(), "recipe_id": "R-999999"},
+                                      index=0, slot_id="LLM_SLOT_000", recipe_index=0)
+    assert res.outcome == CandidateOutcome.REJECTED_SYSTEM_OWNED_FIELD
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_4_replay_is_independent_of_filesystem_enumeration_order(tmp_path, monkeypatch):
+    # copy the 12 archives + state into a fresh repo whose directory listing is
+    # in a different order, and assert the reconstructed identity is unchanged.
+    fr = tmp_path / "repo"
+    (fr / "reports/c3/live/raw_responses").mkdir(parents=True)
+    for name in sorted(p.name for p in _RAW.glob("c3-llm-req-*.json")):
+        shutil.copy2(_RAW / name, fr / "reports/c3/live/raw_responses" / name)
+    shutil.copy2(REPO / e9.C3_LLM_LIVE_STATE_RELPATH, fr / e9.C3_LLM_LIVE_STATE_RELPATH)
+    for rel in (e9.ONTOLOGY_RELPATH, e9.C3_ROUTE_POLICY_RELPATH,
+                e9.C3_SELECTED_RECIPES_RELPATHS["LLM"], e9.C3_BANK_RELPATHS["LLM"]):
+        _copy_real(fr, rel)
+
+    # force a reversed directory-iteration order everywhere the code might list
+    real_iterdir = Path.iterdir
+    monkeypatch.setattr(Path, "iterdir",
+                        lambda self: list(reversed(list(real_iterdir(self)))))
+    recon = e9._reconstruct_llm_pool(fr)
+    assert recon["pool_identity"] == \
+        "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978"
+    assert recon["provenance"]["slot_order"].startswith("frozen plan order")
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_5_6_exact_frozen_slot_ordering_and_flat_index_progression():
+    ids, payloads, prov = e9._llm_slots_from_frozen_archives(REPO)
+    assert ids == [f"LLM_SLOT_{i:03d}" for i in range(384)]
+    assert len(payloads) == 384
+    # slot_start = 32 * logical_request_index (frozen 12x32 plan)
+    from prism_fas.pipeline.adapters.c3_live import LiveGenerationState
+    state = LiveGenerationState.load(REPO / e9.C3_LLM_LIVE_STATE_RELPATH)
+    for k, rec in enumerate(state.requests):
+        assert rec.slot_start == 32 * k and rec.slot_count == 32
+    # and the eligible recipe_ids run R-000000..R-000383 by flat position
+    recon = e9._reconstruct_llm_pool(REPO)
+    assert recon["provenance"]["recipe_id_first_last"] == ("R-000000", "R-000383")
+
+
+def test_7_duplicate_detection_persists_across_slots():
+    # build a synthetic 384-stream: slot 40's payload duplicates slot 3's content
+    ont, rp = _ont_and_rp()
+    from prism_fas.recipes.arm_schedules import draft_schedule
+    drafted = list(draft_schedule("RND", ont))
+    payloads = [dict(p) for _s, p in drafted]
+    ids = [s for s, _p in drafted]
+    payloads[40] = dict(payloads[3])                        # exact content duplicate
+    pool = _evaluate_pool(arm="RND", candidates=payloads, slot_ids=ids, ontology=ont,
+                          route_policy=rp, bank_id="c3_rnd", raw_slots=384,
+                          minimum_required=320)
+    dup = [v for v in pool.verdicts if v.rejected_at == "deduplication"]
+    assert len(dup) == 1 and dup[0].slot_index == 40
+    assert dup[0].duplicate_of_slot_id == ids[3]            # points back to the earlier slot
+    assert len(pool.recipes) == 383
+
+
+def test_8_route_policy_matches_frozen_c3():
+    _ont, rp = _ont_and_rp()
+    assert rp.route_policy_identity == \
+        "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+    assert e9.C3_ROUTE_POLICY_IDENTITY == rp.route_policy_identity
+    assert tuple(rp.allowed_scientific_generator_route) == ("physics", "gpat")
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_9_raw_archives_are_byte_identical_before_and_after_reconstruction():
+    before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in sorted(_RAW.glob("c3-llm-req-*.json"))}
+    for arm in ("RND", "DET", "LLM"):
+        (e9._reconstruct_llm_pool(REPO) if arm == "LLM"
+         else e9._reconstruct_control_pool(REPO, arm))
+    after = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+             for p in sorted(_RAW.glob("c3-llm-req-*.json"))}
+    assert before == after and len(before) == 12
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_10_no_network_call_possible_in_replay(monkeypatch):
+    import socket
+
+    def _boom(*a, **k):
+        raise AssertionError("replay attempted a network socket")
+
+    monkeypatch.setattr(socket, "socket", _boom)
+    monkeypatch.setattr(socket, "create_connection", _boom)
+    recon = e9._reconstruct_llm_pool(REPO)
+    assert recon["pool_identity"] == \
+        "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978"
+    assert e9._llm_slots_from_frozen_archives.__module__ == e9.__name__
+    # the LLM ingestion contains no filesystem-glob dependency
+    src = ast.unparse(next(
+        n for n in ast.walk(ast.parse((REPO / e9.E9_MODULE_RELPATH).read_text()))
+        if isinstance(n, ast.FunctionDef) and n.name == "_llm_slots_from_frozen_archives"))
+    assert ".glob(" not in src and ".iterdir(" not in src and "listdir" not in src
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_11_real_historical_replay_reproduces_384_identity_and_membership():
+    recon = e9._reconstruct_llm_pool(REPO)
+    assert len(recon["recipes"]) == 384
+    assert recon["pool_identity"] == \
+        "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978"
+    from prism_fas.recipes.canonical import recipe_hash
+    pool_ids = {recipe_hash(r) for r in recon["recipes"]}
+    sel = [json.loads(l) for l in
+           (REPO / e9.C3_SELECTED_RECIPES_RELPATHS["LLM"]).read_text().splitlines() if l.strip()]
+    from prism_fas.recipes.schema import parse_recipe
+    sel_ids = {recipe_hash(parse_recipe(r)) for r in sel}
+    assert len(sel_ids) == 256 and sel_ids <= pool_ids
+    # spot-check the mapping the review asked about
+    by_id = {r.recipe_id: recipe_hash(r) for r in recon["recipes"]}
+    for rid in ("R-000032", "R-000150", "R-000341"):
+        assert by_id[rid] in pool_ids
+
+
+def test_12_no_real_e9_milp_selection_in_this_module():
+    # sweep of the working tree: no scientific-outcome artifact
+    for never in ("E9_SELECTION_RESULTS.jsonl", "E9_BANK_STABILITY.json",
+                  "E9_BANK_STABILITY.csv", "E9_CLOSURE.json", "E9_EVIDENCE.sha256",
+                  "E9_PERTURBATION_MEMBERSHIP.jsonl"):
+        assert not (REPO / e9.OUTPUT_SUBTREE / never).exists()
+
+
+@pytest.mark.skipif(not _HAVE_LLM_ARCHIVES, reason="12 historical LLM archives not restored")
+def test_13_e9_replay_matches_scripts_c3_scientific_arms(tmp_path):
+    """Byte/identity equivalence: E9's replay == scripts/c3_scientific_arms build."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "c3_scientific_arms_probe", REPO / "scripts" / "c3_scientific_arms.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    ont, rp = _ont_and_rp()
+    script_pools = mod.build_pools(ont, rp)
+    from prism_fas.recipes.canonical import canonical_json
+    for arm in ("RND", "DET", "LLM"):
+        recon = (e9._reconstruct_llm_pool(REPO) if arm == "LLM"
+                 else e9._reconstruct_control_pool(REPO, arm))
+        e9_lines = [canonical_json(r) for r in recon["recipes"]]
+        script_lines = [canonical_json(r) for r in script_pools[arm].recipes]
+        assert e9_lines == script_lines                     # byte-identical recipe stream
+        script_ids = sorted(v.canonical_sha256 for v in script_pools[arm].verdicts if v.eligible)
+        assert recon["pool_identity"] == e9._eligible_pool_identity(script_ids)
 
 
 @pytest.mark.slow
@@ -614,13 +856,16 @@ def test_preflight_no_longer_requires_head_to_equal_base_commit():
     assert "implementation_source_commit" in body
 
 
-def test_code_provenance_reports_three_commits_and_uncommitted_state_here():
+def test_code_provenance_reports_three_commits_and_not_committed_clean_here():
     prov = e9.code_provenance(REPO)
     assert prov["base_commit"] == "6f0642a1d05c35e4c1778d329fb547f1b22a4115"
     assert set(("base_commit", "implementation_source_commit", "execution_commit")) <= set(prov)
     assert "implementation_commit" not in prov              # the conflated field is gone
-    assert prov["implementation_commit_status"] == e9.IMPL_UNCOMMITTED_REVIEW_STATE
-    assert prov["implementation_source_commit"] is None     # module untracked here
+    # this worktree carries the (uncommitted) attempt-1 correction: either the
+    # module is untracked pre-review, or tracked+dirty. Never COMMITTED_CLEAN.
+    assert prov["implementation_commit_status"] in (
+        e9.IMPL_UNCOMMITTED_REVIEW_STATE, e9.IMPL_DIRTY_TRACKED)
+    assert prov["implementation_commit_status"] != e9.IMPL_COMMITTED_CLEAN
     assert prov["scientific_code_tracked_and_clean"] is False
     assert prov["scientific_execution_allowed_from_this_state"] is False
     # selector identity independently unchanged

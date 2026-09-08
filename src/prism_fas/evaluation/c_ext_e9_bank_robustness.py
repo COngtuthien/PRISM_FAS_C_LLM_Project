@@ -1247,29 +1247,36 @@ def load_reference_identities(repo: Path) -> dict[str, Any]:
 # Frozen 384-candidate pool materialization (input preparation, not science)
 # --------------------------------------------------------------------------- #
 #
-# The authorized C3 run never persisted a 384-row candidate-pool file: the LLM
-# raw provider archives are git-ignored and the RND/DET raw pools live only in
-# the frozen deterministic schedule. This step re-derives each arm's frozen
-# 384-candidate pool the SAME way milestone E1 does (accepted precedent) and
-# proves it before writing:
+# The authorized C3 run never persisted a 384-row candidate-pool FILE. E9
+# reconstructs each arm's frozen eligible 384-pool by REPLAYING THE EXACT
+# HISTORICAL C3 INGESTION -- `scripts/c3_scientific_arms.py` fed to
+# `prism_fas.recipes.eligibility.evaluate_pool`. That is the frozen validator
+# that produced the historical `eligible_pool_identity` values; it is reused
+# directly, never re-implemented as an approximate parser.
 #
-#   RND / DET : re-materialize the 384-slot schedule from
-#               ``prism_fas.recipes.arm_schedules.draft_schedule`` + the frozen
-#               ontology. GATE: live ``ArmSchedule.schedule_identity`` must equal
-#               the frozen ``C3_<ARM>_SCHEDULE_CONTRACT.json`` value AND every one
-#               of the 256 frozen selected recipes must reproduce (canonical
-#               ``recipe_hash``) as a member of the reconstructed pool.
-#   LLM       : parse the 12 frozen provider responses under
-#               ``reports/c3/live/raw_responses/``. GATE: exactly 384 candidates
-#               and the 256 frozen selected identities are a subset. If those
-#               archives are absent (they are git-ignored) LLM is BLOCKED here --
-#               E9 never calls a provider to recreate them.
+#   * `recipe_id` is SYSTEM-OWNED: the provider is forbidden to supply it, and
+#     `evaluate_pool` assigns `R-%06d` by FLAT slot index (via
+#     `prism_fas.llm.pipeline.assign_recipe_id`) BEFORE typed validation.
+#   * schema + ontology + scientific route policy + canonicalization + cross-slot
+#     de-duplication + compiler/operator-graph/mask/41-D conditioning are all the
+#     inherited eligibility pipeline -- nothing is repaired.
+#   * LLM slot payloads come from the 12 frozen provider archives, read in the
+#     FROZEN PLAN ORDER of `C3_LIVE_GENERATION_STATE.json` (not filesystem order).
+#   * RND/DET slot payloads come from `draft_schedule` (the frozen offline
+#     schedule). No provider call, ever.
 #
-# No new scientific bank is generated: this only reconstructs the already-frozen
-# pool and fails closed on any provenance mismatch.
+# GATE (fail-closed, all arms): exactly 384 eligible, ZERO rejections (historical
+# C3 rejected 0/384 for every arm), reconstructed `eligible_pool_identity` equals
+# the frozen C3 constant, and every historical selected-256 identity is a member.
 
-def _positional_recipe_id(slot_index: int) -> str:
-    return f"R-{slot_index:06d}"
+C3_LLM_LIVE_STATE_RELPATH = "reports/c3/live/C3_LIVE_GENERATION_STATE.json"
+C3_LLM_RAW_RESPONSE_DIR = "reports/c3/live/raw_responses"
+C3_ROUTE_POLICY_RELPATH = "configs/version_c/llm/c2c_route_policy.yaml"
+C3_ROUTE_POLICY_IDENTITY = "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7"
+ELIGIBLE_POOL_IDENTITY_ALGO = (
+    "prism_fas.llm.bank_lock.sha256_text(canonical_text(sorted(eligible canonical "
+    "recipe sha256))) -- the exact function scripts/c3_scientific_arms.py used"
+)
 
 
 def _canonical_recipe_line(recipe: Any) -> str:
@@ -1278,143 +1285,214 @@ def _canonical_recipe_line(recipe: Any) -> str:
     return canonical_json(recipe)
 
 
-def _reconstruct_control_pool(repo: Path, arm: str) -> dict[str, Any]:
-    """RND/DET: deterministic 384-slot reconstruction with full provenance gate."""
-    from prism_fas.recipes.arm_schedules import build_schedule, draft_schedule
-    from prism_fas.recipes.canonical import recipe_hash
+def _eligible_pool_identity(eligible_canonical_sha256: Iterable[str]) -> str:
+    """The EXACT historical C3 eligible_pool_identity function."""
+    from prism_fas.llm.bank_lock import canonical_text, sha256_text
+
+    return sha256_text(canonical_text(sorted(eligible_canonical_sha256)))
+
+
+def _load_route_policy(repo: Path) -> Any:
+    """The frozen C3 scientific route policy, identity-checked."""
+    from prism_fas.llm.route_policy import load_route_policy
     from prism_fas.recipes.ontology import load_ontology
-    from prism_fas.recipes.schema import parse_recipe
+
+    ontology = load_ontology(repo / ONTOLOGY_RELPATH)
+    route_policy = load_route_policy(repo / C3_ROUTE_POLICY_RELPATH)
+    route_policy.validate_against(ontology)
+    if route_policy.route_policy_identity != C3_ROUTE_POLICY_IDENTITY:
+        raise E9Blocked(
+            f"route_policy_identity {route_policy.route_policy_identity} != frozen C3 "
+            f"{C3_ROUTE_POLICY_IDENTITY}"
+        )
+    return ontology, route_policy
+
+
+def _llm_slots_from_frozen_archives(repo: Path) -> tuple[list[str], list[Any], dict[str, Any]]:
+    """The 384 LLM slots, replayed from the 12 frozen provider archives in the
+    FROZEN PLAN ORDER of C3_LIVE_GENERATION_STATE.json (mirrors
+    ``scripts/c3_scientific_arms.llm_slots``). Filesystem enumeration order is
+    never consulted."""
+    from prism_fas.pipeline.adapters.c3_live import LiveGenerationState
+
+    state_path = repo / C3_LLM_LIVE_STATE_RELPATH
+    if not state_path.exists():
+        raise E9Blocked(f"missing frozen C3 live-generation state {state_path}")
+    state = LiveGenerationState.load(state_path)
+    raw_dir = repo / C3_LLM_RAW_RESPONSE_DIR
+    expected = [f"{record.logical_request_id}.json" for record in state.requests]
+    missing = [name for name in expected if not (raw_dir / name).exists()]
+    if missing:
+        raise E9Blocked(
+            f"LLM: {len(missing)} of {len(expected)} frozen provider archives are absent "
+            f"under {raw_dir} ({missing[:3]}...). They are git-ignored; restore them from "
+            "the authorized C3 run. E9 never calls a provider to recreate them."
+        )
+
+    ids: list[str] = []
+    payloads: list[Any] = []
+    file_sha: dict[str, str] = {}
+    for record in state.requests:
+        if not record.complete:
+            raise E9Blocked(
+                f"LLM: {record.logical_request_id} is {record.status}; the LLM arm is "
+                "incomplete and cannot enter eligibility")
+        archive = raw_dir / f"{record.logical_request_id}.json"
+        file_sha[archive.name] = sha256_file(archive)
+        stored = json.loads(archive.read_text(encoding="utf-8"))
+        recipes = json.loads(stored["raw_response"])["recipes"]
+        for offset in range(record.slot_count):
+            ids.append(f"LLM_SLOT_{record.slot_start + offset:03d}")
+            payloads.append(recipes[offset] if offset < len(recipes) else None)
+
+    if len(ids) != ORIGINAL_POOL_COUNT:
+        raise E9Blocked(f"LLM: replay produced {len(ids)} slots, expected {ORIGINAL_POOL_COUNT}")
+    provenance = {
+        "ingestion_path": "prism_fas.recipes.eligibility.evaluate_pool (frozen C3 validator)",
+        "slot_source": "reports/c3/live/raw_responses/<logical_request_id>.json",
+        "slot_order": "frozen plan order of C3_LIVE_GENERATION_STATE.json (not filesystem order)",
+        "live_state_path": C3_LLM_LIVE_STATE_RELPATH,
+        "live_state_sha256": sha256_file(state_path),
+        "raw_response_files": expected,
+        "raw_response_file_sha256": file_sha,
+        "raw_response_tree_sha256": sha256_json(file_sha),
+        "slot_id_scheme": "LLM_SLOT_%03d over slot_start..slot_end",
+        "recipe_id_scheme": "system-owned R-%06d by FLAT slot index (assign_recipe_id); "
+                            "provider forbidden to supply recipe_id",
+    }
+    return ids, payloads, provenance
+
+
+def _control_slots_from_frozen_schedule(repo: Path, arm: str) -> tuple[list[str], list[Any], dict[str, Any]]:
+    """The 384 RND/DET slots from the frozen offline schedule (mirrors
+    ``scripts/c3_scientific_arms.control_slots``). No provider call."""
+    from prism_fas.recipes.arm_schedules import build_schedule, draft_schedule, slot_ids
 
     contract_path = repo / f"reports/c3/v15_selection_contract/C3_{arm}_SCHEDULE_CONTRACT.json"
     if not contract_path.exists():
         raise E9Blocked(f"{arm}: missing frozen schedule contract {contract_path}")
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    from prism_fas.recipes.ontology import load_ontology
     ontology = load_ontology(repo / ONTOLOGY_RELPATH)
     if ontology.sha256 != contract["ontology_identity"]:
-        raise E9Blocked(
-            f"{arm}: live ontology sha256 {ontology.sha256} != frozen "
-            f"{contract['ontology_identity']}"
-        )
+        raise E9Blocked(f"{arm}: live ontology sha256 != frozen {contract['ontology_identity']}")
     schedule = build_schedule(arm, ontology)
     if schedule.schedule_identity != contract["schedule_identity"]:
         raise E9Blocked(
             f"{arm}: live schedule_identity {schedule.schedule_identity} != frozen "
-            f"{contract['schedule_identity']}"
-        )
-
-    recipes: list[Any] = []
-    for index, (_slot_id, payload) in enumerate(draft_schedule(arm, ontology)):
-        row = dict(payload)
-        row["recipe_id"] = _positional_recipe_id(index)
-        recipes.append(parse_recipe(row))
-    if len(recipes) != ORIGINAL_POOL_COUNT:
-        raise E9Blocked(f"{arm}: reconstructed {len(recipes)} slots, expected {ORIGINAL_POOL_COUNT}")
-
-    pool_ids = {recipe_hash(r) for r in recipes}
-    _assert_pool_identity(arm, pool_ids, repo)
-    selected_path = repo / C3_SELECTED_RECIPES_RELPATHS[arm]
-    selected = [parse_recipe(json.loads(l)) for l in
-                selected_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    selected_ids = {recipe_hash(r) for r in selected}
-    if not selected_ids <= pool_ids:
-        raise E9Blocked(
-            f"{arm}: {len(selected_ids - pool_ids)} of {len(selected_ids)} frozen selected "
-            "recipes are not members of the reconstructed 384-pool; provenance fails"
-        )
-    bank = json.loads((repo / C3_BANK_RELPATHS[arm]).read_text(encoding="utf-8"))
-    if set(bank.get("selected_recipe_identities", [])) != selected_ids:
-        raise E9Blocked(f"{arm}: C3_BANK.selected_recipe_identities disagree with recipes.jsonl")
-
-    return {
-        "arm": arm,
-        "method": "deterministic_schedule_reconstruction",
-        "recipes": recipes,
-        "provenance": {
-            "schedule_identity": schedule.schedule_identity,
-            "frozen_schedule_identity": contract["schedule_identity"],
-            "ontology_identity": ontology.sha256,
-            "eligible_pool_identity": sha256_json(sorted(pool_ids)),
-            "frozen_c3_eligible_pool_identity": C3_ELIGIBLE_POOL_IDENTITY[arm],
-            "selected_256_reproduced_as_pool_members": f"{len(selected_ids)}/{len(selected_ids)}",
-            "schedule_contract_path": f"reports/c3/v15_selection_contract/C3_{arm}_SCHEDULE_CONTRACT.json",
-            "schedule_contract_sha256": sha256_file(contract_path),
-        },
+            f"{contract['schedule_identity']}")
+    drafted = list(draft_schedule(arm, ontology))
+    ids = [slot for slot, _payload in drafted]
+    payloads = [payload for _slot, payload in drafted]
+    if ids != slot_ids(arm, ORIGINAL_POOL_COUNT):
+        raise E9Blocked(f"{arm}: drafted slot ids do not match the frozen schedule")
+    provenance = {
+        "ingestion_path": "prism_fas.recipes.eligibility.evaluate_pool (frozen C3 validator)",
+        "slot_source": "prism_fas.recipes.arm_schedules.draft_schedule (frozen offline schedule)",
+        "schedule_identity": schedule.schedule_identity,
+        "frozen_schedule_identity": contract["schedule_identity"],
+        "schedule_contract_path": f"reports/c3/v15_selection_contract/C3_{arm}_SCHEDULE_CONTRACT.json",
+        "schedule_contract_sha256": sha256_file(contract_path),
+        "recipe_id_scheme": "system-owned R-%06d by FLAT slot index (assign_recipe_id)",
     }
+    return ids, payloads, provenance
 
 
-def _assert_pool_identity(arm: str, pool_ids: set[str], repo: Path) -> None:
-    """A reconstructed 384-pool must reproduce the frozen C3 eligible_pool_identity
-    for its arm -- checked against the hard constant AND against the value on disk
-    in C3_BANK.json / C3_SCIENTIFIC_BANK_LOCK.json."""
-    if len(pool_ids) != ORIGINAL_POOL_COUNT:
-        raise E9Blocked(f"{arm}: reconstructed pool has {len(pool_ids)} unique ids, "
-                        f"expected {ORIGINAL_POOL_COUNT}")
-    got = sha256_json(sorted(pool_ids))
-    if got != C3_ELIGIBLE_POOL_IDENTITY[arm]:
+def _replay_c3_eligible_pool(repo: Path, arm: str) -> dict[str, Any]:
+    """Replay the exact historical C3 ingestion for one arm and return the 384
+    eligible RecipeV11 objects plus full provenance. Fails closed on ANY
+    divergence from the frozen contract (rejections, identity, membership)."""
+    from prism_fas.recipes.canonical import recipe_hash
+    from prism_fas.recipes.eligibility import ELIGIBILITY_ORDER, evaluate_pool
+    from prism_fas.recipes.schema import parse_recipe
+    from prism_fas.recipes.selection import (MINIMUM_ELIGIBLE_POOL_PER_ARM,
+                                             RAW_CANDIDATE_SLOTS_PER_ARM)
+
+    ontology, route_policy = _load_route_policy(repo)
+    if arm == "LLM":
+        ids, payloads, prov = _llm_slots_from_frozen_archives(repo)
+    else:
+        ids, payloads, prov = _control_slots_from_frozen_schedule(repo, arm)
+
+    pool = evaluate_pool(
+        arm=arm, candidates=payloads, slot_ids=ids, ontology=ontology,
+        route_policy=route_policy, bank_id=f"c3_{arm.lower()}",
+        raw_slots=RAW_CANDIDATE_SLOTS_PER_ARM,
+        minimum_required=MINIMUM_ELIGIBLE_POOL_PER_ARM)
+
+    eligible = [v for v in pool.verdicts if v.eligible]
+    rejected = [v for v in pool.verdicts if not v.eligible]
+    if rejected:
+        breakdown: dict[str, int] = {}
+        for v in rejected:
+            breakdown[v.rejected_at or "unknown"] = breakdown.get(v.rejected_at or "unknown", 0) + 1
         raise E9Blocked(
-            f"{arm}: reconstructed eligible_pool_identity {got} != frozen "
+            f"{arm}: historical C3 accepted 384/384, this replay rejected "
+            f"{len(rejected)} {breakdown}; the ingestion diverged. First: "
+            f"slot {rejected[0].slot_id} at {rejected[0].rejected_at} -- {rejected[0].reasons[:1]}"
+        )
+    if len(eligible) != ORIGINAL_POOL_COUNT:
+        raise E9Blocked(f"{arm}: replay yielded {len(eligible)} eligible, expected {ORIGINAL_POOL_COUNT}")
+
+    eligible_ids = [v.canonical_sha256 for v in eligible]
+    pool_identity = _eligible_pool_identity(eligible_ids)
+    if pool_identity != C3_ELIGIBLE_POOL_IDENTITY[arm]:
+        raise E9Blocked(
+            f"{arm}: replayed eligible_pool_identity {pool_identity} != frozen C3 "
             f"{C3_ELIGIBLE_POOL_IDENTITY[arm]}; refusing an unfaithful pool"
         )
-    on_disk = json.loads(
-        (repo / C3_BANK_RELPATHS[arm]).read_text(encoding="utf-8")
-    ).get("eligible_pool_identity")
+    on_disk = json.loads((repo / C3_BANK_RELPATHS[arm]).read_text(encoding="utf-8")).get(
+        "eligible_pool_identity")
     if on_disk != C3_ELIGIBLE_POOL_IDENTITY[arm]:
         raise E9Blocked(
-            f"{arm}: C3_BANK.json eligible_pool_identity {on_disk} != frozen constant "
-            f"{C3_ELIGIBLE_POOL_IDENTITY[arm]}"
-        )
+            f"{arm}: C3_BANK.json eligible_pool_identity {on_disk} != frozen constant")
 
-
-def _reconstruct_llm_pool(repo: Path) -> dict[str, Any]:
-    """LLM: parse the 12 frozen provider responses into the 384 raw candidates."""
-    from prism_fas.recipes.canonical import recipe_hash
-    from prism_fas.recipes.schema import parse_recipe
-
-    raw_dir = repo / "reports/c3/live/raw_responses"
-    files = sorted(raw_dir.glob("c3-llm-req-*.json"))
-    if len(files) != 12:
-        raise E9Blocked(
-            f"LLM: expected 12 frozen provider archives under {raw_dir}, found {len(files)}. "
-            "These are git-ignored; restore them from the authorized C3 run. E9 never "
-            "calls a provider to recreate them."
-        )
-    payloads: list[dict[str, Any]] = []
-    for f in files:
-        outer = json.loads(f.read_text(encoding="utf-8"))
-        inner = json.loads(outer["raw_response"]) if "raw_response" in outer else outer
-        payloads.extend(inner["recipes"])
-    if len(payloads) != ORIGINAL_POOL_COUNT:
-        raise E9Blocked(f"LLM: parsed {len(payloads)} raw candidates, expected {ORIGINAL_POOL_COUNT}")
-    recipes = [parse_recipe(p) for p in payloads]
-    pool_ids = {recipe_hash(r) for r in recipes}
-    # HARD gate: reconstructed LLM eligible_pool_identity must be exactly
-    # 4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978.
-    _assert_pool_identity("LLM", pool_ids, repo)
-    selected_path = repo / C3_SELECTED_RECIPES_RELPATHS["LLM"]
+    pool_id_set = set(eligible_ids)
+    selected_path = repo / C3_SELECTED_RECIPES_RELPATHS[arm]
     selected_ids = {
         recipe_hash(parse_recipe(json.loads(l)))
         for l in selected_path.read_text(encoding="utf-8").splitlines() if l.strip()
     }
-    if not selected_ids <= pool_ids:
+    if not selected_ids <= pool_id_set:
         raise E9Blocked(
-            f"LLM: {len(selected_ids - pool_ids)} of {len(selected_ids)} frozen selected "
-            "recipes are not members of the parsed 384-pool; provenance fails"
+            f"{arm}: {len(selected_ids - pool_id_set)} of {len(selected_ids)} frozen selected "
+            "recipes are not members of the replayed 384-pool; provenance fails"
         )
-    return {
-        "arm": "LLM",
-        "method": "frozen_provider_archive_parse",
-        "recipes": recipes,
-        "provenance": {
-            "raw_response_files": [f.name for f in files],
-            "raw_response_tree_sha256": sha256_json(
-                {f.name: sha256_file(f) for f in files}
-            ),
-            "raw_response_file_sha256": {f.name: sha256_file(f) for f in files},
-            "eligible_pool_identity": sha256_json(sorted(pool_ids)),
-            "frozen_c3_eligible_pool_identity": C3_ELIGIBLE_POOL_IDENTITY["LLM"],
-            "selected_256_reproduced_as_pool_members": f"{len(selected_ids)}/{len(selected_ids)}",
-        },
+    bank_selected = set(
+        json.loads((repo / C3_BANK_RELPATHS[arm]).read_text(encoding="utf-8"))
+        .get("selected_recipe_identities", []))
+    if bank_selected != selected_ids:
+        raise E9Blocked(f"{arm}: C3_BANK.selected_recipe_identities disagree with recipes.jsonl")
+
+    prov = {
+        **prov,
+        "eligibility_order": list(ELIGIBILITY_ORDER),
+        "ontology_identity": ontology.sha256,
+        "route_policy_identity": route_policy.route_policy_identity,
+        "required_generator_route": list(route_policy.allowed_scientific_generator_route),
+        "eligible_count": len(eligible),
+        "rejected_count": 0,
+        "eligible_pool_identity": pool_identity,
+        "eligible_pool_identity_algo": ELIGIBLE_POOL_IDENTITY_ALGO,
+        "frozen_c3_eligible_pool_identity": C3_ELIGIBLE_POOL_IDENTITY[arm],
+        "selected_256_are_pool_members": f"{len(selected_ids)}/{len(selected_ids)}",
+        "recipe_id_first_last": (eligible[0].recipe_id, eligible[-1].recipe_id),
     }
+    return {"arm": arm, "method": "historical_c3_evaluate_pool_replay",
+            "recipes": list(pool.recipes), "provenance": prov,
+            "pool_identity": pool_identity}
+
+
+def _reconstruct_control_pool(repo: Path, arm: str) -> dict[str, Any]:
+    """RND/DET: replay the frozen C3 ingestion (draft_schedule -> evaluate_pool)."""
+    return _replay_c3_eligible_pool(repo, arm)
+
+
+def _reconstruct_llm_pool(repo: Path) -> dict[str, Any]:
+    """LLM: replay the frozen C3 ingestion (12 archives -> evaluate_pool). Assigns
+    the system-owned R-%06d recipe_id exactly as historical C3 did; the historical
+    provider payloads never contain recipe_id and must not."""
+    return _replay_c3_eligible_pool(repo, "LLM")
 
 
 def materialize_frozen_pools(repo: Path) -> dict[str, Any]:
@@ -1452,20 +1530,21 @@ def materialize_frozen_pools(repo: Path) -> dict[str, Any]:
             binding["arms"][arm] = {"pool_path": rel, "status": "BLOCKED", "reason": str(exc)}
             continue
         recipes = recon["recipes"]
-        # Fidelity gate BEFORE any write: the reconstructed pool's identity must
-        # equal the frozen C3 eligible_pool_identity for this arm -- checked
-        # against the hard constant AND the value on disk.
-        cand_ids = [recipe_hash(r) for r in recipes]
-        this_pool_identity = sha256_json(sorted(cand_ids))
+        # Fidelity gate BEFORE any write. `_replay_c3_eligible_pool` already
+        # proved identity + membership; re-assert here against both the hard
+        # constant and the value on disk, using the EXACT historical function.
+        this_pool_identity = recon["pool_identity"]
         c3_bank = json.loads((repo / C3_BANK_RELPATHS[arm]).read_text(encoding="utf-8"))
         c3_eligible_pool_identity = c3_bank.get("eligible_pool_identity")
-        if this_pool_identity != C3_ELIGIBLE_POOL_IDENTITY[arm] \
-                or this_pool_identity != c3_eligible_pool_identity:
+        recomputed = _eligible_pool_identity(recipe_hash(r) for r in recipes)
+        if (this_pool_identity != C3_ELIGIBLE_POOL_IDENTITY[arm]
+                or this_pool_identity != c3_eligible_pool_identity
+                or recomputed != this_pool_identity):
             raise E9Error(
                 f"{arm}: reconstructed pool_identity {this_pool_identity} != frozen C3 "
                 f"eligible_pool_identity (constant {C3_ELIGIBLE_POOL_IDENTITY[arm]}, "
-                f"on-disk {c3_eligible_pool_identity}); refusing to write/bind an "
-                "unfaithful pool"
+                f"on-disk {c3_eligible_pool_identity}, recomputed {recomputed}); refusing "
+                "to write/bind an unfaithful pool"
             )
         lines = "".join(_canonical_recipe_line(r) + "\n" for r in recipes)
         abs_path = repo / rel
@@ -1983,9 +2062,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--materialize-frozen-pools", action="store_true",
-        help=("Input preparation (not science): reconstruct and PROVE each arm's "
-              "frozen 384-candidate pool (RND/DET from the frozen schedule, LLM "
-              "from the frozen provider archives) and write frozen_pools/*.jsonl "
+        help=("Input preparation (not science): REPLAY the exact historical C3 "
+              "ingestion (prism_fas.recipes.eligibility.evaluate_pool) for each "
+              "arm -- LLM slots from the 12 frozen provider archives in frozen "
+              "plan order, RND/DET from draft_schedule -- prove eligible_pool_"
+              "identity == the frozen C3 constant, then write frozen_pools/*.jsonl "
               "+ E9_INPUT_BINDING.json. No perturbation, no MILP, no LLM call."),
     )
     parser.add_argument(
