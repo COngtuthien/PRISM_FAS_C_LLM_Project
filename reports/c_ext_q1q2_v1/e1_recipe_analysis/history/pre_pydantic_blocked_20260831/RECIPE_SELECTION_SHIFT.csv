@@ -1,0 +1,8 @@
+arm,field,raw_normalized_entropy,selected_normalized_entropy,js_raw_to_selected
+LLM,medium.family,0.998425,0.999981,0.00054815
+LLM,geometry.shape,0.997364,0.999966,0.00111014
+LLM,capture.illumination,0.998131,0.999966,0.00085824
+LLM,regions,0.999032,1.000000,0.00053132
+LLM,artifacts,0.982078,0.992920,0.00341534
+RND,ALL,BLOCKED_TOOL,BLOCKED_TOOL,BLOCKED_TOOL
+DET,ALL,BLOCKED_TOOL,BLOCKED_TOOL,BLOCKED_TOOL

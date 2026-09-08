@@ -1,0 +1,172 @@
+{
+  "claims": [
+    {
+      "allowed_statement": "No general LLM-superiority claim is supported. The only completed target comparison (E8, EXT-F1, q-matched) is descriptive and its ~0.002-ACER LLM-lowest ordering carries no inferential weight.",
+      "claim_id": "general_llm_superiority",
+      "claim_text": "The LLM recipe-generation mechanism is generally superior to the RND / DET generators for cross-domain face anti-spoofing.",
+      "classification": "NOT_SUPPORTED",
+      "evidence_status": "DESCRIPTIVE_ONLY_GATE_NEGATIVE",
+      "prohibited_statements": [
+        "LLM is superior overall",
+        "the LLM mechanism is proven",
+        "LLM generation generally outperforms RND/DET"
+      ],
+      "reason": "E0 froze a claim ceiling that forbids a general 'LLM generation mechanism is superior' claim without E11. The E10 conjunctive gate did not pass (2/5 criteria established). E8 completed but is explicitly descriptive only (inferential_status=NOT_CLAIMED, statistical_significance_claimed=false, llm_superiority_supported=false). The mechanism hypotheses EXT-H1/EXT-H2 depend on the blocked E7 and EXT-H4 on the blocked SHUFFLE-A ablation.",
+      "supporting_artifacts": [
+        "e10_gate_decision",
+        "e0_hypothesis_family",
+        "e8_target_evaluation_closure"
+      ]
+    },
+    {
+      "allowed_statement": "The q-matched EXT-F1 ablation descriptively retains the direction of the LLM ordering; this is a single-fold descriptive result, not an LLM-advantage claim.",
+      "claim_id": "q_confound_robustness",
+      "claim_text": "The descriptive LLM ACER advantage is not an artefact of the LLM arm's lower accepted-candidate quality q (it survives q-matching).",
+      "classification": "DESCRIPTIVELY_SUPPORTED_ONLY",
+      "evidence_status": "DESCRIPTIVE_PRESENT",
+      "prohibited_statements": [
+        "q-matching proves the LLM advantage is real",
+        "the LLM advantage is statistically significant after q-matching"
+      ],
+      "reason": "E2 shows a real q confound (|SMD(q)|>=0.25 for LLM-vs-RND and LLM-vs-DET). After the E8 q-matched construction (which removes the confound by design) the LLM arm still has the lowest mean target ACER in EXT-F1 (LLM=0.3487 <= DET/RND) with favourable mean paired deltas. E10 C4 = PASS with a DESCRIPTIVE_ONLY / NO_SIGNIFICANCE_CLAIM qualifier: the effect is ~0.002 ACER, EXT-F1 only, no inferential test, no pre-q-match baseline.",
+      "supporting_artifacts": [
+        "e2_quality_analysis",
+        "e8_target_evaluation_closure",
+        "e8_target_paired_comparisons",
+        "e10_evidence_matrix"
+      ]
+    },
+    {
+      "allowed_statement": "The semantic-coupling (Shuffle) ablation is blocked by matched-bank feasibility under the frozen quota, before any target evaluation.",
+      "claim_id": "semantic_coupling_shuffle",
+      "claim_text": "LLM-original recipes beat LLM-SHUFFLE-A (field-group-shuffled) recipes, i.e. the LLM's semantic field coupling carries signal.",
+      "classification": "BLOCKED_BY_PROTOCOL_FEASIBILITY",
+      "evidence_status": "BLOCKED",
+      "prohibited_statements": [
+        "the Shuffle ablation shows semantic coupling matters",
+        "LLM-original beats LLM-SHUFFLE-A",
+        "the Shuffle ablation failed / reversed"
+      ],
+      "reason": "Both routes to an LLM-original vs LLM-SHUFFLE-A detector target-ACER contrast are blocked upstream: E6-v2 closed CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY (the SHUFFLE-A matched Physics bank fills only 479/512 under the frozen exact per-domain quota) and E7 G-LLM-SHUFFLE-A is BLOCKED_BY_E7_CORE_BANK in all 3 folds (Shuffle-A generation was never even attempted). No semantic-ablation detector result exists; EXT-H4 is untestable under this frozen protocol. E1 shows the LLM recipe bank is structurally distinguishable from RND/DET at the recipe level (larger cross-arm JS divergence, notably on the joint artifact x severity co-occurrence, and lower within-bank Gower dispersion), but E1's own scientific_interpretation_boundary states these structural statistics do NOT measure semantic plausibility or a causal role of LLM reasoning and are only a mechanism signal if E6 LLM-SHUFFLE reduces downstream performance -- which is exactly the blocked contrast. E1 therefore cannot lift this claim off BLOCKED.",
+      "supporting_artifacts": [
+        "e6_v2_final_closure",
+        "e7_three_fold_scientific_closure",
+        "e1_recipe_analysis",
+        "e10_evidence_matrix"
+      ]
+    },
+    {
+      "allowed_statement": "The LLM-vs-REAL-ONLY comparison could not be formed on >=2/3 folds (matched LLM comparator blocked; REAL-ONLY is EXT-F1 only).",
+      "claim_id": "value_over_real_only",
+      "claim_text": "Adding LLM-generated synthetic data beats REAL-ONLY training in at least 2/3 held-out folds by descriptive mean ACER (EXT-H3).",
+      "classification": "NOT_ESTABLISHED",
+      "evidence_status": "PARTIAL_UNREACHABLE",
+      "prohibited_statements": [
+        "LLM synthetic data beats REAL-ONLY",
+        "LLM synthetic data is worse than REAL-ONLY"
+      ],
+      "reason": "E5 supplies a completed REAL-ONLY target ACER for EXT-F1 only (mean 0.1999). The matched LLM comparator (E7 G-LLM) is BLOCKED_BY_E7_CORE_BANK in all 3 folds and no REAL-ONLY result exists for EXT-F2/EXT-F3, so the >=2/3-fold comparison is unreachable. Where the closest available LLM number touches this contrast (E8 q-matched EXT-F1 LLM ACER 0.3487, a different ablation) it is descriptively worse (higher ACER) than REAL-ONLY, not better. No positive evidence of LLM value over REAL-ONLY; the missing folds are the upstream E7 block, not an LLM failure.",
+      "supporting_artifacts": [
+        "e5_target_scoring_result",
+        "e7_three_fold_scientific_closure",
+        "e10_evidence_matrix"
+      ]
+    },
+    {
+      "allowed_statement": "The 3-fold cross-domain robustness contrast is blocked by source-only matched-bank feasibility, before any target evaluation.",
+      "claim_id": "cross_domain_three_fold_robustness",
+      "claim_text": "The frozen LLM bank is not ranked last on at least 2/3 held-out folds; LLM <= DET/RND in target ACER across folds (EXT-H1/EXT-H2).",
+      "classification": "BLOCKED_BY_PROTOCOL_FEASIBILITY",
+      "evidence_status": "BLOCKED",
+      "prohibited_statements": [
+        "E7 shows the LLM bank failed",
+        "the LLM bank is robust / not robust across folds",
+        "the 3-fold result is negative"
+      ],
+      "reason": "E7 terminated SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP in all 3 folds with 0/3 valid core matched synthetic banks; G-LLM / G-DET / G-RND detector trainings were never run and no per-fold cross-domain target ACER exists. is_target_acer_evidence=false. The only per-fold LLM/DET/RND ACERs anywhere are EXT-F1-only and from non-E7 designs (E8 q-matched; E4 historical re-analysis) and cannot satisfy a 2/3-fold requirement.",
+      "supporting_artifacts": [
+        "e7_three_fold_scientific_closure",
+        "e10_evidence_matrix"
+      ]
+    },
+    {
+      "allowed_statement": "E9 tests sensitivity to the exact selected 256-recipe subset within the frozen 384-candidate pools only, via three deterministic perturbation masks; the selection is descriptively stable.",
+      "claim_id": "bank_selection_subset_robustness",
+      "claim_text": "The frozen 384->256 recipe selection is not brittle to which exact 256-recipe subset was drawn from the frozen 384-candidate pools.",
+      "classification": "DESCRIPTIVELY_SUPPORTED_ONLY",
+      "evidence_status": "DESCRIPTIVE_PRESENT",
+      "is_detector_performance_evidence": false,
+      "is_independent_llm_generation_replication": false,
+      "prohibited_statements": [
+        "E9 proves detector robustness",
+        "E9 shows the LLM bank yields robust detector performance",
+        "E9 is independent LLM-generation replication"
+      ],
+      "reason": "E9 closed 9/9 deterministic candidate-pool perturbation realizations (RND/DET/LLM x P1/P2/P3, 0 blocked). With 64 of 384 candidates deterministically masked the 256-recipe selection retains a large descriptive Jaccard overlap with the reference selection (per-arm means ~0.63-0.70). This is a descriptive structural-stability statement about the selector on the SAME frozen candidate pool.",
+      "supporting_artifacts": [
+        "e9_closure",
+        "e9_bank_stability"
+      ]
+    },
+    {
+      "allowed_statement": "Independent LLM-generation replication was not attempted; E10 did not authorize E11 and no new LLM calls were made.",
+      "claim_id": "independent_llm_generation_robustness",
+      "claim_text": "The LLM-generation result reproduces under independent re-generation with fresh LLM calls / multiple independent banks (spec Section 18 E11).",
+      "classification": "NOT_ESTABLISHED",
+      "evidence_status": "NOT_PRESENT",
+      "prohibited_statements": [
+        "the LLM generation result was independently replicated",
+        "E9 replicates the LLM generation"
+      ],
+      "reason": "E11 is NOT_AUTHORIZED_NOT_RUN: the E10 gate did not pass and new_llm_calls_authorized=false. No independent re-generation exists. E9 is explicitly NOT independent generator replication -- it perturbs the selection of an already-frozen candidate pool and makes zero LLM calls.",
+      "supporting_artifacts": [
+        "e10_gate_decision",
+        "e9_closure"
+      ]
+    },
+    {
+      "allowed_statement": "No bug or target-label leakage that would invalidate the completed EXT-F1 target evaluations was detected; some discriminating integrity controls remain GPU-gated and are listed as limitations.",
+      "claim_id": "integrity_leakage_status",
+      "claim_text": "The completed EXT-Q1Q2 target evaluations contain no bug or target-label leakage that invalidates them.",
+      "classification": "SUPPORTED",
+      "evidence_status": "PRESENT_WITH_LIMITATIONS",
+      "prohibited_statements": [
+        "all integrity controls passed",
+        "leakage was fully ruled out"
+      ],
+      "reason": "E10 C5 = PASS. The integrity evidence that was produced detects no invalidating bug and no label leakage: E8 G8 scoring is structurally isolated from training and G7 (uses_target_labels_in_training_or_g7=false), calibration is source-dev-only with no target threshold fitting (E5, E8), E8 claims no significance and no LLM superiority, E4's EXT-F1 source-derived operating point sits close to the target oracle with no anomaly, and E3's historical BA_sep re-summary produced no invalidating finding. LIMITATIONS (recorded, not invalidating): E3 discriminating BA controls C0/C1/C3 are GPU-gated so delta_BA_excess is not computed; E4 threshold transfer is EXT-F1 only; no completed core 3-fold evaluation exists.",
+      "supporting_artifacts": [
+        "e8_target_label_use_record",
+        "e5_target_scoring_result",
+        "e4_threshold_transfer",
+        "e3_ba_controls",
+        "e10_evidence_matrix"
+      ]
+    }
+  ],
+  "classification_legend": {
+    "BLOCKED_BY_PROTOCOL_FEASIBILITY": "the evidence is blocked upstream by protocol / feasibility, before any target evaluation",
+    "DESCRIPTIVELY_SUPPORTED_ONLY": "a completed measurement descriptively points this way, with no inferential / significance claim",
+    "NOT_ESTABLISHED": "the comparison needed for the claim could not be formed (partial / unreachable evidence)",
+    "NOT_SUPPORTED": "the available evidence does not carry the claim",
+    "SUPPORTED": "carried by real, available, non-blocked evidence (may still carry stated limitations)"
+  },
+  "classification_vocabulary": [
+    "SUPPORTED",
+    "DESCRIPTIVELY_SUPPORTED_ONLY",
+    "NOT_SUPPORTED",
+    "NOT_ESTABLISHED",
+    "BLOCKED_BY_PROTOCOL_FEASIBILITY"
+  ],
+  "extension_id": "c_ext_q1q2_v1",
+  "generated_from_head_commit": "7723fc1444cd69a5c4db1fe73c4ee4edf96313dd",
+  "hard_invariants": {
+    "blocked_or_unavailable_evidence_cannot_be_affirmative": true,
+    "e11_status": "NOT_AUTHORIZED_NOT_RUN",
+    "e7_block_is_not_a_negative_llm_result": true,
+    "e9_is_not_detector_performance_evidence": true,
+    "e9_is_not_independent_llm_generation_replication": true,
+    "no_statistical_significance_claimed_anywhere": true
+  },
+  "schema_version": "c-ext-q1q2-final-closeout-claim-matrix-v1"
+}

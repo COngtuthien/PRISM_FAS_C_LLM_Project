@@ -1,0 +1,237 @@
+{
+  "closeout_identity": "d3b25cefac6e242fe2f1509f1bbffbf775169e14f39711250960dbc6283b9505",
+  "closeout_task_state": {
+    "gpu_jobs": 0,
+    "llm_calls": 0,
+    "no_detector_trained": true,
+    "no_e0_e10_evidence_modified": true,
+    "no_frozen_protocol_modified": true,
+    "no_new_scientific_experiment_performed": true,
+    "no_synthetic_data_generated": true,
+    "provider_or_network_calls": 0,
+    "read_only_evidence_synthesis": true,
+    "target_access": false,
+    "target_features_accessed": false,
+    "target_labels_accessed": false
+  },
+  "closure_provenance": {
+    "E10": {
+      "artifact": "reports/c_ext_q1q2_v1/e10_gate/E10_CLOSURE.json",
+      "artifact_sha256": "47dc2072ecdd2f249ce0cb2fd6cac6a8df8ab5808cde68a7cbf5e2e7930d6bf3",
+      "closure_commit": "7723fc1444cd69a5c4db1fe73c4ee4edf96313dd",
+      "e11_authorized": false,
+      "gate_identity": "16d9adfc4f3404b14333f5d4878f93b6a10a5fc4af90556009813ec213126c07",
+      "llm_calls": 0,
+      "new_llm_calls_authorized": false,
+      "per_criterion_status": {
+        "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+        "C2_VALUE_OVER_REAL_ONLY": "NOT_ESTABLISHED",
+        "C3_SEMANTIC_ABLATION": "BLOCKED",
+        "C4_QUALITY_CONFOUND": "PASS",
+        "C5_INTEGRITY": "PASS"
+      },
+      "q1_mechanism_claim_status": "NOT_SUPPORTED",
+      "q1_mechanism_claim_supported": false,
+      "status": "CLOSED_DECISION_GATE_NEGATIVE"
+    },
+    "E7": {
+      "artifact": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+      "artifact_sha256": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81",
+      "core_matched_banks_produced": "0 / 3",
+      "evidence_package_commit": "86c32a2a870f4ceda47c26de30a161eb19550219",
+      "ext_f1_scientific_execution_commit": "db87b1c721da99d89d6b9439418e94ab46e68767",
+      "ext_f2_execution_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+      "ext_f3_execution_commit": "fae929616219fad083a2ce6ca05fbf7d25bd0157",
+      "is_target_acer_evidence": false,
+      "reserve_schedule_rule_identity": "7871404603876a7b015af80cefaca26d94d54f102a9eb445099254aa3bbd1822",
+      "reserve_stage_close_commit": "bf4d3ee6d1c95f380c225033899f7f75e9ebd88d",
+      "status": "SCIENTIFICALLY_BLOCKED"
+    },
+    "E8": {
+      "acer_means_by_arm": {
+        "DET": 0.35062824127249315,
+        "LLM": 0.3486714698409384,
+        "RND": 0.3515533744039539
+      },
+      "artifact": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json",
+      "artifact_sha256": "9958ecba104fcf2a40387d6e24bac1f18ddeb045cd938787f6064c093c9c1ff0",
+      "e8_prediction_lockset_identity": "7f59cb91eb1d648064258a7e7c7ef4f57ed04fe758139cc23970a7477e7be3c8",
+      "fold_scope": "EXT-F1",
+      "g8_structurally_isolated_from_training_and_g7": true,
+      "inferential_status": "NOT_CLAIMED",
+      "is_first_ever_blind_reveal": false,
+      "llm_superiority_supported": false,
+      "scoring_code_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+      "statistical_significance_claimed": false,
+      "status": "EXECUTED_AND_SCORED_DESCRIPTIVE_ONLY",
+      "uses_target_labels_in_training_or_g7": false
+    },
+    "E9": {
+      "archive_commit": "ebff72596fe56bb77ed494a4aaba943135a98a0d",
+      "artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+      "artifact_sha256": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245",
+      "e9_protocol_amendment_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+      "execution_commit": "c3e4ca40ed3e163035692d95f517057d332d0b0b",
+      "implementation_source_commit": "f62679d5116b025cc1d259305f1aba41d90a1039",
+      "is_detector_performance_evidence": false,
+      "is_independent_llm_generation_replication": false,
+      "llm_calls": 0,
+      "protocol_lock_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+      "realizations_blocked": 0,
+      "realizations_ok": 9,
+      "realizations_total": 9,
+      "status": "CLOSED_BANK_SELECTION_ROBUSTNESS_ONLY",
+      "target_access": false
+    }
+  },
+  "consulted_artifacts": [
+    {
+      "name": "e0_hypothesis_family",
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_HYPOTHESIS_FAMILY.json",
+      "sha256": "c89ac58928370852a909fdf0927f1db987e83460f2a19648af035ec799fa5fd8"
+    },
+    {
+      "name": "e0_protocol",
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_PROTOCOL.json",
+      "sha256": "f7e07c80757cb9070d2af56e1a1b5a07f1f4dffd442c0a68120559d25fc26c65"
+    },
+    {
+      "name": "e0_validation",
+      "path": "reports/c_ext_q1q2_v1/e0/EXT_E0_VALIDATION.json",
+      "sha256": "e98042d4795d8ebe1aa431c28b71079bd3b9f5a727d979c65057ea133056f8ed"
+    },
+    {
+      "name": "e10_closure",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_CLOSURE.json",
+      "sha256": "47dc2072ecdd2f249ce0cb2fd6cac6a8df8ab5808cde68a7cbf5e2e7930d6bf3"
+    },
+    {
+      "name": "e10_evidence_matrix",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_EVIDENCE_MATRIX.json",
+      "sha256": "4bfe6c87d1226e90f89d11d848d252e61197637270ce6ef313712be4c945892a"
+    },
+    {
+      "name": "e10_gate_decision",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_GATE_DECISION.json",
+      "sha256": "aaf1a60d6a2b1843587e3767f21ae9c003cf5e92eb98536cd8edba641e3b9355"
+    },
+    {
+      "name": "e10_input_audit",
+      "path": "reports/c_ext_q1q2_v1/e10_gate/E10_INPUT_AUDIT.json",
+      "sha256": "eae12eb0df7f92995669a56b31678f14b91f8d7237aa05ed5e8bba83bfaba039"
+    },
+    {
+      "name": "e1_recipe_analysis",
+      "path": "reports/c_ext_q1q2_v1/e1_recipe_analysis/E1_RECIPE_ANALYSIS.json",
+      "sha256": "f550faffd2b4530c7569e8c08dc10b36e72d4f644f11905d94f49a10e549d248"
+    },
+    {
+      "name": "e2_quality_analysis",
+      "path": "reports/c_ext_q1q2_v1/e2_quality/E2_QUALITY_ANALYSIS.json",
+      "sha256": "1b427f18e42eee63c3a6fe5cfda64937bd57a45a2299a1c3c1ae322989250a6c"
+    },
+    {
+      "name": "e3_ba_controls",
+      "path": "reports/c_ext_q1q2_v1/e3_ba_controls/E3_BA_CONTROLS.json",
+      "sha256": "7ae512a1911541edd4a69348a8c668901136afd165b91a92fce1f7895641f544"
+    },
+    {
+      "name": "e4_threshold_transfer",
+      "path": "reports/c_ext_q1q2_v1/e4_threshold_transfer/E4_THRESHOLD_TRANSFER.json",
+      "sha256": "52ea63f9a0a3f10432691ee914f5265c865ef3b012c095ccf4987d53f94772ee"
+    },
+    {
+      "name": "e5_real_only_lock",
+      "path": "reports/c_ext_q1q2_v1/e5_realonly/E5_REAL_ONLY_LOCK.json",
+      "sha256": "d04ad34aa7c33a760ae08e6fd71b744e9f2e1ed081b6971de4d143b96dd6843d"
+    },
+    {
+      "name": "e5_target_scoring_result",
+      "path": "reports/c_ext_q1q2_v1/e5_realonly/target_scoring/E5_TARGET_SCORING_RESULT.json",
+      "sha256": "776e9d81423cd0ab7b5b4308b37d7ee1fbb861f9edf3e1fa13c86e359586eadc"
+    },
+    {
+      "name": "e6_v2_final_closure",
+      "path": "reports/c_ext_q1q2_v1/e6_paired_current_runtime_v2/E6_V2_FINAL_CLOSURE.json",
+      "sha256": "a2a7f940a08dc62a3257d7ef3fc5a0e34b954293c9404b2bd13c069896dd1154"
+    },
+    {
+      "name": "e7_e8_trigger_record",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/E7_E8_TRIGGER_RECORD.json",
+      "sha256": "81c77bc88244df412b6cc02136ecdda7a027b05326948219d92af24a35775b3b"
+    },
+    {
+      "name": "e7_three_fold_scientific_closure",
+      "path": "reports/c_ext_q1q2_v1/e7_three_fold/gpat_bank/e7_v1_1_reserve/E7_V1_1_THREE_FOLD_SCIENTIFIC_CLOSURE.json",
+      "sha256": "92bda317b44d6cb1b0b11d1325a6b070601504976a8b93e9df645cda03117c81"
+    },
+    {
+      "name": "e8_target_evaluation_closure",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_EVALUATION_CLOSURE.json",
+      "sha256": "9958ecba104fcf2a40387d6e24bac1f18ddeb045cd938787f6064c093c9c1ff0"
+    },
+    {
+      "name": "e8_target_label_use_record",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_LABEL_USE_RECORD.json",
+      "sha256": "eb2d98c14deff5e8ca1d56db3168fa383a68cde6aaa58c0de003e54bc21745ec"
+    },
+    {
+      "name": "e8_target_paired_comparisons",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_PAIRED_COMPARISONS.json",
+      "sha256": "a0dbe7fe324b0a5d630a61a700932c261f0d647e36ca63722c904da2386d4263"
+    },
+    {
+      "name": "e8_target_score_result",
+      "path": "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1/E8_TARGET_SCORE_RESULT.json",
+      "sha256": "d08a4a3368eec632bef51221deb90f04acee679f3ee8e75a54bf52d4fe41ab7e"
+    },
+    {
+      "name": "e9_bank_stability",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_BANK_STABILITY.json",
+      "sha256": "d1b0c882904eec275d78705932176d4c194fbd6eb9e90654fe77795eacac6b24"
+    },
+    {
+      "name": "e9_closure",
+      "path": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_CLOSURE.json",
+      "sha256": "196291483351fce9dce847dcd8c9de4400a3d45682b543c16160813c81c76245"
+    }
+  ],
+  "e11_authorized": false,
+  "e11_status": "NOT_AUTHORIZED_NOT_RUN",
+  "extension_id": "c_ext_q1q2_v1",
+  "extension_status": "CLOSED_WITH_BLOCKED_PRIMARY_MECHANISM_EVIDENCE",
+  "extension_status_reason": "The pre-registered primary mechanism test (E7 unified 3-fold Track-G) is SCIENTIFICALLY_BLOCKED: 0/3 core matched synthetic banks under the frozen matched-bank protocol, terminated before any target ACER scoring. The semantic-ablation route (E6/E7 SHUFFLE-A) is likewise blocked by matched-bank feasibility. The completed work (E5 REAL-ONLY EXT-F1, E8 q-matched EXT-F1, E9 bank-selection robustness) is descriptive / structural only and, under the E0 claim ceiling, cannot support a general LLM-superiority or LLM-mechanism claim. E10 fail-closed and did not authorize E11. Unavailable / upstream-blocked evidence is not evidence that the LLM failed.",
+  "generated_from_head_commit": "7723fc1444cd69a5c4db1fe73c4ee4edf96313dd",
+  "governing_spec": {
+    "execution_profile": "Q2-NoLLM",
+    "ext_q1q2_detailed_spec": {
+      "frozen_criteria_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx Section 17",
+      "path": "/home/cong/PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx",
+      "sha256": "692291d67ffa6a4877202dd18f586bee7dc138e7d74c198840cad982055dedb2"
+    },
+    "version_c_v1_5_spec": {
+      "path": "docs/PRISM_FAS_C_LLM_v1_5_FINAL_ComputeConstrained_FullPipeline_Spec_2026.docx",
+      "sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+    }
+  },
+  "head_commit_resolved_from_git": true,
+  "milestones_status": {
+    "E0": "COMPLETE",
+    "E1": "COMPLETE",
+    "E10": "CLOSED_DECISION_GATE_NEGATIVE",
+    "E11": "NOT_AUTHORIZED_NOT_RUN",
+    "E2": "COMPLETE",
+    "E3": "FEASIBILITY_AUDIT_ONLY_GPU_GATED",
+    "E4": "PARTIAL_EXT_F1_ONLY",
+    "E5": "COMPLETED_PARTIAL_EXT_F1_ONLY",
+    "E6": "CLOSED_MATCHED_BANK_INFEASIBLE",
+    "E7": "SCIENTIFICALLY_BLOCKED",
+    "E8": "COMPLETED_DESCRIPTIVE_ONLY",
+    "E9": "CLOSED_BANK_SELECTION_ROBUSTNESS_ONLY"
+  },
+  "milestones_status_note": "E0-E10 all resolved from available authoritative evidence at this HEAD. E1 was re-audited from the restored reports/c_ext_q1q2_v1/e1_recipe_analysis/E1_RECIPE_ANALYSIS.json (artifact status=COMPLETE_CPU); E10's own milestone_status_audit still records E1 EVIDENCE_NOT_PRESENT_IN_CHECKOUT (its checkout lacked the git-ignored subtree) -- this does not touch any E10 gate criterion. E11 is governed solely by the authoritative E10 decision.",
+  "new_llm_calls_authorized": false,
+  "q1_mechanism_claim_supported": false,
+  "schema_version": "c-ext-q1q2-final-closure-v1",
+  "title": "PRISM-FAS-C EXT-Q1Q2 -- final closure (post-E10)"
+}

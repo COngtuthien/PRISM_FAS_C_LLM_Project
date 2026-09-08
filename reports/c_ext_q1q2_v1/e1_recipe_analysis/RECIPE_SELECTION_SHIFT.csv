@@ -1,0 +1,16 @@
+arm,field,raw_normalized_entropy,selected_normalized_entropy,js_raw_to_selected
+RND,medium.family,0.997191,0.999981,0.00118921
+RND,geometry.shape,0.998075,0.999966,0.00088723
+RND,capture.illumination,0.996782,0.999966,0.00125670
+RND,regions,0.982922,0.999115,0.00677456
+RND,artifacts,0.936334,0.972287,0.00532162
+DET,medium.family,0.999992,0.999981,0.00002115
+DET,geometry.shape,0.999769,0.999966,0.00007302
+DET,capture.illumination,0.994941,0.999966,0.00208492
+DET,regions,0.982939,0.999155,0.00623556
+DET,artifacts,0.936724,0.968403,0.00559974
+LLM,medium.family,0.998425,0.999981,0.00054815
+LLM,geometry.shape,0.997364,0.999966,0.00111014
+LLM,capture.illumination,0.998131,0.999966,0.00085824
+LLM,regions,0.999032,1.000000,0.00053132
+LLM,artifacts,0.982078,0.992920,0.00341534

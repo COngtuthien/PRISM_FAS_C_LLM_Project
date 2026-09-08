@@ -1,0 +1,16 @@
+arm,field,normalized_entropy,observed_categories,ontology_categories
+RND,medium.family,0.999981,5,5
+RND,geometry.shape,0.999966,6,6
+RND,capture.illumination,0.999966,6,6
+RND,regions,0.999115,9,9
+RND,artifacts,0.972287,8,8
+DET,medium.family,0.999981,5,5
+DET,geometry.shape,0.999966,6,6
+DET,capture.illumination,0.999966,6,6
+DET,regions,0.999155,9,9
+DET,artifacts,0.968403,8,8
+LLM,medium.family,0.999981,5,5
+LLM,geometry.shape,0.999966,6,6
+LLM,capture.illumination,0.999966,6,6
+LLM,regions,1.000000,9,9
+LLM,artifacts,0.992920,8,8

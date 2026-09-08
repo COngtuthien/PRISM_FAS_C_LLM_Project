@@ -1,0 +1,16 @@
+arm,field,ontology_categories,observed_categories,coverage_ratio,normalized_entropy
+RND,medium.family,5,5,1.000000,0.999981
+RND,geometry.shape,6,6,1.000000,0.999966
+RND,capture.illumination,6,6,1.000000,0.999966
+RND,regions,9,9,1.000000,0.999115
+RND,artifacts,8,8,1.000000,0.972287
+DET,medium.family,5,5,1.000000,0.999981
+DET,geometry.shape,6,6,1.000000,0.999966
+DET,capture.illumination,6,6,1.000000,0.999966
+DET,regions,9,9,1.000000,0.999155
+DET,artifacts,8,8,1.000000,0.968403
+LLM,medium.family,5,5,1.000000,0.999981
+LLM,geometry.shape,6,6,1.000000,0.999966
+LLM,capture.illumination,6,6,1.000000,0.999966
+LLM,regions,9,9,1.000000,1.000000
+LLM,artifacts,8,8,1.000000,0.992920

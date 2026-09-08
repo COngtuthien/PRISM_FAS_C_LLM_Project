@@ -1,0 +1,2209 @@
+{
+  "arm_counts": 3,
+  "cooccurrence": {
+    "DET": {
+      "artifact_x_medium": {
+        "cols": [
+          "display-like",
+          "fabric-like",
+          "paper-like",
+          "plastic-like",
+          "reflective-film-like"
+        ],
+        "matrix": [
+          [
+            10,
+            17,
+            22,
+            19,
+            15
+          ],
+          [
+            13,
+            15,
+            13,
+            23,
+            7
+          ],
+          [
+            13,
+            16,
+            14,
+            11,
+            12
+          ],
+          [
+            0,
+            26,
+            23,
+            0,
+            0
+          ],
+          [
+            14,
+            0,
+            0,
+            0,
+            31
+          ],
+          [
+            17,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            13,
+            0,
+            0,
+            19,
+            25
+          ],
+          [
+            10,
+            15,
+            13,
+            20,
+            11
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_region": {
+        "cols": [
+          "context",
+          "face_boundary",
+          "forehead",
+          "left_cheek",
+          "left_eye",
+          "mouth",
+          "nose",
+          "right_cheek",
+          "right_eye"
+        ],
+        "matrix": [
+          [
+            11,
+            15,
+            17,
+            16,
+            19,
+            16,
+            18,
+            19,
+            20
+          ],
+          [
+            15,
+            8,
+            16,
+            15,
+            16,
+            14,
+            12,
+            16,
+            16
+          ],
+          [
+            11,
+            9,
+            16,
+            18,
+            19,
+            11,
+            15,
+            12,
+            13
+          ],
+          [
+            13,
+            15,
+            13,
+            5,
+            9,
+            10,
+            8,
+            8,
+            9
+          ],
+          [
+            8,
+            15,
+            9,
+            8,
+            12,
+            10,
+            8,
+            6,
+            7
+          ],
+          [
+            9,
+            7,
+            4,
+            4,
+            5,
+            1,
+            2,
+            1,
+            2
+          ],
+          [
+            11,
+            16,
+            15,
+            17,
+            12,
+            12,
+            13,
+            6,
+            12
+          ],
+          [
+            17,
+            11,
+            16,
+            14,
+            11,
+            7,
+            16,
+            13,
+            16
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_severity_bin": {
+        "cols": [
+          "[0.0,0.1)",
+          "[0.1,0.2)",
+          "[0.2,0.3)",
+          "[0.3,0.4)",
+          "[0.4,0.5)",
+          "[0.5,0.6)",
+          "[0.6,0.7)"
+        ],
+        "matrix": [
+          [
+            12,
+            11,
+            15,
+            15,
+            20,
+            10,
+            0
+          ],
+          [
+            14,
+            15,
+            17,
+            17,
+            8,
+            0,
+            0
+          ],
+          [
+            7,
+            17,
+            18,
+            19,
+            5,
+            0,
+            0
+          ],
+          [
+            6,
+            7,
+            7,
+            9,
+            11,
+            9,
+            0
+          ],
+          [
+            7,
+            9,
+            7,
+            13,
+            9,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            3,
+            3,
+            5,
+            4,
+            0
+          ],
+          [
+            2,
+            15,
+            5,
+            12,
+            12,
+            10,
+            1
+          ],
+          [
+            6,
+            13,
+            11,
+            15,
+            16,
+            8,
+            0
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      }
+    },
+    "LLM": {
+      "artifact_x_medium": {
+        "cols": [
+          "display-like",
+          "fabric-like",
+          "paper-like",
+          "plastic-like",
+          "reflective-film-like"
+        ],
+        "matrix": [
+          [
+            6,
+            17,
+            15,
+            18,
+            9
+          ],
+          [
+            5,
+            16,
+            21,
+            23,
+            12
+          ],
+          [
+            9,
+            18,
+            14,
+            15,
+            9
+          ],
+          [
+            0,
+            30,
+            35,
+            0,
+            0
+          ],
+          [
+            34,
+            0,
+            0,
+            0,
+            28
+          ],
+          [
+            40,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            9,
+            0,
+            0,
+            27,
+            38
+          ],
+          [
+            7,
+            21,
+            17,
+            19,
+            8
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_region": {
+        "cols": [
+          "context",
+          "face_boundary",
+          "forehead",
+          "left_cheek",
+          "left_eye",
+          "mouth",
+          "nose",
+          "right_cheek",
+          "right_eye"
+        ],
+        "matrix": [
+          [
+            25,
+            21,
+            14,
+            24,
+            15,
+            17,
+            16,
+            19,
+            11
+          ],
+          [
+            44,
+            51,
+            14,
+            12,
+            7,
+            14,
+            6,
+            16,
+            5
+          ],
+          [
+            16,
+            15,
+            25,
+            19,
+            13,
+            24,
+            21,
+            22,
+            10
+          ],
+          [
+            7,
+            14,
+            15,
+            23,
+            24,
+            23,
+            23,
+            20,
+            28
+          ],
+          [
+            12,
+            9,
+            20,
+            15,
+            29,
+            14,
+            23,
+            18,
+            31
+          ],
+          [
+            8,
+            6,
+            12,
+            8,
+            20,
+            12,
+            16,
+            7,
+            21
+          ],
+          [
+            22,
+            20,
+            26,
+            19,
+            20,
+            21,
+            19,
+            19,
+            21
+          ],
+          [
+            13,
+            11,
+            22,
+            27,
+            22,
+            23,
+            28,
+            26,
+            22
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_severity_bin": {
+        "cols": [
+          "[0.1,0.2)",
+          "[0.2,0.3)",
+          "[0.3,0.4)",
+          "[0.4,0.5)",
+          "[0.5,0.6)"
+        ],
+        "matrix": [
+          [
+            12,
+            49,
+            4,
+            0,
+            0
+          ],
+          [
+            2,
+            34,
+            33,
+            8,
+            0
+          ],
+          [
+            24,
+            37,
+            4,
+            0,
+            0
+          ],
+          [
+            1,
+            33,
+            30,
+            1,
+            0
+          ],
+          [
+            0,
+            41,
+            21,
+            0,
+            0
+          ],
+          [
+            0,
+            13,
+            23,
+            4,
+            0
+          ],
+          [
+            1,
+            16,
+            36,
+            18,
+            3
+          ],
+          [
+            4,
+            39,
+            26,
+            3,
+            0
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      }
+    },
+    "RND": {
+      "artifact_x_medium": {
+        "cols": [
+          "display-like",
+          "fabric-like",
+          "paper-like",
+          "plastic-like",
+          "reflective-film-like"
+        ],
+        "matrix": [
+          [
+            10,
+            11,
+            16,
+            21,
+            17
+          ],
+          [
+            16,
+            18,
+            22,
+            18,
+            11
+          ],
+          [
+            13,
+            17,
+            18,
+            17,
+            11
+          ],
+          [
+            0,
+            21,
+            27,
+            0,
+            0
+          ],
+          [
+            15,
+            0,
+            0,
+            0,
+            19
+          ],
+          [
+            29,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            10,
+            0,
+            0,
+            29,
+            21
+          ],
+          [
+            14,
+            15,
+            13,
+            19,
+            13
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_region": {
+        "cols": [
+          "context",
+          "face_boundary",
+          "forehead",
+          "left_cheek",
+          "left_eye",
+          "mouth",
+          "nose",
+          "right_cheek",
+          "right_eye"
+        ],
+        "matrix": [
+          [
+            13,
+            13,
+            11,
+            14,
+            17,
+            19,
+            16,
+            17,
+            18
+          ],
+          [
+            16,
+            20,
+            13,
+            15,
+            11,
+            14,
+            22,
+            12,
+            20
+          ],
+          [
+            17,
+            13,
+            14,
+            15,
+            16,
+            14,
+            23,
+            14,
+            18
+          ],
+          [
+            15,
+            14,
+            12,
+            9,
+            7,
+            10,
+            11,
+            5,
+            6
+          ],
+          [
+            11,
+            4,
+            10,
+            5,
+            8,
+            8,
+            4,
+            9,
+            3
+          ],
+          [
+            14,
+            7,
+            3,
+            4,
+            6,
+            2,
+            7,
+            5,
+            5
+          ],
+          [
+            12,
+            16,
+            14,
+            10,
+            16,
+            9,
+            7,
+            12,
+            10
+          ],
+          [
+            12,
+            8,
+            18,
+            20,
+            16,
+            22,
+            16,
+            11,
+            18
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      },
+      "artifact_x_severity_bin": {
+        "cols": [
+          "[0.0,0.1)",
+          "[0.1,0.2)",
+          "[0.2,0.3)",
+          "[0.3,0.4)",
+          "[0.4,0.5)",
+          "[0.5,0.6)",
+          "[0.6,0.7)"
+        ],
+        "matrix": [
+          [
+            9,
+            17,
+            16,
+            21,
+            9,
+            3,
+            0
+          ],
+          [
+            7,
+            31,
+            19,
+            16,
+            12,
+            0,
+            0
+          ],
+          [
+            15,
+            21,
+            25,
+            11,
+            4,
+            0,
+            0
+          ],
+          [
+            3,
+            10,
+            4,
+            11,
+            10,
+            10,
+            0
+          ],
+          [
+            1,
+            11,
+            7,
+            13,
+            2,
+            0,
+            0
+          ],
+          [
+            2,
+            7,
+            3,
+            7,
+            8,
+            2,
+            0
+          ],
+          [
+            7,
+            11,
+            12,
+            11,
+            11,
+            6,
+            2
+          ],
+          [
+            3,
+            10,
+            16,
+            18,
+            14,
+            13,
+            0
+          ]
+        ],
+        "rows": [
+          "blur",
+          "boundary_inconsistency",
+          "color_shift",
+          "halftone",
+          "moire",
+          "pixel_grid",
+          "specular_reflection",
+          "texture_smoothing"
+        ]
+      }
+    }
+  },
+  "coverage": {
+    "DET": [
+      {
+        "counts": {
+          "display-like": 51,
+          "fabric-like": 51,
+          "paper-like": 51,
+          "plastic-like": 51,
+          "reflective-film-like": 52
+        },
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081,
+        "observed_categories": 5,
+        "ontology_categories": 5
+      },
+      {
+        "counts": {
+          "boundary-only": 42,
+          "curved": 43,
+          "flat": 42,
+          "flexible": 43,
+          "partial-curved": 43,
+          "rigid": 43
+        },
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "bottom": 43,
+          "front": 43,
+          "left": 42,
+          "mixed": 43,
+          "right": 43,
+          "top": 42
+        },
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "context": 53,
+          "face_boundary": 61,
+          "forehead": 53,
+          "left_cheek": 53,
+          "left_eye": 53,
+          "mouth": 49,
+          "nose": 53,
+          "right_cheek": 49,
+          "right_eye": 53
+        },
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 0.9991553278861434,
+        "observed_categories": 9,
+        "ontology_categories": 9
+      },
+      {
+        "counts": {
+          "blur": 83,
+          "boundary_inconsistency": 71,
+          "color_shift": 66,
+          "halftone": 49,
+          "moire": 45,
+          "pixel_grid": 17,
+          "specular_reflection": 57,
+          "texture_smoothing": 69
+        },
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9684031537377336,
+        "observed_categories": 8,
+        "ontology_categories": 8
+      }
+    ],
+    "LLM": [
+      {
+        "counts": {
+          "display-like": 52,
+          "fabric-like": 51,
+          "paper-like": 51,
+          "plastic-like": 51,
+          "reflective-film-like": 51
+        },
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081,
+        "observed_categories": 5,
+        "ontology_categories": 5
+      },
+      {
+        "counts": {
+          "boundary-only": 42,
+          "curved": 43,
+          "flat": 43,
+          "flexible": 43,
+          "partial-curved": 43,
+          "rigid": 42
+        },
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "bottom": 43,
+          "front": 43,
+          "left": 42,
+          "mixed": 42,
+          "right": 43,
+          "top": 43
+        },
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "context": 73,
+          "face_boundary": 73,
+          "forehead": 73,
+          "left_cheek": 73,
+          "left_eye": 73,
+          "mouth": 73,
+          "nose": 73,
+          "right_cheek": 73,
+          "right_eye": 73
+        },
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 1.0,
+        "observed_categories": 9,
+        "ontology_categories": 9
+      },
+      {
+        "counts": {
+          "blur": 65,
+          "boundary_inconsistency": 77,
+          "color_shift": 65,
+          "halftone": 65,
+          "moire": 62,
+          "pixel_grid": 40,
+          "specular_reflection": 74,
+          "texture_smoothing": 72
+        },
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9929202124364558,
+        "observed_categories": 8,
+        "ontology_categories": 8
+      }
+    ],
+    "RND": [
+      {
+        "counts": {
+          "display-like": 52,
+          "fabric-like": 51,
+          "paper-like": 51,
+          "plastic-like": 51,
+          "reflective-film-like": 51
+        },
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081,
+        "observed_categories": 5,
+        "ontology_categories": 5
+      },
+      {
+        "counts": {
+          "boundary-only": 42,
+          "curved": 43,
+          "flat": 43,
+          "flexible": 43,
+          "partial-curved": 42,
+          "rigid": 43
+        },
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "bottom": 42,
+          "front": 42,
+          "left": 43,
+          "mixed": 43,
+          "right": 43,
+          "top": 43
+        },
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309,
+        "observed_categories": 6,
+        "ontology_categories": 6
+      },
+      {
+        "counts": {
+          "context": 60,
+          "face_boundary": 53,
+          "forehead": 53,
+          "left_cheek": 53,
+          "left_eye": 53,
+          "mouth": 53,
+          "nose": 53,
+          "right_cheek": 46,
+          "right_eye": 53
+        },
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 0.9991152979114716,
+        "observed_categories": 9,
+        "ontology_categories": 9
+      },
+      {
+        "counts": {
+          "blur": 75,
+          "boundary_inconsistency": 85,
+          "color_shift": 76,
+          "halftone": 48,
+          "moire": 34,
+          "pixel_grid": 29,
+          "specular_reflection": 60,
+          "texture_smoothing": 74
+        },
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9722869581593224,
+        "observed_categories": 8,
+        "ontology_categories": 8
+      }
+    ]
+  },
+  "cross_arm_js_divergence": [
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 1.896267654966175e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 4.595694252429797e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0006537876571572118
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.0035853650992401865
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.018008983433652308
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.010040900661112726
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.03179255408972269
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 0.0
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 4.595694252429797e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0004870381648205738
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.007291258956092355
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.041775849844784135
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.0179333698881924
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.18682937107829456
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 1.896267654966175e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0004589471439198833
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.007814560424140719
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.04523073351411609
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.019089454763073718
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.21026960402536216
+    }
+  ],
+  "extension_id": "c_ext_q1q2_v1",
+  "formulas": {
+    "entropy": "H(X) = -sum_k p_k ln(p_k) ; H_norm = H(X)/ln(K)",
+    "gower": "mean over comparable fields of {categorical mismatch 0/1, normalized continuous |a-b|/range, set-valued Jaccard distance}",
+    "js_divergence": "JS(P,Q) = 1/2 KL(P||M) + 1/2 KL(Q||M), M=(P+Q)/2, eps=1e-12"
+  },
+  "gpu_used": false,
+  "llm_api_calls": 0,
+  "metrics_generated": [
+    "field_coverage_ratio",
+    "normalized_entropy_per_field",
+    "unique_recipe_ratio",
+    "pairwise_gower_distance_distribution",
+    "severity_distributions",
+    "artifact_x_region_cooccurrence",
+    "artifact_x_medium_cooccurrence",
+    "artifact_x_severity_bin_cooccurrence",
+    "pairwise_js_divergence_between_arms",
+    "validator_outcome_frequencies",
+    "raw_to_selected_distribution_shift_LLM"
+  ],
+  "milestone": "E1",
+  "pairwise_gower_distance": {
+    "DET": {
+      "all_pairs": 32640,
+      "max": 0.8054641723356009,
+      "mean": 0.516344201128368,
+      "median": 0.5201465986394558,
+      "min": 0.20754965986394555,
+      "n": 32640,
+      "pairs_evaluated": 32640,
+      "q1": 0.46739149659863943,
+      "q3": 0.5683964002267574,
+      "sampled": false,
+      "sd_ddof1": 0.07570805193251623
+    },
+    "LLM": {
+      "all_pairs": 32640,
+      "max": 0.669047619047619,
+      "mean": 0.42714562074829937,
+      "median": 0.4386167800453515,
+      "min": 0.0035714285714285718,
+      "n": 32640,
+      "pairs_evaluated": 32640,
+      "q1": 0.3695096371882086,
+      "q3": 0.49382086167800454,
+      "sampled": false,
+      "sd_ddof1": 0.09088486381857483
+    },
+    "RND": {
+      "all_pairs": 32640,
+      "max": 0.7888908163265306,
+      "mean": 0.5162866656836346,
+      "median": 0.5197776077097505,
+      "min": 0.1741358276643991,
+      "n": 32640,
+      "pairs_evaluated": 32640,
+      "q1": 0.4668132936507936,
+      "q3": 0.5692666099773243,
+      "sampled": false,
+      "sd_ddof1": 0.07620455209990928
+    }
+  },
+  "row_counts": {
+    "DET": 256,
+    "LLM": 256,
+    "RND": 256
+  },
+  "schema_version": "ext-q1q2-e1-recipe-analysis-v1",
+  "scientific_interpretation_boundary": "These are STRUCTURAL statistics of the frozen recipe banks. They do not measure semantic plausibility or a causal role of LLM reasoning. A semantic-mechanism reading is only supported downstream if E6 LLM-SHUFFLE reduces performance or a per-attack-family mapping is plausible (spec 8).",
+  "selection_shift": {
+    "DET": {
+      "frozen_evidence": "C3_ELIGIBILITY records 0 rejected of 384 raw slots at every one of the 11 eligibility stages; MILP then rejects 128 of 384 eligible to reach 256",
+      "reason": "the 384 raw schedule-slot recipes are not stored on disk (C3_*_SCHEDULE_CONTRACT.candidates_generated_by_this_task = 0) and re-derivation needs src/prism_fas/recipes/arm_schedules.py which imports pydantic (absent on this host)",
+      "schedule_contract": "reports/c3/v15_selection_contract/C3_DET_SCHEDULE_CONTRACT.json",
+      "status": "BLOCKED_TOOL"
+    },
+    "LLM": {
+      "per_field_shift": [
+        {
+          "field": "medium.family",
+          "js_raw_to_selected": 0.0005481464972099184,
+          "raw_counts": {
+            "display-like": 84,
+            "fabric-like": 72,
+            "paper-like": 83,
+            "plastic-like": 72,
+            "reflective-film-like": 73
+          },
+          "raw_normalized_entropy": 0.998425207073349,
+          "selected_counts": {
+            "display-like": 52,
+            "fabric-like": 51,
+            "paper-like": 51,
+            "plastic-like": 51,
+            "reflective-film-like": 51
+          },
+          "selected_normalized_entropy": 0.9999811118103081
+        },
+        {
+          "field": "geometry.shape",
+          "js_raw_to_selected": 0.0011101430277099386,
+          "raw_counts": {
+            "boundary-only": 63,
+            "curved": 62,
+            "flat": 78,
+            "flexible": 59,
+            "partial-curved": 61,
+            "rigid": 61
+          },
+          "raw_normalized_entropy": 0.9973644901058091,
+          "selected_counts": {
+            "boundary-only": 42,
+            "curved": 43,
+            "flat": 43,
+            "flexible": 43,
+            "partial-curved": 43,
+            "rigid": 42
+          },
+          "selected_normalized_entropy": 0.9999658458736309
+        },
+        {
+          "field": "capture.illumination",
+          "js_raw_to_selected": 0.0008582382829485538,
+          "raw_counts": {
+            "bottom": 60,
+            "front": 75,
+            "left": 64,
+            "mixed": 65,
+            "right": 60,
+            "top": 60
+          },
+          "raw_normalized_entropy": 0.998130597434666,
+          "selected_counts": {
+            "bottom": 43,
+            "front": 43,
+            "left": 42,
+            "mixed": 42,
+            "right": 43,
+            "top": 43
+          },
+          "selected_normalized_entropy": 0.9999658458736309
+        },
+        {
+          "field": "regions",
+          "js_raw_to_selected": 0.0005313166204099899,
+          "raw_counts": {
+            "context": 106,
+            "face_boundary": 117,
+            "forehead": 106,
+            "left_cheek": 102,
+            "left_eye": 118,
+            "mouth": 107,
+            "nose": 120,
+            "right_cheek": 98,
+            "right_eye": 110
+          },
+          "raw_normalized_entropy": 0.9990324545849374,
+          "selected_counts": {
+            "context": 73,
+            "face_boundary": 73,
+            "forehead": 73,
+            "left_cheek": 73,
+            "left_eye": 73,
+            "mouth": 73,
+            "nose": 73,
+            "right_cheek": 73,
+            "right_eye": 73
+          },
+          "selected_normalized_entropy": 1.0
+        },
+        {
+          "field": "artifacts",
+          "js_raw_to_selected": 0.003415339542001832,
+          "raw_counts": {
+            "blur": 113,
+            "boundary_inconsistency": 120,
+            "color_shift": 116,
+            "halftone": 79,
+            "moire": 67,
+            "pixel_grid": 55,
+            "specular_reflection": 123,
+            "texture_smoothing": 124
+          },
+          "raw_normalized_entropy": 0.9820784057024057,
+          "selected_counts": {
+            "blur": 65,
+            "boundary_inconsistency": 77,
+            "color_shift": 65,
+            "halftone": 65,
+            "moire": 62,
+            "pixel_grid": 40,
+            "specular_reflection": 74,
+            "texture_smoothing": 72
+          },
+          "selected_normalized_entropy": 0.9929202124364558
+        }
+      ],
+      "raw_pool_n": 384,
+      "raw_pool_source": "reports/c3/live/raw_responses/c3-llm-req-*.json (12 x 32)",
+      "raw_unique_ratio": 1.0,
+      "selected_n": 256,
+      "selected_unique_ratio": 1.0
+    },
+    "RND": {
+      "frozen_evidence": "C3_ELIGIBILITY records 0 rejected of 384 raw slots at every one of the 11 eligibility stages; MILP then rejects 128 of 384 eligible to reach 256",
+      "reason": "the 384 raw schedule-slot recipes are not stored on disk (C3_*_SCHEDULE_CONTRACT.candidates_generated_by_this_task = 0) and re-derivation needs src/prism_fas/recipes/arm_schedules.py which imports pydantic (absent on this host)",
+      "schedule_contract": "reports/c3/v15_selection_contract/C3_RND_SCHEDULE_CONTRACT.json",
+      "status": "BLOCKED_TOOL"
+    }
+  },
+  "severity_distributions": {
+    "DET": {
+      "artifact_strength_by_name": {
+        "blur": {
+          "max": 0.5486,
+          "mean": 0.30949879518072293,
+          "median": 0.3257,
+          "min": 0.0622,
+          "n": 83,
+          "q1": 0.19075,
+          "q3": 0.44295,
+          "sd_ddof1": 0.15249597475213528
+        },
+        "boundary_inconsistency": {
+          "max": 0.4935,
+          "mean": 0.24411830985915492,
+          "median": 0.2533,
+          "min": 0.0521,
+          "n": 71,
+          "q1": 0.14895,
+          "q3": 0.3367,
+          "sd_ddof1": 0.12770031805515727
+        },
+        "color_shift": {
+          "max": 0.4287,
+          "mean": 0.24885606060606058,
+          "median": 0.24480000000000002,
+          "min": 0.0516,
+          "n": 66,
+          "q1": 0.15435000000000001,
+          "q3": 0.332925,
+          "sd_ddof1": 0.109874437607785
+        },
+        "halftone": {
+          "max": 0.5478,
+          "mean": 0.32466122448979595,
+          "median": 0.3519,
+          "min": 0.0606,
+          "n": 49,
+          "q1": 0.1909,
+          "q3": 0.4523,
+          "sd_ddof1": 0.15588655171887894
+        },
+        "moire": {
+          "max": 0.4968,
+          "mean": 0.2726888888888889,
+          "median": 0.2884,
+          "min": 0.0539,
+          "n": 45,
+          "q1": 0.145,
+          "q3": 0.3795,
+          "sd_ddof1": 0.1364929222644267
+        },
+        "pixel_grid": {
+          "max": 0.5491,
+          "mean": 0.38284117647058824,
+          "median": 0.4063,
+          "min": 0.1113,
+          "n": 17,
+          "q1": 0.2828,
+          "q3": 0.4815,
+          "sd_ddof1": 0.14068047598558023
+        },
+        "specular_reflection": {
+          "max": 0.6014,
+          "mean": 0.3442228070175439,
+          "median": 0.3622,
+          "min": 0.0855,
+          "n": 57,
+          "q1": 0.1671,
+          "q3": 0.486,
+          "sd_ddof1": 0.1622273438039785
+        },
+        "texture_smoothing": {
+          "max": 0.5895,
+          "mean": 0.3229449275362319,
+          "median": 0.3289,
+          "min": 0.0509,
+          "n": 69,
+          "q1": 0.187,
+          "q3": 0.457,
+          "sd_ddof1": 0.1510449227452781
+        }
+      },
+      "artifact_strength_overall": {
+        "max": 0.6014,
+        "mean": 0.2976737417943107,
+        "median": 0.3038,
+        "min": 0.0509,
+        "n": 457,
+        "q1": 0.1657,
+        "q3": 0.4164,
+        "sd_ddof1": 0.14725808101095733
+      },
+      "artifacts_per_recipe": {
+        "max": 3.0,
+        "mean": 1.78515625,
+        "median": 2.0,
+        "min": 1.0,
+        "n": 256,
+        "q1": 1.0,
+        "q3": 2.0,
+        "sd_ddof1": 0.7900945432382772
+      },
+      "capture_and_geometry_fields": {
+        "capture.compression_q": {
+          "max": 100.0,
+          "mean": 64.98828125,
+          "median": 65.0,
+          "min": 30.0,
+          "n": 256,
+          "q1": 44.75,
+          "q3": 83.0,
+          "sd_ddof1": 21.320611848240503
+        },
+        "capture.defocus": {
+          "max": 0.999,
+          "mean": 0.47935546875,
+          "median": 0.4515,
+          "min": 0.001,
+          "n": 256,
+          "q1": 0.2015,
+          "q3": 0.76025,
+          "sd_ddof1": 0.3047128552044338
+        },
+        "capture.motion": {
+          "max": 0.997,
+          "mean": 0.494140625,
+          "median": 0.513,
+          "min": 0.0,
+          "n": 256,
+          "q1": 0.24175,
+          "q3": 0.75,
+          "sd_ddof1": 0.2986657974700675
+        },
+        "capture.scale": {
+          "max": 1.248,
+          "mean": 1.00110546875,
+          "median": 1.0154999999999998,
+          "min": 0.752,
+          "n": 256,
+          "q1": 0.868,
+          "q3": 1.132,
+          "sd_ddof1": 0.14538457657960283
+        },
+        "capture.yaw": {
+          "max": 44.67,
+          "mean": 2.3530078125,
+          "median": 2.775,
+          "min": -44.54,
+          "n": 256,
+          "q1": -19.3975,
+          "q3": 25.627500000000005,
+          "sd_ddof1": 26.10700557952502
+        },
+        "geometry.coverage": {
+          "max": 0.9994,
+          "mean": 0.55098046875,
+          "median": 0.5503,
+          "min": 0.1055,
+          "n": 256,
+          "q1": 0.3175,
+          "q3": 0.7771999999999999,
+          "sd_ddof1": 0.26260680338799636
+        },
+        "geometry.rigidity": {
+          "max": 0.997,
+          "mean": 0.485137109375,
+          "median": 0.48105,
+          "min": 0.0047,
+          "n": 256,
+          "q1": 0.24064999999999998,
+          "q3": 0.7064,
+          "sd_ddof1": 0.2806083244573275
+        },
+        "medium.roughness": {
+          "max": 0.9958,
+          "mean": 0.487501953125,
+          "median": 0.47104999999999997,
+          "min": 0.0014,
+          "n": 256,
+          "q1": 0.22642500000000002,
+          "q3": 0.74385,
+          "sd_ddof1": 0.29999951208472375
+        },
+        "medium.transparency": {
+          "max": 0.9962,
+          "mean": 0.495206640625,
+          "median": 0.5101,
+          "min": 0.0077,
+          "n": 256,
+          "q1": 0.268475,
+          "q3": 0.7277250000000001,
+          "sd_ddof1": 0.2828648484784717
+        }
+      },
+      "regions_per_recipe": {
+        "max": 3.0,
+        "mean": 1.86328125,
+        "median": 2.0,
+        "min": 1.0,
+        "n": 256,
+        "q1": 1.0,
+        "q3": 3.0,
+        "sd_ddof1": 0.8024835072521831
+      },
+      "total_artifact_strength_per_recipe": {
+        "max": 0.9999,
+        "mean": 0.531394140625,
+        "median": 0.4766,
+        "min": 0.0509,
+        "n": 256,
+        "q1": 0.307475,
+        "q3": 0.779075,
+        "sd_ddof1": 0.28726441683790105
+      }
+    },
+    "LLM": {
+      "artifact_strength_by_name": {
+        "blur": {
+          "max": 0.35,
+          "mean": 0.20692307692307693,
+          "median": 0.2,
+          "min": 0.15,
+          "n": 65,
+          "q1": 0.2,
+          "q3": 0.2,
+          "sd_ddof1": 0.04134168133233838
+        },
+        "boundary_inconsistency": {
+          "max": 0.45,
+          "mean": 0.2824675324675325,
+          "median": 0.3,
+          "min": 0.15,
+          "n": 77,
+          "q1": 0.25,
+          "q3": 0.35,
+          "sd_ddof1": 0.06871290088315685
+        },
+        "color_shift": {
+          "max": 0.35,
+          "mean": 0.19384615384615383,
+          "median": 0.2,
+          "min": 0.1,
+          "n": 65,
+          "q1": 0.15,
+          "q3": 0.2,
+          "sd_ddof1": 0.046357722782061475
+        },
+        "halftone": {
+          "max": 0.4,
+          "mean": 0.2723076923076923,
+          "median": 0.25,
+          "min": 0.15,
+          "n": 65,
+          "q1": 0.25,
+          "q3": 0.3,
+          "sd_ddof1": 0.05450829153581907
+        },
+        "moire": {
+          "max": 0.35,
+          "mean": 0.25806451612903225,
+          "median": 0.25,
+          "min": 0.2,
+          "n": 62,
+          "q1": 0.21250000000000002,
+          "q3": 0.3,
+          "sd_ddof1": 0.04544276564825286
+        },
+        "pixel_grid": {
+          "max": 0.4,
+          "mean": 0.29625,
+          "median": 0.3,
+          "min": 0.2,
+          "n": 40,
+          "q1": 0.25,
+          "q3": 0.35,
+          "sd_ddof1": 0.05925553095465392
+        },
+        "specular_reflection": {
+          "max": 0.5,
+          "mean": 0.3324324324324325,
+          "median": 0.35,
+          "min": 0.15,
+          "n": 74,
+          "q1": 0.3,
+          "q3": 0.4,
+          "sd_ddof1": 0.07514024897430159
+        },
+        "texture_smoothing": {
+          "max": 0.4,
+          "mean": 0.2576388888888889,
+          "median": 0.25,
+          "min": 0.15,
+          "n": 72,
+          "q1": 0.2,
+          "q3": 0.3,
+          "sd_ddof1": 0.06147238142142602
+        }
+      },
+      "artifact_strength_overall": {
+        "max": 0.5,
+        "mean": 0.2625,
+        "median": 0.25,
+        "min": 0.1,
+        "n": 520,
+        "q1": 0.2,
+        "q3": 0.3,
+        "sd_ddof1": 0.07204352677040668
+      },
+      "artifacts_per_recipe": {
+        "max": 3.0,
+        "mean": 2.03125,
+        "median": 2.0,
+        "min": 2.0,
+        "n": 256,
+        "q1": 2.0,
+        "q3": 2.0,
+        "sd_ddof1": 0.17433346455211948
+      },
+      "capture_and_geometry_fields": {
+        "capture.compression_q": {
+          "max": 100.0,
+          "mean": 78.45703125,
+          "median": 80.0,
+          "min": 40.0,
+          "n": 256,
+          "q1": 70.0,
+          "q3": 90.0,
+          "sd_ddof1": 12.945970278278814
+        },
+        "capture.defocus": {
+          "max": 0.4,
+          "mean": 0.10953125,
+          "median": 0.1,
+          "min": 0.0,
+          "n": 256,
+          "q1": 0.05,
+          "q3": 0.15,
+          "sd_ddof1": 0.08016022557793785
+        },
+        "capture.motion": {
+          "max": 0.3,
+          "mean": 0.07328125,
+          "median": 0.05,
+          "min": 0.0,
+          "n": 256,
+          "q1": 0.0,
+          "q3": 0.1,
+          "sd_ddof1": 0.07589579414320302
+        },
+        "capture.scale": {
+          "max": 1.25,
+          "mean": 0.99875,
+          "median": 1.0,
+          "min": 0.78,
+          "n": 256,
+          "q1": 0.95,
+          "q3": 1.05,
+          "sd_ddof1": 0.09401293194315886
+        },
+        "capture.yaw": {
+          "max": 42.0,
+          "mean": 0.337890625,
+          "median": 0.0,
+          "min": -40.0,
+          "n": 256,
+          "q1": -10.0,
+          "q3": 12.0,
+          "sd_ddof1": 17.29898812193627
+        },
+        "geometry.coverage": {
+          "max": 1.0,
+          "mean": 0.7154296875,
+          "median": 0.8,
+          "min": 0.2,
+          "n": 256,
+          "q1": 0.65,
+          "q3": 0.85,
+          "sd_ddof1": 0.2132985823507581
+        },
+        "geometry.rigidity": {
+          "max": 1.0,
+          "mean": 0.6228515625,
+          "median": 0.7,
+          "min": 0.1,
+          "n": 256,
+          "q1": 0.4,
+          "q3": 0.85,
+          "sd_ddof1": 0.26817332966319946
+        },
+        "medium.roughness": {
+          "max": 0.96,
+          "mean": 0.3881640625,
+          "median": 0.2,
+          "min": 0.01,
+          "n": 256,
+          "q1": 0.08,
+          "q3": 0.75,
+          "sd_ddof1": 0.34544791673133535
+        },
+        "medium.transparency": {
+          "max": 0.7,
+          "mean": 0.1218359375,
+          "median": 0.05,
+          "min": 0.0,
+          "n": 256,
+          "q1": 0.0,
+          "q3": 0.2,
+          "sd_ddof1": 0.155480748563993
+        }
+      },
+      "regions_per_recipe": {
+        "max": 3.0,
+        "mean": 2.56640625,
+        "median": 3.0,
+        "min": 1.0,
+        "n": 256,
+        "q1": 2.0,
+        "q3": 3.0,
+        "sd_ddof1": 0.5769123145049436
+      },
+      "total_artifact_strength_per_recipe": {
+        "max": 0.75,
+        "mean": 0.533203125,
+        "median": 0.55,
+        "min": 0.35,
+        "n": 256,
+        "q1": 0.5,
+        "q3": 0.6,
+        "sd_ddof1": 0.06867866174024777
+      }
+    },
+    "RND": {
+      "artifact_strength_by_name": {
+        "blur": {
+          "max": 0.5375,
+          "mean": 0.26500666666666667,
+          "median": 0.2662,
+          "min": 0.0537,
+          "n": 75,
+          "q1": 0.15184999999999998,
+          "q3": 0.3614,
+          "sd_ddof1": 0.13113247926092572
+        },
+        "boundary_inconsistency": {
+          "max": 0.4982,
+          "mean": 0.25004,
+          "median": 0.2441,
+          "min": 0.0515,
+          "n": 85,
+          "q1": 0.1572,
+          "q3": 0.3402,
+          "sd_ddof1": 0.11920844409209082
+        },
+        "color_shift": {
+          "max": 0.4307,
+          "mean": 0.21584342105263157,
+          "median": 0.2082,
+          "min": 0.05,
+          "n": 76,
+          "q1": 0.123825,
+          "q3": 0.28892500000000004,
+          "sd_ddof1": 0.10545409154132909
+        },
+        "halftone": {
+          "max": 0.5925,
+          "mean": 0.3441604166666667,
+          "median": 0.3798,
+          "min": 0.0507,
+          "n": 48,
+          "q1": 0.189675,
+          "q3": 0.468125,
+          "sd_ddof1": 0.1630166624293662
+        },
+        "moire": {
+          "max": 0.4128,
+          "mean": 0.2555117647058824,
+          "median": 0.2744,
+          "min": 0.0861,
+          "n": 34,
+          "q1": 0.15355000000000002,
+          "q3": 0.34335,
+          "sd_ddof1": 0.10301574979527331
+        },
+        "pixel_grid": {
+          "max": 0.5177,
+          "mean": 0.31771379310344827,
+          "median": 0.3411,
+          "min": 0.0652,
+          "n": 29,
+          "q1": 0.175,
+          "q3": 0.4431,
+          "sd_ddof1": 0.13808771209462156
+        },
+        "specular_reflection": {
+          "max": 0.6428,
+          "mean": 0.306705,
+          "median": 0.3016,
+          "min": 0.0549,
+          "n": 60,
+          "q1": 0.1787,
+          "q3": 0.42475,
+          "sd_ddof1": 0.15984263598821505
+        },
+        "texture_smoothing": {
+          "max": 0.5933,
+          "mean": 0.34202702702702703,
+          "median": 0.33255,
+          "min": 0.0619,
+          "n": 74,
+          "q1": 0.24485,
+          "q3": 0.456675,
+          "sd_ddof1": 0.14374242593249273
+        }
+      },
+      "artifact_strength_overall": {
+        "max": 0.6428,
+        "mean": 0.28205010395010394,
+        "median": 0.2772,
+        "min": 0.05,
+        "n": 481,
+        "q1": 0.1656,
+        "q3": 0.3896,
+        "sd_ddof1": 0.14023612485208953
+      },
+      "artifacts_per_recipe": {
+        "max": 3.0,
+        "mean": 1.87890625,
+        "median": 2.0,
+        "min": 1.0,
+        "n": 256,
+        "q1": 1.0,
+        "q3": 3.0,
+        "sd_ddof1": 0.8477099340888611
+      },
+      "capture_and_geometry_fields": {
+        "capture.compression_q": {
+          "max": 100.0,
+          "mean": 63.5,
+          "median": 61.0,
+          "min": 30.0,
+          "n": 256,
+          "q1": 45.0,
+          "q3": 82.25,
+          "sd_ddof1": 20.682852611689295
+        },
+        "capture.defocus": {
+          "max": 0.986,
+          "mean": 0.49772265625,
+          "median": 0.486,
+          "min": 0.003,
+          "n": 256,
+          "q1": 0.27175000000000005,
+          "q3": 0.7282500000000001,
+          "sd_ddof1": 0.28512822921016523
+        },
+        "capture.motion": {
+          "max": 0.999,
+          "mean": 0.5245390625,
+          "median": 0.567,
+          "min": 0.006,
+          "n": 256,
+          "q1": 0.267,
+          "q3": 0.78325,
+          "sd_ddof1": 0.29813578699603493
+        },
+        "capture.scale": {
+          "max": 1.25,
+          "mean": 1.01092578125,
+          "median": 1.0225,
+          "min": 0.753,
+          "n": 256,
+          "q1": 0.86375,
+          "q3": 1.151,
+          "sd_ddof1": 0.15276602114041438
+        },
+        "capture.yaw": {
+          "max": 44.81,
+          "mean": 0.627421875,
+          "median": 1.1600000000000001,
+          "min": -44.69,
+          "n": 256,
+          "q1": -22.394999999999996,
+          "q3": 24.479999999999997,
+          "sd_ddof1": 26.822528890324715
+        },
+        "geometry.coverage": {
+          "max": 0.9994,
+          "mean": 0.536806640625,
+          "median": 0.52745,
+          "min": 0.1041,
+          "n": 256,
+          "q1": 0.29962500000000003,
+          "q3": 0.754325,
+          "sd_ddof1": 0.26397034116459506
+        },
+        "geometry.rigidity": {
+          "max": 0.9997,
+          "mean": 0.51096875,
+          "median": 0.53975,
+          "min": 0.0048,
+          "n": 256,
+          "q1": 0.23747500000000002,
+          "q3": 0.7616,
+          "sd_ddof1": 0.29370656284602076
+        },
+        "medium.roughness": {
+          "max": 0.9878,
+          "mean": 0.480175390625,
+          "median": 0.4838,
+          "min": 0.0001,
+          "n": 256,
+          "q1": 0.228625,
+          "q3": 0.7121,
+          "sd_ddof1": 0.2837133966368514
+        },
+        "medium.transparency": {
+          "max": 0.999,
+          "mean": 0.472021875,
+          "median": 0.46304999999999996,
+          "min": 0.0111,
+          "n": 256,
+          "q1": 0.204475,
+          "q3": 0.73825,
+          "sd_ddof1": 0.2971676357797093
+        }
+      },
+      "regions_per_recipe": {
+        "max": 3.0,
+        "mean": 1.86328125,
+        "median": 2.0,
+        "min": 1.0,
+        "n": 256,
+        "q1": 1.0,
+        "q3": 3.0,
+        "sd_ddof1": 0.8073555082283558
+      },
+      "total_artifact_strength_per_recipe": {
+        "max": 1.0,
+        "mean": 0.529945703125,
+        "median": 0.48275,
+        "min": 0.0524,
+        "n": 256,
+        "q1": 0.309575,
+        "q3": 0.7562500000000001,
+        "sd_ddof1": 0.2829522962307406
+      }
+    }
+  },
+  "source_artifact_identities": {
+    "arm_bank_identities": {
+      "DET": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "LLM": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "RND": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136"
+    },
+    "arm_selected_set_identities": {
+      "DET": "89761485332b94e9b5fe2756054da2286b74eb2fbcf08bf1b166163a75c772d9",
+      "LLM": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326",
+      "RND": "5ab2375b6ccf28fdee795d7eaebd295be18b2b3a579da03bb1ef3736b0d0e7e3"
+    },
+    "c3_bank_contract_identity": "d6105f8de601ae94cb0d46e087a0ebe664b3b5df9d193f5797e306bfe4fe03b8",
+    "c3_scientific_bank_lock_identity": "eb57cdfcab8fce1640a5e639e1234635409bc946938419c34020830e641a845d",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+    "selected_bank_sha256": {
+      "DET": "6228629ed04ee19339627d2964404f808c0dc1c7a6a088afca4bd365700a46f8",
+      "LLM": "db563c67da5953a562b92b090894ea954b8065485a6db29fc96f01b344433620",
+      "RND": "c7bf040c859559d3d95aa3fed889d05d8df6e0cd1696091f7b9f09afd87579d2"
+    }
+  },
+  "status": "COMPLETE_CPU_WITH_ONE_BLOCKED_SUBMETRIC",
+  "target_labels_accessed": false,
+  "unique_recipe_ratio": {
+    "DET": {
+      "duplicated_key_count": 0,
+      "max_duplicate_multiplicity": 1,
+      "n": 256,
+      "unique": 256,
+      "unique_ratio": 1.0
+    },
+    "LLM": {
+      "duplicated_key_count": 0,
+      "max_duplicate_multiplicity": 1,
+      "n": 256,
+      "unique": 256,
+      "unique_ratio": 1.0
+    },
+    "RND": {
+      "duplicated_key_count": 0,
+      "max_duplicate_multiplicity": 1,
+      "n": 256,
+      "unique": 256,
+      "unique_ratio": 1.0
+    }
+  },
+  "validation_funnel": {
+    "_source": [
+      "reports/c3/scientific/C3_ELIGIBILITY.json",
+      "reports/c3/live/C3_LIVE_GENERATION_STATE.json",
+      "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json"
+    ],
+    "eligibility_order": [
+      "item_schema",
+      "ontology",
+      "scientific_route_policy",
+      "numeric_range",
+      "compatibility",
+      "canonicalization",
+      "deduplication",
+      "compiler",
+      "operator_graph",
+      "mask_policy",
+      "conditioning_41d"
+    ],
+    "llm_provider_generation": {
+      "all_complete": true,
+      "logical_requests": 12,
+      "objects_per_request": 32,
+      "provider_calls_total": 13,
+      "status_counts": {
+        "COMPLETED_VALID": 12,
+        "FAILED_BLOCKING": 0,
+        "FAILED_RETRYABLE": 0,
+        "IN_PROGRESS": 0,
+        "NOT_STARTED": 0
+      }
+    },
+    "per_arm": {
+      "DET": {
+        "eligible": 384,
+        "milp_rejected_from_eligible": 128,
+        "raw_slots": 384,
+        "rejected_at_eligibility": 0,
+        "rejected_by_stage": {},
+        "selected_final_bank": 256
+      },
+      "LLM": {
+        "eligible": 384,
+        "milp_rejected_from_eligible": 128,
+        "raw_slots": 384,
+        "rejected_at_eligibility": 0,
+        "rejected_by_stage": {},
+        "selected_final_bank": 256
+      },
+      "RND": {
+        "eligible": 384,
+        "milp_rejected_from_eligible": 128,
+        "raw_slots": 384,
+        "rejected_at_eligibility": 0,
+        "rejected_by_stage": {},
+        "selected_final_bank": 256
+      }
+    }
+  },
+  "warnings": [
+    "RND/DET raw-384 candidate pools are not stored on disk and pydantic is absent -> RECIPE_SELECTION_SHIFT for RND/DET is BLOCKED_TOOL (LLM computed).",
+    "PNG figures deferred: matplotlib not installed. Figure series emitted as figures/E1_FIGURE_DATA.json.",
+    "MILP selection (spec 'bank-select' stages 3-4) explicitly minimizes marginal non-uniformity, so per-field marginal entropy is near-maximal for ALL arms by construction; arm differences live in joint structure, pairwise distance, unique-recipe ratio and severity - not in single-field entropy."
+  ]
+}

@@ -1,0 +1,821 @@
+{
+  "F3_entropy_coverage": {
+    "DET": [
+      {
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 0.9991553278861434
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9684031537377336
+      }
+    ],
+    "LLM": [
+      {
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 1.0
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9929202124364558
+      }
+    ],
+    "RND": [
+      {
+        "coverage_ratio": 1.0,
+        "field": "medium.family",
+        "normalized_entropy": 0.9999811118103081
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "geometry.shape",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "capture.illumination",
+        "normalized_entropy": 0.9999658458736309
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "regions",
+        "normalized_entropy": 0.9991152979114716
+      },
+      {
+        "coverage_ratio": 1.0,
+        "field": "artifacts",
+        "normalized_entropy": 0.9722869581593224
+      }
+    ]
+  },
+  "F4_artifact_x_region": {
+    "DET": {
+      "cols": [
+        "context",
+        "face_boundary",
+        "forehead",
+        "left_cheek",
+        "left_eye",
+        "mouth",
+        "nose",
+        "right_cheek",
+        "right_eye"
+      ],
+      "matrix": [
+        [
+          11,
+          15,
+          17,
+          16,
+          19,
+          16,
+          18,
+          19,
+          20
+        ],
+        [
+          15,
+          8,
+          16,
+          15,
+          16,
+          14,
+          12,
+          16,
+          16
+        ],
+        [
+          11,
+          9,
+          16,
+          18,
+          19,
+          11,
+          15,
+          12,
+          13
+        ],
+        [
+          13,
+          15,
+          13,
+          5,
+          9,
+          10,
+          8,
+          8,
+          9
+        ],
+        [
+          8,
+          15,
+          9,
+          8,
+          12,
+          10,
+          8,
+          6,
+          7
+        ],
+        [
+          9,
+          7,
+          4,
+          4,
+          5,
+          1,
+          2,
+          1,
+          2
+        ],
+        [
+          11,
+          16,
+          15,
+          17,
+          12,
+          12,
+          13,
+          6,
+          12
+        ],
+        [
+          17,
+          11,
+          16,
+          14,
+          11,
+          7,
+          16,
+          13,
+          16
+        ]
+      ],
+      "rows": [
+        "blur",
+        "boundary_inconsistency",
+        "color_shift",
+        "halftone",
+        "moire",
+        "pixel_grid",
+        "specular_reflection",
+        "texture_smoothing"
+      ]
+    },
+    "LLM": {
+      "cols": [
+        "context",
+        "face_boundary",
+        "forehead",
+        "left_cheek",
+        "left_eye",
+        "mouth",
+        "nose",
+        "right_cheek",
+        "right_eye"
+      ],
+      "matrix": [
+        [
+          25,
+          21,
+          14,
+          24,
+          15,
+          17,
+          16,
+          19,
+          11
+        ],
+        [
+          44,
+          51,
+          14,
+          12,
+          7,
+          14,
+          6,
+          16,
+          5
+        ],
+        [
+          16,
+          15,
+          25,
+          19,
+          13,
+          24,
+          21,
+          22,
+          10
+        ],
+        [
+          7,
+          14,
+          15,
+          23,
+          24,
+          23,
+          23,
+          20,
+          28
+        ],
+        [
+          12,
+          9,
+          20,
+          15,
+          29,
+          14,
+          23,
+          18,
+          31
+        ],
+        [
+          8,
+          6,
+          12,
+          8,
+          20,
+          12,
+          16,
+          7,
+          21
+        ],
+        [
+          22,
+          20,
+          26,
+          19,
+          20,
+          21,
+          19,
+          19,
+          21
+        ],
+        [
+          13,
+          11,
+          22,
+          27,
+          22,
+          23,
+          28,
+          26,
+          22
+        ]
+      ],
+      "rows": [
+        "blur",
+        "boundary_inconsistency",
+        "color_shift",
+        "halftone",
+        "moire",
+        "pixel_grid",
+        "specular_reflection",
+        "texture_smoothing"
+      ]
+    },
+    "RND": {
+      "cols": [
+        "context",
+        "face_boundary",
+        "forehead",
+        "left_cheek",
+        "left_eye",
+        "mouth",
+        "nose",
+        "right_cheek",
+        "right_eye"
+      ],
+      "matrix": [
+        [
+          13,
+          13,
+          11,
+          14,
+          17,
+          19,
+          16,
+          17,
+          18
+        ],
+        [
+          16,
+          20,
+          13,
+          15,
+          11,
+          14,
+          22,
+          12,
+          20
+        ],
+        [
+          17,
+          13,
+          14,
+          15,
+          16,
+          14,
+          23,
+          14,
+          18
+        ],
+        [
+          15,
+          14,
+          12,
+          9,
+          7,
+          10,
+          11,
+          5,
+          6
+        ],
+        [
+          11,
+          4,
+          10,
+          5,
+          8,
+          8,
+          4,
+          9,
+          3
+        ],
+        [
+          14,
+          7,
+          3,
+          4,
+          6,
+          2,
+          7,
+          5,
+          5
+        ],
+        [
+          12,
+          16,
+          14,
+          10,
+          16,
+          9,
+          7,
+          12,
+          10
+        ],
+        [
+          12,
+          8,
+          18,
+          20,
+          16,
+          22,
+          16,
+          11,
+          18
+        ]
+      ],
+      "rows": [
+        "blur",
+        "boundary_inconsistency",
+        "color_shift",
+        "halftone",
+        "moire",
+        "pixel_grid",
+        "specular_reflection",
+        "texture_smoothing"
+      ]
+    }
+  },
+  "js_heatmap": [
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 1.896267654966175e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 4.595694252429797e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0006537876571572118
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.0035853650992401865
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.018008983433652308
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.010040900661112726
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "DET",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.03179255408972269
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 0.0
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 4.595694252429797e-05
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0004870381648205738
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.007291258956092355
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.041775849844784135
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.0179333698881924
+    },
+    {
+      "arm_a": "RND",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.18682937107829456
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:medium.family",
+      "js_divergence": 1.896267654966175e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:geometry.shape",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:capture.illumination",
+      "js_divergence": 2.2978471262148983e-05
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:regions",
+      "js_divergence": 0.0004589471439198833
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "marginal:artifacts",
+      "js_divergence": 0.007814560424140719
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_region",
+      "js_divergence": 0.04523073351411609
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_medium",
+      "js_divergence": 0.019089454763073718
+    },
+    {
+      "arm_a": "DET",
+      "arm_b": "LLM",
+      "distribution": "cooccurrence:artifact_x_severity_bin",
+      "js_divergence": 0.21026960402536216
+    }
+  ],
+  "note": "PNG rendering deferred (matplotlib not installed). These are the exact series each figure would plot.",
+  "severity_histograms": {
+    "DET": {
+      "blur": {
+        "max": 0.5486,
+        "mean": 0.30949879518072293,
+        "median": 0.3257,
+        "min": 0.0622,
+        "n": 83,
+        "q1": 0.19075,
+        "q3": 0.44295,
+        "sd_ddof1": 0.15249597475213528
+      },
+      "boundary_inconsistency": {
+        "max": 0.4935,
+        "mean": 0.24411830985915492,
+        "median": 0.2533,
+        "min": 0.0521,
+        "n": 71,
+        "q1": 0.14895,
+        "q3": 0.3367,
+        "sd_ddof1": 0.12770031805515727
+      },
+      "color_shift": {
+        "max": 0.4287,
+        "mean": 0.24885606060606058,
+        "median": 0.24480000000000002,
+        "min": 0.0516,
+        "n": 66,
+        "q1": 0.15435000000000001,
+        "q3": 0.332925,
+        "sd_ddof1": 0.109874437607785
+      },
+      "halftone": {
+        "max": 0.5478,
+        "mean": 0.32466122448979595,
+        "median": 0.3519,
+        "min": 0.0606,
+        "n": 49,
+        "q1": 0.1909,
+        "q3": 0.4523,
+        "sd_ddof1": 0.15588655171887894
+      },
+      "moire": {
+        "max": 0.4968,
+        "mean": 0.2726888888888889,
+        "median": 0.2884,
+        "min": 0.0539,
+        "n": 45,
+        "q1": 0.145,
+        "q3": 0.3795,
+        "sd_ddof1": 0.1364929222644267
+      },
+      "pixel_grid": {
+        "max": 0.5491,
+        "mean": 0.38284117647058824,
+        "median": 0.4063,
+        "min": 0.1113,
+        "n": 17,
+        "q1": 0.2828,
+        "q3": 0.4815,
+        "sd_ddof1": 0.14068047598558023
+      },
+      "specular_reflection": {
+        "max": 0.6014,
+        "mean": 0.3442228070175439,
+        "median": 0.3622,
+        "min": 0.0855,
+        "n": 57,
+        "q1": 0.1671,
+        "q3": 0.486,
+        "sd_ddof1": 0.1622273438039785
+      },
+      "texture_smoothing": {
+        "max": 0.5895,
+        "mean": 0.3229449275362319,
+        "median": 0.3289,
+        "min": 0.0509,
+        "n": 69,
+        "q1": 0.187,
+        "q3": 0.457,
+        "sd_ddof1": 0.1510449227452781
+      }
+    },
+    "LLM": {
+      "blur": {
+        "max": 0.35,
+        "mean": 0.20692307692307693,
+        "median": 0.2,
+        "min": 0.15,
+        "n": 65,
+        "q1": 0.2,
+        "q3": 0.2,
+        "sd_ddof1": 0.04134168133233838
+      },
+      "boundary_inconsistency": {
+        "max": 0.45,
+        "mean": 0.2824675324675325,
+        "median": 0.3,
+        "min": 0.15,
+        "n": 77,
+        "q1": 0.25,
+        "q3": 0.35,
+        "sd_ddof1": 0.06871290088315685
+      },
+      "color_shift": {
+        "max": 0.35,
+        "mean": 0.19384615384615383,
+        "median": 0.2,
+        "min": 0.1,
+        "n": 65,
+        "q1": 0.15,
+        "q3": 0.2,
+        "sd_ddof1": 0.046357722782061475
+      },
+      "halftone": {
+        "max": 0.4,
+        "mean": 0.2723076923076923,
+        "median": 0.25,
+        "min": 0.15,
+        "n": 65,
+        "q1": 0.25,
+        "q3": 0.3,
+        "sd_ddof1": 0.05450829153581907
+      },
+      "moire": {
+        "max": 0.35,
+        "mean": 0.25806451612903225,
+        "median": 0.25,
+        "min": 0.2,
+        "n": 62,
+        "q1": 0.21250000000000002,
+        "q3": 0.3,
+        "sd_ddof1": 0.04544276564825286
+      },
+      "pixel_grid": {
+        "max": 0.4,
+        "mean": 0.29625,
+        "median": 0.3,
+        "min": 0.2,
+        "n": 40,
+        "q1": 0.25,
+        "q3": 0.35,
+        "sd_ddof1": 0.05925553095465392
+      },
+      "specular_reflection": {
+        "max": 0.5,
+        "mean": 0.3324324324324325,
+        "median": 0.35,
+        "min": 0.15,
+        "n": 74,
+        "q1": 0.3,
+        "q3": 0.4,
+        "sd_ddof1": 0.07514024897430159
+      },
+      "texture_smoothing": {
+        "max": 0.4,
+        "mean": 0.2576388888888889,
+        "median": 0.25,
+        "min": 0.15,
+        "n": 72,
+        "q1": 0.2,
+        "q3": 0.3,
+        "sd_ddof1": 0.06147238142142602
+      }
+    },
+    "RND": {
+      "blur": {
+        "max": 0.5375,
+        "mean": 0.26500666666666667,
+        "median": 0.2662,
+        "min": 0.0537,
+        "n": 75,
+        "q1": 0.15184999999999998,
+        "q3": 0.3614,
+        "sd_ddof1": 0.13113247926092572
+      },
+      "boundary_inconsistency": {
+        "max": 0.4982,
+        "mean": 0.25004,
+        "median": 0.2441,
+        "min": 0.0515,
+        "n": 85,
+        "q1": 0.1572,
+        "q3": 0.3402,
+        "sd_ddof1": 0.11920844409209082
+      },
+      "color_shift": {
+        "max": 0.4307,
+        "mean": 0.21584342105263157,
+        "median": 0.2082,
+        "min": 0.05,
+        "n": 76,
+        "q1": 0.123825,
+        "q3": 0.28892500000000004,
+        "sd_ddof1": 0.10545409154132909
+      },
+      "halftone": {
+        "max": 0.5925,
+        "mean": 0.3441604166666667,
+        "median": 0.3798,
+        "min": 0.0507,
+        "n": 48,
+        "q1": 0.189675,
+        "q3": 0.468125,
+        "sd_ddof1": 0.1630166624293662
+      },
+      "moire": {
+        "max": 0.4128,
+        "mean": 0.2555117647058824,
+        "median": 0.2744,
+        "min": 0.0861,
+        "n": 34,
+        "q1": 0.15355000000000002,
+        "q3": 0.34335,
+        "sd_ddof1": 0.10301574979527331
+      },
+      "pixel_grid": {
+        "max": 0.5177,
+        "mean": 0.31771379310344827,
+        "median": 0.3411,
+        "min": 0.0652,
+        "n": 29,
+        "q1": 0.175,
+        "q3": 0.4431,
+        "sd_ddof1": 0.13808771209462156
+      },
+      "specular_reflection": {
+        "max": 0.6428,
+        "mean": 0.306705,
+        "median": 0.3016,
+        "min": 0.0549,
+        "n": 60,
+        "q1": 0.1787,
+        "q3": 0.42475,
+        "sd_ddof1": 0.15984263598821505
+      },
+      "texture_smoothing": {
+        "max": 0.5933,
+        "mean": 0.34202702702702703,
+        "median": 0.33255,
+        "min": 0.0619,
+        "n": 74,
+        "q1": 0.24485,
+        "q3": 0.456675,
+        "sd_ddof1": 0.14374242593249273
+      }
+    }
+  }
+}

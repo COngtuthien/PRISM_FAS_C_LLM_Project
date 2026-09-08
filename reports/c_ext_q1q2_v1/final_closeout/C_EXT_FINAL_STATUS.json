@@ -1,0 +1,153 @@
+{
+  "closeout_task": {
+    "additive_namespace": "reports/c_ext_q1q2_v1/final_closeout",
+    "detectors_trained": 0,
+    "experiments_rerun": 0,
+    "frozen_protocol_modified": false,
+    "gpu_jobs": 0,
+    "historical_e0_e10_evidence_modified": false,
+    "llm_calls": 0,
+    "provider_or_network_calls": 0,
+    "read_only_evidence_synthesis": true,
+    "synthetic_data_generated": 0,
+    "target_image_feature_or_label_access": false
+  },
+  "e10_gate_criteria": {
+    "C1_CROSS_DOMAIN_SIGNAL": "BLOCKED",
+    "C2_VALUE_OVER_REAL_ONLY": "NOT_ESTABLISHED",
+    "C3_SEMANTIC_ABLATION": "BLOCKED",
+    "C4_QUALITY_CONFOUND": "PASS",
+    "C5_INTEGRITY": "PASS"
+  },
+  "e11": {
+    "authorized": false,
+    "new_llm_calls_authorized": false,
+    "q1_mechanism_claim_supported": false,
+    "run": false,
+    "status": "NOT_AUTHORIZED_NOT_RUN"
+  },
+  "extension_id": "c_ext_q1q2_v1",
+  "generated_from_head_commit": "7723fc1444cd69a5c4db1fe73c4ee4edf96313dd",
+  "governing_spec": {
+    "ext_q1q2_detailed_spec_path": "/home/cong/PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx",
+    "ext_q1q2_detailed_spec_sha256": "692291d67ffa6a4877202dd18f586bee7dc138e7d74c198840cad982055dedb2",
+    "frozen_criteria_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx Section 17",
+    "governing_version_c_spec_sha256": "ad8495f2576607546ff8c3bd4f47991197cbb3802265a599d1808aa1a97066e5"
+  },
+  "interpretation_rule": "Unavailable / upstream-blocked evidence is not evidence that the LLM failed. Blocked milestones are BLOCKED / NOT_ESTABLISHED, never FAIL and never a negative scientific result.",
+  "milestones": {
+    "E0": {
+      "kind": "protocol / hypothesis-family / binding freeze",
+      "reason": "EXT_E0_VALIDATION.json milestone_status=COMPLETE, e0_scientific_content_status=COMPLETE_AND_LOCKED; frozen hypothesis family EXT-H1..EXT-H4, E8 trigger rule, and the claim ceiling (no general 'LLM generation mechanism is superior' claim without E11).",
+      "status": "COMPLETE"
+    },
+    "E1": {
+      "artifact_status_field": "COMPLETE_CPU",
+      "e10_reconciliation": "E10's own milestone_status_audit records E1 as EVIDENCE_NOT_PRESENT_IN_CHECKOUT because the git-ignored E1 subtree was absent from the E10 checkout. That does not change any E10 gate criterion (none consult E1). This closeout re-audits E1 from the now-restored artifact and records COMPLETE; the disagreement is recorded, not silently reconciled.",
+      "kind": "recipe-bank structural analysis (CPU, descriptive)",
+      "not_a_failure": true,
+      "not_consulted_by_any_e10_criterion": true,
+      "reason": "Re-audited from the restored authoritative artifact reports/c_ext_q1q2_v1/e1_recipe_analysis/E1_RECIPE_ANALYSIS.json (status=COMPLETE_CPU, gpu_used=false, llm_api_calls=0, target_labels_accessed=false). All 12 planned structural metrics were generated for the 3 frozen 256-recipe selected banks (RND/DET/LLM), including the RND/DET raw->selected distribution-shift submetric that a prior attempt (history/pre_pydantic_blocked_20260831/) had left BLOCKED_TOOL -- it was later completed by deterministic reconstruction of the RND/DET raw-384 pools, verified byte-identical to the frozen schedule contract. Findings are STRUCTURAL statistics of the frozen recipe banks only: per E1's own scientific_interpretation_boundary they do NOT measure semantic plausibility or a causal role of LLM reasoning, and a semantic-mechanism reading is supported only if E6 LLM-SHUFFLE reduces performance downstream (E6 is blocked). E1 is a diagnostic (not in the Holm family), upstream of every target metric, and is not consulted by any E10 gate criterion.",
+      "status": "COMPLETE",
+      "structural_facts": {
+        "pairwise_gower_distance_mean": {
+          "DET": 0.516344,
+          "LLM": 0.427146,
+          "RND": 0.516287
+        },
+        "selected_recipes_per_arm": {
+          "DET": 256,
+          "LLM": 256,
+          "RND": 256
+        },
+        "unique_recipe_ratio": {
+          "DET": 1.0,
+          "LLM": 1.0,
+          "RND": 1.0
+        }
+      }
+    },
+    "E10": {
+      "e10_gate_identity": "16d9adfc4f3404b14333f5d4878f93b6a10a5fc4af90556009813ec213126c07",
+      "kind": "frozen Section-17 evidence-only decision gate",
+      "reason": "Conjunctive, fail-closed gate over 5 frozen criteria. C1_CROSS_DOMAIN_SIGNAL=BLOCKED (needs completed E7 G-LLM/G-DET/G-RND per-fold target ACER; E7 blocked). C2_VALUE_OVER_REAL_ONLY=NOT_ESTABLISHED (E5 REAL-ONLY is EXT-F1 only; matched LLM comparator blocked; the >=2/3-fold comparison is unreachable). C3_SEMANTIC_ABLATION=BLOCKED (E7 G-LLM-SHUFFLE-A blocked and E6-v2 matched bank infeasible). C4_QUALITY_CONFOUND=PASS (DESCRIPTIVE_ONLY / NO_SIGNIFICANCE_CLAIM: after q-matching the LLM arm still has the lowest mean target ACER in EXT-F1). C5_INTEGRITY=PASS (WITH LIMITATIONS: the BA-control / threshold / label-use evidence that was produced detects no invalidating bug or label leakage; incomplete E3 discriminating controls are a recorded limitation). Result: E11 NOT authorized; do not call the LLM again.",
+      "status": "CLOSED_DECISION_GATE_NEGATIVE"
+    },
+    "E11": {
+      "kind": "independent multi-bank LLM-generation study (optional; spec Section 18)",
+      "reason": "E10's conjunctive gate did not pass (2/5 criteria positively established). Per the frozen decision rule new_llm_calls_authorized=false and e11_authorized=false. Launching E11 would require a separate, dated protocol amendment with its own new pre-API hash-locked hypothesis family (EXT-H1..EXT-H4 may not be reused). No E11 work was performed. No new LLM / provider / API call was made by this closeout.",
+      "status": "NOT_AUTHORIZED_NOT_RUN"
+    },
+    "E2": {
+      "kind": "q-distribution reconstruction + confound analysis",
+      "reason": "E2_QUALITY_ANALYSIS.json status=COMPLETE_CPU. The frozen E0 E8 trigger |SMD(q)|>=0.25 fired: LLM-vs-RND SMD(q)=-0.326 and LLM-vs-DET SMD(q)=-0.364 (LLM accepted-candidate q systematically lower). No target labels accessed.",
+      "status": "COMPLETE"
+    },
+    "E3": {
+      "blocked_components": [
+        "C0_same_dataset_null (GPU_REQUIRED)",
+        "C1_cross_domain_real (GPU_REQUIRED)",
+        "C3_matched_domain_syn_real (GPU_REQUIRED)",
+        "C2_pipeline_noop (UNSUPPORTED)",
+        "delta_BA_excess (not computable without C0/C1/C3)"
+      ],
+      "kind": "BA-separation negative controls",
+      "reason": "Only the CPU-safe historical BA_sep re-summary (ddof=1) completed. The discriminating controls C0_same_dataset_null, C1_cross_domain_real and C3_matched_domain_syn_real are NOT_RUN_GPU_REQUIRED; C2_pipeline_noop is UNSUPPORTED (no verified renderer no-op path). delta_BA_excess cannot be computed. GPU-gated, not scientifically impossible. No invalidating finding in the evidence that was produced.",
+      "status": "FEASIBILITY_AUDIT_ONLY_GPU_GATED"
+    },
+    "E4": {
+      "blocked_components": [
+        "EXT-F2 threshold transfer (GPU_REQUIRED)",
+        "EXT-F3 threshold transfer (GPU_REQUIRED)"
+      ],
+      "kind": "threshold-transfer diagnostic",
+      "reason": "Computed on the FROZEN historical Flow-1 Track-G SiW-Mv2 evaluation, re-analysed for threshold transfer -- NOT a new EXT training run. Covers EXT-F1 only; EXT-F2/EXT-F3 threshold transfer is GPU_REQUIRED (no target inference for those folds exists). T3-oracle is diagnostic only, never deployable, never a method. No threshold-transfer anomaly detected.",
+      "status": "PARTIAL_EXT_F1_ONLY"
+    },
+    "E5": {
+      "blocked_components": [
+        "EXT-F2 REAL-ONLY (not run)",
+        "EXT-F3 REAL-ONLY (not run)"
+      ],
+      "kind": "REAL-ONLY target evaluation",
+      "reason": "REAL-ONLY (G-REALONLY) target evaluation COMPLETED and scored for EXT-F1 only: mean ACER 0.1999 over 5 detector seeds, frozen source-dev calibration, target_threshold_fitted=false. No REAL-ONLY result exists for EXT-F2/EXT-F3.",
+      "status": "COMPLETED_PARTIAL_EXT_F1_ONLY"
+    },
+    "E6": {
+      "blocked_components": [
+        "LLM-SHUFFLE-A matched Physics bank (SCIENTIFIC_INFEASIBILITY under frozen domain quota)",
+        "paired semantic-ablation detector training (no bank to train on)"
+      ],
+      "kind": "paired original / LLM-SHUFFLE-A rerender",
+      "reason": "E6_V2_STATUS=CLOSED_TRUE_FROZEN_MATCHED_BANK_INFEASIBILITY. The frozen LLM_SHUFFLE_A matched Physics bank fills only 479/512 under the frozen EXACT per-source-domain quota (CASIA deficit 33, MSU surplus 33, not fungible). E6_V2_READY_FOR_TRAINING=false; no detector trained; no semantic-ablation target ACER. No scientific protocol / quota / quality threshold was changed.",
+      "status": "CLOSED_MATCHED_BANK_INFEASIBLE"
+    },
+    "E7": {
+      "blocked_components": [
+        "G-LLM target ACER (all 3 folds)",
+        "G-DET target ACER (all 3 folds)",
+        "G-RND target ACER (all 3 folds)",
+        "G-LLM-SHUFFLE-A target ACER (all 3 folds; Shuffle-A generation never attempted)",
+        "EXT-H1 (LLM vs RND), EXT-H2 (LLM vs DET), EXT-H4 (LLM-original vs LLM-SHUFFLE)"
+      ],
+      "kind": "unified 3-fold Track-G core synthetic evaluation",
+      "reason": "All 3 folds terminated SCIENTIFICALLY_BLOCKED_AFTER_RESERVE_CAP; 0/3 valid core matched synthetic banks. The binding constraint was the LLM-Physics accepted count in every fold (EXT-F1 295, EXT-F2 467, EXT-F3 472) against the frozen common 512-Physics quota (shortfall 217 / 45 / 40; GPAT feasible 512/512 in all folds). Terminated before any target ACER scoring. G-RND / G-DET / G-LLM / G-LLM-SHUFFLE-A are BLOCKED_BY_E7_CORE_BANK; G-REALONLY was READY and evaluated separately as E5. is_target_acer_evidence=false; is_evidence_llm_recipes_generally_inferior=false. A source-only, target-blind generation/quality-gate/matched-bank FEASIBILITY result under the frozen v1.0+v1.1 protocol -- nothing more.",
+      "status": "SCIENTIFICALLY_BLOCKED"
+    },
+    "E8": {
+      "descriptive_only": true,
+      "kind": "q-matched EXT-F1 Track-G target evaluation",
+      "reason": "q-matched Track-G target evaluation COMPLETED and scored for EXT-F1 (arms RND/DET/LLM, 5 detector seeds/arm, 15 runs, scored against the frozen held-out target). Authoritative mean ACER LLM=0.3487 < DET=0.3506 < RND=0.3516 (margins ~0.002 ACER). inferential_status=NOT_CLAIMED; statistical_significance_claimed=false; llm_superiority_supported=false; no comparable pre-q-match target baseline exists (ranking_change_vs_pre_qmatch=UNAVAILABLE). G8 scoring structurally isolated from training and G7; no target labels in training/G7; source-dev-only calibration. SHUFFLE excluded from E8.",
+      "status": "COMPLETED_DESCRIPTIVE_ONLY"
+    },
+    "E9": {
+      "is_detector_performance_evidence": false,
+      "is_independent_llm_generation_replication": false,
+      "kind": "conditional candidate-pool perturbation of the 384->256 selector",
+      "reason": "9/9 deterministic candidate-pool perturbation realizations completed (arms RND/DET/LLM x masks P1/P2/P3; 0 blocked). Measures ONLY the structural stability of the frozen 384->256 recipe selection when 64 of the 384 frozen candidates are deterministically masked (retained fraction 320/384), reported as descriptive Jaccard. llm_calls=0, no target access. Explicitly NOT downstream detector-performance / target-ACER evidence and NOT independent LLM generation replication.",
+      "status": "CLOSED_BANK_SELECTION_ROBUSTNESS_ONLY"
+    }
+  },
+  "schema_version": "c-ext-q1q2-final-closeout-status-v1",
+  "title": "PRISM-FAS-C EXT-Q1Q2 -- final scientific closeout status (after E10)"
+}
