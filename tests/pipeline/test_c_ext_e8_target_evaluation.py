@@ -172,6 +172,9 @@ def test_target_package_identity_mismatch_fails_closed(tmp_path):
 # Lockset: exactly 15 entries, 5/5/5, exact seed sets, no engineering smoke
 # --------------------------------------------------------------------------- #
 
+_FAKE_COMMIT = "d" * 40
+
+
 def _fake_manifest() -> dict[str, Any]:
     runs = []
     for spec in runner.all_scientific_run_specs():
@@ -183,11 +186,13 @@ def _fake_manifest() -> dict[str, Any]:
             "prediction_output_path": g7.prediction_output_path(spec.run_id),
             "prediction_file_sha256": f"predfile-{spec.run_id}",
             "prediction_lock_identity": f"predlock-{spec.run_id}",
+            "code_commit": _FAKE_COMMIT,
             "row_count": 6800, "video_count": 1700,
             "no_label_audit": {"labels_present": False, "checked": True},
         })
     return {"schema_version": "e8-target-prediction-manifest-v1", "plan_identity": "fake-plan",
            "calibration_authority_identity": "fake-calibration-authority-identity",
+           "code_commit": _FAKE_COMMIT,
            "run_count": len(runs), "runs": runs}
 
 
@@ -319,3 +324,121 @@ def test_module_never_hardcodes_a_label_read():
     assert "pq.read_table" not in source
     assert "openai" not in source.lower()
     assert "gemini" not in source.lower()
+
+
+# =========================================================================== #
+# E8-EVAL-V1.1 -- G7 code-commit binding correction
+# =========================================================================== #
+
+def test_resolve_e8_code_commit_returns_valid_sha():
+    commit = g7.resolve_e8_code_commit(REPO)
+    assert len(commit) == 40
+    assert g7._GIT_SHA_RE.match(commit)
+
+
+def test_resolve_e8_code_commit_fails_closed_on_unresolvable_head(tmp_path):
+    with mock.patch("prism_fas.utils.core.git_commit", lambda cwd: None):
+        with pytest.raises(g7.E8TargetEvaluationError, match="could not resolve"):
+            g7.resolve_e8_code_commit(tmp_path)
+
+
+def test_freeze_rejects_empty_code_commit(tmp_path):
+    with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                           lambda repo: _fake_calibration_lock()), \
+         mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+        with pytest.raises(g7.E8TargetEvaluationError, match="empty code_commit"):
+            g7.freeze_target_prediction_plan(tmp_path, code_commit="")
+
+
+def test_freeze_accepts_injected_deterministic_fake_sha():
+    # build_target_prediction_plan needs a real repo for spec resolution
+    # (frozen execution-plan/adapter evidence); the plan file itself is
+    # written into and cleaned up from the REAL repo's evidence path.
+    fake_sha = "a" * 40
+    plan_path = REPO / g7.PLAN_BINDING_PATH
+    assert not plan_path.exists(), "unexpected pre-existing real plan file"
+    try:
+        with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                               lambda repo: _fake_calibration_lock()), \
+             mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+            g7.freeze_target_prediction_plan(REPO, code_commit=fake_sha)
+            loaded = g7.load_frozen_plan(REPO)
+        assert loaded["code_commit"] == fake_sha
+    finally:
+        plan_path.unlink(missing_ok=True)
+
+
+def test_freeze_resolves_real_head_when_code_commit_not_given(tmp_path):
+    with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                           lambda repo: _fake_calibration_lock()), \
+         mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+        # tmp_path is not a git repo, so real HEAD resolution against it must fail closed
+        with pytest.raises(g7.E8TargetEvaluationError, match="could not resolve"):
+            g7.freeze_target_prediction_plan(tmp_path)
+
+
+def test_load_frozen_plan_rejects_stored_empty_commit():
+    plan_path = REPO / g7.PLAN_BINDING_PATH
+    assert not plan_path.exists(), "unexpected pre-existing real plan file"
+    try:
+        with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                               lambda repo: _fake_calibration_lock()), \
+             mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+            plan = g7.build_target_prediction_plan(REPO, code_commit="")
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        plan_path.write_text(json.dumps(plan), encoding="utf-8")
+        with pytest.raises(g7.E8TargetEvaluationError, match="empty code_commit"):
+            g7.load_frozen_plan(REPO)
+    finally:
+        plan_path.unlink(missing_ok=True)
+
+
+def _fake_lock_entry(run_id: str, code_commit: str) -> dict[str, Any]:
+    return {"prediction_lock_identity": f"pl-{run_id}", "video_count": 3, "code_commit": code_commit}
+
+
+def test_manifest_binds_and_requires_matching_code_commit():
+    fake_commit = "b" * 40
+    with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                           lambda repo: _fake_calibration_lock()), \
+         mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+        plan = g7.build_target_prediction_plan(REPO, code_commit=fake_commit)
+    results = {}
+    import prism_fas.evaluation.c_ext_common as cc
+    for entry in plan["runs"]:
+        results[entry["run_id"]] = {"prediction_file_sha256": f"pf-{entry['run_id']}", "row_count": 10,
+                                    "lock": _fake_lock_entry(entry["run_id"], fake_commit)}
+    manifest = g7.build_prediction_manifest(plan, results)
+    assert manifest["code_commit"] == fake_commit
+    lockset = g7.build_target_prediction_lockset(manifest)
+    assert lockset["code_commit"] == fake_commit
+    assert g7.is_usable_lockset(lockset) is True
+
+
+def test_manifest_rejects_mismatched_per_run_code_commit():
+    fake_commit = "b" * 40
+    with mock.patch.object(auth, "require_valid_calibration_authority_for_g7",
+                           lambda repo: _fake_calibration_lock()), \
+         mock.patch.object(g7, "verify_target_feature_package", lambda repo: dict(_FAST_PACKAGE_CHECK)):
+        plan = g7.build_target_prediction_plan(REPO, code_commit=fake_commit)
+    results = {}
+    for i, entry in enumerate(plan["runs"]):
+        wrong = "c" * 40 if i == 0 else fake_commit
+        results[entry["run_id"]] = {"prediction_file_sha256": f"pf-{entry['run_id']}", "row_count": 10,
+                                    "lock": _fake_lock_entry(entry["run_id"], wrong)}
+    with pytest.raises(g7.E8TargetEvaluationError, match="disagrees with the frozen plan"):
+        g7.build_prediction_manifest(plan, results)
+
+
+def test_lockset_rejects_empty_manifest_code_commit():
+    manifest = _fake_manifest()
+    manifest["code_commit"] = ""
+    with pytest.raises(g7.E8TargetEvaluationError, match="empty code_commit"):
+        g7.build_target_prediction_lockset(manifest)
+
+
+def test_is_usable_lockset_requires_code_commit():
+    lockset = g7.build_target_prediction_lockset(_fake_manifest())
+    tampered = dict(lockset)
+    del tampered["code_commit"]
+    assert g7.is_usable_lockset(tampered) is False

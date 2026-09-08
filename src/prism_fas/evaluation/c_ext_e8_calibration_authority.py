@@ -41,6 +41,8 @@ no target label, ever.
 
 from __future__ import annotations
 
+import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -373,8 +375,22 @@ def build_calibration_authority_lock(
 
 
 def write_calibration_authority_lock(root: Path | None = None, **kwargs: Any) -> tuple[str, dict[str, Any]]:
+    """Writes the lock exactly once. Collision behavior is fail-closed and
+    additive: a later call recomputes the lock and, if a DIFFERENT lock is
+    already frozen at ``LOCK_RELATIVE_PATH``, refuses to silently overwrite
+    it rather than replacing real evidence; an identical recomputation is a
+    no-op that returns the existing path."""
     repo = _repo_root(root)
     lock = build_calibration_authority_lock(repo, **kwargs)
+    existing_path = repo / LOCK_RELATIVE_PATH
+    if existing_path.is_file():
+        existing = cc.read_json(existing_path)
+        if existing.get("lock_identity") != lock["lock_identity"]:
+            raise CalibrationAuthorityError(
+                f"a DIFFERENT calibration authority lock is already frozen at {LOCK_RELATIVE_PATH}; "
+                f"refusing to silently overwrite it (frozen lock_identity={existing.get('lock_identity')!r}, "
+                f"recomputed={lock['lock_identity']!r})")
+        return LOCK_RELATIVE_PATH, lock
     written = cc.write_json_atomic(LOCK_RELATIVE_PATH, lock, root=repo)
     return written, lock
 
@@ -414,3 +430,92 @@ def require_valid_calibration_authority_for_g7(root: Path | None = None) -> dict
             f"via write_calibration_authority_lock() first (expected at {LOCK_RELATIVE_PATH})."
         )
     return lock
+
+
+# --------------------------------------------------------------------------- #
+# Operator CLI
+# --------------------------------------------------------------------------- #
+
+def preflight_e8_calibration_authority(root: Path | None = None) -> dict[str, Any]:
+    """Metadata-only, read-only preflight. Enumerates exactly the 15 frozen
+    run specs, checks each run's COMPLETED state, inspects best/last
+    checkpoint positions from ``run.json`` alone, and reports which run(s)
+    are expected to need correction. NEVER performs a ``source_dev`` forward
+    pass, NEVER writes a correction, NEVER touches any target root."""
+    repo = _repo_root(root)
+    specs = enumerate_e8_run_specs(repo)
+    rows: list[dict[str, Any]] = []
+    for spec in specs:
+        run_root = run_root_for_spec(spec, repo)
+        entry: dict[str, Any] = {"run_id": spec.run_id, "arm": spec.arm, "seed": spec.seed}
+        try:
+            verify_run_completed(run_root)
+            entry["completed"] = True
+            summary = read_run_summary(run_root)
+            entry.update(best_and_last_positions(summary))
+            entry["correction_expected"] = not entry["positions_match"]
+        except CalibrationAuthorityError as exc:
+            entry["completed"] = False
+            entry["error"] = str(exc)
+            entry["correction_expected"] = None
+        rows.append(entry)
+
+    expected_corrections = sorted(row["run_id"] for row in rows if row.get("correction_expected"))
+    existing_lock = load_calibration_authority_lock_if_usable(repo)
+    return {
+        "schema_version": "e8-calibration-authority-preflight-v1",
+        "entry_count": len(rows),
+        "rows": sorted(rows, key=lambda row: row["run_id"]),
+        "all_completed": all(row.get("completed") for row in rows),
+        "expected_correction_run_ids": expected_corrections,
+        "expected_correction_matches_frozen_audit": expected_corrections == [CORRECTED_RUN_ID],
+        "lock_already_built": existing_lock is not None,
+        "lock_identity": (existing_lock or {}).get("lock_identity"),
+        "source_dev_forward_performed": False,
+        "correction_write_performed": False,
+        "target_feature_accessed": False, "target_labels_accessed": False, "target_access": False,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="E8 calibration authority (source-only, additive)")
+    parser.add_argument("--preflight", action="store_true",
+                        help="Metadata-only: enumerate runs, check COMPLETED state, report the "
+                             "expected correction. No source_dev forward, no write, no target access.")
+    parser.add_argument("--build", action="store_true",
+                        help="Compute and freeze the real 15-row E8_CALIBRATION_AUTHORITY_LOCK.json.")
+    parser.add_argument("--authorize-source-calibration-correction", action="store_true",
+                        help="Required alongside --build: explicit authorization for the ONE "
+                             "source-only best.pt recomputation this module may perform.")
+    args = parser.parse_args(argv)
+    repo = cc.repo_root()
+
+    if args.preflight:
+        result = preflight_e8_calibration_authority(repo)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.build:
+        if not args.authorize_source_calibration_correction:
+            print("--build requires --authorize-source-calibration-correction as an explicit second flag.")
+            return 2
+        output_path, lock = write_calibration_authority_lock(repo)
+        report = {
+            "entry_count": lock["entry_count"],
+            "corrected_entry_count": lock["corrected_entry_count"],
+            "corrected_run_ids": lock["corrected_run_ids"],
+            "lock_identity": lock["lock_identity"],
+            "source_only": lock["source_only"],
+            "target_access": lock["target_access"],
+            "output_path": output_path,
+        }
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print("Pass --preflight for a metadata-only check, or --build "
+         "--authorize-source-calibration-correction to compute and freeze the real lock.")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

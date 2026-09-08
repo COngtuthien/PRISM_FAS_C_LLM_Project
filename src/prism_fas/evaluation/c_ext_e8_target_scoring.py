@@ -17,9 +17,23 @@ mirroring ``prism_fas.evaluation.scoring``'s own self-audit exactly):
   metrics (APCER/BPCER/ACER/ROC-AUC/EER already come from ``core_metrics``;
   ECE/Brier/NLL from ``calibration_metrics`` -- both already inside
   ``score()``'s ``video`` block); reuses
-  ``prism_fas.evaluation.bootstrap.paired_bootstrap``/``holm_bonferroni``
-  for the paired same-seed comparisons rather than inventing a new
-  significance test.
+  ``prism_fas.evaluation.bootstrap.paired_bootstrap`` ONLY as a DIAGNOSTIC,
+  within-seed, video-level statistic -- never as an arm-level authority.
+
+Arm-level statistical inference (Part 4 hardening, E8-EVAL-V1.1): a
+provenance/dependency audit found the only candidate multi-detector-seed
+inferential procedure identified during development
+(``c_ext_e5_synthetic_comparison.py``, sign-flip test + paired-t CI +
+Holm-Bonferroni over n=5 exact matched seeds) is NOT tracked in git at the
+frozen base commit -- it exists only as an untracked file in one laptop
+worktree. Per the frozen fallback policy, this module therefore imports
+NOTHING from that module, computes NO inferential statistic (no sign-flip,
+no paired-t, no p-value, no Holm-Bonferroni) over detector seeds, and marks
+arm-level significance explicitly ``inferential_status: NOT_CLAIMED`` /
+``statistical_significance_claimed: false`` /
+``multiple_comparison_correction: NOT_APPLICABLE``
+(see ``build_descriptive_seed_summary``) rather than inventing a
+replacement test now that target results exist.
 
 Important disclosure (Part C): the project-level
 ``configs/evaluation/m10_target.yaml`` already declares
@@ -35,10 +49,12 @@ inventing a historical event.
 
 from __future__ import annotations
 
+import argparse
 import csv
+import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -47,7 +63,7 @@ from prism_fas.evaluation import c_ext_e8_calibration_authority as auth  # noqa:
 from prism_fas.evaluation import c_ext_e8_target_evaluation as g7  # noqa: E402
 from prism_fas.evaluation import c_ext_e8_training_runner as runner  # noqa: E402
 from prism_fas.evaluation import scoring  # noqa: E402
-from prism_fas.evaluation.bootstrap import BootstrapSettings, holm_bonferroni, paired_bootstrap  # noqa: E402
+from prism_fas.evaluation.bootstrap import BootstrapSettings, paired_bootstrap  # noqa: E402
 from prism_fas.evaluation.target_prediction import read_predictions  # noqa: E402
 
 EVIDENCE_ROOT_RELATIVE = "reports/c_ext_q1q2_v1/e8_qmatched/target_eval_v1"
@@ -64,6 +80,9 @@ SUMMARY_MD_PATH = f"{EVIDENCE_ROOT_RELATIVE}/E8_TARGET_EVALUATION_SUMMARY.md"
 #: WHOLE project. E8 discloses, never repeats, this event.
 HISTORICAL_REVEAL_ARTIFACT_RELATIVE_PATH = "reports/full/exploratory_target_v3/TARGET_LABEL_REVEAL.json"
 PROJECT_TARGET_CONFIG_RELATIVE_PATH = "configs/evaluation/m10_target.yaml"
+#: Filename only -- joined onto ``c_ext_e8_target_evaluation.TARGET_LABEL_ROOT``
+#: at read time (step 5 of ``run_e8_g8_scoring``, never earlier).
+TARGET_LABEL_ARTIFACT_FILENAME = "siw_target_labels.parquet"
 
 REQUIRED_METRICS = ("apcer", "bpcer", "acer", "roc_auc", "eer", "ece", "brier", "nll")
 ARM_PAIRS = (("RND", "DET"), ("RND", "LLM"), ("DET", "LLM"))
@@ -267,16 +286,33 @@ def build_arm_summary(per_run_rows: list[dict[str, Any]]) -> dict[str, dict[str,
 def paired_same_seed_comparisons(results_by_run: dict[str, dict[str, Any]],
                                  per_run_rows: list[dict[str, Any]],
                                  settings: BootstrapSettings | None = None) -> dict[str, Any]:
-    """Reuses ``bootstrap.paired_bootstrap`` (frozen video-level paired
-    ACER-difference bootstrap) for each same-seed arm pair -- the 1700
-    target videos ARE the shared, paired population for two runs at the same
-    seed. Never invents a new post-hoc test."""
-    import numpy as np
+    """Per-seed, per-arm-pair DIAGNOSTIC ONLY. Reuses ``bootstrap.paired_bootstrap``
+    (frozen video-level paired ACER-difference bootstrap) for each same-seed
+    arm pair -- the 1700 target videos ARE the shared, paired population for
+    two runs at the same seed.
 
+    IMPORTANT: this is video-level sampling variability WITHIN one trained
+    model pair, never a substitute for across-seed (across independently
+    trained detectors) inferential significance. No single seed's p-value
+    here is ever treated as an arm-level authority -- per the frozen
+    fallback policy, no compatible TRACKED multi-detector-seed inferential
+    procedure exists, so arm-level inference is NOT_CLAIMED (see
+    ``build_descriptive_seed_summary``), never computed from these
+    diagnostics.
+
+    Requires EXACTLY the five frozen detector seeds for every arm; never
+    silently intersects a partial seed set.
+    """
     by_arm_seed = {(row["arm"], row["seed"]): row["run_id"] for row in per_run_rows}
     threshold_by_run = {row["run_id"]: row["threshold"] for row in per_run_rows}
     comparisons: dict[str, Any] = {}
     for arm_a, arm_b in ARM_PAIRS:
+        for arm in (arm_a, arm_b):
+            seeds_present = sorted(row["seed"] for row in per_run_rows if row["arm"] == arm)
+            if seeds_present != sorted(runner.SEEDS):
+                raise E8TargetScoringError(
+                    f"{arm}: seed set {seeds_present} != the five frozen detector seeds "
+                    f"{sorted(runner.SEEDS)}; refusing to silently intersect a partial seed set")
         per_seed = []
         for seed in runner.SEEDS:
             run_a, run_b = by_arm_seed[(arm_a, seed)], by_arm_seed[(arm_b, seed)]
@@ -295,46 +331,109 @@ def paired_same_seed_comparisons(results_by_run: dict[str, dict[str, Any]],
                 threshold_b=threshold_by_run[run_b], settings=settings)
             per_seed.append({"seed": seed, "run_a": run_a, "run_b": run_b,
                              "observed_acer_delta": boot["observed_delta"],
-                             "ci_low": boot["ci_low"], "ci_high": boot["ci_high"],
-                             "p_value": boot["p_value"], "significant_at_alpha": boot["significant_at_alpha"]})
-        deltas = np.asarray([row["observed_acer_delta"] for row in per_seed], dtype=np.float64)
+                             "diagnostic_video_bootstrap_ci_low": boot["ci_low"],
+                             "diagnostic_video_bootstrap_ci_high": boot["ci_high"],
+                             "diagnostic_video_bootstrap_p_value": boot["p_value"]})
+        deltas = [row["observed_acer_delta"] for row in per_seed]
         comparisons[f"{arm_a}_vs_{arm_b}"] = {
-            "per_seed": per_seed, "mean_paired_acer_delta": float(deltas.mean()),
-            "std_paired_acer_delta": float(deltas.std(ddof=0)),
-            # A single representative p-value for the Holm family: the seed-20260810
-            # bootstrap's p-value is the one already declared as this project's
-            # frozen bootstrap seed (see bootstrap.DEFAULT_SEED); the family
-            # correction below is what actually governs significance, not this
-            # one number in isolation.
-            "family_p_value": next(row["p_value"] for row in per_seed if row["seed"] == runner.SEEDS[-1]),
+            "per_seed": per_seed,
+            "n_seeds": len(per_seed),
+            "mean_paired_acer_delta": cc.mean(deltas),
+            "std_paired_acer_delta_ddof0": _population_std(deltas),
+            "note": ("per-seed entries carry a DIAGNOSTIC video-level bootstrap p-value only; it is "
+                    "never used as an arm-level significance authority -- arm-level inference is "
+                    "NOT_CLAIMED (see build_descriptive_seed_summary)"),
         }
     return comparisons
 
 
-def build_holm_correction(paired_comparisons: dict[str, Any]) -> dict[str, Any]:
-    p_values = {name: float(entry["family_p_value"]) for name, entry in paired_comparisons.items()}
-    return holm_bonferroni(p_values)
+#: Why arm-level inference is NOT_CLAIMED. A local file
+#: (``c_ext_e5_synthetic_comparison.py``) implementing an n=5 paired
+#: detector-seed sign-flip/paired-t/Holm procedure was found during
+#: development, but a provenance/dependency audit determined it is NOT
+#: tracked in git at the frozen base commit -- it exists only as an
+#: untracked file in one laptop worktree and would not exist in a clean GPU
+#: worktree. It was therefore never accepted as scientific authority, is not
+#: imported here, and no replacement inferential test is invented in its
+#: place (inventing one now, after target results exist, would itself be a
+#: post-hoc test).
+INFERENTIAL_STATUS_REASON = (
+    "no compatible multi-detector-seed inferential procedure was available in the TRACKED frozen "
+    "repository before target results; the only candidate found during development was a local "
+    "untracked module (c_ext_e5_synthetic_comparison.py, absent from git at the frozen base commit) "
+    "and therefore was not accepted as scientific authority"
+)
 
 
-def build_closure(arm_summary: dict[str, dict[str, Any]], holm_result: dict[str, Any]) -> dict[str, Any]:
+def build_descriptive_seed_summary(paired_comparisons: dict[str, Any]) -> dict[str, Any]:
+    """The ARM-LEVEL DESCRIPTIVE summary -- explicitly NOT an inferential
+    claim. No p-value, no confidence interval, no significance test, no
+    multiple-comparison correction is computed here: per the frozen
+    fallback policy, no compatible multi-detector-seed inferential
+    procedure exists in the TRACKED repository, so none is invented.
+
+    Reports, for each arm pair, the exact five per-seed ACER deltas, their
+    mean and population std (ddof=0), and how many of the five seeds point
+    in each direction. All five exact matched detector seeds enter every
+    comparison; a seed set that does not have exactly the five frozen seeds
+    raises rather than silently proceeding on a partial or substituted set.
+    """
+    per_pair: dict[str, Any] = {}
+    for name, entry in paired_comparisons.items():
+        seeds = [row["seed"] for row in entry["per_seed"]]
+        if sorted(seeds) != sorted(runner.SEEDS):
+            raise E8TargetScoringError(
+                f"{name}: seed set {sorted(seeds)} != the five frozen detector seeds "
+                f"{sorted(runner.SEEDS)}; refusing to summarize a partial or substituted seed set")
+        deltas = [float(row["observed_acer_delta"]) for row in entry["per_seed"]]
+        per_pair[name] = {
+            "n": len(deltas), "seeds": sorted(seeds), "deltas": deltas,
+            "mean_delta": cc.mean(deltas), "std_delta_ddof0": _population_std(deltas),
+            "count_positive": sum(1 for value in deltas if value > 0),
+            "count_negative": sum(1 for value in deltas if value < 0),
+            "count_zero": sum(1 for value in deltas if value == 0),
+        }
+    return {
+        "schema_version": "e8-target-descriptive-seed-summary-v1",
+        "procedure": "descriptive only -- exact five matched detector seeds, mean/std(ddof=0) of the "
+                    "per-seed paired ACER delta; no inferential test is computed",
+        "inferential_status": "NOT_CLAIMED",
+        "inferential_status_reason": INFERENTIAL_STATUS_REASON,
+        "statistical_significance_claimed": False,
+        "multiple_comparison_correction": "NOT_APPLICABLE",
+        "comparisons": per_pair,
+    }
+
+
+def _population_std(values: list[float]) -> float:
+    import numpy as np
+    return float(np.asarray(values, dtype=np.float64).std(ddof=0))
+
+
+def build_closure(arm_summary: dict[str, dict[str, Any]], descriptive_summary: dict[str, Any]) -> dict[str, Any]:
     acer_means = {arm: arm_summary[arm]["acer_mean"] for arm in runner.ARMS}
     best_arm = min(acer_means, key=lambda arm: acer_means[arm])
-    significant_pairs = list(holm_result["rejected_null"])
-    differences_remain = bool(significant_pairs)
-    llm_superior = (best_arm == "LLM"
-                    and any(name in significant_pairs for name in ("RND_vs_LLM", "DET_vs_LLM")))
+    descriptive_deltas = {name: entry["mean_delta"] for name, entry in descriptive_summary["comparisons"].items()}
+    differences_remain_descriptively = any(abs(delta) > 0 for delta in descriptive_deltas.values())
     return {
         "schema_version": "e8-target-evaluation-closure-v1",
         "question": "After q matching, do RND/DET/LLM performance differences remain?",
-        "answer": (f"YES -- statistically significant paired ACER differences remain after "
-                  f"Holm-Bonferroni correction: {significant_pairs}" if differences_remain else
-                  "NO -- no paired ACER difference between RND/DET/LLM survives Holm-Bonferroni "
-                  "correction at alpha=0.05 after q-matching"),
-        "differences_remain": differences_remain,
-        "significant_pairs_holm": significant_pairs,
+        "answer": (
+            f"DESCRIPTIVELY, the five-seed mean ACER differs across arms (means: {acer_means}; mean "
+            f"paired ACER deltas: {descriptive_deltas}). Statistical significance not claimed: "
+            f"{INFERENTIAL_STATUS_REASON}."
+        ),
+        "descriptive_differences_remain": differences_remain_descriptively,
+        "inferential_status": "NOT_CLAIMED",
+        "statistical_significance_claimed": False,
+        "multiple_comparison_correction": "NOT_APPLICABLE",
         "acer_means_by_arm": acer_means,
-        "best_arm_by_acer_mean": best_arm,
-        "llm_superiority_supported": bool(llm_superior),
+        "best_arm_by_acer_mean_descriptive_only": best_arm,
+        "llm_superiority_supported": False,
+        "llm_superiority_note": ("a superiority claim requires a valid arm-level inferential test; none "
+                                 "is claimed here (inferential_status=NOT_CLAIMED), so "
+                                 "llm_superiority_supported can never become true from descriptive rank "
+                                 "alone"),
         "pre_qmatch_frozen_f1_comparison": {
             "available": False,
             "reason": ("no legitimate, comparable pre-q-match frozen-F1 TARGET evaluation result (real "
@@ -367,7 +466,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], *, firewall: Any) -> Path
 
 def write_all_evidence(
     repo: Path, *, per_run_rows: list[dict[str, Any]], arm_summary: dict[str, dict[str, Any]],
-    paired_comparisons: dict[str, Any], holm_result: dict[str, Any], closure: dict[str, Any],
+    paired_comparisons: dict[str, Any], descriptive_summary: dict[str, Any], closure: dict[str, Any],
     label_use_record: dict[str, Any], firewall: Any | None = None,
 ) -> dict[str, str]:
     firewall = firewall or g7.build_target_firewall(repo)
@@ -384,7 +483,10 @@ def write_all_evidence(
 
     firewall.check_write("G8", repo / PAIRED_COMPARISONS_PATH)
     written["paired_comparisons"] = cc.write_json_atomic(
-        PAIRED_COMPARISONS_PATH, {"comparisons": paired_comparisons, "holm_bonferroni": holm_result}, root=repo)
+        PAIRED_COMPARISONS_PATH,
+        {"diagnostic_per_seed_video_bootstrap": paired_comparisons,
+         "descriptive_seed_summary": descriptive_summary},
+        root=repo)
 
     firewall.check_write("G8", repo / CLOSURE_PATH)
     written["closure"] = cc.write_json_atomic(CLOSURE_PATH, closure, root=repo)
@@ -403,7 +505,7 @@ def write_all_evidence(
     written["evidence_sha256"] = str(evidence_path)
 
     md = _build_summary_markdown(per_run_rows=per_run_rows, arm_summary=arm_summary,
-                                 paired_comparisons=paired_comparisons, holm_result=holm_result,
+                                 paired_comparisons=paired_comparisons, descriptive_summary=descriptive_summary,
                                  closure=closure)
     summary_path = repo / SUMMARY_MD_PATH
     firewall.check_write("G8", summary_path)
@@ -413,7 +515,7 @@ def write_all_evidence(
 
 
 def _build_summary_markdown(*, per_run_rows: list[dict[str, Any]], arm_summary: dict[str, dict[str, Any]],
-                            paired_comparisons: dict[str, Any], holm_result: dict[str, Any],
+                            paired_comparisons: dict[str, Any], descriptive_summary: dict[str, Any],
                             closure: dict[str, Any]) -> str:
     lines = ["# E8 Q-Matched Target Evaluation Summary", "",
             "## Arm summary (n=5 seeds/arm, mean +/- std ddof=0)", "",
@@ -427,9 +529,164 @@ def _build_summary_markdown(*, per_run_rows: list[dict[str, Any]], arm_summary: 
     lines += ["", "## Per-run (15 rows)", "", "| run_id | arm | seed | ACER |", "|---|---|---|---|"]
     for row in per_run_rows:
         lines.append(f"| {row['run_id']} | {row['arm']} | {row['seed']} | {row['acer']:.4f} |")
-    lines += ["", "## Paired same-seed ACER comparisons", ""]
+    lines += ["", "## Paired same-seed ACER comparisons -- descriptive, n=5 exact matched seeds "
+             "(diagnostic video-bootstrap p-values, NOT an arm-level authority)", ""]
     for name, entry in paired_comparisons.items():
-        lines.append(f"- **{name}**: mean paired ACER delta = {entry['mean_paired_acer_delta']:.4f}")
-    lines += ["", f"Holm-Bonferroni rejected null: {holm_result['rejected_null']}", "",
-            "## Closure", "", f"**{closure['question']}**", "", closure["answer"], ""]
+        lines.append(f"- **{name}**: mean paired ACER delta = {entry['mean_paired_acer_delta']:.4f} "
+                     f"+/- {entry['std_paired_acer_delta_ddof0']:.4f} (ddof=0, n={entry['n_seeds']} seeds)")
+    lines += ["", "## Descriptive seed-level summary (arm-level inference: NOT_CLAIMED)", "",
+            f"Reason: {descriptive_summary['inferential_status_reason']}", ""]
+    for name, entry in descriptive_summary["comparisons"].items():
+        lines.append(f"- **{name}**: mean delta = {entry['mean_delta']:.4f}, std (ddof=0) = "
+                     f"{entry['std_delta_ddof0']:.4f}, direction: {entry['count_positive']} positive / "
+                     f"{entry['count_negative']} negative / {entry['count_zero']} zero (n={entry['n']})")
+    lines += ["", f"inferential_status: {descriptive_summary['inferential_status']}",
+            f"statistical_significance_claimed: {descriptive_summary['statistical_significance_claimed']}",
+            f"multiple_comparison_correction: {descriptive_summary['multiple_comparison_correction']}",
+            "", "## Closure", "", f"**{closure['question']}**", "", closure["answer"], ""]
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# Orchestration + operator CLI
+#
+# Execution order is fixed and never reordered:
+#   1. assert scorer has no training capability
+#   2. require + fully validate the 15-row frozen prediction lockset
+#   3. require valid calibration authority
+#   4. bind/validate the historical target-label-reveal provenance
+#   5. ONLY NOW resolve/read evaluation-only target labels
+#   6. score all 15 runs
+#   7. aggregate (arm summary + descriptive seed-level summary; NO inference)
+#   8. write evidence/closure
+# --------------------------------------------------------------------------- #
+
+def preflight_e8_g8_scoring(root: Path | None = None) -> dict[str, Any]:
+    """Metadata/validation-only. Asserts no training capability, validates
+    the complete 15-row frozen G7 lockset, validates the calibration
+    authority, and validates the historical target-reveal provenance --
+    NEVER reads a target label, NEVER scores."""
+    repo = _repo_root(root)
+    audit = assert_g8_scorer_has_no_training_capability()
+
+    lockset = None
+    lockset_error = None
+    try:
+        lockset = g7.require_valid_lockset_for_g8(repo)
+    except g7.E8TargetEvaluationError as exc:
+        lockset_error = str(exc)
+
+    cal_lock = auth.load_calibration_authority_lock_if_usable(repo)
+
+    label_record = None
+    if lockset is not None:
+        label_record = build_target_label_use_record(
+            repo, lockset=lockset, scoring_code_commit=lockset.get("code_commit", ""))
+
+    return {
+        "schema_version": "e8-g8-scoring-preflight-v1",
+        "no_training_capability": bool(audit["passed"]),
+        "lockset_valid": lockset is not None,
+        "lockset_identity": (lockset or {}).get("lockset_identity"),
+        "lockset_code_commit": (lockset or {}).get("code_commit"),
+        "lockset_error": lockset_error,
+        "calibration_authority_valid": cal_lock is not None,
+        "calibration_authority_identity": (cal_lock or {}).get("lock_identity"),
+        "historical_reveal_status": (label_record or {}).get("status"),
+        "historical_reveal_artifact_path": HISTORICAL_REVEAL_ARTIFACT_RELATIVE_PATH,
+        "ready_to_score": bool(audit["passed"] and lockset is not None and cal_lock is not None
+                              and (label_record or {}).get("status") == "BOUND"),
+        "target_labels_accessed": False,
+        "scoring_performed": False,
+    }
+
+
+def default_labels_loader(*, repo: Path, firewall: Any) -> Any:
+    """The REAL, evaluation-only label read -- reuses
+    ``prism_fas.evaluation.scoring.load_evaluation_labels`` unchanged. Never
+    invoked in a test, which injects a fake ``_labels_loader`` instead."""
+    label_path = repo / g7.TARGET_LABEL_ROOT / TARGET_LABEL_ARTIFACT_FILENAME
+    return scoring.load_evaluation_labels(label_path, firewall=firewall)
+
+
+def run_e8_g8_scoring(root: Path | None = None, *, _labels_loader: Callable[..., Any] | None = None,
+                      firewall: Any | None = None,
+                      bootstrap_settings: BootstrapSettings | None = None) -> dict[str, str]:
+    """The full, strictly-ordered G8 execution (steps 1-8 above). Raises
+    (fails closed) at any step before target labels would ever be resolved
+    if the lockset, calibration authority, or reveal provenance is not
+    already valid -- ``_labels_loader`` is never even constructed until
+    step 5.
+    """
+    repo = _repo_root(root)
+
+    # 1.
+    assert_g8_scorer_has_no_training_capability()
+    # 2.
+    lockset = g7.require_valid_lockset_for_g8(repo)
+    # 3.
+    cal_lock = auth.load_calibration_authority_lock_if_usable(repo)
+    if cal_lock is None:
+        raise E8TargetScoringError("no valid calibration authority lock found; G8 may not score")
+    # 4.
+    label_record = build_target_label_use_record(
+        repo, lockset=lockset, scoring_code_commit=lockset.get("code_commit", ""))
+    if label_record["status"] != "BOUND":
+        raise E8TargetScoringError(
+            f"refusing to open target labels before scoring: status={label_record['status']!r} "
+            f"({label_record.get('reason')})")
+    firewall = firewall or g7.build_target_firewall(repo)
+
+    # 5. -- ONLY NOW may target labels be resolved/read.
+    loader = _labels_loader or default_labels_loader
+    labels = loader(repo=repo, firewall=firewall)
+
+    # 6.
+    results = score_all_e8_runs(repo, labels=labels, firewall=firewall)
+
+    # 7.
+    per_run_rows = build_per_run_table(results, lockset)
+    arm_summary = build_arm_summary(per_run_rows)
+    paired = paired_same_seed_comparisons(results, per_run_rows, settings=bootstrap_settings)
+    descriptive_summary = build_descriptive_seed_summary(paired)
+    closure = build_closure(arm_summary, descriptive_summary)
+
+    # 8.
+    return write_all_evidence(
+        repo, per_run_rows=per_run_rows, arm_summary=arm_summary, paired_comparisons=paired,
+        descriptive_summary=descriptive_summary, closure=closure, label_use_record=label_record,
+        firewall=firewall)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="E8 G8 target scoring (isolated, no training capability)")
+    parser.add_argument("--preflight", action="store_true",
+                        help="Validate no-training-capability, the 15-row lockset, the calibration "
+                             "authority, and the historical reveal provenance. Never reads labels.")
+    parser.add_argument("--score", action="store_true", help="Run the real, ordered G8 scoring pass.")
+    parser.add_argument("--authorize-target-label-scoring", action="store_true",
+                        help="Required alongside --score: explicit authorization to open the "
+                             "evaluation-only target label artifact.")
+    args = parser.parse_args(argv)
+    repo = cc.repo_root()
+
+    if args.preflight:
+        result = preflight_e8_g8_scoring(repo)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.score:
+        if not args.authorize_target_label_scoring:
+            print("--score requires --authorize-target-label-scoring as an explicit second flag.")
+            return 2
+        written = run_e8_g8_scoring(repo)
+        print(json.dumps(written))
+        return 0
+
+    print("Pass --preflight for a metadata/validation-only check, or --score "
+         "--authorize-target-label-scoring to run the real, ordered scoring pass.")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

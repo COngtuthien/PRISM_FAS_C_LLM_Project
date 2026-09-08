@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -71,6 +72,8 @@ EXPECTED_RUN_COUNT = 15
 EXPECTED_PER_ARM = 5
 EXPECTED_SEEDS = tuple(runner.SEEDS)
 
+_GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
 
 class E8TargetEvaluationError(RuntimeError):
     """A precondition for E8 target prediction failed. Fails closed."""
@@ -78,6 +81,26 @@ class E8TargetEvaluationError(RuntimeError):
 
 def _repo_root(root: Path | None) -> Path:
     return root or cc.repo_root()
+
+
+def resolve_e8_code_commit(root: Path | None = None) -> str:
+    """Resolves git HEAD exactly once, via the existing lightweight
+    ``prism_fas.utils.core.git_commit`` helper -- a subprocess-only
+    ``git rev-parse HEAD`` wrapper with no torch/trainer import, so reusing
+    it introduces no training capability. Fails closed (raises) unless the
+    result is a non-empty 40-hex-char SHA: a scientific G7 plan may never be
+    frozen with an empty or malformed ``code_commit``.
+    """
+    from prism_fas.utils.core import git_commit as _git_commit
+
+    repo = _repo_root(root)
+    commit = _git_commit(repo)
+    if not commit or not _GIT_SHA_RE.match(commit):
+        raise E8TargetEvaluationError(
+            f"could not resolve a valid 40-hex-char git HEAD commit for {repo} (got {commit!r}); "
+            "refusing to freeze a scientific G7 plan with an unbound code_commit"
+        )
+    return commit
 
 
 # --------------------------------------------------------------------------- #
@@ -158,10 +181,21 @@ def build_target_prediction_plan(repo: Path, *, code_commit: str = "") -> dict[s
     return plan
 
 
-def freeze_target_prediction_plan(repo: Path, *, code_commit: str = "") -> str:
+def freeze_target_prediction_plan(repo: Path, *, code_commit: str | None = None) -> str:
     """Freezes the plan exactly once. A later call recomputes the plan and
-    refuses (rather than silently overwrites) if it would now differ."""
-    plan = build_target_prediction_plan(repo, code_commit=code_commit)
+    refuses (rather than silently overwrites) if it would now differ.
+
+    ``code_commit=None`` (the production default) resolves git HEAD exactly
+    once via ``resolve_e8_code_commit`` -- fail-closed if it cannot be
+    resolved to a non-empty 40-hex-char SHA. Engineering/unit fixtures may
+    pass an explicit deterministic fake SHA instead; either way, an empty
+    ``code_commit`` is refused here, before anything is written.
+    """
+    resolved_commit = code_commit if code_commit is not None else resolve_e8_code_commit(repo)
+    if not resolved_commit:
+        raise E8TargetEvaluationError(
+            "refusing to freeze a scientific G7 plan with an empty code_commit")
+    plan = build_target_prediction_plan(repo, code_commit=resolved_commit)
     existing_path = repo / PLAN_BINDING_PATH
     if existing_path.is_file():
         existing = json.loads(existing_path.read_text(encoding="utf-8"))
@@ -179,6 +213,10 @@ def load_frozen_plan(repo: Path) -> dict[str, Any]:
     if not path.is_file():
         raise E8TargetEvaluationError(f"missing frozen plan at {path.as_posix()}; run --preflight first")
     plan = json.loads(path.read_text(encoding="utf-8"))
+    if not plan.get("code_commit"):
+        raise E8TargetEvaluationError(
+            "the frozen plan has an empty code_commit; refusing to run scientific inference against "
+            "an unbound implementation commit")
     recomputed = build_target_prediction_plan(repo, code_commit=plan.get("code_commit", ""))
     if (recomputed["runs"] != plan["runs"]
             or recomputed["calibration_authority_identity"] != plan["calibration_authority_identity"]):
@@ -410,11 +448,18 @@ def build_prediction_manifest(plan: dict[str, Any], run_results: dict[str, dict[
     if set(run_results) != expected_ids:
         raise E8TargetEvaluationError(
             f"expected exactly the {len(expected_ids)} frozen run ids, got {sorted(run_results)}")
+    plan_commit = plan.get("code_commit") or ""
+    if not plan_commit:
+        raise E8TargetEvaluationError("refusing to build a manifest from a plan with an empty code_commit")
     rows = []
     for entry in plan["runs"]:
         run_id = entry["run_id"]
         result = run_results[run_id]
         lock = result["lock"]
+        if lock.get("code_commit") != plan_commit:
+            raise E8TargetEvaluationError(
+                f"{run_id}: prediction lock code_commit {lock.get('code_commit')!r} disagrees with the "
+                f"frozen plan's code_commit {plan_commit!r}")
         rows.append({
             "run_id": run_id, "arm": entry["arm"], "seed": entry["seed"],
             "best_checkpoint_sha256": entry["best_checkpoint_sha256"],
@@ -423,20 +468,29 @@ def build_prediction_manifest(plan: dict[str, Any], run_results: dict[str, dict[
             "prediction_output_path": entry["prediction_output_path"],
             "prediction_file_sha256": result["prediction_file_sha256"],
             "prediction_lock_identity": lock["prediction_lock_identity"],
+            "code_commit": lock["code_commit"],
             "row_count": result["row_count"], "video_count": lock["video_count"],
             "no_label_audit": {"labels_present": False, "checked": True},
         })
     return {"schema_version": "e8-target-prediction-manifest-v1", "plan_identity": plan["plan_identity"],
            "calibration_authority_identity": plan["calibration_authority_identity"],
+           "code_commit": plan_commit,
            "run_count": len(rows), "runs": sorted(rows, key=lambda row: row["run_id"])}
 
 
 def build_target_prediction_lockset(manifest: dict[str, Any]) -> dict[str, Any]:
     if int(manifest.get("run_count", -1)) != EXPECTED_RUN_COUNT:
         raise E8TargetEvaluationError(f"expected exactly {EXPECTED_RUN_COUNT} runs, got {manifest.get('run_count')}")
+    manifest_commit = manifest.get("code_commit") or ""
+    if not manifest_commit:
+        raise E8TargetEvaluationError("refusing to freeze a scientific lockset with an empty code_commit")
     by_arm: dict[str, list[int]] = {}
     for row in manifest["runs"]:
         by_arm.setdefault(row["arm"], []).append(row["seed"])
+        if row.get("code_commit") != manifest_commit:
+            raise E8TargetEvaluationError(
+                f"{row['run_id']}: code_commit {row.get('code_commit')!r} disagrees with the manifest's "
+                f"{manifest_commit!r}; every prediction lock must bind the SAME code_commit")
     if set(by_arm) != set(runner.ARMS) or any(len(seeds) != EXPECTED_PER_ARM for seeds in by_arm.values()):
         raise E8TargetEvaluationError(f"expected 5 RND + 5 DET + 5 LLM; got {[(a, len(s)) for a, s in by_arm.items()]}")
     for arm, seeds in by_arm.items():
@@ -449,6 +503,7 @@ def build_target_prediction_lockset(manifest: dict[str, Any]) -> dict[str, Any]:
         "plan_identity": manifest["plan_identity"],
         "calibration_authority_identity": manifest["calibration_authority_identity"],
         "target_feature_package_identity": TARGET_FEATURE_PACKAGE_IDENTITY,
+        "code_commit": manifest_commit,
         "run_count": manifest["run_count"],
         "entries": sorted(({"run_id": row["run_id"], "arm": row["arm"], "seed": row["seed"],
                             "best_checkpoint_sha256": row["best_checkpoint_sha256"],
@@ -473,6 +528,8 @@ def is_usable_lockset(payload: dict[str, Any]) -> bool:
     if int(payload.get("run_count", -1)) != EXPECTED_RUN_COUNT:
         return False
     if payload.get("target_labels_accessed") is not False:
+        return False
+    if not payload.get("code_commit"):
         return False
     body = {key: value for key, value in payload.items() if key not in ("lockset_identity", "lock_identity")}
     recomputed = cc.sha256_bytes(cc.canonical_json_bytes(body))
@@ -515,7 +572,7 @@ def run_target_prediction(repo: Path, *, package_root: Path | None = None,
     for entry in plan["runs"]:
         run_results[entry["run_id"]] = predict_e8_run_to_staging(
             repo=repo, plan_entry=entry, package_root=package_root or (repo / TARGET_FEATURE_ROOT),
-            firewall=firewall, staging_root=staging_root, code_commit=plan.get("code_commit", ""),
+            firewall=firewall, staging_root=staging_root, code_commit=plan["code_commit"],
             calibration_authority_identity=plan["calibration_authority_identity"], model_provider=model_provider)
     promote_staged_runs(repo, staging_root=staging_root, plan_identity=plan["plan_identity"],
                         run_results=run_results)
@@ -537,6 +594,12 @@ def preflight_e8_target_prediction(root: Path | None = None) -> dict[str, Any]:
         package_check = verify_target_feature_package(repo)
     except E8TargetEvaluationError as exc:
         package_error = str(exc)
+    code_commit = None
+    code_commit_error = None
+    try:
+        code_commit = resolve_e8_code_commit(repo)
+    except E8TargetEvaluationError as exc:
+        code_commit_error = str(exc)
     plan_path = repo / PLAN_BINDING_PATH
     return {
         "schema_version": "e8-target-prediction-preflight-v1",
@@ -545,6 +608,7 @@ def preflight_e8_target_prediction(root: Path | None = None) -> dict[str, Any]:
         "target_package_id": TARGET_PACKAGE_ID,
         "target_feature_package_identity": TARGET_FEATURE_PACKAGE_IDENTITY,
         "target_feature_package_check": package_check, "target_feature_package_error": package_error,
+        "code_commit": code_commit, "code_commit_error": code_commit_error,
         "plan_frozen": plan_path.is_file(),
         "unknown_threshold": None, "target_labels_accessed": False, "target_features_opened": False,
     }
@@ -565,8 +629,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.preflight:
         result = preflight_e8_target_prediction(repo)
         print(json.dumps(result, indent=2))
-        if result["calibration_authority_valid"]:
-            freeze_target_prediction_plan(repo)
+        if result["calibration_authority_valid"] and result["code_commit"]:
+            freeze_target_prediction_plan(repo, code_commit=result["code_commit"])
+        elif result["calibration_authority_valid"] and not result["code_commit"]:
+            print(f"refusing to freeze the G7 plan: {result['code_commit_error']}")
+            return 2
         return 0
 
     if args.predict:

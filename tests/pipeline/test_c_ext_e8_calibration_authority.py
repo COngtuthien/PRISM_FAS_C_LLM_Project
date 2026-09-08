@@ -388,3 +388,117 @@ def test_module_never_imports_llm_client():
     assert "openai" not in source.lower()
     assert "gemini" not in source.lower()
     assert "anthropic" not in source.lower()
+
+
+# =========================================================================== #
+# E8-EVAL-V1.1 -- operator CLI
+# =========================================================================== #
+
+def test_preflight_reports_15_rows_and_expected_correction(fake_runs):
+    fake_runs_dir, specs = fake_runs
+    with mock.patch.object(auth, "run_root_for_spec", lambda spec, root=None: fake_runs_dir / spec.run_id):
+        result = auth.preflight_e8_calibration_authority(REPO)
+    assert result["entry_count"] == 15
+    assert result["expected_correction_run_ids"] == [auth.CORRECTED_RUN_ID]
+    assert result["expected_correction_matches_frozen_audit"] is True
+    assert result["all_completed"] is True
+
+
+def test_preflight_performs_no_source_dev_forward_or_write(fake_runs):
+    fake_runs_dir, specs = fake_runs
+    with mock.patch.object(auth, "run_root_for_spec", lambda spec, root=None: fake_runs_dir / spec.run_id):
+        result = auth.preflight_e8_calibration_authority(REPO)
+    assert result["source_dev_forward_performed"] is False
+    assert result["correction_write_performed"] is False
+    assert result["target_access"] is False
+    assert result["target_feature_accessed"] is False
+    assert result["target_labels_accessed"] is False
+    # structural: the preflight function body never references source_dev_logits
+    # or correct_calibration_via_best_checkpoint
+    source = Path(auth.__file__).read_text(encoding="utf-8")
+    start = source.index("def preflight_e8_calibration_authority")
+    end = source.index("\ndef ", start + 1)
+    body = source[start:end]
+    assert "source_dev_logits" not in body
+    assert "correct_calibration_via_best_checkpoint(" not in body
+
+
+def test_preflight_never_completed_run_reported_honestly(tmp_path):
+    spec = runner.build_run_spec("LLM", 20260806)
+    (tmp_path / spec.run_id).mkdir(parents=True)
+    with mock.patch.object(auth, "run_root_for_spec", lambda s, root=None: tmp_path / s.run_id):
+        result = auth.preflight_e8_calibration_authority(REPO)
+    row = next(r for r in result["rows"] if r["run_id"] == spec.run_id)
+    assert row["completed"] is False
+    assert "error" in row
+    assert result["all_completed"] is False
+
+
+def test_cli_preflight_exits_zero_and_prints_json(fake_runs, capsys):
+    fake_runs_dir, specs = fake_runs
+    with mock.patch.object(auth, "run_root_for_spec", lambda spec, root=None: fake_runs_dir / spec.run_id), \
+         mock.patch.object(auth.cc, "repo_root", lambda: REPO):
+        exit_code = auth.main(["--preflight"])
+    assert exit_code == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["entry_count"] == 15
+
+
+def test_cli_build_requires_explicit_authorization(capsys):
+    exit_code = auth.main(["--build"])
+    assert exit_code == 2
+    assert "authorize-source-calibration-correction" in capsys.readouterr().out
+
+
+def test_cli_build_with_authorization_attempts_real_lock_and_fails_closed_without_real_runs(capsys):
+    """On this laptop no real E8 run roots exist; --build with authorization
+    must fail closed (raise) rather than fabricate a lock -- proves the CLI
+    never silently succeeds against missing scientific evidence."""
+    with mock.patch.object(auth.cc, "repo_root", lambda: REPO):
+        with pytest.raises(auth.CalibrationAuthorityError):
+            auth.main(["--build", "--authorize-source-calibration-correction"])
+
+
+def test_write_calibration_authority_lock_collision_is_fail_closed(fake_runs):
+    fake_runs_dir, specs = fake_runs
+    calls: list = []
+
+    def trainer_provider(spec, bindings, run_root):
+        return _FakeTrainer(calls)
+
+    checkpoint_loader = _fake_checkpoint_loader_factory(calls)
+    override_inputs_by_run = {auth.CORRECTED_RUN_ID: dict(_FAKE_DETECTOR_INPUTS)}
+    override_c3_by_arm = {"DET": _fake_c3_bank("DET")}
+    kwargs = dict(
+        trainer_provider=trainer_provider, checkpoint_loader=checkpoint_loader,
+        _run_root_resolver=_run_root_resolver(fake_runs_dir),
+        _correction_root_resolver=lambda spec: fake_runs_dir.parent / "correction_ns" / spec.run_id,
+        _device_resolver=lambda: "cuda",
+        _override_detector_inputs_by_run=override_inputs_by_run,
+        _override_c3_bank_by_arm=override_c3_by_arm, _skip_m3b_guard=True,
+    )
+    with mock.patch.object(adapter, "open_e8_arm_bank", lambda *a, **k: type("S", (), {"identity": "s"})()):
+        path_1, lock_1 = auth.write_calibration_authority_lock(REPO, **kwargs)
+        assert path_1 == auth.LOCK_RELATIVE_PATH
+        real_path = REPO / auth.LOCK_RELATIVE_PATH
+        assert real_path.is_file()
+        try:
+            # identical recomputation is a no-op, never rewrites
+            before = real_path.read_bytes()
+            path_2, lock_2 = auth.write_calibration_authority_lock(REPO, **kwargs)
+            assert real_path.read_bytes() == before
+            assert lock_2["lock_identity"] == lock_1["lock_identity"]
+
+            # a DIFFERENT lock (different fixture data, same correction scope) must be
+            # refused, never overwritten -- tweak a HISTORICAL_VALID row's calibration
+            # content (never its best/last positions) so only the lock content changes.
+            other_spec = next(s for s in specs if s.run_id != auth.CORRECTED_RUN_ID)
+            calib_path = fake_runs_dir / other_spec.run_id / "calibration" / "source_dev.json"
+            payload = json.loads(calib_path.read_text())
+            payload["temperature"] = 0.9999
+            calib_path.write_text(json.dumps(payload))
+            with pytest.raises(auth.CalibrationAuthorityError, match="DIFFERENT calibration authority lock"):
+                auth.write_calibration_authority_lock(REPO, **kwargs)
+            assert real_path.read_bytes() == before  # still untouched
+        finally:
+            real_path.unlink(missing_ok=True)
