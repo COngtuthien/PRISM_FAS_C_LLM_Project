@@ -1,0 +1,188 @@
+{
+  "all_pools_materialized": true,
+  "arms": {
+    "DET": {
+      "action": "idempotent_noop",
+      "c3_eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+      "matches_c3_eligible_pool_identity": true,
+      "method": "historical_c3_evaluate_pool_replay",
+      "pool_count": 384,
+      "pool_file_sha256": "82035ff67ce129bd36fe411a93c05bf0209e45c66462698b2027f0565c9786c7",
+      "pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+      "pool_path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/DET_POOL_384.jsonl",
+      "provenance": {
+        "eligibility_order": [
+          "item_schema",
+          "ontology",
+          "scientific_route_policy",
+          "numeric_range",
+          "compatibility",
+          "canonicalization",
+          "deduplication",
+          "compiler",
+          "operator_graph",
+          "mask_policy",
+          "conditioning_41d"
+        ],
+        "eligible_count": 384,
+        "eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+        "eligible_pool_identity_algo": "prism_fas.llm.bank_lock.sha256_text(canonical_text(sorted(eligible canonical recipe sha256))) -- the exact function scripts/c3_scientific_arms.py used",
+        "frozen_c3_eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+        "frozen_schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "ingestion_path": "prism_fas.recipes.eligibility.evaluate_pool (frozen C3 validator)",
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "recipe_id_first_last": [
+          "R-000000",
+          "R-000383"
+        ],
+        "recipe_id_scheme": "system-owned R-%06d by FLAT slot index (assign_recipe_id)",
+        "rejected_count": 0,
+        "required_generator_route": [
+          "physics",
+          "gpat"
+        ],
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+        "schedule_contract_path": "reports/c3/v15_selection_contract/C3_DET_SCHEDULE_CONTRACT.json",
+        "schedule_contract_sha256": "bfa9b5b78c756d7c8cde3437e8a1ce12b6f77d042ee5b8340cbfcb798fd9ae21",
+        "schedule_identity": "bed9a3ab5e25fa3ca09f515479839856d4ef37db62d650a55abfea9c89cb0ae2",
+        "selected_256_are_pool_members": "256/256",
+        "slot_source": "prism_fas.recipes.arm_schedules.draft_schedule (frozen offline schedule)"
+      },
+      "status": "MATERIALIZED"
+    },
+    "LLM": {
+      "action": "written",
+      "c3_eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+      "matches_c3_eligible_pool_identity": true,
+      "method": "historical_c3_evaluate_pool_replay",
+      "pool_count": 384,
+      "pool_file_sha256": "ff231c59320f511ddba1741bf54b4056bf1f3ae89010042cc7a99d9962a603b1",
+      "pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+      "pool_path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/LLM_POOL_384.jsonl",
+      "provenance": {
+        "eligibility_order": [
+          "item_schema",
+          "ontology",
+          "scientific_route_policy",
+          "numeric_range",
+          "compatibility",
+          "canonicalization",
+          "deduplication",
+          "compiler",
+          "operator_graph",
+          "mask_policy",
+          "conditioning_41d"
+        ],
+        "eligible_count": 384,
+        "eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+        "eligible_pool_identity_algo": "prism_fas.llm.bank_lock.sha256_text(canonical_text(sorted(eligible canonical recipe sha256))) -- the exact function scripts/c3_scientific_arms.py used",
+        "frozen_c3_eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978",
+        "ingestion_path": "prism_fas.recipes.eligibility.evaluate_pool (frozen C3 validator)",
+        "live_state_path": "reports/c3/live/C3_LIVE_GENERATION_STATE.json",
+        "live_state_sha256": "7d191fa3bf219b9829101e20ebe9d3f17fab424cf2847cca28db36ecf38921e7",
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "raw_response_file_sha256": {
+          "c3-llm-req-01.json": "ca75e7e5a3aad4973d9b7ecf87e7663ace2796988a0c786f87b12a6b31eee443",
+          "c3-llm-req-02.json": "fcd7ee55cda09f8bccbc92dde3a58edf6a3a19f4610f131716c82bb217110d32",
+          "c3-llm-req-03.json": "9b9e84475c3c3f75a256ac5e91d2e8a31f239ca88b30bf77224489b02af331df",
+          "c3-llm-req-04.json": "9ae160c1007f9ed9d0e80282ac884ac556b073e5dc5de5b4767ecec2c7fc317a",
+          "c3-llm-req-05.json": "e71cf29613e4fb78a05ca8e6b461bd80014ee1aac4aa9cf08810b6702e0648a5",
+          "c3-llm-req-06.json": "f18c42b94d4b98e1c65bc232adc5ef4cb2d68c35c27cd03b9e20fa544db68699",
+          "c3-llm-req-07.json": "8b0219c4e8b08189af10756e0c247f30e3665c301aacf9dc75977ee78a6a0b46",
+          "c3-llm-req-08.json": "a602130029cb598941b031e92f25d251526edc8d34202bf83403da46b6d9f3de",
+          "c3-llm-req-09.json": "27c7cc30688543247bd70254792a505b620284979267c23ae7817ac3f69e8754",
+          "c3-llm-req-10.json": "f03c611d3afb75b8751215005845d13ef2580e2d9590c663dd2af1ff78f52526",
+          "c3-llm-req-11.json": "8af59554d843a8ffedae2a8dbb693eef4b3e0f1871ee7a8f26d4ee8c19371159",
+          "c3-llm-req-12.json": "a611e66b20bf46079a53cf56cf110b760b36c6b139c1520a85dd1847b9da4c09"
+        },
+        "raw_response_files": [
+          "c3-llm-req-01.json",
+          "c3-llm-req-02.json",
+          "c3-llm-req-03.json",
+          "c3-llm-req-04.json",
+          "c3-llm-req-05.json",
+          "c3-llm-req-06.json",
+          "c3-llm-req-07.json",
+          "c3-llm-req-08.json",
+          "c3-llm-req-09.json",
+          "c3-llm-req-10.json",
+          "c3-llm-req-11.json",
+          "c3-llm-req-12.json"
+        ],
+        "raw_response_tree_sha256": "2a2ddc4230105f402ab402cc7211116d083aa4aa6469605d88d3765250a1acc3",
+        "recipe_id_first_last": [
+          "R-000000",
+          "R-000383"
+        ],
+        "recipe_id_scheme": "system-owned R-%06d by FLAT slot index (assign_recipe_id); provider forbidden to supply recipe_id",
+        "rejected_count": 0,
+        "required_generator_route": [
+          "physics",
+          "gpat"
+        ],
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+        "selected_256_are_pool_members": "256/256",
+        "slot_id_scheme": "LLM_SLOT_%03d over slot_start..slot_end",
+        "slot_order": "frozen plan order of C3_LIVE_GENERATION_STATE.json (not filesystem order)",
+        "slot_source": "reports/c3/live/raw_responses/<logical_request_id>.json"
+      },
+      "status": "MATERIALIZED"
+    },
+    "RND": {
+      "action": "idempotent_noop",
+      "c3_eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+      "matches_c3_eligible_pool_identity": true,
+      "method": "historical_c3_evaluate_pool_replay",
+      "pool_count": 384,
+      "pool_file_sha256": "d72c8ef480dbc66f570e53fdd0bca422495c79d19e4a595e5b42b156dde39fd1",
+      "pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+      "pool_path": "reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/RND_POOL_384.jsonl",
+      "provenance": {
+        "eligibility_order": [
+          "item_schema",
+          "ontology",
+          "scientific_route_policy",
+          "numeric_range",
+          "compatibility",
+          "canonicalization",
+          "deduplication",
+          "compiler",
+          "operator_graph",
+          "mask_policy",
+          "conditioning_41d"
+        ],
+        "eligible_count": 384,
+        "eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+        "eligible_pool_identity_algo": "prism_fas.llm.bank_lock.sha256_text(canonical_text(sorted(eligible canonical recipe sha256))) -- the exact function scripts/c3_scientific_arms.py used",
+        "frozen_c3_eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5",
+        "frozen_schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "ingestion_path": "prism_fas.recipes.eligibility.evaluate_pool (frozen C3 validator)",
+        "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd",
+        "recipe_id_first_last": [
+          "R-000000",
+          "R-000383"
+        ],
+        "recipe_id_scheme": "system-owned R-%06d by FLAT slot index (assign_recipe_id)",
+        "rejected_count": 0,
+        "required_generator_route": [
+          "physics",
+          "gpat"
+        ],
+        "route_policy_identity": "209ccacddd2d10d7485a8b1fce9e93eccde59903a103daefda6ffecc717c13d7",
+        "schedule_contract_path": "reports/c3/v15_selection_contract/C3_RND_SCHEDULE_CONTRACT.json",
+        "schedule_contract_sha256": "a0f54d4c68d76e2c3c7c3453e5bf05904181cf2f8fec960265b55e707b0d088a",
+        "schedule_identity": "0e21f96a55bdb1c71f1b49dee39136effb3c3eaffae0d74a5b7557c333033aeb",
+        "selected_256_are_pool_members": "256/256",
+        "slot_source": "prism_fas.recipes.arm_schedules.draft_schedule (frozen offline schedule)"
+      },
+      "status": "MATERIALIZED"
+    }
+  },
+  "base_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "candidate_id_definition": "canonical Version-C recipe identity prism_fas.recipes.canonical.recipe_hash (recipe_id assigned positionally: R-<6-digit slot index>)",
+  "llm_calls": 0,
+  "milestone": "E9",
+  "principle": "Frozen Version-C RND/DET/LLM candidate pools are reconstructed and PROVEN, never regenerated. No LLM call, no new scientific bank.",
+  "schema_version": "e9-input-binding-v1",
+  "target_access": false
+}
