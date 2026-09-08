@@ -1,0 +1,121 @@
+# E8-EVAL-V1 -- frozen machine-readable config for the E8 q-matched Track-G
+# target evaluation (calibration authority correction + G7 prediction + G8
+# scoring + arm aggregation). Frozen BEFORE any real target execution.
+#
+# Every value here is read back and cross-checked by
+# src/prism_fas/evaluation/c_ext_e8_calibration_authority.py,
+# src/prism_fas/evaluation/c_ext_e8_target_evaluation.py, and
+# src/prism_fas/evaluation/c_ext_e8_target_scoring.py -- this file documents
+# the frozen contract, it does not independently control code behavior
+# (the constants live in the Python modules; this file is the audit trail).
+evaluation_schema_version: "e8-target-eval-v1"
+stage: E8_EVAL
+
+experiment: E8_QMATCHED_TRACK_G
+fold: EXT-F1
+
+# --- the exact 15 frozen rows ------------------------------------------------
+arms: [RND, DET, LLM]
+seeds: [20260806, 20260807, 20260808, 20260809, 20260810]
+run_count: 15
+run_ids:
+  - e8_ext_f1_g_rnd_qmatch_s20260806
+  - e8_ext_f1_g_rnd_qmatch_s20260807
+  - e8_ext_f1_g_rnd_qmatch_s20260808
+  - e8_ext_f1_g_rnd_qmatch_s20260809
+  - e8_ext_f1_g_rnd_qmatch_s20260810
+  - e8_ext_f1_g_det_qmatch_s20260806
+  - e8_ext_f1_g_det_qmatch_s20260807
+  - e8_ext_f1_g_det_qmatch_s20260808
+  - e8_ext_f1_g_det_qmatch_s20260809
+  - e8_ext_f1_g_det_qmatch_s20260810
+  - e8_ext_f1_g_llm_qmatch_s20260806
+  - e8_ext_f1_g_llm_qmatch_s20260807
+  - e8_ext_f1_g_llm_qmatch_s20260808
+  - e8_ext_f1_g_llm_qmatch_s20260809
+  - e8_ext_f1_g_llm_qmatch_s20260810
+canonical_run_root: runs/c_ext_q1q2_v1/e8_qmatched/ext_f1
+
+# --- target feature package (frozen; never opens target labels) ------------
+target_package_id: prism_target_eval_v2
+target_feature_package_identity: "c3a29e695ad08c4b31e01533f1d12374f4e30c51f0167c6622cf8168792e48a8"
+target_feature_root: data/processed/prism_target_eval_v2
+expected_population:
+  videos: 1700
+  live: 785
+  spoof: 915
+  frames_per_video: 4
+
+# --- target label history disclosure (Part C) -------------------------------
+target_labels_revealed: true
+target_label_artifact_relative_path: data/evaluation_only/prism_target_v2_labels/siw_target_labels.parquet
+target_label_history_disclosure:
+  target_labels_previously_revealed_before_e8: true
+  historical_reveal_artifact_relative_path: reports/full/exploratory_target_v3/TARGET_LABEL_REVEAL.json
+  e8_training_uses_target_labels: false
+  e8_q_matching_uses_target_labels: false
+  e8_membership_selection_uses_target_labels: false
+  e8_calibration_correction_uses_target_labels: false
+  e8_g7_prediction_uses_target_labels: false
+  e8_scoring_is_first_ever_blind_reveal: false
+  g8_structurally_isolated_from_training_and_g7: true
+
+# --- calibration authority rule (Part A) ------------------------------------
+calibration_authority:
+  lock_path: reports/c_ext_q1q2_v1/e8_qmatched/calibration_authority_v1/E8_CALIBRATION_AUTHORITY_LOCK.json
+  correction_namespace: runs/c_ext_q1q2_v1/e8_qmatched/calibration_authority_v1
+  rule: >-
+    Retain the existing frozen calibration/source_dev.json for every run whose
+    best.pt checkpoint position (epoch, global_step) equals the final G5
+    model position. For the ONE run where they disagree, recompute
+    calibration source-only from the frozen best.pt itself (temperature
+    fit + min-ACER threshold selection via the existing
+    prism_fas.train.calibration.calibrate_source_dev logic), writing only
+    into the additive correction namespace above -- never the scientific
+    training run root.
+  corrected_run_id: e8_ext_f1_g_det_qmatch_s20260809
+  expected_corrected_count: 1
+  expected_entry_count: 15
+
+# --- best checkpoint rule ----------------------------------------------------
+best_checkpoint_rule: >-
+  Always use each run's checkpoints/best.pt, never checkpoints/last.pt, for
+  G7 prediction -- selected by the frozen G5 Table-37 checkpoint criterion
+  during training, independent of this calibration correction.
+
+# --- unknown/reject threshold (Part B) ---------------------------------------
+unknown_threshold: null
+
+# --- G7/G8 permissions (mirrors the firewall root/permission table) --------
+permissions:
+  TRAIN: {source_package_root: read, target_feature_root: deny, target_label_root: deny, prediction_root: deny}
+  G7:    {source_package_root: deny, target_feature_root: read, target_label_root: deny, prediction_root: write}
+  G8:    {source_package_root: deny, target_feature_root: deny, target_label_root: read, prediction_root: read}
+g8_forbidden_write_patterns: [".pt", ".pth", ".ckpt", ".safetensors", "optimizer", "calibration/", "checkpoints/"]
+
+# --- aggregation policy (Part E) ---------------------------------------------
+aggregation:
+  group_by: arm
+  n_per_arm: 5
+  seed_summary_ddof: 0
+  primary_table_columns: [acer, apcer, bpcer, roc_auc]
+  paired_comparisons:
+    - [RND, DET]
+    - [RND, LLM]
+    - [DET, LLM]
+  paired_comparison_unit: same_seed_shared_target_video_population
+  significance_machinery: prism_fas.evaluation.bootstrap.paired_bootstrap
+  multiple_comparison_correction: holm_bonferroni
+
+required_metrics: [apcer, bpcer, acer, roc_auc, eer, ece, brier, nll]
+video_level_is_primary: true
+frame_level_metrics_preserved_as_secondary: true
+
+# --- no-target-tuning rule ----------------------------------------------------
+no_target_tuning_rule: >-
+  The source-dev frozen per-run threshold and temperature are used exactly as
+  fitted during (corrected or historical) G6 calibration. No threshold or
+  temperature is ever refit, adjusted, or selected using any target label or
+  target feature. G8 may only READ prediction artifacts/locks and the
+  evaluation-only label artifact; it may never update a model, optimizer,
+  calibration, threshold, or prediction file.
