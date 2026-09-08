@@ -1,0 +1,28 @@
+{
+  "amendment_canonical_form": "json.dumps(amendment, sort_keys=True, separators=(',',':'), ensure_ascii=True, allow_nan=False) then SHA-256 over UTF-8 bytes",
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "base_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "e9_protocol_amendment_identity": "cd6279e46bc0ef32131cff637b8d68c5a65da25daf3a4e9b0e93a4b698173c39",
+  "immutability": {
+    "rewrite_permitted": false,
+    "rule": "identical recomputation is an idempotent no-op; a build that would produce different bytes raises rather than overwriting"
+  },
+  "masked_count": 64,
+  "milestone": "E9",
+  "original_pool_count": 384,
+  "perturbation_seeds": {
+    "P1": 20260921,
+    "P2": 20260922,
+    "P3": 20260923
+  },
+  "retained_count": 320,
+  "retained_fraction": "320/384",
+  "schema_version": "e9-protocol-lock-v1",
+  "selected_count": 256,
+  "selector_version": "prism_c3_selection_v1",
+  "status": "FROZEN"
+}

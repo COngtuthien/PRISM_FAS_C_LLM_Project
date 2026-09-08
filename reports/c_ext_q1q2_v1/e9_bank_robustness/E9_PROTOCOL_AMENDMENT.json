@@ -1,0 +1,68 @@
+{
+  "amendment_kind": "additive_implementation_resolution",
+  "arms": [
+    "RND",
+    "DET",
+    "LLM"
+  ],
+  "base_commit": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "disclosure": {
+    "frozen_after_e8_existed": true,
+    "frozen_before_any_e9_perturbation_or_selection_outcome": true,
+    "no_e8_acer_used": true,
+    "no_e9_result_used": true,
+    "no_target_labels_used": true,
+    "no_target_metrics_used": true,
+    "no_target_predictions_used": true,
+    "not_numerically_specified_in_v1_0": true,
+    "selected_from_e8_target_performance": false
+  },
+  "governing_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx, Section 16 (E9)",
+  "llm_calls": 0,
+  "milestone": "E9",
+  "perturbation_rule": {
+    "candidate_id": "canonical Version-C recipe identity (prism_fas.recipes.canonical.recipe_hash); the same identity C3 uses in selected_recipe_identities and the selector tie-break trace",
+    "canonical_string": "E9-POOL-PERTURB-v1|<arm>|<seed>|<candidate_id>",
+    "hash": "SHA-256 over UTF-8 bytes of the canonical string",
+    "mask": "remaining 64",
+    "no_python_random": true,
+    "retain": "first 320 ascending",
+    "sort_key": [
+      "sha256_hex",
+      "candidate_id"
+    ],
+    "string_version": "E9-POOL-PERTURB-v1"
+  },
+  "perturbation_seeds": {
+    "P1": 20260921,
+    "P2": 20260922,
+    "P3": 20260923
+  },
+  "resolves": {
+    "gap": "Section 16 fixes the three perturbation seeds (P1=20260921, P2=20260922, P3=20260923) but does not numerically fix the retained fraction of the 384-candidate pool.",
+    "rationale": [
+      "Purely combinatorial: exactly 64 candidates removed leaves the MILP exactly 64 candidates of selection slack above the required 256.",
+      "Identical rule and identical count for RND, DET and LLM.",
+      "retained_fraction = 320/384 = 5/6."
+    ],
+    "resolution": {
+      "masked_count": 64,
+      "milp_selection_slack_above_required": 64,
+      "original_pool_count": 384,
+      "retained_count": 320,
+      "retained_fraction": "320/384",
+      "retained_fraction_decimal": 0.8333333333333334,
+      "selected_count": 256
+    }
+  },
+  "schema_version": "e9-protocol-amendment-v1",
+  "selector": {
+    "bank_size_never_lowered": true,
+    "callable": "prism_fas.recipes.selection.select",
+    "module": "prism_fas.recipes.selection",
+    "reused_not_reimplemented": true,
+    "version": "prism_c3_selection_v1"
+  },
+  "target_access": false,
+  "title": "E9 retained-fraction implementation-resolution amendment"
+}

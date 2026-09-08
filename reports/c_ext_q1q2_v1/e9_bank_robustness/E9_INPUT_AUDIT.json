@@ -1,0 +1,188 @@
+{
+  "1_frozen_384_candidate_pool_artifacts": {
+    "finding": "No arm has a committed/persisted 384-row candidate-pool artifact. The only tracked C3 recipe content is the SELECTED 256 per arm (assets/recipe_banks/c3/<arm>/recipes.jsonl, 256 lines each). The 384 raw slots were never committed: reports/c3/live/raw_responses/ is git-ignored (.gitignore: 'reports/c*/**/raw_responses/') and absent from this worktree; no rejected-candidate manifest exists.",
+    "materialization_status": {
+      "DET": "MATERIALIZED (pool_identity == C3 eligible_pool_identity 96e32642...)",
+      "LLM": "BLOCKED -- requires reports/c3/live/raw_responses/c3-llm-req-01..12.json (git-ignored; present in sibling checkouts /home/cong/PRISM_FAS_C_GPU_FINAL_SNAPSHOT and /media/cong/Data/AI on IOT/.../PRISM_FAS_C_LLM_Project). E9 will not call a provider to recreate them.",
+      "RND": "MATERIALIZED (pool_identity == C3 eligible_pool_identity aa242286...)"
+    },
+    "per_arm_frozen_identities_from_C3_SCIENTIFIC_BANK_LOCK": {
+      "DET": {
+        "eligible": 384,
+        "eligible_pool_identity": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2"
+      },
+      "LLM": {
+        "eligible": 384,
+        "eligible_pool_identity": "4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978"
+      },
+      "RND": {
+        "eligible": 384,
+        "eligible_pool_identity": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5"
+      }
+    },
+    "resolution_implemented": "E9 --materialize-frozen-pools reconstructs each pool the SAME way the frozen E1 milestone does (accepted precedent), PROVES it (schedule_identity == frozen C3_<ARM>_SCHEDULE_CONTRACT, 256 selected recipes reproduce as members, and the reconstructed pool_identity == frozen C3 eligible_pool_identity), then writes reports/c_ext_q1q2_v1/e9_bank_robustness/frozen_pools/<ARM>_POOL_384.jsonl."
+  },
+  "2_candidate_pool_identity_and_id_field": {
+    "candidate_id": "canonical Version-C recipe identity == prism_fas.recipes.canonical.recipe_hash(recipe) (64-hex). This is the identity C3 uses in C3_BANK.json.selected_recipe_identities and in prism_c3_selection_v1's tie-break trace. recipe_id (positional 'R-<6 digits>') is recorded as an auxiliary label only, not the id.",
+    "ontology_identity": "90694441c2ef1477ca8f6c4dd724a4997a3e166cbf5a067d52c101892f952bbd (configs/recipes/ontology_m7.yaml, verified)",
+    "pool_identity_algorithm": "sha256 over compact-JSON of the sorted list of candidate_id (== C3 eligible_pool_identity algorithm)"
+  },
+  "3_4_5_selector": {
+    "bank_size_rule": "FINAL_BANK_SIZE_PER_ARM=256, MINIMUM_ELIGIBLE_POOL_PER_ARM=320, RAW_CANDIDATE_SLOTS_PER_ARM=384; select() raises SelectionInfeasible if pool<320 or pool<256 or no feasible 256-subset -- never relaxed",
+    "callable": "prism_fas.recipes.selection.select",
+    "constraints": "QUOTAS in selection.py (medium/geometry/illumination/artifact/region hard_min/hard_max; artifact/region preferred_min)",
+    "module": "src/prism_fas/recipes/selection.py",
+    "module_sha256": "084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1",
+    "objective": "lexicographic exact-integer: Stage1 hard feasibility (exactly 256 + hard min/max quotas), Stage2 min S_pref, Stage3 min S_single, Stage4 min S_multi, Stage5 canonical tie-break = lexicographically smallest selected SHA-256 set via iterative feasibility fixing over ascending canonical SHA",
+    "reuse_proof": "this session re-ran select()'s canonical identity math over the committed 256 recipes/arm and reproduced all three historical selected_set_identity values (LLM fcc4c800..., RND 5ab2375b..., DET 89761485...) exactly.",
+    "reused_not_reimplemented": true,
+    "selection_version": "prism_c3_selection_v1",
+    "solver": "scipy.optimize.milp (HiGHS) -- engineering engine only; every objective value and quota count is recomputed in pure-Python integer arithmetic and must equal the solver's or selection FAILS",
+    "solver_options": "scipy defaults; integrality vector = 1 for the n selection vars, 0 for auxiliary abs/slack vars; Bounds/LinearConstraint as built in selection._solve",
+    "tie_break": "ascending canonical recipe SHA-256; solver traversal / input order MUST NOT decide the bank"
+  },
+  "6_historical_selected_256_bank_identities": {
+    "DET": {
+      "bank_identity": "2802ca5f537c4278eefdb160049d52cb1b667234ec5e32736a733b272e9231c9",
+      "bank_json": "assets/recipe_banks/c3/det/C3_BANK.json",
+      "bank_json_sha256": "8590d39d95773fd8f1d659197b6dd125aeb353dc75cbb27071bedaaa79cf9262",
+      "recipes_jsonl_sha256": "6228629ed04ee19339627d2964404f808c0dc1c7a6a088afca4bd365700a46f8",
+      "selected_set_identity": "89761485332b94e9b5fe2756054da2286b74eb2fbcf08bf1b166163a75c772d9"
+    },
+    "LLM": {
+      "bank_identity": "f225df13ad49eafb90fa9eb903d4dc85efec79c390ec42243a077c80f5d6cb59",
+      "bank_json": "assets/recipe_banks/c3/llm/C3_BANK.json",
+      "bank_json_sha256": "851215b2133d8d22464f8238d041509fa5838f38ae4589f225da691a4f450d48",
+      "recipes_jsonl_sha256": "db563c67da5953a562b92b090894ea954b8065485a6db29fc96f01b344433620",
+      "selected_set_identity": "fcc4c8005c0699c903909ab19bcc87800b73a2fc2d28d1a6eab73bcbd8a8f326"
+    },
+    "RND": {
+      "bank_identity": "07db567c2b432a9239b01d02bac80b95211baafd7f7047ddbad3af43a7ee1136",
+      "bank_json": "assets/recipe_banks/c3/rnd/C3_BANK.json",
+      "bank_json_sha256": "fc48cef5cd5727962f51376a650ff60a23a4f9ad5ec6958734d5d35348f2b709",
+      "recipes_jsonl_sha256": "c7bf040c859559d3d95aa3fed889d05d8df6e0cd1696091f7b9f09afd87579d2",
+      "selected_set_identity": "5ab2375b6ccf28fdee795d7eaebd295be18b2b3a579da03bb1ef3736b0d0e7e3"
+    },
+    "source_lock": "reports/c3/scientific/C3_SCIENTIFIC_BANK_LOCK.json",
+    "source_lock_sha256": "44bf3c9196e1eee2d28193a744b7d7e4acbe86d181641f662868d83d0b16d8a3"
+  },
+  "7_recipe_validation_gate": {
+    "finding": "prism_fas.recipes.selection.select does NOT revalidate/repair/extend the pool (docstring: 'recipes must already be the UNIQUE, fully valid and compilable pool from prism_fas.recipes.eligibility'). It rejects duplicate canonical SHA-256. E9 loads pool rows through prism_fas.recipes.schema.parse_recipe (strict v1.1) and fails closed on any schema-invalid row or duplicate canonical id. The C3 eligibility pipeline (reports/c3/scientific/C3_ELIGIBILITY.json: 0 rejected of 384 for every arm) is the historical gate; E9 does not re-run it."
+  },
+  "8_protected_flow1_flow2_validator": {
+    "guard": "prism_fas.evaluation.c_ext_common.assert_ext_write_path -- refuses any write outside EXT_ALLOWED_ROOTS and any write resolving into FROZEN_FORBIDDEN_PREFIXES (reports/c0..c13, assets/recipe_banks, reports/full, reports/flow2_counterfactual_assumed_pass, state/*, ...). Every E9 write is routed through it, restricted to reports/c_ext_q1q2_v1/e9_bank_robustness/.",
+    "test_precedent": "tests/pipeline/test_c_ext_e7a.py::test_protected_flow1_flow2_artifacts_unchanged (sentinel byte-identity pattern), reproduced in the E9 test suite."
+  },
+  "9_existing_e9_implementation": {
+    "finding": "None. No src/prism_fas/evaluation/c_ext_e9* module existed. reports/c_ext_q1q2_v1/e9_bank_robustness/ existed only as an empty placeholder directory. No E9 tests, configs, locks or reports were tracked."
+  },
+  "add_only": true,
+  "base_commit_expected": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "base_commit_observed": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+  "blockers": [
+    {
+      "detail": "reports/c3/live/raw_responses/c3-llm-req-01..12.json are git-ignored and absent here. LLM's 384 pool cannot be reconstructed deterministically (that would require an LLM API call, prohibited). RND and DET pools ARE reconstructed and proven (pool_identity == frozen C3 eligible_pool_identity).",
+      "id": "E9-BLOCKER-1",
+      "remediation": "Operator restores the 12 LLM raw provider archives into reports/c3/live/raw_responses/ (available at /home/cong/PRISM_FAS_C_GPU_FINAL_SNAPSHOT/reports/c3/live/raw_responses/), then re-runs --materialize-frozen-pools and --preflight. Alternatively the operator persists all three frozen 384-pools from the authorized C3 run as hash-locked artifacts.",
+      "severity": "BLOCKED",
+      "summary": "LLM frozen 384-candidate pool not present in this worktree."
+    }
+  ],
+  "commit_performed": false,
+  "governing_source": "PRISM_FAS_C_EXT_Q1Q2_Detailed_Spec_v1_0.docx, Section 16 (E9)",
+  "governing_source_note": "The Q1Q2 extension spec .docx is NOT tracked in this repository (only docs/PRISM_FAS_C_LLM_v1_5_FINAL_...docx and docs/spec/*C_LLM_v1_1*.docx exist). E9 was implemented from the Section-16 contract transcribed in the milestone brief.",
+  "governing_source_present_in_repo": false,
+  "llm_calls": 0,
+  "milestone": "E9",
+  "preflight_status": "BLOCKED",
+  "provenance_correction_2": {
+    "applied": "second review pass",
+    "current_state": {
+      "implementation_commit_status": "UNCOMMITTED_REVIEW_STATE",
+      "note": "engineering preflight may run in this state; scientific --run and --freeze-execution-binding both refuse it.",
+      "scientific_execution_ready": false
+    },
+    "problem": "v1 preflight required git HEAD == base_commit while the E9 implementation was itself untracked -- a future scientific run could execute uncommitted scientific code represented by no commit.",
+    "resolution": {
+      "base_commit_permanently_pinned": "6f0642a1d05c35e4c1778d329fb547f1b22a4115",
+      "new_artifact": "reports/c_ext_q1q2_v1/e9_bank_robustness/E9_EXECUTION_BINDING.json (schema e9-execution-binding-v1)",
+      "new_cli_stages": [
+        "--code-provenance (read-only)",
+        "--freeze-execution-binding (post-commit input prep)"
+      ],
+      "new_distinctions": [
+        "base_commit  -- frozen development parent (proven to be an ANCESTOR of HEAD)",
+        "current_code_commit / implementation_commit -- the commit actually executing E9",
+        "e9_module_sha256  -- worktree == committed-at-HEAD blob sha256",
+        "selector_module_sha256 -- frozen at 084b3d94237f2b2e7583676a46c7560e8de6fa30a93b5cd43961630e0bb883a1"
+      ],
+      "preflight_no_longer_requires_head_eq_base": true,
+      "scientific_run_fail_closed_if": [
+        "E9 module untracked",
+        "tracked E9 module differs from HEAD (dirty)",
+        "implementation_commit_status != COMMITTED_CLEAN",
+        "execution binding absent / base_commit mismatch / implementation_commit != HEAD",
+        "E9 module sha256 != execution binding",
+        "selector sha256 != frozen selector binding, or selector dirty",
+        "protocol lock identity/sha mismatch",
+        "input binding identity/sha mismatch or not all 3 arms MATERIALIZED",
+        "any protected historical artifact changed vs HEAD"
+      ]
+    }
+  },
+  "provenance_correction_3": {
+    "applied": "third review pass -- execution-binding lifecycle + input-binding order",
+    "closure_fields_v3": [
+      "base_commit",
+      "implementation_source_commit",
+      "execution_commit",
+      "e9_module_sha256",
+      "e9_test_sha256",
+      "selector_module_sha256",
+      "protocol_lock_identity",
+      "input_binding_identity",
+      "pool_identity_by_arm",
+      "execution_binding_identity",
+      "execution_binding_file_sha256",
+      "target_access=false",
+      "target_labels_accessed=false",
+      "target_features_accessed=false",
+      "llm_calls=0"
+    ],
+    "current_state": {
+      "implementation_commit_status": "UNCOMMITTED_REVIEW_STATE",
+      "note": "engineering preflight runs; --freeze-execution-binding and --run both refuse.",
+      "scientific_execution_ready": false
+    },
+    "issue_1_self_referential_binding": {
+      "now": {
+        "binding_is_runtime_evidence": "E9_EXECUTION_BINDING.json is frozen AFTER the final clean execution commit and does NOT need to be committed before --run; it lives under the ignored E9 namespace as immutable evidence, pinned into E9_EVIDENCE.sha256 + E9_CLOSURE.json (execution_binding_file_sha256).",
+        "immutable": "_write_idempotent: identical bytes = no-op, different bytes fail closed; verify recomputes the binding from live state and requires the frozen execution_binding_identity to reproduce exactly.",
+        "post_run_archive": "binding + membership + results + stability + closure + evidence manifest may be committed in a LATER additive evidence commit; that commit is not execution_commit; the run gate then refuses any HEAD != execution_commit, so no rerun.",
+        "run_gate": "current HEAD == binding.execution_commit (NOT 'binding file committed at HEAD')",
+        "three_commits_not_conflated": [
+          "base_commit (frozen E8 parent, 6f0642a...)",
+          "implementation_source_commit (git log -1 -- <E9 module>)",
+          "execution_commit (final clean committed HEAD = scientific runtime commit)"
+        ]
+      },
+      "was": "execution binding recorded implementation_commit == HEAD, then the binding file had to be committed, moving HEAD, so binding != HEAD forever."
+    },
+    "issue_2_input_binding_order": {
+      "llm_hard_gate": "reconstructed LLM eligible_pool_identity MUST equal 4032a7f8708a27d1545a84277d2b439767ae253c04113f3812ac30c16255c978 (checked against the hard constant AND C3_BANK.json / bank lock).",
+      "now": "build_execution_binding fails closed unless E9_INPUT_BINDING.json has all THREE arms MATERIALIZED, every pool_identity == the frozen C3 eligible_pool_identity constant, and E9_INPUT_BINDING.json + frozen_pools/{RND,DET,LLM}_POOL_384.jsonl are all TRACKED and CLEAN at execution_commit.",
+      "raw_archives_not_committed": "reports/c3/live/raw_responses/*.json stay git-ignored source evidence; their exact per-file sha256 + tree sha256 are recorded in the LLM reconstruction provenance and the input binding, never committed by E9.",
+      "rnd_det_hard_gate": {
+        "DET": "96e32642180dff842e4e4870650be8cc3e2ceab797bca2efcc0b4014ae1f03f2",
+        "RND": "aa2422860ac50c544decf25c0dd41a1c43b5cb9b82678dba27cef599979bded5"
+      },
+      "was": "execution binding could be frozen before the LLM pool existed."
+    }
+  },
+  "schema_version": "e9-input-audit-v3",
+  "scientific_execution_performed": false,
+  "target_access": false,
+  "target_features_accessed": false,
+  "target_labels_accessed": false,
+  "title": "E9 pre-execution input audit -- conditional bank-selection robustness"
+}
